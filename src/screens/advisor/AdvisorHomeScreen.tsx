@@ -1,25 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../config/supabase';
 
 export function AdvisorHomeScreen() {
   const { profile, signOut } = useAuth();
-  const [playerCount, setPlayerCount] = useState(0);
-  const [scoutingCount, setScoutingCount] = useState(0);
-
-  useEffect(() => {
-    fetchCounts();
-  }, []);
-
-  const fetchCounts = async () => {
-    const { count: players } = await supabase
-      .from('profiles')
-      .select('*', { count: 'exact', head: true })
-      .eq('role', 'player');
-    setPlayerCount(players || 0);
-  };
 
   const openTransfermarkt = () => {
     Linking.openURL('https://www.transfermarkt.de/karl-m-herzog-sportmanagement/beraterfirma/berater/76');
@@ -41,13 +26,13 @@ export function AdvisorHomeScreen() {
         <TouchableOpacity style={styles.card}>
           <Text style={styles.cardTitle}>KMH - Spieler - Übersicht</Text>
           <Text style={styles.cardText}>Hier siehst du alle unsere Spieler</Text>
-          <Text style={styles.countText}>{playerCount} Spieler registriert</Text>
+          <Text style={styles.countText}>0 Spieler registriert</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.card}>
           <Text style={styles.cardTitle}>Scouting</Text>
           <Text style={styles.cardText}>Unsere Scouting-Liste</Text>
-          <Text style={styles.countText}>{scoutingCount} Spieler im Scouting</Text>
+          <Text style={styles.countText}>0 Spieler im Scouting</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.card}>
