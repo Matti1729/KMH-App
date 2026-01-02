@@ -5,7 +5,9 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../contexts/AuthContext';
 import { LoginScreen, RegisterScreen, RegisterAdvisorScreen } from '../screens/auth';
 import { PlayerHomeScreen } from '../screens/player';
-import { AdvisorHomeScreen } from '../screens/advisor';
+import { AdvisorHomeScreen, PlayerOverviewScreen, MyProfileScreen, AdminPanelScreen } from '../screens/advisor';
+import { PlayerDetailScreen } from '../screens/advisor/PlayerDetailScreen';
+import { TermineScreen } from '../screens/advisor/TermineScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -30,7 +32,15 @@ export function RootNavigator() {
             <Stack.Screen name="RegisterAdvisor" component={RegisterAdvisorScreen} />
           </>
         ) : profile?.role === 'advisor' ? (
-          <Stack.Screen name="AdvisorHome" component={AdvisorHomeScreen} />
+          <>
+            <Stack.Screen name="AdvisorHome" component={AdvisorHomeScreen} />
+            <Stack.Screen name="AdvisorDashboard" component={AdvisorHomeScreen} />
+            <Stack.Screen name="PlayerOverview" component={PlayerOverviewScreen} />
+            <Stack.Screen name="PlayerDetail" component={PlayerDetailScreen} />
+            <Stack.Screen name="MyProfile" component={MyProfileScreen} />
+            <Stack.Screen name="AdminPanel" component={AdminPanelScreen} />
+            <Stack.Screen name="Calendar" component={TermineScreen} />
+          </>
         ) : (
           <Stack.Screen name="PlayerHome" component={PlayerHomeScreen} />
         )}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Pressable } from 'react-native';
 import { supabase } from '../../config/supabase';
+import { Sidebar } from '../../components/Sidebar';
 
 interface AdvisorProfile {
   first_name: string;
@@ -9,14 +10,12 @@ interface AdvisorProfile {
   role: string;
 }
 
-export function AdvisorHomeScreen({ navigation }: any) {
+export function AdvisorDashboard({ navigation }: any) {
   const [profile, setProfile] = useState<AdvisorProfile | null>(null);
   const [playerCount, setPlayerCount] = useState(0);
   const [scoutingCount, setScoutingCount] = useState(0);
   const [urgentCount, setUrgentCount] = useState(2);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
-  const [hoveredNav, setHoveredNav] = useState<string | null>(null);
-  const [activeNav, setActiveNav] = useState('dashboard');
 
   useEffect(() => {
     fetchProfile();
@@ -53,19 +52,6 @@ export function AdvisorHomeScreen({ navigation }: any) {
     setScoutingCount(12);
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
-  };
-
-  const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: '⊞', screen: null },
-    { id: 'scouting', label: 'Scouting', icon: '🔍', screen: 'Scouting' },
-    { id: 'players', label: 'KMH Spieler', icon: '👤', screen: 'PlayerOverview' },
-    { id: 'termine', label: 'Termine', icon: '📅', screen: 'Calendar' },
-    { id: 'team', label: 'Team & Partner', icon: '👥', screen: 'Team' },
-  ];
-
   const DashboardCard = ({ 
     id, 
     children, 
@@ -96,58 +82,7 @@ export function AdvisorHomeScreen({ navigation }: any) {
   return (
     <View style={styles.container}>
       {/* Sidebar */}
-      <View style={styles.sidebar}>
-        {/* Logo */}
-        <View style={styles.logoContainer}>
-          <View style={styles.logoBox}>
-            <Text style={styles.logoText}>KMH</Text>
-          </View>
-          <Text style={styles.logoTitle}>Sports Agency</Text>
-        </View>
-
-        {/* Navigation */}
-        <View style={styles.navContainer}>
-          {navItems.map((item) => (
-            <Pressable
-              key={item.id}
-              onHoverIn={() => setHoveredNav(item.id)}
-              onHoverOut={() => setHoveredNav(null)}
-              onPress={() => {
-                setActiveNav(item.id);
-                if (item.screen) navigation.navigate(item.screen);
-              }}
-              style={[
-                styles.navItem,
-                activeNav === item.id && styles.navItemActive,
-                hoveredNav === item.id && styles.navItemHovered
-              ]}
-            >
-              <Text style={styles.navIcon}>{item.icon}</Text>
-              <Text style={[
-                styles.navLabel,
-                activeNav === item.id && styles.navLabelActive
-              ]}>{item.label}</Text>
-            </Pressable>
-          ))}
-        </View>
-
-        {/* Spacer */}
-        <View style={{ flex: 1 }} />
-
-        {/* Logout */}
-        <Pressable
-          onHoverIn={() => setHoveredNav('logout')}
-          onHoverOut={() => setHoveredNav(null)}
-          onPress={handleLogout}
-          style={[
-            styles.logoutButton,
-            hoveredNav === 'logout' && styles.logoutButtonHovered
-          ]}
-        >
-          <Text style={styles.logoutIcon}>↪</Text>
-          <Text style={styles.logoutText}>Abmelden</Text>
-        </Pressable>
-      </View>
+      <Sidebar navigation={navigation} activeScreen="dashboard" profile={profile} />
 
       {/* Main Content */}
       <View style={styles.mainContent}>
@@ -258,24 +193,6 @@ export function AdvisorHomeScreen({ navigation }: any) {
 
             {/* Row 2 - Bottom Cards */}
             <View style={styles.row}>
-              {/* Mein Profil */}
-              <DashboardCard 
-                id="profile"
-                style={styles.bottomCard}
-                onPress={() => navigation.navigate('MyProfile')}
-                hoverStyle={styles.lightCardHovered}
-              >
-                <View style={styles.bottomCardContent}>
-                  <View style={styles.bottomCardIcon}>
-                    <Text style={styles.bottomCardIconText}>👤</Text>
-                  </View>
-                  <View style={styles.bottomCardText}>
-                    <Text style={styles.bottomCardTitle}>Mein Profil</Text>
-                    <Text style={styles.bottomCardSubtitle}>Account verwalten</Text>
-                  </View>
-                </View>
-              </DashboardCard>
-
               {/* Team & Partner */}
               <DashboardCard 
                 id="team"
@@ -293,10 +210,7 @@ export function AdvisorHomeScreen({ navigation }: any) {
                   </View>
                 </View>
               </DashboardCard>
-            </View>
 
-            {/* Row 3 - Aufgaben & Admin */}
-            <View style={styles.row}>
               {/* Aufgaben */}
               <DashboardCard 
                 id="aufgaben"
@@ -316,7 +230,7 @@ export function AdvisorHomeScreen({ navigation }: any) {
               </DashboardCard>
 
               {/* Admin Panel - only if admin */}
-              {profile?.role === 'admin' ? (
+              {profile?.role === 'admin' && (
                 <DashboardCard 
                   id="admin"
                   style={styles.bottomCard}
@@ -333,8 +247,6 @@ export function AdvisorHomeScreen({ navigation }: any) {
                     </View>
                   </View>
                 </DashboardCard>
-              ) : (
-                <View style={styles.bottomCardPlaceholder} />
               )}
             </View>
 
@@ -350,103 +262,6 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     backgroundColor: '#f5f5f5',
-  },
-
-  // Sidebar
-  sidebar: {
-    width: 240,
-    backgroundColor: '#fff',
-    borderRightWidth: 1,
-    borderRightColor: '#eee',
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-  },
-  logoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 32,
-    paddingHorizontal: 8,
-  },
-  logoBox: {
-    width: 40,
-    height: 40,
-    backgroundColor: '#1a1a1a',
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  logoText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  logoTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1a1a1a',
-  },
-  navContainer: {
-    gap: 4,
-  },
-  navItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    // @ts-ignore
-    cursor: 'pointer',
-    // @ts-ignore
-    transition: 'all 0.15s ease',
-  },
-  navItemActive: {
-    backgroundColor: '#f5f5f5',
-  },
-  navItemHovered: {
-    backgroundColor: '#f0f0f0',
-  },
-  navIcon: {
-    fontSize: 18,
-    marginRight: 12,
-    width: 24,
-    textAlign: 'center',
-  },
-  navLabel: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
-  },
-  navLabelActive: {
-    color: '#1a1a1a',
-    fontWeight: '600',
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    marginTop: 8,
-    // @ts-ignore
-    cursor: 'pointer',
-    // @ts-ignore
-    transition: 'all 0.15s ease',
-  },
-  logoutButtonHovered: {
-    backgroundColor: '#fff5f5',
-  },
-  logoutIcon: {
-    fontSize: 18,
-    marginRight: 12,
-    width: 24,
-    textAlign: 'center',
-    color: '#999',
-  },
-  logoutText: {
-    fontSize: 14,
-    color: '#999',
-    fontWeight: '500',
   },
 
   // Main Content
@@ -729,9 +544,6 @@ const styles = StyleSheet.create({
     padding: 20,
     borderWidth: 1,
     borderColor: '#eee',
-  },
-  bottomCardPlaceholder: {
-    flex: 1,
   },
   bottomCardContent: {
     flexDirection: 'row',
