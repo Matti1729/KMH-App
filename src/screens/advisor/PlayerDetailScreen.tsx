@@ -25,7 +25,7 @@ const TransfermarktIcon = require('../../../assets/transfermarkt-logo.png');
 const ArbeitsamtIcon = require('../../../assets/arbeitsamt.png');
 
 interface Player {
-  id: string; first_name: string; last_name: string; nationality: string; birth_date: string; club: string; league: string; position: string; contract_end: string; photo_url: string; strong_foot: string; height: number; secondary_position: string; salary_month: string; point_bonus: string; appearance_bonus: string; contract_option: string; contract_scope: string; fixed_fee: string; contract_notes: string; u23_player: boolean; provision: string; transfer_commission: string; mandate_until: string; responsibility: string; listing: string; phone: string; phone_country_code: string; email: string; education: string; training: string; instagram: string; linkedin: string; tiktok: string; transfermarkt_url: string; interests: string; father_name: string; father_phone: string; father_phone_country_code: string; father_job: string; mother_name: string; mother_phone: string; mother_phone_country_code: string; mother_job: string; siblings: string; other_notes: string; injuries: string; street: string; postal_code: string; city: string; internat: boolean; future_club: string; future_contract_end: string; contract_documents: any[]; provision_documents: any[]; transfer_commission_documents: any[];
+  id: string; first_name: string; last_name: string; nationality: string; birth_date: string; club: string; league: string; position: string; contract_end: string; photo_url: string; strong_foot: string; height: number; secondary_position: string; salary_month: string; point_bonus: string; appearance_bonus: string; contract_option: string; contract_scope: string; fixed_fee: string; contract_notes: string; u23_player: boolean; provision: string; transfer_commission: string; mandate_until: string; responsibility: string; listing: string; phone: string; phone_country_code: string; email: string; education: string; training: string; instagram: string; linkedin: string; tiktok: string; transfermarkt_url: string; interests: string; father_name: string; father_phone: string; father_phone_country_code: string; father_job: string; mother_name: string; mother_phone: string; mother_phone_country_code: string; mother_job: string; siblings: string; other_notes: string; injuries: string; street: string; postal_code: string; city: string; internat: boolean; future_club: string; future_contract_end: string; contract_documents: any[]; provision_documents: any[]; transfer_commission_documents: any[]; strengths: string; potentials: string;
 }
 
 interface ClubLogo {
@@ -57,6 +57,11 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showSpielplanModal, setShowSpielplanModal] = useState(false);
   
+  // Berechtigung zum Löschen
+  const [canDelete, setCanDelete] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  
   // Club autocomplete state
   const [clubSearch, setClubSearch] = useState('');
   const [showClubSuggestions, setShowClubSuggestions] = useState(false);
@@ -85,7 +90,13 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     Linking.openURL(url);
   };
 
-  useEffect(() => { fetchPlayer(); fetchClubLogos(); fetchAdvisors(); }, []);
+  useEffect(() => { 
+    fetchPlayer(); 
+    fetchClubLogos(); 
+    fetchAdvisors(); 
+    checkDeletePermission();
+  }, []);
+  
   useEffect(() => {
     if (player) {
       setSelectedPositions(player.position ? player.position.split(', ').filter(p => POSITIONS.includes(p)) : []);
@@ -98,6 +109,40 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       checkAndApplyFutureClub(player);
     }
   }, [player]);
+
+  // Prüfen ob User löschen darf (Admin oder Zuständiger)
+  const checkDeletePermission = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    
+    setCurrentUserId(user.id);
+    
+    // Prüfen ob Admin
+    const { data: advisorData } = await supabase
+      .from('advisors')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+    
+    if (advisorData?.role === 'admin') {
+      setIsAdmin(true);
+      setCanDelete(true);
+      return;
+    }
+    
+    // Prüfen ob Zuständiger (owner in player_access)
+    const { data: accessData } = await supabase
+      .from('player_access')
+      .select('access_type')
+      .eq('player_id', playerId)
+      .eq('advisor_id', user.id)
+      .eq('access_type', 'owner')
+      .single();
+    
+    if (accessData) {
+      setCanDelete(true);
+    }
+  };
 
   const fetchAdvisors = async () => {
     const { data } = await supabase.from('advisors').select('id, first_name, last_name').order('last_name');
@@ -301,7 +346,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     if (!editData) return;
     const u23Status = calculateU23Status(editData.birth_date);
     const updateData: any = {
-      first_name: editData.first_name, last_name: editData.last_name, nationality: selectedNationalities.join(', ') || null, birth_date: editData.birth_date || null, club: editData.club || null, league: editData.league || null, position: selectedPositions.join(', ') || null, contract_end: editData.contract_end || null, photo_url: editData.photo_url || null, strong_foot: editData.strong_foot || null, height: editData.height || null, secondary_position: selectedSecondaryPositions.join(', ') || null, salary_month: editData.salary_month || null, point_bonus: editData.point_bonus || null, appearance_bonus: editData.appearance_bonus || null, contract_option: editData.contract_option || null, contract_scope: editData.contract_scope || null, fixed_fee: editData.fixed_fee || null, contract_notes: editData.contract_notes || null, u23_player: u23Status.isU23, provision: editData.provision || null, transfer_commission: editData.transfer_commission || null, mandate_until: editData.mandate_until || null, responsibility: selectedResponsibilities.join(', ') || null, listing: editData.listing || null, phone: editData.phone || null, phone_country_code: editData.phone_country_code || '+49', email: editData.email || null, education: editData.education || null, training: editData.training || null, instagram: editData.instagram || null, linkedin: editData.linkedin || null, tiktok: editData.tiktok || null, transfermarkt_url: editData.transfermarkt_url || null, interests: editData.interests || null, father_name: editData.father_name || null, father_phone: editData.father_phone || null, father_phone_country_code: editData.father_phone_country_code || '+49', father_job: editData.father_job || null, mother_name: editData.mother_name || null, mother_phone: editData.mother_phone || null, mother_phone_country_code: editData.mother_phone_country_code || '+49', mother_job: editData.mother_job || null, siblings: editData.siblings || null, other_notes: editData.other_notes || null, injuries: editData.injuries || null, street: editData.street || null, postal_code: editData.postal_code || null, city: editData.city || null, internat: editData.internat || false, future_club: editData.future_club || null, future_contract_end: editData.future_contract_end || null, contract_documents: editData.contract_documents || [], provision_documents: editData.provision_documents || [], transfer_commission_documents: editData.transfer_commission_documents || [],
+      first_name: editData.first_name, last_name: editData.last_name, nationality: selectedNationalities.join(', ') || null, birth_date: editData.birth_date || null, club: editData.club || null, league: editData.league || null, position: selectedPositions.join(', ') || null, contract_end: editData.contract_end || null, photo_url: editData.photo_url || null, strong_foot: editData.strong_foot || null, height: editData.height || null, secondary_position: selectedSecondaryPositions.join(', ') || null, salary_month: editData.salary_month || null, point_bonus: editData.point_bonus || null, appearance_bonus: editData.appearance_bonus || null, contract_option: editData.contract_option || null, contract_scope: editData.contract_scope || null, fixed_fee: editData.fixed_fee || null, contract_notes: editData.contract_notes || null, u23_player: u23Status.isU23, provision: editData.provision || null, transfer_commission: editData.transfer_commission || null, mandate_until: editData.mandate_until || null, responsibility: selectedResponsibilities.join(', ') || null, listing: editData.listing || null, phone: editData.phone || null, phone_country_code: editData.phone_country_code || '+49', email: editData.email || null, education: editData.education || null, training: editData.training || null, instagram: editData.instagram || null, linkedin: editData.linkedin || null, tiktok: editData.tiktok || null, transfermarkt_url: editData.transfermarkt_url || null, interests: editData.interests || null, father_name: editData.father_name || null, father_phone: editData.father_phone || null, father_phone_country_code: editData.father_phone_country_code || '+49', father_job: editData.father_job || null, mother_name: editData.mother_name || null, mother_phone: editData.mother_phone || null, mother_phone_country_code: editData.mother_phone_country_code || '+49', mother_job: editData.mother_job || null, siblings: editData.siblings || null, other_notes: editData.other_notes || null, injuries: editData.injuries || null, street: editData.street || null, postal_code: editData.postal_code || null, city: editData.city || null, internat: editData.internat || false, future_club: editData.future_club || null, future_contract_end: editData.future_contract_end || null, contract_documents: editData.contract_documents || [], provision_documents: editData.provision_documents || [], transfer_commission_documents: editData.transfer_commission_documents || [], strengths: editData.strengths || null, potentials: editData.potentials || null,
     };
     const { error } = await supabase.from('player_details').update(updateData).eq('id', playerId);
     if (error) Alert.alert('Fehler', error.message);
@@ -310,17 +355,36 @@ export function PlayerDetailScreen({ route, navigation }: any) {
 
   const confirmDelete = async () => {
     try {
-      await supabase.from('player_access').delete().eq('player_id', playerId);
-      const { error } = await supabase.from('player_details').delete().eq('id', playerId);
+      // Erst player_access löschen
+      const { error: accessError } = await supabase
+        .from('player_access')
+        .delete()
+        .eq('player_id', playerId);
+      
+      if (accessError) {
+        console.log('player_access Fehler:', accessError);
+      }
+      
+      // Dann player_details löschen
+      const { error, data } = await supabase
+        .from('player_details')
+        .delete()
+        .eq('id', playerId)
+        .select();
+      
+      console.log('Delete Ergebnis:', { error, data, playerId });
+      
       if (error) { 
-        Alert.alert('Fehler', error.message); 
+        Alert.alert('Fehler beim Löschen', `${error.message}\n\nCode: ${error.code}\nDetails: ${error.details || 'keine'}`); 
         setShowDeleteModal(false); 
       } else { 
         setShowDeleteModal(false); 
-        navigation.popToTop();
+        // Zurück zur Spielerübersicht navigieren
+        navigation.navigate('PlayerOverview');
       }
-    } catch (err) { 
-      Alert.alert('Fehler', 'Spieler konnte nicht gelöscht werden'); 
+    } catch (err: any) { 
+      console.log('Catch Fehler:', err);
+      Alert.alert('Fehler', `Spieler konnte nicht gelöscht werden: ${err?.message || err}`); 
       setShowDeleteModal(false); 
     }
   };
@@ -724,35 +788,38 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}><Text style={styles.closeButtonText}>✕</Text></TouchableOpacity>
       </View>
       <ScrollView style={styles.content}>
-        {/* Redesigned Top Section */}
-        <View style={styles.topSection}>
-          <View style={styles.topLeft}>
-            <View style={styles.photoContainer}>
-              {player.photo_url ? <Image source={{ uri: player.photo_url }} style={styles.photo} /> : <View style={styles.photoPlaceholder}><Text style={styles.photoPlaceholderText}>Foto</Text></View>}
+        {/* Top Section - 2 getrennte Karten */}
+        <View style={styles.topSectionContainer}>
+          {/* Linke Karte: Foto + Name */}
+          <View style={styles.topCardLeft}>
+            <View style={styles.topLeft}>
+              <View style={styles.photoContainer}>
+                {player.photo_url ? <Image source={{ uri: player.photo_url }} style={styles.photo} /> : <View style={styles.photoPlaceholder}><Text style={styles.photoPlaceholderText}>Foto</Text></View>}
+              </View>
+              {editing && <TextInput style={styles.photoInput} placeholder="Foto-URL" value={editData.photo_url || ''} onChangeText={(text) => updateField('photo_url', text)} />}
             </View>
-            {editing && <TextInput style={styles.photoInput} placeholder="Foto-URL" value={editData.photo_url || ''} onChangeText={(text) => updateField('photo_url', text)} />}
+            
+            <View style={styles.topCenter}>
+              {editing ? (
+                <>
+                  <TextInput style={styles.nameInput} value={editData.first_name} onChangeText={(text) => updateField('first_name', text)} placeholder="Vorname" />
+                  <TextInput style={styles.nameInput} value={editData.last_name} onChangeText={(text) => updateField('last_name', text)} placeholder="Nachname" />
+                </>
+              ) : (
+                <>
+                  <Text style={styles.playerFirstName}>{player.first_name}</Text>
+                  <Text style={styles.playerLastName}>{player.last_name}</Text>
+                  <View style={styles.ageRow}>
+                    <Text style={styles.ageText}>{calculateAge(player.birth_date)} Jahre</Text>
+                    {birthday && <Text style={styles.birthdayIconLarge}>🎉</Text>}
+                  </View>
+                </>
+              )}
+            </View>
           </View>
           
-          <View style={styles.topCenter}>
-            {editing ? (
-              <>
-                <TextInput style={styles.nameInput} value={editData.first_name} onChangeText={(text) => updateField('first_name', text)} placeholder="Vorname" />
-                <TextInput style={styles.nameInput} value={editData.last_name} onChangeText={(text) => updateField('last_name', text)} placeholder="Nachname" />
-                <TextInput style={styles.tmInputTop} value={editData.transfermarkt_url || ''} onChangeText={(text) => updateField('transfermarkt_url', text)} placeholder="Transfermarkt URL" />
-              </>
-            ) : (
-              <>
-                <Text style={styles.playerFirstName}>{player.first_name}</Text>
-                <Text style={styles.playerLastName}>{player.last_name}</Text>
-                <View style={styles.ageRow}>
-                  <Text style={styles.ageText}>{calculateAge(player.birth_date)} Jahre</Text>
-                  {birthday && <Text style={styles.birthdayIconLarge}>🎉</Text>}
-                </View>
-              </>
-            )}
-          </View>
-          
-          <View style={styles.topRight}>
+          {/* Rechte Karte: Vereinslogo */}
+          <View style={styles.topCardRight}>
             <View style={styles.clubSection}>
               {contractExpired ? (
                 <Image source={ArbeitsamtIcon} style={styles.clubLogoHeader} />
@@ -761,24 +828,18 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               ) : (
                 <Text style={styles.clubNameHeaderNoLogo}>{displayClub || '-'}</Text>
               )}
-              {player.future_club && !editing && futureClubLogo && (
+              {/* Zukünftiger Verein mit grünem Pfeil */}
+              {player.future_club && !editing && (
                 <View style={styles.futureClubHeader}>
                   <Text style={styles.greenArrow}>→</Text>
-                  <Image source={{ uri: futureClubLogo }} style={styles.futureClubLogoHeader} />
-                </View>
-              )}
-              {player.future_club && !editing && !futureClubLogo && (
-                <View style={styles.futureClubHeader}>
-                  <Text style={styles.greenArrow}>→</Text>
-                  <Text style={styles.futureClubNameHeader}>{player.future_club}</Text>
+                  {futureClubLogo ? (
+                    <Image source={{ uri: futureClubLogo }} style={styles.futureClubLogoHeader} />
+                  ) : (
+                    <Text style={styles.futureClubNameHeader}>{player.future_club}</Text>
+                  )}
                 </View>
               )}
             </View>
-            {player.transfermarkt_url && !editing && (
-              <TouchableOpacity onPress={() => Linking.openURL(player.transfermarkt_url)} style={styles.tmButton}>
-                <Image source={TransfermarktIcon} style={styles.transfermarktIcon} />
-              </TouchableOpacity>
-            )}
           </View>
         </View>
 
@@ -786,23 +847,89 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           <View style={styles.halfColumn}>
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Allgemein</Text>
-              {renderPositionSelector('Position', selectedPositions, togglePosition)}
-              {renderPositionSelector('Nebenposition', selectedSecondaryPositions, toggleSecondaryPosition)}
-              {renderNationalitySelector()}
-              {renderStrongFootSelector()}
-              {renderHeightSelector()}
+              <View style={styles.splitContainer}>
+                <View style={styles.splitColumn}>
+                  {renderPositionSelector('Position', selectedPositions, togglePosition)}
+                  {renderPositionSelector('Nebenposition', selectedSecondaryPositions, toggleSecondaryPosition)}
+                  {renderNationalitySelector()}
+                  {renderStrongFootSelector()}
+                  {renderHeightSelector()}
+                  {/* Transfermarkt Link */}
+                  <View style={styles.infoRow}>
+                    <Text style={styles.label}>Transfermarkt</Text>
+                    {editing ? (
+                      <TextInput 
+                        style={styles.input} 
+                        value={editData?.transfermarkt_url || ''} 
+                        onChangeText={(text) => updateField('transfermarkt_url', text)} 
+                        placeholder="https://www.transfermarkt.de/..." 
+                      />
+                    ) : player?.transfermarkt_url ? (
+                      <TouchableOpacity onPress={() => Linking.openURL(player.transfermarkt_url)}>
+                        <Image source={TransfermarktIcon} style={styles.transfermarktIconMedium} />
+                      </TouchableOpacity>
+                    ) : (
+                      <Text style={styles.value}>-</Text>
+                    )}
+                  </View>
+                </View>
+                <View style={styles.splitColumn}>
+                  {/* Stärken auf Höhe von Position */}
+                  <View style={styles.infoRow}>
+                    <Text style={styles.label}>Stärken</Text>
+                    {editing ? (
+                      <TextInput 
+                        style={[styles.input, styles.smallTextArea]} 
+                        value={editData?.strengths || ''} 
+                        onChangeText={(text) => updateField('strengths', text)} 
+                        placeholder="Stärken des Spielers..." 
+                        multiline 
+                      />
+                    ) : (
+                      <Text style={styles.value}>{player?.strengths || '-'}</Text>
+                    )}
+                  </View>
+                  {/* Platzhalter für Nebenposition */}
+                  <View style={styles.infoRow}><Text style={styles.label}> </Text><Text style={styles.value}> </Text></View>
+                  {/* Platzhalter für Nationalität */}
+                  <View style={styles.infoRow}><Text style={styles.label}> </Text><Text style={styles.value}> </Text></View>
+                  {/* Potentiale auf Höhe von Starker Fuß */}
+                  <View style={styles.infoRow}>
+                    <Text style={styles.label}>Potentiale</Text>
+                    {editing ? (
+                      <TextInput 
+                        style={[styles.input, styles.smallTextArea]} 
+                        value={editData?.potentials || ''} 
+                        onChangeText={(text) => updateField('potentials', text)} 
+                        placeholder="Entwicklungspotentiale..." 
+                        multiline 
+                      />
+                    ) : (
+                      <Text style={styles.value}>{player?.potentials || '-'}</Text>
+                    )}
+                  </View>
+                </View>
+              </View>
             </View>
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Beratung</Text>
-              <View style={styles.infoRow}>
-                <Text style={styles.label}>Listung</Text>
-                {editing ? (<View style={styles.chipGrid}>{LISTINGS.map((opt) => (<TouchableOpacity key={opt} style={[styles.chip, editData?.listing === opt && styles.chipSelected]} onPress={() => updateField('listing', editData?.listing === opt ? null : opt)}><Text style={[styles.chipText, editData?.listing === opt && styles.chipTextSelected]}>{editData?.listing === opt ? '✓ ' : ''}{opt}</Text></TouchableOpacity>))}</View>
-                ) : player?.listing ? (<View style={[styles.listingBadge, player.listing === 'Karl Herzog Sportmanagement' ? styles.listingKMH : styles.listingPM]}><Text style={styles.listingBadgeText}>{player.listing}</Text></View>) : <Text style={styles.value}>-</Text>}
+              <View style={styles.splitContainer}>
+                <View style={styles.splitColumn}>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.label}>Listung</Text>
+                    {editing ? (<View style={styles.chipGrid}>{LISTINGS.map((opt) => (<TouchableOpacity key={opt} style={[styles.chip, editData?.listing === opt && styles.chipSelected]} onPress={() => updateField('listing', editData?.listing === opt ? null : opt)}><Text style={[styles.chipText, editData?.listing === opt && styles.chipTextSelected]}>{editData?.listing === opt ? '✓ ' : ''}{opt}</Text></TouchableOpacity>))}</View>
+                    ) : player?.listing ? (<View style={[styles.listingBadge, player.listing === 'Karl Herzog Sportmanagement' ? styles.listingKMH : styles.listingPM]}><Text style={styles.listingBadgeText}>{player.listing}</Text></View>) : <Text style={styles.value}>-</Text>}
+                  </View>
+                  {renderFieldWithDocuments('Provision', 'provision', 'provision_documents')}
+                  {renderFieldWithDocuments('Weg-Vermittlung', 'transfer_commission', 'transfer_commission_documents')}
+                </View>
+                <View style={styles.splitColumn}>
+                  {renderResponsibilitySelector()}
+                  {renderDateField('Mandat gültig bis', 'mandate_until')}
+                  {/* Platzhalter für Weg-Vermittlung */}
+                  <View style={styles.infoRow}><Text style={styles.label}> </Text><Text style={styles.value}> </Text></View>
+                </View>
               </View>
-              {renderResponsibilitySelector()}
-              {renderDateField('Mandat gültig bis', 'mandate_until')}
-              {renderFieldWithDocuments('Provision', 'provision', 'provision_documents')}
-              {renderFieldWithDocuments('Weg-Vermittlung', 'transfer_commission', 'transfer_commission_documents')}
             </View>
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Privat</Text>
@@ -836,7 +963,6 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                   {renderField('Vertrag gilt für', 'contract_scope')}
                   {renderField('Option', 'contract_option')}
                   {renderField('Fixe Ablöse / Ausbildungsentschädigung', 'fixed_fee')}
-                  {renderSpielplanButton()}
                 </View>
                 <View style={styles.splitColumn}>
                   {renderField('Gehalt/Monat', 'salary_month')}
@@ -844,6 +970,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                   {renderField('Auflaufprämie', 'appearance_bonus')}
                   <View style={styles.infoRow}><Text style={styles.label}>Sonstiges</Text>{editing ? <TextInput style={[styles.input, styles.smallTextArea]} value={editData.contract_notes || ''} onChangeText={(text) => updateField('contract_notes', text)} placeholder="Sonstiges..." multiline /> : <Text style={styles.value}>{player.contract_notes || '-'}</Text>}</View>
                   {renderDocuments()}
+                  {renderSpielplanButton()}
                 </View>
               </View>
             </View>
@@ -872,14 +999,45 @@ export function PlayerDetailScreen({ route, navigation }: any) {
             </View>
           </View>
         </View>
+        
+        {/* Verletzungen */}
         <View style={styles.cardFullWidth}>
           <Text style={styles.cardTitle}>Verletzungen & Krankheiten</Text>
-          <View style={styles.infoRow}>{editing ? <TextInput style={[styles.input, styles.textArea]} value={editData.injuries || ''} onChangeText={(text) => updateField('injuries', text)} placeholder="Verletzungshistorie..." multiline /> : <Text style={styles.value}>{player.injuries || '-'}</Text>}</View>
+          <View style={styles.infoRow}>
+            {editing ? (
+              <TextInput 
+                style={[styles.input, styles.textArea]} 
+                value={editData.injuries || ''} 
+                onChangeText={(text) => updateField('injuries', text)} 
+                placeholder="Verletzungshistorie..." 
+                multiline 
+              />
+            ) : (
+              <Text style={styles.value}>{player.injuries || '-'}</Text>
+            )}
+          </View>
         </View>
       </ScrollView>
       <View style={styles.bottomButtons}>
-        <TouchableOpacity style={styles.deleteButton} onPress={() => setShowDeleteModal(true)}><Text style={styles.deleteButtonText}>Löschen</Text></TouchableOpacity>
-        {editing ? (<><TouchableOpacity style={styles.cancelButton} onPress={() => { setEditing(false); setEditData(player); setClubSearch(player.club || ''); setFutureClubSearch(player.future_club || ''); fetchPlayer(); }}><Text style={styles.cancelButtonText}>Abbrechen</Text></TouchableOpacity><TouchableOpacity style={styles.saveButton} onPress={handleSave}><Text style={styles.saveButtonText}>Speichern</Text></TouchableOpacity></>) : (<TouchableOpacity style={styles.editButton} onPress={() => setEditing(true)}><Text style={styles.editButtonText}>Bearbeiten</Text></TouchableOpacity>)}
+        {editing ? (
+          <>
+            {canDelete && (
+              <TouchableOpacity style={styles.deleteButton} onPress={() => setShowDeleteModal(true)}>
+                <Text style={styles.deleteButtonText}>Löschen</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.cancelButton} onPress={() => { setEditing(false); setEditData(player); setClubSearch(player.club || ''); setFutureClubSearch(player.future_club || ''); fetchPlayer(); }}>
+              <Text style={styles.cancelButtonText}>Abbrechen</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+              <Text style={styles.saveButtonText}>Speichern</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <TouchableOpacity style={styles.editButton} onPress={() => setEditing(true)}>
+            <Text style={styles.editButtonText}>Bearbeiten</Text>
+          </TouchableOpacity>
+        )}
       </View>
       {renderDeleteModal()}
     </SafeAreaView>
@@ -894,7 +1052,10 @@ const styles = StyleSheet.create({
   closeButtonText: { color: '#fff', fontSize: 18 },
   content: { flex: 1, padding: 16 },
   loadingText: { padding: 20, textAlign: 'center', color: '#666' },
-  topSection: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 16, padding: 20, marginBottom: 16 },
+  // Top Section - 2 getrennte Karten
+  topSectionContainer: { flexDirection: 'row', gap: 16, marginBottom: 16 },
+  topCardLeft: { flex: 1, flexDirection: 'row', backgroundColor: '#fff', borderRadius: 16, padding: 20 },
+  topCardRight: { width: 140, backgroundColor: '#fff', borderRadius: 16, padding: 20, alignItems: 'center', justifyContent: 'center' },
   topLeft: { alignItems: 'center', marginRight: 20 },
   photoContainer: { width: 120, height: 120, borderRadius: 60, overflow: 'hidden', marginBottom: 8, borderWidth: 3, borderColor: '#000' },
   photo: { width: '100%', height: '100%' },
@@ -909,7 +1070,6 @@ const styles = StyleSheet.create({
   birthdayIconLarge: { fontSize: 24, marginLeft: 8 },
   nameInput: { fontSize: 24, fontWeight: 'bold', borderBottomWidth: 2, borderBottomColor: '#000', marginBottom: 8, padding: 4 },
   tmInputTop: { fontSize: 14, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 8, marginTop: 8 },
-  topRight: { alignItems: 'center', justifyContent: 'center' },
   clubSection: { alignItems: 'center' },
   clubLogoHeader: { width: 80, height: 80, resizeMode: 'contain', marginBottom: 8 },
   clubNameHeaderNoLogo: { fontSize: 16, fontWeight: '600', textAlign: 'center', maxWidth: 120 },
@@ -920,6 +1080,8 @@ const styles = StyleSheet.create({
   futureClubNameHeader: { fontSize: 14, color: '#28a745', fontWeight: '500' },
   tmButton: { marginTop: 12 },
   transfermarktIcon: { width: 40, height: 40, resizeMode: 'contain' },
+  transfermarktIconSmall: { width: 28, height: 28, resizeMode: 'contain' },
+  transfermarktIconMedium: { width: 38, height: 38, resizeMode: 'contain' },
   twoColumnContainer: { flexDirection: 'row', gap: 16 },
   halfColumn: { flex: 1 },
   card: { backgroundColor: '#fff', borderRadius: 16, padding: 20, marginBottom: 16 },
@@ -931,6 +1093,8 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, fontSize: 15, backgroundColor: '#fff' },
   smallTextArea: { minHeight: 60 },
   textArea: { minHeight: 100 },
+  textAreaMedium: { minHeight: 80 },
+  textAreaLarge: { minHeight: 200 },
   splitContainer: { flexDirection: 'row', gap: 20 },
   splitColumn: { flex: 1 },
   familyContainer: { flexDirection: 'row', gap: 20 },
@@ -999,8 +1163,8 @@ const styles = StyleSheet.create({
   smallDocName: { fontSize: 12, color: '#333', flex: 1 },
   docLink: { fontSize: 13, color: '#007bff', marginTop: 4 },
   bottomButtons: { flexDirection: 'row', padding: 16, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#ddd', justifyContent: 'flex-end', gap: 8 },
-  deleteButton: { backgroundColor: '#fff', borderWidth: 2, borderColor: '#ff4444', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 10, marginRight: 'auto' },
-  deleteButtonText: { color: '#ff4444', fontSize: 16, fontWeight: '600' },
+  deleteButton: { backgroundColor: '#ff4444', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 10, marginRight: 'auto' },
+  deleteButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   editButton: { backgroundColor: '#000', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 10 },
   editButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   cancelButton: { backgroundColor: '#eee', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 10 },

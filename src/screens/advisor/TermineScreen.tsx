@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Pressable, ActivityIndicator } from 'react-native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
-import { getRelevantTermine, convertToDbFormat, getLastUpdateDisplay } from '../../services/dfbTermine';
+import { getRelevantTermine, convertToDbFormat, getLastUpdateDisplay, getDFBTermineCount, getHallenTermineCount } from '../../services/dfbTermine';
+import { Ionicons } from '@expo/vector-icons';
 
 interface Termin {
   id: string;
@@ -26,11 +27,12 @@ interface Advisor {
 }
 
 type ViewMode = 'dashboard' | 'spiele' | 'termine' | 'kalender';
-type SortField = 'datum' | 'zeit' | 'art' | 'titel' | 'jahrgang' | 'ort' | 'uebernahme';
+type SortField = 'datum' | 'art' | 'titel' | 'jahrgang' | 'ort' | 'uebernahme';
 type SortDirection = 'asc' | 'desc';
 
-const TERMIN_ARTEN = ['Spiel', 'Lehrgang', 'Meeting', 'Vertragsverhandlung', 'Scouting', 'Sonstiges'];
-const JAHRGAENGE = ['U15', 'U16', 'U17', 'U18', 'U19', 'U20', 'U21', 'U23', 'Herren', 'Sonstige'];
+// Nur diese 3 Optionen beim Anlegen
+const TERMIN_ARTEN = ['Nationalmannschaft', 'Hallenturnier', 'Sonstiges'];
+const JAHRGAENGE = ['U13', 'U14', 'U15', 'U16', 'U17', 'U18', 'U19', 'U20', 'U21', 'U23', 'Herren', 'Sonstige'];
 
 export function TermineScreen({ navigation }: any) {
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
@@ -54,7 +56,7 @@ export function TermineScreen({ navigation }: any) {
   const [formDatum, setFormDatum] = useState('');
   const [formDatumEnde, setFormDatumEnde] = useState('');
   const [formZeit, setFormZeit] = useState('');
-  const [formArt, setFormArt] = useState('Meeting');
+  const [formArt, setFormArt] = useState('Sonstiges');
   const [formTitel, setFormTitel] = useState('');
   const [formJahrgang, setFormJahrgang] = useState('');
   const [formOrt, setFormOrt] = useState('');
@@ -90,7 +92,7 @@ export function TermineScreen({ navigation }: any) {
 
   const resetForm = () => { 
     setFormDatum(''); setFormDatumEnde(''); setFormZeit(''); 
-    setFormArt('Meeting'); setFormTitel(''); setFormJahrgang(''); 
+    setFormArt('Sonstiges'); setFormTitel(''); setFormJahrgang(''); 
     setFormOrt(''); setFormUebernahme(''); 
   };
   
@@ -109,7 +111,7 @@ export function TermineScreen({ navigation }: any) {
   };
 
   const handleSaveTermin = async () => {
-    if (!formDatum || !formTitel || !formArt) { alert('Bitte Datum, Art und Titel ausfüllen'); return; }
+    if (!formDatum || !formTitel || !formArt) { alert('Bitte Datum, Art und Beschreibung ausfüllen'); return; }
     const datum = formZeit ? `${formDatum}T${formZeit}:00` : `${formDatum}T00:00:00`;
     const terminData = { 
       datum, datum_ende: formDatumEnde || null, art: formArt, titel: formTitel, 
@@ -122,7 +124,7 @@ export function TermineScreen({ navigation }: any) {
   };
 
   const handleUpdateTermin = async () => {
-    if (!selectedTermin || !formDatum || !formTitel || !formArt) { alert('Bitte Datum, Art und Titel ausfüllen'); return; }
+    if (!selectedTermin || !formDatum || !formTitel || !formArt) { alert('Bitte Datum, Art und Beschreibung ausfüllen'); return; }
     const datum = formZeit ? `${formDatum}T${formZeit}:00` : `${formDatum}T00:00:00`;
     const { error } = await supabase.from('termine').update({ 
       datum, datum_ende: formDatumEnde || null, art: formArt, titel: formTitel, 
@@ -146,7 +148,7 @@ export function TermineScreen({ navigation }: any) {
     try {
       const relevantTermine = getRelevantTermine();
       let added = 0, skipped = 0;
-      const { data: existingTermine } = await supabase.from('termine').select('datum, jahrgang, titel').eq('quelle', 'DFB');
+      const { data: existingTermine } = await supabase.from('termine').select('datum, jahrgang, titel').in('quelle', ['DFB', 'Hallenturnier']);
       const existingKeys = new Set((existingTermine || []).map(t => { 
         const date = new Date(t.datum).toISOString().split('T')[0]; 
         return `${date}_${t.jahrgang}_${t.titel}`; 
@@ -173,6 +175,15 @@ export function TermineScreen({ navigation }: any) {
     }
   };
 
+  // Prüfen ob Nationalmannschaft oder Hallenturnier - muss vor getSortedTermine sein
+  const isNationalmannschaft = (termin: Termin): boolean => {
+    return termin.quelle === 'DFB' || termin.art === 'DFB-Maßnahme' || termin.art === 'DFB-Spiel' || termin.art === 'Nationalmannschaft';
+  };
+  
+  const isHallenturnier = (termin: Termin): boolean => {
+    return termin.quelle === 'Hallenturnier' || termin.art === 'Hallenturnier';
+  };
+
   const getSortedTermine = (): Termin[] => {
     return [...termine].sort((a, b) => {
       let valueA: any, valueB: any;
@@ -181,15 +192,12 @@ export function TermineScreen({ navigation }: any) {
           valueA = new Date(a.datum).getTime();
           valueB = new Date(b.datum).getTime();
           break;
-        case 'zeit':
-          const timeA = new Date(a.datum);
-          const timeB = new Date(b.datum);
-          valueA = timeA.getHours() * 60 + timeA.getMinutes();
-          valueB = timeB.getHours() * 60 + timeB.getMinutes();
-          break;
         case 'art':
-          valueA = a.art?.toLowerCase() || '';
-          valueB = b.art?.toLowerCase() || '';
+          // Alphabetisch nach angezeigtem Art-Namen
+          const artA = isNationalmannschaft(a) ? 'Nationalmannschaft' : isHallenturnier(a) ? 'Hallenturnier' : a.art;
+          const artB = isNationalmannschaft(b) ? 'Nationalmannschaft' : isHallenturnier(b) ? 'Hallenturnier' : b.art;
+          valueA = artA?.toLowerCase() || '';
+          valueB = artB?.toLowerCase() || '';
           break;
         case 'titel':
           valueA = a.titel?.toLowerCase() || '';
@@ -221,43 +229,69 @@ export function TermineScreen({ navigation }: any) {
     return sortDirection === 'asc' ? '↑' : '↓';
   };
 
+  // Datum formatieren mit kurzem Jahr (26 statt 2026)
   const formatDate = (termin: Termin): string => {
     const startDate = new Date(termin.datum);
+    const formatShort = (d: Date) => {
+      const day = d.getDate().toString().padStart(2, '0');
+      const month = (d.getMonth() + 1).toString().padStart(2, '0');
+      const year = d.getFullYear().toString().slice(-2);
+      return `${day}.${month}.${year}`;
+    };
+    
     if (termin.datum_ende) {
       const endDate = new Date(termin.datum_ende);
-      const startStr = startDate.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-      const endStr = endDate.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-      return `${startStr} - ${endStr}`;
+      const startDay = startDate.getDate().toString().padStart(2, '0');
+      const startMonth = (startDate.getMonth() + 1).toString().padStart(2, '0');
+      // Wenn gleicher Monat, nur Tag anzeigen
+      if (startDate.getMonth() === endDate.getMonth() && startDate.getFullYear() === endDate.getFullYear()) {
+        return `${startDay}.-${formatShort(endDate)}`;
+      }
+      return `${startDay}.${startMonth}.-${formatShort(endDate)}`;
     }
-    return startDate.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+    return formatShort(startDate);
   };
 
+  // Zeit nur anzeigen wenn echte Zeit vorhanden (nicht 00:00, 01:00, 02:00 etc.)
   const formatTime = (dateString: string): string => {
     const date = new Date(dateString);
-    const hours = date.getHours(), minutes = date.getMinutes();
-    if (hours === 0 && minutes === 0) return '-';
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    // Wenn Stunde 0, 1 oder 2 und Minuten 0 ist, dann keine echte Zeit
+    if ((hours === 0 || hours === 1 || hours === 2) && minutes === 0) return '';
     return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
   };
 
   const isTerminPast = (dateString: string): boolean => new Date(dateString) < new Date();
+  
+  // Prüfen ob Termin heute ist
+  const isTerminToday = (termin: Termin): boolean => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    const startDate = new Date(termin.datum);
+    const endDate = termin.datum_ende ? new Date(termin.datum_ende) : startDate;
+    
+    // Termin ist heute wenn: Start <= heute < morgen ODER heute liegt zwischen Start und Ende
+    return (startDate >= today && startDate < tomorrow) || 
+           (startDate <= today && endDate >= today);
+  };
+  
   const getUpcomingTermineCount = (): number => termine.filter(t => new Date(t.datum) >= new Date()).length;
   const getUrgentTermineCount = (): number => { 
     const now = new Date(); 
     const in7Days = new Date(now.getTime() + 7*24*60*60*1000); 
     return termine.filter(t => { const d = new Date(t.datum); return d >= now && d <= in7Days; }).length; 
   };
-  const getDFBTermineCount = (): number => termine.filter(t => t.quelle === 'DFB' || t.art === 'DFB-Maßnahme').length;
-  const isDFBTermin = (termin: Termin): boolean => termin.quelle === 'DFB' || termin.art === 'DFB-Maßnahme';
 
-  const getArtStyle = (art: string) => {
-    switch (art) {
-      case 'Spiel': return styles.artSpiel;
-      case 'Lehrgang': return styles.artLehrgang;
-      case 'Meeting': return styles.artMeeting;
-      case 'Vertragsverhandlung': return styles.artVertrag;
-      case 'Scouting': return styles.artScouting;
-      default: return styles.artSonstige;
+  // Art-Anzeige: DFB-Maßnahme, DFB-Spiel etc. → "Nationalmannschaft"
+  const getDisplayArt = (art: string): string => {
+    if (art === 'DFB-Maßnahme' || art === 'DFB-Spiel' || art === 'DFB' || art === 'Nationalmannschaft') {
+      return 'Nationalmannschaft';
     }
+    return art;
   };
 
   const DashboardCard = ({ id, children, style, onPress, hoverStyle }: { 
@@ -321,11 +355,16 @@ export function TermineScreen({ navigation }: any) {
 
   const renderWeitereTermine = () => {
     const sortedTermine = getSortedTermine();
+    const dfbCount = getDFBTermineCount();
+    const hallenCount = getHallenTermineCount();
+    
     return (
       <View style={styles.listContainer}>
         <View style={styles.listHeader}>
           <TouchableOpacity onPress={() => setViewMode('dashboard')} style={styles.backButton}>
-            <Text style={styles.backButtonText}>← Zurück</Text>
+            <View style={styles.backButtonInner}>
+              <Ionicons name="chevron-back" size={18} color="#333" />
+            </View>
           </TouchableOpacity>
           <Text style={styles.listTitle}>Weitere Termine</Text>
           <View style={styles.headerButtons}>
@@ -338,20 +377,23 @@ export function TermineScreen({ navigation }: any) {
             </TouchableOpacity>
           </View>
         </View>
-        {getDFBTermineCount() > 0 && (
-          <View style={styles.dfbBanner}>
-            <Text style={styles.dfbBannerText}>🇩🇪 {getDFBTermineCount()} DFB-Nationalmannschaftstermine (U15-U21)</Text>
-          </View>
-        )}
+        
+        {/* Info Banner - grau */}
+        <View style={styles.dfbBanner}>
+          <Text style={styles.dfbBannerText}>🇩🇪 {dfbCount} DFB-Nationalmannschaftstermine & {hallenCount} Hallenturniere</Text>
+        </View>
+        
+        {/* Table Header - schwarzer Hintergrund */}
         <View style={styles.tableHeader}>
           <SortableHeader field="datum" label="Datum" style={styles.colDatum} />
-          <SortableHeader field="zeit" label="Zeit" style={styles.colZeit} />
+          <View style={styles.colZeit}><Text style={styles.tableHeaderText}>Zeit</Text></View>
           <SortableHeader field="art" label="Art" style={styles.colArt} />
-          <SortableHeader field="titel" label="Titel" style={styles.colTitel} />
+          <SortableHeader field="titel" label="Beschreibung" style={styles.colTitel} />
           <SortableHeader field="jahrgang" label="Jahrgang" style={styles.colJahrgang} />
           <SortableHeader field="ort" label="Ort" style={styles.colOrt} />
           <SortableHeader field="uebernahme" label="Übernahme" style={styles.colUebernahme} />
         </View>
+        
         <ScrollView style={styles.tableBody}>
           {loading ? (
             <Text style={styles.loadingText}>Laden...</Text>
@@ -359,25 +401,41 @@ export function TermineScreen({ navigation }: any) {
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>Keine Termine vorhanden</Text>
               <TouchableOpacity onPress={() => setShowSyncModal(true)} style={styles.emptyDfbButton}>
-                <Text style={styles.emptyDfbButtonText}>🇩🇪 DFB-Termine laden</Text>
+                <Text style={styles.emptyDfbButtonText}>🇩🇪 DFB & Hallen-Termine laden</Text>
               </TouchableOpacity>
             </View>
           ) : (
             sortedTermine.map((termin) => {
               const isPast = isTerminPast(termin.datum);
-              const isDFB = isDFBTermin(termin);
+              const isToday = isTerminToday(termin);
+              const isNM = isNationalmannschaft(termin);
+              const isHT = isHallenturnier(termin);
               const time = formatTime(termin.datum);
+              
               return (
                 <TouchableOpacity 
                   key={termin.id} 
-                  style={[styles.tableRow, isPast && styles.tableRowPast]} 
+                  style={[
+                    styles.tableRow, 
+                    isPast && styles.tableRowPast,
+                    isToday && !isPast && styles.tableRowToday
+                  ]} 
                   onPress={() => openEditModal(termin)}
                 >
                   <Text style={[styles.tableCell, styles.colDatum, isPast && styles.cellPast]}>{formatDate(termin)}</Text>
-                  <Text style={[styles.tableCell, styles.colZeit, isPast && styles.cellPast]}>{time}</Text>
+                  <Text style={[styles.tableCell, styles.colZeit, isPast && styles.cellPast]}>{time || '-'}</Text>
                   <View style={styles.colArt}>
-                    <View style={[styles.artBadge, isDFB ? styles.artDFB : getArtStyle(termin.art), isPast && styles.artBadgePast]}>
-                      <Text style={[styles.artBadgeText, isDFB && styles.artDFBText]}>{isDFB ? 'DFB' : termin.art}</Text>
+                    <View style={[
+                      styles.artBadge, 
+                      isNM ? styles.artNationalmannschaft : isHT ? styles.artHallenturnier : styles.artSonstige,
+                      isPast && styles.artBadgePast
+                    ]}>
+                      <Text style={[
+                        styles.artBadgeText, 
+                        isNM ? styles.artNationalmannschaftText : isHT ? styles.artHallenturnierText : null
+                      ]}>
+                        {isNM ? 'Nationalmannschaft' : isHT ? 'Hallenturnier' : getDisplayArt(termin.art)}
+                      </Text>
                     </View>
                   </View>
                   <Text style={[styles.tableCell, styles.colTitel, isPast && styles.cellPast]} numberOfLines={1}>{termin.titel}</Text>
@@ -396,16 +454,13 @@ export function TermineScreen({ navigation }: any) {
   const renderSpielePlaceholder = () => (
     <View style={styles.placeholderContainer}>
       <TouchableOpacity onPress={() => setViewMode('dashboard')} style={styles.backButtonTop}>
-        <Text style={styles.backButtonText}>← Zurück</Text>
+        <Ionicons name="arrow-back" size={20} color="#666" />
       </TouchableOpacity>
       <View style={styles.placeholderContent}>
         <Text style={styles.placeholderIcon}>⚽</Text>
         <Text style={styles.placeholderTitle}>Spiele unserer Spieler</Text>
-        <Text style={styles.placeholderText}>
-          Diese Funktion wird bald verfügbar sein.{'\n\n'}
-          Hier werden automatisch alle Spiele deiner Spieler{'\n'}von fußball.de angezeigt.
-        </Text>
-        <View style={styles.comingSoonLarge}><Text style={styles.comingSoonLargeText}>Coming Soon</Text></View>
+        <Text style={styles.placeholderText}>Alle Partien deiner Mandanten werden hier{'\n'}automatisch von fußball.de angezeigt.</Text>
+        <View style={styles.comingSoonLarge}><Text style={styles.comingSoonLargeText}>COMING SOON</Text></View>
       </View>
     </View>
   );
@@ -413,100 +468,105 @@ export function TermineScreen({ navigation }: any) {
   const renderKalenderPlaceholder = () => (
     <View style={styles.placeholderContainer}>
       <TouchableOpacity onPress={() => setViewMode('dashboard')} style={styles.backButtonTop}>
-        <Text style={styles.backButtonText}>← Zurück</Text>
+        <Ionicons name="arrow-back" size={20} color="#666" />
       </TouchableOpacity>
       <View style={styles.placeholderContent}>
         <Text style={styles.placeholderIcon}>📅</Text>
-        <Text style={styles.placeholderTitle}>Kalender</Text>
-        <Text style={styles.placeholderText}>
-          Kalenderansicht und Export-Funktion{'\n'}werden bald verfügbar sein.
-        </Text>
-        <View style={styles.comingSoonLarge}><Text style={styles.comingSoonLargeText}>Coming Soon</Text></View>
+        <Text style={styles.placeholderTitle}>Kalenderansicht</Text>
+        <Text style={styles.placeholderText}>Übersichtliche Monatsansicht mit allen Terminen{'\n'}und Export-Funktion.</Text>
+        <View style={styles.comingSoonLarge}><Text style={styles.comingSoonLargeText}>COMING SOON</Text></View>
       </View>
     </View>
   );
 
-  const renderAddEditModal = (isEdit: boolean) => (
-    <Modal visible={isEdit ? showEditModal : showAddModal} transparent animationType="fade">
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>{isEdit ? 'Termin bearbeiten' : 'Neuer Termin'}</Text>
-          <View style={styles.formRow}>
-            <View style={styles.formThird}>
-              <Text style={styles.formLabel}>Datum *</Text>
-              <input type="date" style={styles.dateInput as any} value={formDatum} onChange={(e) => setFormDatum(e.target.value)} />
-            </View>
-            <View style={styles.formThird}>
-              <Text style={styles.formLabel}>Enddatum (optional)</Text>
-              <input type="date" style={styles.dateInput as any} value={formDatumEnde} onChange={(e) => setFormDatumEnde(e.target.value)} />
-            </View>
-            <View style={styles.formThird}>
-              <Text style={styles.formLabel}>Uhrzeit (optional)</Text>
-              <input type="time" style={styles.dateInput as any} value={formZeit} onChange={(e) => setFormZeit(e.target.value)} />
-            </View>
-          </View>
-          <Text style={styles.formLabel}>Art *</Text>
-          <View style={styles.artSelector}>
-            {TERMIN_ARTEN.map((art) => (
-              <TouchableOpacity 
-                key={art} 
-                style={[styles.artOption, formArt === art && styles.artOptionSelected]} 
-                onPress={() => setFormArt(art)}
-              >
-                <Text style={[styles.artOptionText, formArt === art && styles.artOptionTextSelected]}>{art}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <Text style={styles.formLabel}>Titel / Beschreibung *</Text>
-          <TextInput style={styles.formInput} value={formTitel} onChangeText={setFormTitel} placeholder="z.B. Besprechung mit Familie Müller" />
-          <View style={styles.formRow}>
-            <View style={styles.formHalf}>
+  const renderAddEditModal = (isEdit: boolean) => {
+    const showModal = isEdit ? showEditModal : showAddModal;
+    return (
+      <Modal visible={showModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <ScrollView contentContainerStyle={styles.modalScrollContent}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>{isEdit ? 'Termin bearbeiten' : 'Neuer Termin'}</Text>
+              <View style={styles.formRow}>
+                <View style={styles.formThird}>
+                  <Text style={styles.formLabel}>Datum *</Text>
+                  <TextInput style={styles.formInput} value={formDatum} onChangeText={setFormDatum} placeholder="YYYY-MM-DD" />
+                </View>
+                <View style={styles.formThird}>
+                  <Text style={styles.formLabel}>Datum bis</Text>
+                  <TextInput style={styles.formInput} value={formDatumEnde} onChangeText={setFormDatumEnde} placeholder="YYYY-MM-DD" />
+                </View>
+                <View style={styles.formThird}>
+                  <Text style={styles.formLabel}>Zeit</Text>
+                  <TextInput style={styles.formInput} value={formZeit} onChangeText={setFormZeit} placeholder="HH:MM" />
+                </View>
+              </View>
+              <Text style={styles.formLabel}>Art *</Text>
+              <View style={styles.artSelector}>
+                {TERMIN_ARTEN.map((art) => (
+                  <TouchableOpacity key={art} style={[styles.artOption, formArt === art && styles.artOptionSelected]} onPress={() => setFormArt(art)}>
+                    <Text style={[styles.artOptionText, formArt === art && styles.artOptionTextSelected]}>{art}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={styles.formLabel}>Beschreibung *</Text>
+              <TextInput style={styles.formInput} value={formTitel} onChangeText={setFormTitel} placeholder="z.B. Lehrgang, Meeting, ..." />
               <Text style={styles.formLabel}>Jahrgang</Text>
               <View style={styles.selectWrapper}>
-                <select style={styles.selectInput as any} value={formJahrgang} onChange={(e) => setFormJahrgang(e.target.value)}>
-                  <option value="">-- Auswählen --</option>
-                  {JAHRGAENGE.map((jg) => (<option key={jg} value={jg}>{jg}</option>))}
+                <select
+                  style={styles.selectInput as any}
+                  value={formJahrgang}
+                  onChange={(e: any) => setFormJahrgang(e.target.value)}
+                >
+                  <option value="">- Kein Jahrgang -</option>
+                  {JAHRGAENGE.map((jg) => (
+                    <option key={jg} value={jg}>{jg}</option>
+                  ))}
                 </select>
               </View>
-            </View>
-            <View style={styles.formHalf}>
-              <Text style={styles.formLabel}>Übernahme</Text>
+              <Text style={styles.formLabel}>Ort</Text>
+              <TextInput style={styles.formInput} value={formOrt} onChangeText={setFormOrt} placeholder="z.B. Frankfurt, DFB-Campus..." />
+              <Text style={styles.formLabel}>Übernahme durch</Text>
               <View style={styles.selectWrapper}>
-                <select style={styles.selectInput as any} value={formUebernahme} onChange={(e) => setFormUebernahme(e.target.value)}>
-                  <option value="">-- Auswählen --</option>
-                  {advisors.map((a) => (<option key={a.id} value={a.id}>{a.first_name} {a.last_name}</option>))}
+                <select
+                  style={styles.selectInput as any}
+                  value={formUebernahme}
+                  onChange={(e: any) => setFormUebernahme(e.target.value)}
+                >
+                  <option value="">- Keine Auswahl -</option>
+                  {advisors.map((adv) => (
+                    <option key={adv.id} value={adv.id}>{adv.first_name} {adv.last_name}</option>
+                  ))}
                 </select>
               </View>
+              <View style={styles.modalButtons}>
+                {isEdit && (
+                  <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteTermin}>
+                    <Text style={styles.deleteButtonText}>Löschen</Text>
+                  </TouchableOpacity>
+                )}
+                <View style={{ flex: 1 }} />
+                <TouchableOpacity style={styles.cancelButton} onPress={() => { isEdit ? setShowEditModal(false) : setShowAddModal(false); resetForm(); }}>
+                  <Text style={styles.cancelButtonText}>Abbrechen</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.saveButton} onPress={isEdit ? handleUpdateTermin : handleSaveTermin}>
+                  <Text style={styles.saveButtonText}>Speichern</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-          <Text style={styles.formLabel}>Ort</Text>
-          <TextInput style={styles.formInput} value={formOrt} onChangeText={setFormOrt} placeholder="z.B. Geschäftsstelle Leipzig" />
-          <View style={styles.modalButtons}>
-            {isEdit && (
-              <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteTermin}>
-                <Text style={styles.deleteButtonText}>Löschen</Text>
-              </TouchableOpacity>
-            )}
-            <View style={{ flex: 1 }} />
-            <TouchableOpacity style={styles.cancelButton} onPress={() => { isEdit ? setShowEditModal(false) : setShowAddModal(false); resetForm(); }}>
-              <Text style={styles.cancelButtonText}>Abbrechen</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.saveButton} onPress={isEdit ? handleUpdateTermin : handleSaveTermin}>
-              <Text style={styles.saveButtonText}>Speichern</Text>
-            </TouchableOpacity>
-          </View>
+          </ScrollView>
         </View>
-      </View>
-    </Modal>
-  );
+      </Modal>
+    );
+  };
 
   const renderSyncModal = () => (
     <Modal visible={showSyncModal} transparent animationType="fade">
       <View style={styles.modalOverlay}>
         <View style={styles.syncModalContent}>
-          <Text style={styles.modalTitle}>🇩🇪 DFB-Termine synchronisieren</Text>
+          <Text style={styles.modalTitle}>🇩🇪 Termine synchronisieren</Text>
           <Text style={styles.syncDescription}>
-            Lädt alle Nationalmannschafts-Termine (U15-U21) für 2026.{'\n'}
+            Lädt {getDFBTermineCount()} DFB-Nationalmannschaftstermine und {getHallenTermineCount()} Hallenturniere.{'\n'}
             Bereits vorhandene Termine werden übersprungen.
           </Text>
           <Text style={styles.syncStand}>Stand: {getLastUpdateDisplay()}</Text>
@@ -613,52 +673,69 @@ const styles = StyleSheet.create({
   kalenderSubtitle: { fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 4 },
   listContainer: { flex: 1 },
   listHeader: { flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
-  backButton: { marginRight: 16 },
-  backButtonText: { fontSize: 14, color: '#666', fontWeight: '500' },
+  backButton: { marginRight: 12 },
+  backButtonInner: { 
+    width: 32, 
+    height: 32, 
+    borderRadius: 8, 
+    backgroundColor: '#f5f5f5', 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
   backButtonTop: { position: 'absolute', top: 20, left: 20 },
-  listTitle: { fontSize: 18, fontWeight: '600', flex: 1 },
+  listTitle: { fontSize: 18, fontWeight: '600', flex: 1, textAlign: 'center' },
   headerButtons: { flexDirection: 'row', gap: 12 },
-  syncButton: { backgroundColor: '#000', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 10, alignItems: 'center' },
-  syncButtonText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  syncButton: { backgroundColor: '#000', paddingVertical: 8, paddingHorizontal: 14, borderRadius: 8, alignItems: 'center' },
+  syncButtonText: { color: '#fff', fontWeight: '500', fontSize: 13 },
   syncButtonSubtext: { color: 'rgba(255,255,255,0.6)', fontSize: 10, marginTop: 2 },
-  addButton: { backgroundColor: '#000', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 10, justifyContent: 'center' },
-  addButtonText: { color: '#fff', fontWeight: '600', fontSize: 14 },
-  dfbBanner: { backgroundColor: '#f8d7da', paddingVertical: 8, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f5c6cb' },
-  dfbBannerText: { fontSize: 13, color: '#721c24', fontWeight: '500' },
+  addButton: { backgroundColor: '#000', paddingVertical: 8, paddingHorizontal: 14, borderRadius: 8, justifyContent: 'center' },
+  addButtonText: { color: '#fff', fontWeight: '500', fontSize: 13 },
+  
+  // Info Banner - grau
+  dfbBanner: { backgroundColor: '#e9ecef', paddingVertical: 10, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#dee2e6' },
+  dfbBannerText: { fontSize: 13, color: '#495057', fontWeight: '500', textAlign: 'center' },
 
-  // Table styles
+  // Table styles - schwarzer Header
   tableHeader: { flexDirection: 'row', backgroundColor: '#333', paddingVertical: 12, paddingHorizontal: 16 },
   tableHeaderText: { color: '#fff', fontWeight: '600', fontSize: 13 },
   sortableHeader: { cursor: 'pointer' as any },
   tableBody: { flex: 1, backgroundColor: '#fff' },
   tableRow: { flexDirection: 'row', paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#eee', alignItems: 'center' },
   tableRowPast: { backgroundColor: '#fafafa' },
+  tableRowToday: { backgroundColor: '#e9ecef' },
   tableCell: { fontSize: 14, color: '#333' },
   cellPast: { color: '#999' },
-  colDatum: { flex: 1.4, minWidth: 130 },
-  colZeit: { flex: 0.6, minWidth: 60 },
-  colArt: { flex: 0.8, minWidth: 80 },
-  colTitel: { flex: 2, minWidth: 150 },
-  colJahrgang: { flex: 0.7, minWidth: 60 },
-  colOrt: { flex: 1.2, minWidth: 100 },
-  colUebernahme: { flex: 1.2, minWidth: 100 },
+  colDatum: { flex: 1, minWidth: 90 },
+  colZeit: { flex: 0.6, minWidth: 50 },
+  colArt: { flex: 1.3, minWidth: 120 },
+  colTitel: { flex: 2, minWidth: 150, marginLeft: 8 },
+  colJahrgang: { flex: 0.6, minWidth: 55 },
+  colOrt: { flex: 1.1, minWidth: 90 },
+  colUebernahme: { flex: 1.1, minWidth: 90 },
+  
+  // Art Badges
   artBadge: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6, alignSelf: 'flex-start' },
   artBadgePast: { opacity: 0.6 },
   artBadgeText: { color: '#fff', fontSize: 12, fontWeight: '600' },
-  artSpiel: { backgroundColor: '#28a745' },
-  artLehrgang: { backgroundColor: '#17a2b8' },
-  artMeeting: { backgroundColor: '#6c757d' },
-  artVertrag: { backgroundColor: '#dc3545' },
-  artScouting: { backgroundColor: '#fd7e14' },
-  artSonstige: { backgroundColor: '#6f42c1' },
-  // DFB Art Badge - hellrot wie Vertragsende
-  artDFB: { backgroundColor: '#f8d7da' },
-  artDFBText: { color: '#721c24' },
+  
+  // Nationalmannschaft - hellrot
+  artNationalmannschaft: { backgroundColor: '#f8d7da' },
+  artNationalmannschaftText: { color: '#721c24' },
+  
+  // Hallenturnier - hellblau
+  artHallenturnier: { backgroundColor: '#d1ecf1' },
+  artHallenturnierText: { color: '#0c5460' },
+  
+  // Sonstige
+  artSonstige: { backgroundColor: '#6c757d' },
+  
   loadingText: { padding: 20, textAlign: 'center', color: '#666' },
   emptyState: { padding: 40, alignItems: 'center' },
   emptyText: { textAlign: 'center', color: '#666', fontSize: 16, marginBottom: 16 },
-  emptyDfbButton: { backgroundColor: '#f8d7da', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 10 },
-  emptyDfbButtonText: { color: '#721c24', fontWeight: '600', fontSize: 14 },
+  emptyDfbButton: { backgroundColor: '#e9ecef', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 10 },
+  emptyDfbButtonText: { color: '#495057', fontWeight: '600', fontSize: 14 },
   placeholderContainer: { flex: 1, position: 'relative' },
   placeholderContent: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
   placeholderIcon: { fontSize: 80, marginBottom: 20 },
@@ -666,9 +743,11 @@ const styles = StyleSheet.create({
   placeholderText: { fontSize: 16, color: '#666', textAlign: 'center', lineHeight: 24 },
   comingSoonLarge: { backgroundColor: '#fff3cd', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 30, marginTop: 30 },
   comingSoonLargeText: { fontSize: 16, fontWeight: '600', color: '#856404' },
+  
   // Modal styles
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 600, maxHeight: '90%' },
+  modalScrollContent: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 600 },
   syncModalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 450 },
   modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 20 },
   syncDescription: { fontSize: 14, color: '#666', lineHeight: 20, marginBottom: 12 },
@@ -683,7 +762,6 @@ const styles = StyleSheet.create({
   formThird: { flex: 1 },
   formLabel: { fontSize: 13, color: '#666', marginBottom: 6, marginTop: 12 },
   formInput: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, fontSize: 15 },
-  dateInput: { padding: 12, fontSize: 15, borderRadius: 8, border: '1px solid #ddd', width: '100%', boxSizing: 'border-box' },
   selectWrapper: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, overflow: 'hidden' },
   selectInput: { padding: 12, fontSize: 15, border: 'none', width: '100%', backgroundColor: '#fff' },
   artSelector: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },

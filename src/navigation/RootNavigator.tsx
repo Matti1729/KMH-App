@@ -8,6 +8,7 @@ import { PlayerHomeScreen } from '../screens/player';
 import { AdvisorHomeScreen, PlayerOverviewScreen, MyProfileScreen, AdminPanelScreen } from '../screens/advisor';
 import { PlayerDetailScreen } from '../screens/advisor/PlayerDetailScreen';
 import { TermineScreen } from '../screens/advisor/TermineScreen';
+import { ScoutingScreen } from '../screens/advisor/ScoutingScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -40,6 +41,7 @@ export function RootNavigator() {
             <Stack.Screen name="MyProfile" component={MyProfileScreen} />
             <Stack.Screen name="AdminPanel" component={AdminPanelScreen} />
             <Stack.Screen name="Calendar" component={TermineScreen} />
+            <Stack.Screen name="Scouting" component={ScoutingScreen} />
           </>
         ) : (
           <Stack.Screen name="PlayerHome" component={PlayerHomeScreen} />
