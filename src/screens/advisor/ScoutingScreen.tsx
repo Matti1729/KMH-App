@@ -490,7 +490,11 @@ export function ScoutingScreen({ navigation }: any) {
 
   const deleteScoutedPlayer = async (playerId: string) => {
     const { error } = await supabase.from('scouted_players').delete().eq('id', playerId);
-    if (!error) { setScoutedPlayers(prev => prev.filter(p => p.id !== playerId)); setShowPlayerDetailModal(false); }
+    if (!error) { 
+      setScoutedPlayers(prev => prev.filter(p => p.id !== playerId)); 
+      setShowPlayerDetailModal(false); 
+      setIsEditing(false);
+    }
   };
 
   const deleteScoutingGame = async (gameId: string) => {
@@ -788,16 +792,26 @@ export function ScoutingScreen({ navigation }: any) {
     if (Platform.OS === 'web') {
       return (
         <div key={status.id} onDragOver={(e) => onDragOver(e, status.id)} onDragLeave={(e) => onDragLeave(e, status.id)} onDrop={(e) => onDrop(e, status.id)}
-          style={{ width: 380, backgroundColor: isDropTarget ? '#dbeafe' : '#f1f5f9', borderRadius: 12, marginRight: 16, padding: 12, 
-            border: isDropTarget ? '2px dashed #3b82f6' : '2px solid transparent', transition: 'background-color 0.2s', minHeight: 400 }}>
+          style={{ 
+            width: 380, 
+            backgroundColor: isDropTarget ? '#dbeafe' : '#f1f5f9', 
+            borderRadius: 12, 
+            marginRight: 16, 
+            padding: 12, 
+            border: isDropTarget ? '2px dashed #3b82f6' : '2px solid transparent', 
+            transition: 'background-color 0.2s', 
+            display: 'flex',
+            flexDirection: 'column',
+            maxHeight: 'calc(100vh - 250px)',
+          }}>
           <View style={styles.kanbanHeader}>
             <View style={[styles.statusDot, { backgroundColor: status.color }]} />
             <Text style={styles.kanbanTitle}>{status.label}</Text>
             <View style={styles.countBadge}><Text style={styles.countText}>{players.length}</Text></View>
           </View>
-          <ScrollView style={styles.kanbanContent} showsVerticalScrollIndicator={false}>
+          <div style={{ flex: 1, overflowY: 'scroll', paddingRight: 4 }}>
             {players.map(player => renderPlayerCard(player))}
-          </ScrollView>
+          </div>
         </div>
       );
     }
