@@ -9,6 +9,7 @@ import { AdvisorHomeScreen, PlayerOverviewScreen, MyProfileScreen, AdminPanelScr
 import { PlayerDetailScreen } from '../screens/advisor/PlayerDetailScreen';
 import { TermineScreen } from '../screens/advisor/TermineScreen';
 import { ScoutingScreen } from '../screens/advisor/ScoutingScreen';
+import { TransfersScreen } from '../screens/advisor/TransfersScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -37,11 +38,19 @@ export function RootNavigator() {
             <Stack.Screen name="AdvisorHome" component={AdvisorHomeScreen} />
             <Stack.Screen name="AdvisorDashboard" component={AdvisorHomeScreen} />
             <Stack.Screen name="PlayerOverview" component={PlayerOverviewScreen} />
-            <Stack.Screen name="PlayerDetail" component={PlayerDetailScreen} />
+            <Stack.Screen 
+              name="PlayerDetail" 
+              component={PlayerDetailScreen} 
+              options={{
+                presentation: 'transparentModal',
+                animation: 'fade',
+              }}
+            />
             <Stack.Screen name="MyProfile" component={MyProfileScreen} />
             <Stack.Screen name="AdminPanel" component={AdminPanelScreen} />
             <Stack.Screen name="Calendar" component={TermineScreen} />
             <Stack.Screen name="Scouting" component={ScoutingScreen} />
+            <Stack.Screen name="Transfers" component={TransfersScreen} />
           </>
         ) : (
           <Stack.Screen name="PlayerHome" component={PlayerHomeScreen} />

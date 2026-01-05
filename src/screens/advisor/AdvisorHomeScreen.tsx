@@ -16,12 +16,13 @@ export function AdvisorHomeScreen({ navigation }: any) {
   const [urgentCount, setUrgentCount] = useState(2);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [hoveredNav, setHoveredNav] = useState<string | null>(null);
-  const [activeNav, setActiveNav] = useState('dashboard');
+  const [transferCount, setTransferCount] = useState(0);
 
   useEffect(() => {
     fetchProfile();
     fetchPlayerCount();
     fetchScoutingCount();
+    fetchTransferCount();
   }, []);
 
   const fetchProfile = async () => {
@@ -38,19 +39,57 @@ export function AdvisorHomeScreen({ navigation }: any) {
   };
 
   const fetchPlayerCount = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { count } = await supabase
-        .from('player_access')
-        .select('*', { count: 'exact', head: true })
-        .eq('advisor_id', user.id);
-      
-      setPlayerCount(count || 0);
-    }
+    // Alle aktiven Spieler aus player_details zählen
+    const { count } = await supabase
+      .from('player_details')
+      .select('*', { count: 'exact', head: true });
+    
+    setPlayerCount(count || 0);
   };
 
   const fetchScoutingCount = async () => {
     setScoutingCount(12);
+  };
+
+  // Spieler mit auslaufendem Vertrag in der aktuellen Saison und ohne zukünftigen Verein
+  const fetchTransferCount = async () => {
+    const { data } = await supabase
+      .from('player_details')
+      .select('id, contract_end, future_club');
+    
+    if (data) {
+      // Gleiche Logik wie in TransfersScreen - isContractInCurrentSeason
+      const today = new Date();
+      const todayYear = today.getFullYear();
+      const todayMonth = today.getMonth();
+      const seasonStartYear = todayMonth >= 6 ? todayYear : todayYear - 1;
+      const seasonEndYear = seasonStartYear + 1;
+      
+      const isContractInCurrentSeason = (contractEnd: string): boolean => {
+        if (!contractEnd) return false;
+        const contractDate = new Date(contractEnd);
+        const contractYear = contractDate.getFullYear();
+        const contractMonth = contractDate.getMonth();
+        const contractDay = contractDate.getDate();
+        const afterStart = (contractYear > seasonStartYear) || (contractYear === seasonStartYear && contractMonth >= 6);
+        const beforeEnd = (contractYear < seasonEndYear) || (contractYear === seasonEndYear && contractMonth < 5) || (contractYear === seasonEndYear && contractMonth === 5 && contractDay <= 30);
+        return afterStart && beforeEnd;
+      };
+      
+      const isContractExpired = (contractEnd: string): boolean => {
+        if (!contractEnd) return false;
+        return today > new Date(contractEnd);
+      };
+      
+      const transferPlayers = data.filter(p => {
+        // Hat bereits zukünftigen Verein? -> Nicht zählen
+        if (p.future_club && p.future_club.trim() !== '') return false;
+        // Vertrag abgelaufen oder läuft in aktueller Saison aus?
+        return isContractExpired(p.contract_end) || isContractInCurrentSeason(p.contract_end);
+      });
+      
+      setTransferCount(transferPlayers.length);
+    }
   };
 
   const handleLogout = async () => {
@@ -58,12 +97,12 @@ export function AdvisorHomeScreen({ navigation }: any) {
     navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
   };
 
+  // Neue Reihenfolge: KMH-Spieler, Transfers, Scouting, Termine (ohne Dashboard)
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: '⊞', screen: null },
+    { id: 'players', label: 'KMH-Spieler', icon: '👤', screen: 'PlayerOverview' },
+    { id: 'transfers', label: 'Transfers', icon: '↔️', screen: 'Transfers' },
     { id: 'scouting', label: 'Scouting', icon: '🔍', screen: 'Scouting' },
-    { id: 'players', label: 'KMH Spieler', icon: '👤', screen: 'PlayerOverview' },
     { id: 'termine', label: 'Termine', icon: '📅', screen: 'Calendar' },
-    { id: 'team', label: 'Team & Partner', icon: '👥', screen: 'Team' },
   ];
 
   const DashboardCard = ({ 
@@ -97,7 +136,7 @@ export function AdvisorHomeScreen({ navigation }: any) {
     <View style={styles.container}>
       {/* Sidebar */}
       <View style={styles.sidebar}>
-        {/* Logo */}
+        {/* Logo - Im Dashboard nicht klickbar da wir schon hier sind */}
         <View style={styles.logoContainer}>
           <View style={styles.logoBox}>
             <Text style={styles.logoText}>KMH</Text>
@@ -113,26 +152,37 @@ export function AdvisorHomeScreen({ navigation }: any) {
               onHoverIn={() => setHoveredNav(item.id)}
               onHoverOut={() => setHoveredNav(null)}
               onPress={() => {
-                setActiveNav(item.id);
                 if (item.screen) navigation.navigate(item.screen);
               }}
               style={[
                 styles.navItem,
-                activeNav === item.id && styles.navItemActive,
                 hoveredNav === item.id && styles.navItemHovered
               ]}
             >
               <Text style={styles.navIcon}>{item.icon}</Text>
-              <Text style={[
-                styles.navLabel,
-                activeNav === item.id && styles.navLabelActive
-              ]}>{item.label}</Text>
+              <Text style={styles.navLabel}>{item.label}</Text>
             </Pressable>
           ))}
         </View>
 
         {/* Spacer */}
         <View style={{ flex: 1 }} />
+
+        {/* Admin - only if admin */}
+        {profile?.role === 'admin' && (
+          <Pressable
+            onHoverIn={() => setHoveredNav('admin')}
+            onHoverOut={() => setHoveredNav(null)}
+            onPress={() => navigation.navigate('AdminPanel')}
+            style={[
+              styles.navItem,
+              hoveredNav === 'admin' && styles.navItemHovered
+            ]}
+          >
+            <Text style={styles.navIcon}>⚙️</Text>
+            <Text style={styles.navLabel}>Administration</Text>
+          </Pressable>
+        )}
 
         {/* Logout */}
         <Pressable
@@ -181,32 +231,24 @@ export function AdvisorHomeScreen({ navigation }: any) {
             
             {/* Row 1 - Main Cards */}
             <View style={styles.row}>
-              {/* KMH Spieler - Large Card */}
+              {/* KMH-Spieler - Large Card */}
               <DashboardCard 
                 id="players"
                 style={styles.mainCard}
                 onPress={() => navigation.navigate('PlayerOverview')}
                 hoverStyle={styles.mainCardHovered}
               >
+                <Text style={styles.playerCountTopRight}>{playerCount}</Text>
                 <View style={styles.mainCardContent}>
                   <View style={styles.mainCardLeft}>
-                    <View style={styles.coreBadge}>
-                      <Text style={styles.coreBadgeText}>CORE BUSINESS</Text>
-                    </View>
-                    <Text style={styles.mainCardTitle}>KMH Spieler</Text>
+                    <Text style={styles.mainCardTitle}>KMH-Spieler</Text>
                     <Text style={styles.mainCardSubtitle}>
-                      Verwalte deine {playerCount} aktiven Mandanten,{'\n'}
-                      Verträge und Marktwert-Updates.
+                      Verwaltung aller Daten unserer{'\n'}
+                      aktiven Spieler und Trainer.
                     </Text>
                     <View style={styles.mainCardFooter}>
                       <Text style={styles.mainCardLink}>Zur Übersicht</Text>
                       <Text style={styles.mainCardArrow}>→</Text>
-                    </View>
-                  </View>
-                  <View style={styles.mainCardRight}>
-                    <View style={styles.silhouetteContainer}>
-                      <View style={styles.silhouetteHead} />
-                      <View style={styles.silhouetteBody} />
                     </View>
                   </View>
                 </View>
@@ -254,28 +296,29 @@ export function AdvisorHomeScreen({ navigation }: any) {
                   </View>
                 </DashboardCard>
               </View>
+
+              {/* Transfers Card */}
+              <DashboardCard 
+                id="transfers"
+                style={styles.transferCard}
+                onPress={() => navigation.navigate('Transfers')}
+                hoverStyle={styles.lightCardHovered}
+              >
+                <View style={styles.transferHeader}>
+                  <View style={styles.transferIcon}>
+                    <Text style={styles.transferIconText}>🔄</Text>
+                  </View>
+                  <Text style={styles.transferCount}>{transferCount}</Text>
+                </View>
+                <View style={styles.transferFooter}>
+                  <Text style={styles.transferTitle}>Transfers</Text>
+                  <Text style={styles.transferSubtitle}>auslaufende Verträge & mögliche Wechsel</Text>
+                </View>
+              </DashboardCard>
             </View>
 
             {/* Row 2 - Bottom Cards */}
             <View style={styles.row}>
-              {/* Mein Profil */}
-              <DashboardCard 
-                id="profile"
-                style={styles.bottomCard}
-                onPress={() => navigation.navigate('MyProfile')}
-                hoverStyle={styles.lightCardHovered}
-              >
-                <View style={styles.bottomCardContent}>
-                  <View style={styles.bottomCardIcon}>
-                    <Text style={styles.bottomCardIconText}>👤</Text>
-                  </View>
-                  <View style={styles.bottomCardText}>
-                    <Text style={styles.bottomCardTitle}>Mein Profil</Text>
-                    <Text style={styles.bottomCardSubtitle}>Account verwalten</Text>
-                  </View>
-                </View>
-              </DashboardCard>
-
               {/* Team & Partner */}
               <DashboardCard 
                 id="team"
@@ -568,7 +611,14 @@ const styles = StyleSheet.create({
     width: 160,
     alignItems: 'center',
     justifyContent: 'center',
-    opacity: 0.12,
+  },
+  playerCountTopRight: {
+    position: 'absolute',
+    top: 20,
+    right: 24,
+    fontSize: 48,
+    fontWeight: '700',
+    color: '#000',
   },
   coreBadge: {
     backgroundColor: '#f5f5f5',
@@ -719,6 +769,50 @@ const styles = StyleSheet.create({
   termineSubtitle: {
     fontSize: 12,
     color: 'rgba(255,255,255,0.6)',
+    marginTop: 4,
+  },
+
+  // Transfer Card
+  transferCard: {
+    flex: 1,
+    backgroundColor: '#fff',
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#eee',
+    justifyContent: 'space-between',
+  },
+  transferHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  transferIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  transferIconText: {
+    fontSize: 18,
+  },
+  transferCount: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  transferFooter: {
+    marginTop: 'auto',
+  },
+  transferTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  transferSubtitle: {
+    fontSize: 12,
+    color: '#888',
     marginTop: 4,
   },
 

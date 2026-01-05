@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, Image, Linking, Modal } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../config/supabase';
 import * as DocumentPicker from 'expo-document-picker';
 
@@ -25,7 +24,7 @@ const TransfermarktIcon = require('../../../assets/transfermarkt-logo.png');
 const ArbeitsamtIcon = require('../../../assets/arbeitsamt.png');
 
 interface Player {
-  id: string; first_name: string; last_name: string; nationality: string; birth_date: string; club: string; league: string; position: string; contract_end: string; photo_url: string; strong_foot: string; height: number; secondary_position: string; salary_month: string; point_bonus: string; appearance_bonus: string; contract_option: string; contract_scope: string; fixed_fee: string; contract_notes: string; u23_player: boolean; provision: string; transfer_commission: string; mandate_until: string; responsibility: string; listing: string; phone: string; phone_country_code: string; email: string; education: string; training: string; instagram: string; linkedin: string; tiktok: string; transfermarkt_url: string; interests: string; father_name: string; father_phone: string; father_phone_country_code: string; father_job: string; mother_name: string; mother_phone: string; mother_phone_country_code: string; mother_job: string; siblings: string; other_notes: string; injuries: string; street: string; postal_code: string; city: string; internat: boolean; future_club: string; future_contract_end: string; contract_documents: any[]; provision_documents: any[]; transfer_commission_documents: any[]; strengths: string; potentials: string;
+  id: string; first_name: string; last_name: string; nationality: string; birth_date: string; club: string; league: string; position: string; contract_end: string; photo_url: string; strong_foot: string; height: number; secondary_position: string; salary_month: string; point_bonus: string; appearance_bonus: string; contract_option: string; contract_scope: string; fixed_fee: string; contract_notes: string; u23_player: boolean; provision: string; transfer_commission: string; mandate_until: string; responsibility: string; listing: string; phone: string; phone_country_code: string; email: string; education: string; training: string; instagram: string; linkedin: string; tiktok: string; transfermarkt_url: string; interests: string; father_name: string; father_phone: string; father_phone_country_code: string; father_job: string; mother_name: string; mother_phone: string; mother_phone_country_code: string; mother_job: string; siblings: string; other_notes: string; injuries: string; street: string; postal_code: string; city: string; internat: boolean; future_club: string; future_contract_end: string; contract_documents: any[]; provision_documents: any[]; transfer_commission_documents: any[]; fussball_de_url: string;
 }
 
 interface ClubLogo {
@@ -57,46 +56,33 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showSpielplanModal, setShowSpielplanModal] = useState(false);
   
-  // Berechtigung zum Löschen
-  const [canDelete, setCanDelete] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  
   // Club autocomplete state
   const [clubSearch, setClubSearch] = useState('');
   const [showClubSuggestions, setShowClubSuggestions] = useState(false);
   const [futureClubSearch, setFutureClubSearch] = useState('');
   const [showFutureClubSuggestions, setShowFutureClubSuggestions] = useState(false);
 
-  // Generate Spielplan URL based on club and league
-  const generateSpielplanUrl = (club: string, league: string): string => {
-    if (!club) return '';
-    
-    // Extract team level from league (e.g., "U17 Bundesliga" -> "U17")
-    const teamMatch = league?.match(/U\d+/i);
-    const team = teamMatch ? teamMatch[0] : '';
-    
-    // Create search query for fussball.de
-    const searchQuery = encodeURIComponent(`${club} ${team} Spielplan fussball.de`.trim());
-    return `https://www.google.com/search?q=${searchQuery}&btnI=1`;
+  // Clean fussball.de URL (remove Google redirect wrapper if present)
+  const cleanFussballDeUrl = (url: string): string => {
+    if (!url) return '';
+    if (url.includes('google.com/url')) {
+      const match = url.match(/[?&]q=([^&]+)/);
+      if (match) return decodeURIComponent(match[1]);
+    }
+    return url;
   };
 
+  // Open Spielplan - uses stored fussball_de_url
   const openSpielplan = () => {
-    if (!player?.club) {
-      Alert.alert('Fehler', 'Kein Verein eingetragen');
+    if (!player?.fussball_de_url) {
+      Alert.alert('Kein Spielplan', 'Bitte füge zuerst eine fussball.de URL hinzu (im Bearbeiten-Modus).');
       return;
     }
-    const url = generateSpielplanUrl(player.club, player.league);
-    Linking.openURL(url);
+    const cleanUrl = cleanFussballDeUrl(player.fussball_de_url);
+    Linking.openURL(cleanUrl);
   };
 
-  useEffect(() => { 
-    fetchPlayer(); 
-    fetchClubLogos(); 
-    fetchAdvisors(); 
-    checkDeletePermission();
-  }, []);
-  
+  useEffect(() => { fetchPlayer(); fetchClubLogos(); fetchAdvisors(); }, []);
   useEffect(() => {
     if (player) {
       setSelectedPositions(player.position ? player.position.split(', ').filter(p => POSITIONS.includes(p)) : []);
@@ -109,40 +95,6 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       checkAndApplyFutureClub(player);
     }
   }, [player]);
-
-  // Prüfen ob User löschen darf (Admin oder Zuständiger)
-  const checkDeletePermission = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    
-    setCurrentUserId(user.id);
-    
-    // Prüfen ob Admin
-    const { data: advisorData } = await supabase
-      .from('advisors')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-    
-    if (advisorData?.role === 'admin') {
-      setIsAdmin(true);
-      setCanDelete(true);
-      return;
-    }
-    
-    // Prüfen ob Zuständiger (owner in player_access)
-    const { data: accessData } = await supabase
-      .from('player_access')
-      .select('access_type')
-      .eq('player_id', playerId)
-      .eq('advisor_id', user.id)
-      .eq('access_type', 'owner')
-      .single();
-    
-    if (accessData) {
-      setCanDelete(true);
-    }
-  };
 
   const fetchAdvisors = async () => {
     const { data } = await supabase.from('advisors').select('id, first_name, last_name').order('last_name');
@@ -346,7 +298,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     if (!editData) return;
     const u23Status = calculateU23Status(editData.birth_date);
     const updateData: any = {
-      first_name: editData.first_name, last_name: editData.last_name, nationality: selectedNationalities.join(', ') || null, birth_date: editData.birth_date || null, club: editData.club || null, league: editData.league || null, position: selectedPositions.join(', ') || null, contract_end: editData.contract_end || null, photo_url: editData.photo_url || null, strong_foot: editData.strong_foot || null, height: editData.height || null, secondary_position: selectedSecondaryPositions.join(', ') || null, salary_month: editData.salary_month || null, point_bonus: editData.point_bonus || null, appearance_bonus: editData.appearance_bonus || null, contract_option: editData.contract_option || null, contract_scope: editData.contract_scope || null, fixed_fee: editData.fixed_fee || null, contract_notes: editData.contract_notes || null, u23_player: u23Status.isU23, provision: editData.provision || null, transfer_commission: editData.transfer_commission || null, mandate_until: editData.mandate_until || null, responsibility: selectedResponsibilities.join(', ') || null, listing: editData.listing || null, phone: editData.phone || null, phone_country_code: editData.phone_country_code || '+49', email: editData.email || null, education: editData.education || null, training: editData.training || null, instagram: editData.instagram || null, linkedin: editData.linkedin || null, tiktok: editData.tiktok || null, transfermarkt_url: editData.transfermarkt_url || null, interests: editData.interests || null, father_name: editData.father_name || null, father_phone: editData.father_phone || null, father_phone_country_code: editData.father_phone_country_code || '+49', father_job: editData.father_job || null, mother_name: editData.mother_name || null, mother_phone: editData.mother_phone || null, mother_phone_country_code: editData.mother_phone_country_code || '+49', mother_job: editData.mother_job || null, siblings: editData.siblings || null, other_notes: editData.other_notes || null, injuries: editData.injuries || null, street: editData.street || null, postal_code: editData.postal_code || null, city: editData.city || null, internat: editData.internat || false, future_club: editData.future_club || null, future_contract_end: editData.future_contract_end || null, contract_documents: editData.contract_documents || [], provision_documents: editData.provision_documents || [], transfer_commission_documents: editData.transfer_commission_documents || [], strengths: editData.strengths || null, potentials: editData.potentials || null,
+      first_name: editData.first_name, last_name: editData.last_name, nationality: selectedNationalities.join(', ') || null, birth_date: editData.birth_date || null, club: editData.club || null, league: editData.league || null, position: selectedPositions.join(', ') || null, contract_end: editData.contract_end || null, photo_url: editData.photo_url || null, strong_foot: editData.strong_foot || null, height: editData.height || null, secondary_position: selectedSecondaryPositions.join(', ') || null, salary_month: editData.salary_month || null, point_bonus: editData.point_bonus || null, appearance_bonus: editData.appearance_bonus || null, contract_option: editData.contract_option || null, contract_scope: editData.contract_scope || null, fixed_fee: editData.fixed_fee || null, contract_notes: editData.contract_notes || null, u23_player: u23Status.isU23, provision: editData.provision || null, transfer_commission: editData.transfer_commission || null, mandate_until: editData.mandate_until || null, responsibility: selectedResponsibilities.join(', ') || null, listing: editData.listing || null, phone: editData.phone || null, phone_country_code: editData.phone_country_code || '+49', email: editData.email || null, education: editData.education || null, training: editData.training || null, instagram: editData.instagram || null, linkedin: editData.linkedin || null, tiktok: editData.tiktok || null, transfermarkt_url: editData.transfermarkt_url || null, interests: editData.interests || null, father_name: editData.father_name || null, father_phone: editData.father_phone || null, father_phone_country_code: editData.father_phone_country_code || '+49', father_job: editData.father_job || null, mother_name: editData.mother_name || null, mother_phone: editData.mother_phone || null, mother_phone_country_code: editData.mother_phone_country_code || '+49', mother_job: editData.mother_job || null, siblings: editData.siblings || null, other_notes: editData.other_notes || null, injuries: editData.injuries || null, street: editData.street || null, postal_code: editData.postal_code || null, city: editData.city || null, internat: editData.internat || false, future_club: editData.future_club || null, future_contract_end: editData.future_contract_end || null, contract_documents: editData.contract_documents || [], provision_documents: editData.provision_documents || [], transfer_commission_documents: editData.transfer_commission_documents || [], fussball_de_url: editData.fussball_de_url || null,
     };
     const { error } = await supabase.from('player_details').update(updateData).eq('id', playerId);
     if (error) Alert.alert('Fehler', error.message);
@@ -355,36 +307,17 @@ export function PlayerDetailScreen({ route, navigation }: any) {
 
   const confirmDelete = async () => {
     try {
-      // Erst player_access löschen
-      const { error: accessError } = await supabase
-        .from('player_access')
-        .delete()
-        .eq('player_id', playerId);
-      
-      if (accessError) {
-        console.log('player_access Fehler:', accessError);
-      }
-      
-      // Dann player_details löschen
-      const { error, data } = await supabase
-        .from('player_details')
-        .delete()
-        .eq('id', playerId)
-        .select();
-      
-      console.log('Delete Ergebnis:', { error, data, playerId });
-      
+      await supabase.from('player_access').delete().eq('player_id', playerId);
+      const { error } = await supabase.from('player_details').delete().eq('id', playerId);
       if (error) { 
-        Alert.alert('Fehler beim Löschen', `${error.message}\n\nCode: ${error.code}\nDetails: ${error.details || 'keine'}`); 
+        Alert.alert('Fehler', error.message); 
         setShowDeleteModal(false); 
       } else { 
         setShowDeleteModal(false); 
-        // Zurück zur Spielerübersicht navigieren
-        navigation.navigate('PlayerOverview');
+        navigation.popToTop();
       }
-    } catch (err: any) { 
-      console.log('Catch Fehler:', err);
-      Alert.alert('Fehler', `Spieler konnte nicht gelöscht werden: ${err?.message || err}`); 
+    } catch (err) { 
+      Alert.alert('Fehler', 'Spieler konnte nicht gelöscht werden'); 
       setShowDeleteModal(false); 
     }
   };
@@ -397,11 +330,37 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   );
 
   const renderSpielplanButton = () => {
-    if (!player?.club || editing) return null;
+    // Extract team level from league (e.g., "U17 Bundesliga" -> "U17")
+    const teamMatch = player?.league?.match(/U\d+/i);
+    const teamLevel = teamMatch ? teamMatch[0] : '';
+    const clubName = player?.club || '';
+    const displayName = `${clubName}${teamLevel ? ' ' + teamLevel : ''}`.trim();
     
-    // Extract team info from league
-    const teamMatch = player.league?.match(/U\d+/i);
-    const teamInfo = teamMatch ? teamMatch[0] : '';
+    if (editing) {
+      return (
+        <View style={styles.infoRow}>
+          <Text style={styles.label}>Spielplan (fussball.de)</Text>
+          <TextInput 
+            style={styles.input} 
+            value={editData?.fussball_de_url || ''} 
+            onChangeText={(text) => updateField('fussball_de_url', text)} 
+            placeholder="https://www.fussball.de/mannschaft/..." 
+          />
+          <Text style={styles.spielplanHint}>
+            💡 Gehe auf fussball.de → Suche die Mannschaft → Kopiere die URL
+          </Text>
+        </View>
+      );
+    }
+    
+    if (!player?.fussball_de_url) {
+      return (
+        <View style={styles.infoRow}>
+          <Text style={styles.label}>Spielplan</Text>
+          <Text style={styles.valueGray}>Keine URL hinterlegt</Text>
+        </View>
+      );
+    }
     
     return (
       <View style={styles.infoRow}>
@@ -411,7 +370,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           onPress={openSpielplan}
         >
           <Text style={styles.spielplanButtonText}>
-            📅 {player.club} {teamInfo} Spielplan öffnen
+            📅 Spielplan {displayName}
           </Text>
         </TouchableOpacity>
       </View>
@@ -773,8 +732,21 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     </Modal>
   );
 
-  if (loading) return <SafeAreaView style={styles.container}><Text style={styles.loadingText}>Laden...</Text></SafeAreaView>;
-  if (!player || !editData) return <SafeAreaView style={styles.container}><Text style={styles.loadingText}>Spieler nicht gefunden</Text></SafeAreaView>;
+  if (loading) return (
+    <View style={styles.modalOverlayContainer}>
+      <View style={styles.modalContainer}>
+        <Text style={styles.loadingText}>Laden...</Text>
+      </View>
+    </View>
+  );
+  if (!player || !editData) return (
+    <View style={styles.modalOverlayContainer}>
+      <TouchableOpacity style={styles.modalBackdrop} onPress={() => navigation.goBack()} activeOpacity={1} />
+      <View style={styles.modalContainer}>
+        <Text style={styles.loadingText}>Spieler nicht gefunden</Text>
+      </View>
+    </View>
+  );
 
   const contractExpired = isContractExpired(player.contract_end);
   const displayClub = contractExpired ? 'Vereinslos' : player.club;
@@ -782,44 +754,43 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const futureClubLogo = getClubLogo(player.future_club || '');
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Spielerinfo</Text>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}><Text style={styles.closeButtonText}>✕</Text></TouchableOpacity>
-      </View>
-      <ScrollView style={styles.content}>
-        {/* Top Section - 2 getrennte Karten */}
-        <View style={styles.topSectionContainer}>
-          {/* Linke Karte: Foto + Name */}
-          <View style={styles.topCardLeft}>
-            <View style={styles.topLeft}>
-              <View style={styles.photoContainer}>
-                {player.photo_url ? <Image source={{ uri: player.photo_url }} style={styles.photo} /> : <View style={styles.photoPlaceholder}><Text style={styles.photoPlaceholderText}>Foto</Text></View>}
-              </View>
-              {editing && <TextInput style={styles.photoInput} placeholder="Foto-URL" value={editData.photo_url || ''} onChangeText={(text) => updateField('photo_url', text)} />}
+    <View style={styles.modalOverlayContainer}>
+      <TouchableOpacity style={styles.modalBackdrop} onPress={() => navigation.goBack()} activeOpacity={1} />
+      <View style={styles.modalContainer}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Spielerinfo</Text>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}><Text style={styles.closeButtonText}>✕</Text></TouchableOpacity>
+        </View>
+        <ScrollView style={styles.content}>
+        {/* Redesigned Top Section */}
+        <View style={styles.topSection}>
+          <View style={styles.topLeft}>
+            <View style={styles.photoContainer}>
+              {player.photo_url ? <Image source={{ uri: player.photo_url }} style={styles.photo} /> : <View style={styles.photoPlaceholder}><Text style={styles.photoPlaceholderText}>Foto</Text></View>}
             </View>
-            
-            <View style={styles.topCenter}>
-              {editing ? (
-                <>
-                  <TextInput style={styles.nameInput} value={editData.first_name} onChangeText={(text) => updateField('first_name', text)} placeholder="Vorname" />
-                  <TextInput style={styles.nameInput} value={editData.last_name} onChangeText={(text) => updateField('last_name', text)} placeholder="Nachname" />
-                </>
-              ) : (
-                <>
-                  <Text style={styles.playerFirstName}>{player.first_name}</Text>
-                  <Text style={styles.playerLastName}>{player.last_name}</Text>
-                  <View style={styles.ageRow}>
-                    <Text style={styles.ageText}>{calculateAge(player.birth_date)} Jahre</Text>
-                    {birthday && <Text style={styles.birthdayIconLarge}>🎉</Text>}
-                  </View>
-                </>
-              )}
-            </View>
+            {editing && <TextInput style={styles.photoInput} placeholder="Foto-URL" value={editData.photo_url || ''} onChangeText={(text) => updateField('photo_url', text)} />}
           </View>
           
-          {/* Rechte Karte: Vereinslogo */}
-          <View style={styles.topCardRight}>
+          <View style={styles.topCenter}>
+            {editing ? (
+              <>
+                <TextInput style={styles.nameInput} value={editData.first_name} onChangeText={(text) => updateField('first_name', text)} placeholder="Vorname" />
+                <TextInput style={styles.nameInput} value={editData.last_name} onChangeText={(text) => updateField('last_name', text)} placeholder="Nachname" />
+                <TextInput style={styles.tmInputTop} value={editData.transfermarkt_url || ''} onChangeText={(text) => updateField('transfermarkt_url', text)} placeholder="Transfermarkt URL" />
+              </>
+            ) : (
+              <>
+                <Text style={styles.playerFirstName}>{player.first_name}</Text>
+                <Text style={styles.playerLastName}>{player.last_name}</Text>
+                <View style={styles.ageRow}>
+                  <Text style={styles.ageText}>{calculateAge(player.birth_date)} Jahre</Text>
+                  {birthday && <Text style={styles.birthdayIconLarge}>🎉</Text>}
+                </View>
+              </>
+            )}
+          </View>
+          
+          <View style={styles.topRight}>
             <View style={styles.clubSection}>
               {contractExpired ? (
                 <Image source={ArbeitsamtIcon} style={styles.clubLogoHeader} />
@@ -828,18 +799,24 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               ) : (
                 <Text style={styles.clubNameHeaderNoLogo}>{displayClub || '-'}</Text>
               )}
-              {/* Zukünftiger Verein mit grünem Pfeil */}
-              {player.future_club && !editing && (
+              {player.future_club && !editing && futureClubLogo && (
                 <View style={styles.futureClubHeader}>
                   <Text style={styles.greenArrow}>→</Text>
-                  {futureClubLogo ? (
-                    <Image source={{ uri: futureClubLogo }} style={styles.futureClubLogoHeader} />
-                  ) : (
-                    <Text style={styles.futureClubNameHeader}>{player.future_club}</Text>
-                  )}
+                  <Image source={{ uri: futureClubLogo }} style={styles.futureClubLogoHeader} />
+                </View>
+              )}
+              {player.future_club && !editing && !futureClubLogo && (
+                <View style={styles.futureClubHeader}>
+                  <Text style={styles.greenArrow}>→</Text>
+                  <Text style={styles.futureClubNameHeader}>{player.future_club}</Text>
                 </View>
               )}
             </View>
+            {player.transfermarkt_url && !editing && (
+              <TouchableOpacity onPress={() => Linking.openURL(player.transfermarkt_url)} style={styles.tmButton}>
+                <Image source={TransfermarktIcon} style={styles.transfermarktIcon} />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -847,89 +824,23 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           <View style={styles.halfColumn}>
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Allgemein</Text>
-              <View style={styles.splitContainer}>
-                <View style={styles.splitColumn}>
-                  {renderPositionSelector('Position', selectedPositions, togglePosition)}
-                  {renderPositionSelector('Nebenposition', selectedSecondaryPositions, toggleSecondaryPosition)}
-                  {renderNationalitySelector()}
-                  {renderStrongFootSelector()}
-                  {renderHeightSelector()}
-                  {/* Transfermarkt Link */}
-                  <View style={styles.infoRow}>
-                    <Text style={styles.label}>Transfermarkt</Text>
-                    {editing ? (
-                      <TextInput 
-                        style={styles.input} 
-                        value={editData?.transfermarkt_url || ''} 
-                        onChangeText={(text) => updateField('transfermarkt_url', text)} 
-                        placeholder="https://www.transfermarkt.de/..." 
-                      />
-                    ) : player?.transfermarkt_url ? (
-                      <TouchableOpacity onPress={() => Linking.openURL(player.transfermarkt_url)}>
-                        <Image source={TransfermarktIcon} style={styles.transfermarktIconMedium} />
-                      </TouchableOpacity>
-                    ) : (
-                      <Text style={styles.value}>-</Text>
-                    )}
-                  </View>
-                </View>
-                <View style={styles.splitColumn}>
-                  {/* Stärken auf Höhe von Position */}
-                  <View style={styles.infoRow}>
-                    <Text style={styles.label}>Stärken</Text>
-                    {editing ? (
-                      <TextInput 
-                        style={[styles.input, styles.smallTextArea]} 
-                        value={editData?.strengths || ''} 
-                        onChangeText={(text) => updateField('strengths', text)} 
-                        placeholder="Stärken des Spielers..." 
-                        multiline 
-                      />
-                    ) : (
-                      <Text style={styles.value}>{player?.strengths || '-'}</Text>
-                    )}
-                  </View>
-                  {/* Platzhalter für Nebenposition */}
-                  <View style={styles.infoRow}><Text style={styles.label}> </Text><Text style={styles.value}> </Text></View>
-                  {/* Platzhalter für Nationalität */}
-                  <View style={styles.infoRow}><Text style={styles.label}> </Text><Text style={styles.value}> </Text></View>
-                  {/* Potentiale auf Höhe von Starker Fuß */}
-                  <View style={styles.infoRow}>
-                    <Text style={styles.label}>Potentiale</Text>
-                    {editing ? (
-                      <TextInput 
-                        style={[styles.input, styles.smallTextArea]} 
-                        value={editData?.potentials || ''} 
-                        onChangeText={(text) => updateField('potentials', text)} 
-                        placeholder="Entwicklungspotentiale..." 
-                        multiline 
-                      />
-                    ) : (
-                      <Text style={styles.value}>{player?.potentials || '-'}</Text>
-                    )}
-                  </View>
-                </View>
-              </View>
+              {renderPositionSelector('Position', selectedPositions, togglePosition)}
+              {renderPositionSelector('Nebenposition', selectedSecondaryPositions, toggleSecondaryPosition)}
+              {renderNationalitySelector()}
+              {renderStrongFootSelector()}
+              {renderHeightSelector()}
             </View>
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Beratung</Text>
-              <View style={styles.splitContainer}>
-                <View style={styles.splitColumn}>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.label}>Listung</Text>
-                    {editing ? (<View style={styles.chipGrid}>{LISTINGS.map((opt) => (<TouchableOpacity key={opt} style={[styles.chip, editData?.listing === opt && styles.chipSelected]} onPress={() => updateField('listing', editData?.listing === opt ? null : opt)}><Text style={[styles.chipText, editData?.listing === opt && styles.chipTextSelected]}>{editData?.listing === opt ? '✓ ' : ''}{opt}</Text></TouchableOpacity>))}</View>
-                    ) : player?.listing ? (<View style={[styles.listingBadge, player.listing === 'Karl Herzog Sportmanagement' ? styles.listingKMH : styles.listingPM]}><Text style={styles.listingBadgeText}>{player.listing}</Text></View>) : <Text style={styles.value}>-</Text>}
-                  </View>
-                  {renderFieldWithDocuments('Provision', 'provision', 'provision_documents')}
-                  {renderFieldWithDocuments('Weg-Vermittlung', 'transfer_commission', 'transfer_commission_documents')}
-                </View>
-                <View style={styles.splitColumn}>
-                  {renderResponsibilitySelector()}
-                  {renderDateField('Mandat gültig bis', 'mandate_until')}
-                  {/* Platzhalter für Weg-Vermittlung */}
-                  <View style={styles.infoRow}><Text style={styles.label}> </Text><Text style={styles.value}> </Text></View>
-                </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.label}>Listung</Text>
+                {editing ? (<View style={styles.chipGrid}>{LISTINGS.map((opt) => (<TouchableOpacity key={opt} style={[styles.chip, editData?.listing === opt && styles.chipSelected]} onPress={() => updateField('listing', editData?.listing === opt ? null : opt)}><Text style={[styles.chipText, editData?.listing === opt && styles.chipTextSelected]}>{editData?.listing === opt ? '✓ ' : ''}{opt}</Text></TouchableOpacity>))}</View>
+                ) : player?.listing ? (<View style={[styles.listingBadge, player.listing === 'Karl Herzog Sportmanagement' ? styles.listingKMH : styles.listingPM]}><Text style={styles.listingBadgeText}>{player.listing}</Text></View>) : <Text style={styles.value}>-</Text>}
               </View>
+              {renderResponsibilitySelector()}
+              {renderDateField('Mandat gültig bis', 'mandate_until')}
+              {renderFieldWithDocuments('Provision', 'provision', 'provision_documents')}
+              {renderFieldWithDocuments('Weg-Vermittlung', 'transfer_commission', 'transfer_commission_documents')}
             </View>
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Privat</Text>
@@ -999,33 +910,17 @@ export function PlayerDetailScreen({ route, navigation }: any) {
             </View>
           </View>
         </View>
-        
-        {/* Verletzungen */}
         <View style={styles.cardFullWidth}>
           <Text style={styles.cardTitle}>Verletzungen & Krankheiten</Text>
-          <View style={styles.infoRow}>
-            {editing ? (
-              <TextInput 
-                style={[styles.input, styles.textArea]} 
-                value={editData.injuries || ''} 
-                onChangeText={(text) => updateField('injuries', text)} 
-                placeholder="Verletzungshistorie..." 
-                multiline 
-              />
-            ) : (
-              <Text style={styles.value}>{player.injuries || '-'}</Text>
-            )}
-          </View>
+          <View style={styles.infoRow}>{editing ? <TextInput style={[styles.input, styles.textArea]} value={editData.injuries || ''} onChangeText={(text) => updateField('injuries', text)} placeholder="Verletzungshistorie..." multiline /> : <Text style={styles.value}>{player.injuries || '-'}</Text>}</View>
         </View>
       </ScrollView>
       <View style={styles.bottomButtons}>
         {editing ? (
           <>
-            {canDelete && (
-              <TouchableOpacity style={styles.deleteButton} onPress={() => setShowDeleteModal(true)}>
-                <Text style={styles.deleteButtonText}>Löschen</Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity style={styles.deleteButton} onPress={() => setShowDeleteModal(true)}>
+              <Text style={styles.deleteButtonText}>Löschen</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.cancelButton} onPress={() => { setEditing(false); setEditData(player); setClubSearch(player.club || ''); setFutureClubSearch(player.future_club || ''); fetchPlayer(); }}>
               <Text style={styles.cancelButtonText}>Abbrechen</Text>
             </TouchableOpacity>
@@ -1040,22 +935,48 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         )}
       </View>
       {renderDeleteModal()}
-    </SafeAreaView>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#ddd' },
+  // Modal Overlay Container
+  modalOverlayContainer: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0,0,0,0.5)', 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalBackdrop: { 
+    position: 'absolute', 
+    top: 0, 
+    left: 0, 
+    right: 0, 
+    bottom: 0,
+  },
+  modalContainer: { 
+    backgroundColor: '#f5f5f5', 
+    borderRadius: 16, 
+    width: '95%',
+    maxWidth: 1400,
+    height: '95%',
+    maxHeight: 950,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 20,
+  },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#ddd', borderTopLeftRadius: 16, borderTopRightRadius: 16 },
   headerTitle: { fontSize: 20, fontWeight: 'bold' },
-  closeButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
-  closeButtonText: { color: '#fff', fontSize: 18 },
+  closeButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', justifyContent: 'center', alignItems: 'center' },
+  closeButtonText: { color: '#64748b', fontSize: 18 },
   content: { flex: 1, padding: 16 },
   loadingText: { padding: 20, textAlign: 'center', color: '#666' },
-  // Top Section - 2 getrennte Karten
-  topSectionContainer: { flexDirection: 'row', gap: 16, marginBottom: 16 },
-  topCardLeft: { flex: 1, flexDirection: 'row', backgroundColor: '#fff', borderRadius: 16, padding: 20 },
-  topCardRight: { width: 140, backgroundColor: '#fff', borderRadius: 16, padding: 20, alignItems: 'center', justifyContent: 'center' },
+  topSection: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 16, padding: 20, marginBottom: 16 },
   topLeft: { alignItems: 'center', marginRight: 20 },
   photoContainer: { width: 120, height: 120, borderRadius: 60, overflow: 'hidden', marginBottom: 8, borderWidth: 3, borderColor: '#000' },
   photo: { width: '100%', height: '100%' },
@@ -1070,6 +991,7 @@ const styles = StyleSheet.create({
   birthdayIconLarge: { fontSize: 24, marginLeft: 8 },
   nameInput: { fontSize: 24, fontWeight: 'bold', borderBottomWidth: 2, borderBottomColor: '#000', marginBottom: 8, padding: 4 },
   tmInputTop: { fontSize: 14, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 8, marginTop: 8 },
+  topRight: { alignItems: 'center', justifyContent: 'center' },
   clubSection: { alignItems: 'center' },
   clubLogoHeader: { width: 80, height: 80, resizeMode: 'contain', marginBottom: 8 },
   clubNameHeaderNoLogo: { fontSize: 16, fontWeight: '600', textAlign: 'center', maxWidth: 120 },
@@ -1080,8 +1002,6 @@ const styles = StyleSheet.create({
   futureClubNameHeader: { fontSize: 14, color: '#28a745', fontWeight: '500' },
   tmButton: { marginTop: 12 },
   transfermarktIcon: { width: 40, height: 40, resizeMode: 'contain' },
-  transfermarktIconSmall: { width: 28, height: 28, resizeMode: 'contain' },
-  transfermarktIconMedium: { width: 38, height: 38, resizeMode: 'contain' },
   twoColumnContainer: { flexDirection: 'row', gap: 16 },
   halfColumn: { flex: 1 },
   card: { backgroundColor: '#fff', borderRadius: 16, padding: 20, marginBottom: 16 },
@@ -1093,8 +1013,6 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, fontSize: 15, backgroundColor: '#fff' },
   smallTextArea: { minHeight: 60 },
   textArea: { minHeight: 100 },
-  textAreaMedium: { minHeight: 80 },
-  textAreaLarge: { minHeight: 200 },
   splitContainer: { flexDirection: 'row', gap: 20 },
   splitColumn: { flex: 1 },
   familyContainer: { flexDirection: 'row', gap: 20 },
@@ -1162,15 +1080,15 @@ const styles = StyleSheet.create({
   smallDocItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8f8f8', padding: 6, borderRadius: 6, marginTop: 4 },
   smallDocName: { fontSize: 12, color: '#333', flex: 1 },
   docLink: { fontSize: 13, color: '#007bff', marginTop: 4 },
-  bottomButtons: { flexDirection: 'row', padding: 16, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#ddd', justifyContent: 'flex-end', gap: 8 },
-  deleteButton: { backgroundColor: '#ff4444', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 10, marginRight: 'auto' },
-  deleteButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  editButton: { backgroundColor: '#000', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 10 },
-  editButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  cancelButton: { backgroundColor: '#eee', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 10 },
-  cancelButtonText: { color: '#666', fontSize: 16, fontWeight: '600' },
-  saveButton: { backgroundColor: '#000', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 10 },
-  saveButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  bottomButtons: { flexDirection: 'row', padding: 16, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#e2e8f0', justifyContent: 'flex-end', gap: 8 },
+  deleteButton: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#ef4444', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 10, marginRight: 'auto' },
+  deleteButtonText: { color: '#ef4444', fontSize: 16, fontWeight: '600' },
+  editButton: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#64748b', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 10 },
+  editButtonText: { color: '#64748b', fontSize: 16, fontWeight: '600' },
+  cancelButton: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 10 },
+  cancelButtonText: { color: '#64748b', fontSize: 16, fontWeight: '600' },
+  saveButton: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#10b981', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 10 },
+  saveButtonText: { color: '#10b981', fontSize: 16, fontWeight: '600' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 400 },
   modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 12, textAlign: 'center' },
@@ -1222,5 +1140,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
     fontWeight: '500',
+  },
+  spielplanHint: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  valueGray: {
+    fontSize: 15,
+    color: '#999',
+    fontStyle: 'italic',
   },
 });

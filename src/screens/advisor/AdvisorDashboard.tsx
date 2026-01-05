@@ -16,11 +16,13 @@ export function AdvisorDashboard({ navigation }: any) {
   const [scoutingCount, setScoutingCount] = useState(0);
   const [urgentCount, setUrgentCount] = useState(2);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
+  const [transferCount, setTransferCount] = useState(0);
 
   useEffect(() => {
     fetchProfile();
     fetchPlayerCount();
     fetchScoutingCount();
+    fetchTransferCount();
   }, []);
 
   const fetchProfile = async () => {
@@ -50,6 +52,24 @@ export function AdvisorDashboard({ navigation }: any) {
 
   const fetchScoutingCount = async () => {
     setScoutingCount(12);
+  };
+
+  // Spieler mit auslaufendem Vertrag und ohne zukünftigen Verein
+  const fetchTransferCount = async () => {
+    const currentYear = new Date().getFullYear();
+    const nextYear = currentYear + 1;
+    
+    // Spieler deren Vertrag dieses oder nächstes Jahr ausläuft und kein future_club haben
+    const { data, error } = await supabase
+      .from('player_details')
+      .select('id, contract_end, future_club')
+      .or(`contract_end.like.%${currentYear}%,contract_end.like.%${nextYear}%`);
+    
+    if (data) {
+      // Filtere nur die ohne future_club
+      const transferPlayers = data.filter(p => !p.future_club || p.future_club.trim() === '');
+      setTransferCount(transferPlayers.length);
+    }
   };
 
   const DashboardCard = ({ 
@@ -128,10 +148,10 @@ export function AdvisorDashboard({ navigation }: any) {
                     <View style={styles.coreBadge}>
                       <Text style={styles.coreBadgeText}>CORE BUSINESS</Text>
                     </View>
-                    <Text style={styles.mainCardTitle}>KMH Spieler</Text>
+                    <Text style={styles.mainCardTitle}>KMH-Spielerübersicht</Text>
                     <Text style={styles.mainCardSubtitle}>
-                      Verwalte deine {playerCount} aktiven Mandanten,{'\n'}
-                      Verträge und Marktwert-Updates.
+                      Verwaltung aller Daten unserer {playerCount} aktiven{'\n'}
+                      Spieler und Trainer.
                     </Text>
                     <View style={styles.mainCardFooter}>
                       <Text style={styles.mainCardLink}>Zur Übersicht</Text>
@@ -189,6 +209,25 @@ export function AdvisorDashboard({ navigation }: any) {
                   </View>
                 </DashboardCard>
               </View>
+
+              {/* Transfers Card */}
+              <DashboardCard 
+                id="transfers"
+                style={styles.transferCard}
+                onPress={() => navigation.navigate('Transfers')}
+                hoverStyle={styles.lightCardHovered}
+              >
+                <View style={styles.transferHeader}>
+                  <View style={styles.transferIcon}>
+                    <Text style={styles.transferIconText}>🔄</Text>
+                  </View>
+                  <Text style={styles.transferCount}>{transferCount}</Text>
+                </View>
+                <View style={styles.transferFooter}>
+                  <Text style={styles.transferTitle}>Transfers</Text>
+                  <Text style={styles.transferSubtitle}>auslaufende Verträge & mögliche Wechsel</Text>
+                </View>
+              </DashboardCard>
             </View>
 
             {/* Row 2 - Bottom Cards */}
@@ -534,6 +573,50 @@ const styles = StyleSheet.create({
   termineSubtitle: {
     fontSize: 12,
     color: 'rgba(255,255,255,0.6)',
+    marginTop: 4,
+  },
+
+  // Transfer Card
+  transferCard: {
+    flex: 1,
+    backgroundColor: '#fff',
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#eee',
+    justifyContent: 'space-between',
+  },
+  transferHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  transferIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  transferIconText: {
+    fontSize: 18,
+  },
+  transferCount: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  transferFooter: {
+    marginTop: 'auto',
+  },
+  transferTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  transferSubtitle: {
+    fontSize: 12,
+    color: '#888',
     marginTop: 4,
   },
 

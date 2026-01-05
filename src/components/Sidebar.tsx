@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { supabase } from '../config/supabase';
 import { CommonActions } from '@react-navigation/native';
 
@@ -15,6 +15,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ navigation, activeScreen, profile }: SidebarProps) {
+  const [hoveredNav, setHoveredNav] = useState<string | null>(null);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigation.dispatch(
@@ -25,45 +27,45 @@ export function Sidebar({ navigation, activeScreen, profile }: SidebarProps) {
     );
   };
 
-  const handleNavigation = (screen: string, id: string) => {
-    if (activeScreen === id) return;
-    
-    if (id === 'dashboard') {
-      // Go back to dashboard - use popToTop or goBack
-      navigation.popToTop();
-    } else {
-      navigation.navigate(screen);
-    }
+  const goToDashboard = () => {
+    navigation.navigate('AdvisorDashboard');
   };
 
+  const handleNavigation = (screen: string, id: string) => {
+    if (activeScreen === id) return;
+    navigation.navigate(screen);
+  };
+
+  // Neue Reihenfolge: KMH-Spieler, Transfers, Scouting, Termine
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: '⊞', screen: 'AdvisorDashboard' },
+    { id: 'players', label: 'KMH-Spieler', icon: '👤', screen: 'PlayerOverview' },
+    { id: 'transfers', label: 'Transfers', icon: '↔️', screen: 'Transfers' },
     { id: 'scouting', label: 'Scouting', icon: '🔍', screen: 'Scouting' },
-    { id: 'players', label: 'KMH Spieler', icon: '👤', screen: 'PlayerOverview' },
     { id: 'termine', label: 'Termine', icon: '📅', screen: 'Calendar' },
-    { id: 'team', label: 'Team & Partner', icon: '👥', screen: 'Team' },
   ];
 
   return (
     <View style={styles.sidebar}>
-      {/* Logo */}
-      <View style={styles.logoContainer}>
+      {/* Logo - klickbar zum Dashboard */}
+      <Pressable onPress={goToDashboard} style={styles.logoContainer}>
         <View style={styles.logoBox}>
           <Text style={styles.logoText}>KMH</Text>
         </View>
         <Text style={styles.logoTitle}>Sports Agency</Text>
-      </View>
+      </Pressable>
 
       {/* Navigation */}
       <View style={styles.navContainer}>
         {navItems.map((item) => (
-          <TouchableOpacity
+          <Pressable
             key={item.id}
-            activeOpacity={0.7}
+            onHoverIn={() => setHoveredNav(item.id)}
+            onHoverOut={() => setHoveredNav(null)}
             onPress={() => handleNavigation(item.screen, item.id)}
             style={[
               styles.navItem,
               activeScreen === item.id && styles.navItemActive,
+              hoveredNav === item.id && styles.navItemHovered,
             ]}
           >
             <Text style={styles.navIcon}>{item.icon}</Text>
@@ -71,7 +73,7 @@ export function Sidebar({ navigation, activeScreen, profile }: SidebarProps) {
               styles.navLabel,
               activeScreen === item.id && styles.navLabelActive
             ]}>{item.label}</Text>
-          </TouchableOpacity>
+          </Pressable>
         ))}
       </View>
 
@@ -80,12 +82,14 @@ export function Sidebar({ navigation, activeScreen, profile }: SidebarProps) {
 
       {/* Admin - only if admin */}
       {profile?.role === 'admin' && (
-        <TouchableOpacity
-          activeOpacity={0.7}
+        <Pressable
+          onHoverIn={() => setHoveredNav('admin')}
+          onHoverOut={() => setHoveredNav(null)}
           onPress={() => navigation.navigate('AdminPanel')}
           style={[
             styles.navItem,
             activeScreen === 'admin' && styles.navItemActive,
+            hoveredNav === 'admin' && styles.navItemHovered,
           ]}
         >
           <Text style={styles.navIcon}>⚙️</Text>
@@ -93,18 +97,22 @@ export function Sidebar({ navigation, activeScreen, profile }: SidebarProps) {
             styles.navLabel,
             activeScreen === 'admin' && styles.navLabelActive
           ]}>Administration</Text>
-        </TouchableOpacity>
+        </Pressable>
       )}
 
       {/* Logout */}
-      <TouchableOpacity
-        activeOpacity={0.7}
+      <Pressable
+        onHoverIn={() => setHoveredNav('logout')}
+        onHoverOut={() => setHoveredNav(null)}
         onPress={handleLogout}
-        style={styles.logoutButton}
+        style={[
+          styles.logoutButton,
+          hoveredNav === 'logout' && styles.logoutButtonHovered,
+        ]}
       >
         <Text style={styles.logoutIcon}>↪</Text>
         <Text style={styles.logoutText}>Abmelden</Text>
-      </TouchableOpacity>
+      </Pressable>
     </View>
   );
 }
@@ -156,6 +164,9 @@ const styles = StyleSheet.create({
   navItemActive: {
     backgroundColor: '#f5f5f5',
   },
+  navItemHovered: {
+    backgroundColor: '#f5f5f5',
+  },
   navIcon: {
     fontSize: 18,
     marginRight: 12,
@@ -178,6 +189,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 10,
     marginTop: 8,
+  },
+  logoutButtonHovered: {
+    backgroundColor: '#f5f5f5',
   },
   logoutIcon: {
     fontSize: 18,

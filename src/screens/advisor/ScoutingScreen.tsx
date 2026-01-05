@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Platform, Linking } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Platform, Linking, Pressable } from 'react-native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 
@@ -1083,12 +1083,23 @@ export function ScoutingScreen({ navigation }: any) {
     return `${selectedRatings.length} Ratings`;
   };
 
+  // Alle Dropdowns schließen
+  const closeAllDropdowns = () => {
+    setShowPositionDropdown(false);
+    setShowYearDropdown(false);
+    setShowRatingDropdown(false);
+  };
+
   return (
-    <View style={styles.container}>
-      <Sidebar activeScreen="Scouting" navigation={navigation} />
+    <Pressable style={styles.container} onPress={closeAllDropdowns}>
+      <Sidebar activeScreen="scouting" navigation={navigation} />
       <View style={styles.mainContent}>
-        <View style={styles.header}>
-          <View>
+        {/* Header Banner - weiß mit Titel mittig */}
+        <View style={styles.headerBanner}>
+          <TouchableOpacity style={styles.filterButton} onPress={() => navigation.navigate('AdvisorDashboard')}>
+            <Text style={styles.filterButtonText}>← Zurück</Text>
+          </TouchableOpacity>
+          <View style={styles.headerBannerCenter}>
             <Text style={styles.title}>Scouting Area</Text>
             <Text style={styles.subtitle}>Manage Talente, Berichte und Spieltermine.</Text>
           </View>
@@ -1111,11 +1122,11 @@ export function ScoutingScreen({ navigation }: any) {
           <View style={styles.filterContainer}>
             <View style={[styles.dropdownContainer, { zIndex: 30 }]}>
               <TouchableOpacity style={[styles.filterButton, selectedPositions.length > 0 && styles.filterButtonActive]} 
-                onPress={() => { setShowPositionDropdown(!showPositionDropdown); setShowYearDropdown(false); }}>
+                onPress={(e) => { e.stopPropagation(); setShowPositionDropdown(!showPositionDropdown); setShowYearDropdown(false); setShowRatingDropdown(false); }}>
                 <Text style={[styles.filterButtonText, selectedPositions.length > 0 && styles.filterButtonTextActive]}>{getPositionFilterLabel()} ▼</Text>
               </TouchableOpacity>
               {showPositionDropdown && (
-                <View style={styles.filterDropdownMulti}>
+                <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
                   <View style={styles.filterDropdownHeader}>
                     <Text style={styles.filterDropdownTitle}>Positionen wählen</Text>
                     {selectedPositions.length > 0 && <TouchableOpacity onPress={clearPositions}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
@@ -1134,17 +1145,17 @@ export function ScoutingScreen({ navigation }: any) {
                     })}
                   </ScrollView>
                   <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowPositionDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
-                </View>
+                </Pressable>
               )}
             </View>
 
             <View style={[styles.dropdownContainer, { zIndex: 20 }]}>
               <TouchableOpacity style={[styles.filterButton, selectedYears.length > 0 && styles.filterButtonActive]} 
-                onPress={() => { setShowYearDropdown(!showYearDropdown); setShowPositionDropdown(false); }}>
+                onPress={(e) => { e.stopPropagation(); setShowYearDropdown(!showYearDropdown); setShowPositionDropdown(false); setShowRatingDropdown(false); }}>
                 <Text style={[styles.filterButtonText, selectedYears.length > 0 && styles.filterButtonTextActive]}>{getYearFilterLabel()} ▼</Text>
               </TouchableOpacity>
               {showYearDropdown && (
-                <View style={styles.filterDropdownMulti}>
+                <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
                   <View style={styles.filterDropdownHeader}>
                     <Text style={styles.filterDropdownTitle}>Jahrgänge wählen</Text>
                     {selectedYears.length > 0 && <TouchableOpacity onPress={clearYears}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
@@ -1167,18 +1178,18 @@ export function ScoutingScreen({ navigation }: any) {
                     )}
                   </ScrollView>
                   <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowYearDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
-                </View>
+                </Pressable>
               )}
             </View>
 
             {/* Rating Filter */}
             <View style={[styles.dropdownContainer, { zIndex: 10 }]}>
               <TouchableOpacity style={[styles.filterButton, selectedRatings.length > 0 && styles.filterButtonActive]} 
-                onPress={() => { setShowRatingDropdown(!showRatingDropdown); setShowPositionDropdown(false); setShowYearDropdown(false); }}>
+                onPress={(e) => { e.stopPropagation(); setShowRatingDropdown(!showRatingDropdown); setShowPositionDropdown(false); setShowYearDropdown(false); }}>
                 <Text style={[styles.filterButtonText, selectedRatings.length > 0 && styles.filterButtonTextActive]}>{getRatingFilterLabel()} ▼</Text>
               </TouchableOpacity>
               {showRatingDropdown && (
-                <View style={styles.filterDropdownMulti}>
+                <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
                   <View style={styles.filterDropdownHeader}>
                     <Text style={styles.filterDropdownTitle}>Einschätzung wählen</Text>
                     {selectedRatings.length > 0 && <TouchableOpacity onPress={clearRatings}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
@@ -1197,7 +1208,7 @@ export function ScoutingScreen({ navigation }: any) {
                     })}
                   </ScrollView>
                   <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowRatingDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
-                </View>
+                </Pressable>
               )}
             </View>
           </View>
@@ -1501,14 +1512,17 @@ export function ScoutingScreen({ navigation }: any) {
           </View>
         </View>
       </Modal>
-    </View>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, flexDirection: 'row', backgroundColor: '#f8fafc' },
-  mainContent: { flex: 1, padding: 24 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
+  mainContent: { flex: 1 },
+  
+  // Header Banner - weiß mit Titel mittig
+  headerBanner: { flexDirection: 'row', alignItems: 'center', padding: 24, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  headerBannerCenter: { flex: 1, alignItems: 'center' },
   title: { fontSize: 28, fontWeight: '700', color: '#1a1a1a' },
   subtitle: { fontSize: 14, color: '#64748b', marginTop: 4 },
   headerTabs: { flexDirection: 'row', gap: 8 },
@@ -1517,8 +1531,10 @@ const styles = StyleSheet.create({
   headerTabIcon: { fontSize: 16, marginRight: 8 },
   headerTabText: { fontSize: 14, color: '#64748b', fontWeight: '500' },
   headerTabTextActive: { color: '#fff' },
-  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20, backgroundColor: '#fff', padding: 12, borderRadius: 12, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, zIndex: 100 },
-  searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 8, paddingHorizontal: 12 },
+  
+  // Toolbar - weiß umrandet
+  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0', zIndex: 100 },
+  searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', paddingHorizontal: 12 },
   searchIcon: { fontSize: 16, marginRight: 8 },
   searchInput: { flex: 1, paddingVertical: 10, fontSize: 14 },
   filterContainer: { flexDirection: 'row', gap: 8 },
@@ -1546,7 +1562,7 @@ const styles = StyleSheet.create({
   viewButtonText: { fontSize: 14, color: '#64748b' },
   addButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#1a1a1a' },
   addButtonText: { fontSize: 14, color: '#fff', fontWeight: '600' },
-  content: { flex: 1 },
+  content: { flex: 1, padding: 16 },
   kanbanContainer: { flex: 1 },
   kanbanColumn: { width: 300, backgroundColor: '#f1f5f9', borderRadius: 12, marginRight: 16, padding: 12, minHeight: 400 },
   kanbanColumnDropTarget: { backgroundColor: '#dbeafe', borderWidth: 2, borderColor: '#3b82f6', borderStyle: 'dashed' },
