@@ -1,10 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, Image, Linking, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, Image, Linking, Modal, Pressable } from 'react-native';
 import { supabase } from '../../config/supabase';
 import * as DocumentPicker from 'expo-document-picker';
 
-const POSITIONS = ['Torwart', 'Innenverteidiger', 'Linker Verteidiger', 'Rechter Verteidiger', 'Defensives Mittelfeld', 'Offensives Mittelfeld', 'Linke Außenbahn', 'Rechte Außenbahn', 'Stürmer'];
+const POSITION_SHORTS = ['TW', 'IV', 'LV', 'RV', 'DM', 'ZM', 'OM', 'LA', 'RA', 'ST'];
+const POSITION_MAP: Record<string, string> = {
+  'TW': 'Torwart',
+  'IV': 'Innenverteidiger',
+  'LV': 'Linker Verteidiger',
+  'RV': 'Rechter Verteidiger',
+  'DM': 'Defensives Mittelfeld',
+  'ZM': 'Zentrales Mittelfeld',
+  'OM': 'Offensives Mittelfeld',
+  'LA': 'Linke Außenbahn',
+  'RA': 'Rechte Außenbahn',
+  'ST': 'Stürmer',
+};
+const POSITIONS = ['Torwart', 'Innenverteidiger', 'Linker Verteidiger', 'Rechter Verteidiger', 'Defensives Mittelfeld', 'Zentrales Mittelfeld', 'Offensives Mittelfeld', 'Linke Außenbahn', 'Rechte Außenbahn', 'Stürmer'];
 const LISTINGS = ['Karl Herzog Sportmanagement', 'PM Sportmanagement'];
+const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
+const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+const YEARS = Array.from({ length: 91 }, (_, i) => 1980 + i);
 const COUNTRIES = ['Afghanistan', 'Ägypten', 'Albanien', 'Algerien', 'Andorra', 'Angola', 'Argentinien', 'Armenien', 'Aserbaidschan', 'Äthiopien', 'Australien', 'Belgien', 'Bosnien und Herzegowina', 'Brasilien', 'Bulgarien', 'Chile', 'China', 'Costa Rica', 'Dänemark', 'Deutschland', 'Dominikanische Republik', 'Ecuador', 'El Salvador', 'England', 'Estland', 'Finnland', 'Frankreich', 'Georgien', 'Ghana', 'Griechenland', 'Guatemala', 'Haiti', 'Honduras', 'Hongkong', 'Indien', 'Indonesien', 'Irak', 'Iran', 'Irland', 'Island', 'Israel', 'Italien', 'Jamaika', 'Japan', 'Jordanien', 'Kamerun', 'Kanada', 'Kasachstan', 'Katar', 'Kenia', 'Kolumbien', 'Kosovo', 'Kroatien', 'Kuba', 'Lettland', 'Libanon', 'Libyen', 'Liechtenstein', 'Litauen', 'Luxemburg', 'Marokko', 'Mexiko', 'Moldau', 'Monaco', 'Montenegro', 'Namibia', 'Neuseeland', 'Niederlande', 'Nigeria', 'Nordmazedonien', 'Norwegen', 'Österreich', 'Pakistan', 'Palästina', 'Panama', 'Paraguay', 'Peru', 'Philippinen', 'Polen', 'Portugal', 'Rumänien', 'Russland', 'Saudi-Arabien', 'Schottland', 'Schweden', 'Schweiz', 'Senegal', 'Serbien', 'Singapur', 'Slowakei', 'Slowenien', 'Spanien', 'Südafrika', 'Südkorea', 'Syrien', 'Taiwan', 'Thailand', 'Tschechien', 'Tunesien', 'Türkei', 'Uganda', 'Ukraine', 'Ungarn', 'Uruguay', 'USA', 'Usbekistan', 'Venezuela', 'Vereinigte Arabische Emirate', 'Vietnam', 'Wales', 'Weißrussland', 'Zypern'];
 const HEIGHTS = Array.from({ length: 101 }, (_, i) => 120 + i);
 const COUNTRY_CODES = [
@@ -24,7 +40,7 @@ const TransfermarktIcon = require('../../../assets/transfermarkt-logo.png');
 const ArbeitsamtIcon = require('../../../assets/arbeitsamt.png');
 
 interface Player {
-  id: string; first_name: string; last_name: string; nationality: string; birth_date: string; club: string; league: string; position: string; contract_end: string; photo_url: string; strong_foot: string; height: number; secondary_position: string; salary_month: string; point_bonus: string; appearance_bonus: string; contract_option: string; contract_scope: string; fixed_fee: string; contract_notes: string; u23_player: boolean; provision: string; transfer_commission: string; mandate_until: string; responsibility: string; listing: string; phone: string; phone_country_code: string; email: string; education: string; training: string; instagram: string; linkedin: string; tiktok: string; transfermarkt_url: string; interests: string; father_name: string; father_phone: string; father_phone_country_code: string; father_job: string; mother_name: string; mother_phone: string; mother_phone_country_code: string; mother_job: string; siblings: string; other_notes: string; injuries: string; street: string; postal_code: string; city: string; internat: boolean; future_club: string; future_contract_end: string; contract_documents: any[]; provision_documents: any[]; transfer_commission_documents: any[]; fussball_de_url: string;
+  id: string; first_name: string; last_name: string; nationality: string; birth_date: string; club: string; league: string; position: string; contract_end: string; photo_url: string; strong_foot: string; height: number; secondary_position: string; salary_month: string; point_bonus: string; appearance_bonus: string; contract_option: string; contract_scope: string; fixed_fee: string; contract_notes: string; u23_player: boolean; provision: string; transfer_commission: string; mandate_until: string; responsibility: string; listing: string; phone: string; phone_country_code: string; email: string; education: string; training: string; instagram: string; linkedin: string; tiktok: string; transfermarkt_url: string; interests: string; father_name: string; father_phone: string; father_phone_country_code: string; father_job: string; mother_name: string; mother_phone: string; mother_phone_country_code: string; mother_job: string; siblings: string; other_notes: string; injuries: string; street: string; postal_code: string; city: string; internat: boolean; future_club: string; future_contract_end: string; contract_documents: any[]; provision_documents: any[]; transfer_commission_documents: any[]; fussball_de_url: string; strengths: string; potentials: string;
 }
 
 interface ClubLogo {
@@ -55,6 +71,12 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const [advisors, setAdvisors] = useState<Advisor[]>([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showSpielplanModal, setShowSpielplanModal] = useState(false);
+  const [showPositionPicker, setShowPositionPicker] = useState(false);
+  const [showSecondaryPositionPicker, setShowSecondaryPositionPicker] = useState(false);
+  
+  // Date picker states
+  const [activeDatePicker, setActiveDatePicker] = useState<string | null>(null);
+  const [activeDatePart, setActiveDatePart] = useState<'day' | 'month' | 'year' | null>(null);
   
   // Club autocomplete state
   const [clubSearch, setClubSearch] = useState('');
@@ -95,6 +117,31 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       checkAndApplyFutureClub(player);
     }
   }, [player]);
+
+  // Hilfsfunktionen für Positionsumwandlung
+  const positionToShort = (fullName: string): string => {
+    const entry = Object.entries(POSITION_MAP).find(([_, full]) => full === fullName);
+    return entry ? entry[0] : fullName;
+  };
+  
+  const shortToPosition = (short: string): string => {
+    return POSITION_MAP[short] || short;
+  };
+
+  // Hilfsfunktionen für Datum-Dropdowns
+  const parseDateToParts = (dateString: string): { day: number; month: number; year: number } | null => {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return null;
+    return { day: date.getDate(), month: date.getMonth(), year: date.getFullYear() };
+  };
+
+  const buildDateFromParts = (day: number, month: number, year: number): string => {
+    if (!day || month === undefined || month === null || !year) return '';
+    const paddedMonth = (month + 1).toString().padStart(2, '0');
+    const paddedDay = day.toString().padStart(2, '0');
+    return `${year}-${paddedMonth}-${paddedDay}`;
+  };
 
   const fetchAdvisors = async () => {
     const { data } = await supabase.from('advisors').select('id, first_name, last_name').order('last_name');
@@ -294,11 +341,22 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   };
   const updateField = (field: string, value: any) => { if (editData) setEditData({ ...editData, [field]: value }); };
 
+  const closeAllDropdowns = () => {
+    setShowNationalityPicker(false);
+    setShowHeightPicker(false);
+    setShowPositionPicker(false);
+    setShowSecondaryPositionPicker(false);
+    setShowClubSuggestions(false);
+    setShowFutureClubSuggestions(false);
+    setActiveDatePicker(null);
+    setActiveDatePart(null);
+  };
+
   const handleSave = async () => {
     if (!editData) return;
     const u23Status = calculateU23Status(editData.birth_date);
     const updateData: any = {
-      first_name: editData.first_name, last_name: editData.last_name, nationality: selectedNationalities.join(', ') || null, birth_date: editData.birth_date || null, club: editData.club || null, league: editData.league || null, position: selectedPositions.join(', ') || null, contract_end: editData.contract_end || null, photo_url: editData.photo_url || null, strong_foot: editData.strong_foot || null, height: editData.height || null, secondary_position: selectedSecondaryPositions.join(', ') || null, salary_month: editData.salary_month || null, point_bonus: editData.point_bonus || null, appearance_bonus: editData.appearance_bonus || null, contract_option: editData.contract_option || null, contract_scope: editData.contract_scope || null, fixed_fee: editData.fixed_fee || null, contract_notes: editData.contract_notes || null, u23_player: u23Status.isU23, provision: editData.provision || null, transfer_commission: editData.transfer_commission || null, mandate_until: editData.mandate_until || null, responsibility: selectedResponsibilities.join(', ') || null, listing: editData.listing || null, phone: editData.phone || null, phone_country_code: editData.phone_country_code || '+49', email: editData.email || null, education: editData.education || null, training: editData.training || null, instagram: editData.instagram || null, linkedin: editData.linkedin || null, tiktok: editData.tiktok || null, transfermarkt_url: editData.transfermarkt_url || null, interests: editData.interests || null, father_name: editData.father_name || null, father_phone: editData.father_phone || null, father_phone_country_code: editData.father_phone_country_code || '+49', father_job: editData.father_job || null, mother_name: editData.mother_name || null, mother_phone: editData.mother_phone || null, mother_phone_country_code: editData.mother_phone_country_code || '+49', mother_job: editData.mother_job || null, siblings: editData.siblings || null, other_notes: editData.other_notes || null, injuries: editData.injuries || null, street: editData.street || null, postal_code: editData.postal_code || null, city: editData.city || null, internat: editData.internat || false, future_club: editData.future_club || null, future_contract_end: editData.future_contract_end || null, contract_documents: editData.contract_documents || [], provision_documents: editData.provision_documents || [], transfer_commission_documents: editData.transfer_commission_documents || [], fussball_de_url: editData.fussball_de_url || null,
+      first_name: editData.first_name, last_name: editData.last_name, nationality: selectedNationalities.join(', ') || null, birth_date: editData.birth_date || null, club: editData.club || null, league: editData.league || null, position: selectedPositions.join(', ') || null, contract_end: editData.contract_end || null, photo_url: editData.photo_url || null, strong_foot: editData.strong_foot || null, height: editData.height || null, secondary_position: selectedSecondaryPositions.join(', ') || null, salary_month: editData.salary_month || null, point_bonus: editData.point_bonus || null, appearance_bonus: editData.appearance_bonus || null, contract_option: editData.contract_option || null, contract_scope: editData.contract_scope || null, fixed_fee: editData.fixed_fee || null, contract_notes: editData.contract_notes || null, u23_player: u23Status.isU23, provision: editData.provision || null, transfer_commission: editData.transfer_commission || null, mandate_until: editData.mandate_until || null, responsibility: selectedResponsibilities.join(', ') || null, listing: editData.listing || null, phone: editData.phone || null, phone_country_code: editData.phone_country_code || '+49', email: editData.email || null, education: editData.education || null, training: editData.training || null, instagram: editData.instagram || null, linkedin: editData.linkedin || null, tiktok: editData.tiktok || null, transfermarkt_url: editData.transfermarkt_url || null, interests: editData.interests || null, father_name: editData.father_name || null, father_phone: editData.father_phone || null, father_phone_country_code: editData.father_phone_country_code || '+49', father_job: editData.father_job || null, mother_name: editData.mother_name || null, mother_phone: editData.mother_phone || null, mother_phone_country_code: editData.mother_phone_country_code || '+49', mother_job: editData.mother_job || null, siblings: editData.siblings || null, other_notes: editData.other_notes || null, injuries: editData.injuries || null, street: editData.street || null, postal_code: editData.postal_code || null, city: editData.city || null, internat: editData.internat || false, future_club: editData.future_club || null, future_contract_end: editData.future_contract_end || null, contract_documents: editData.contract_documents || [], provision_documents: editData.provision_documents || [], transfer_commission_documents: editData.transfer_commission_documents || [], fussball_de_url: editData.fussball_de_url || null, strengths: editData.strengths || null, potentials: editData.potentials || null,
     };
     const { error } = await supabase.from('player_details').update(updateData).eq('id', playerId);
     if (error) Alert.alert('Fehler', error.message);
@@ -325,7 +383,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const renderField = (label: string, field: keyof Player, placeholder?: string) => (
     <View style={styles.infoRow}>
       <Text style={styles.label}>{label}</Text>
-      {editing ? <TextInput style={styles.input} value={editData?.[field]?.toString() || ''} onChangeText={(text) => updateField(field, text)} placeholder={placeholder || label} /> : <Text style={styles.value}>{player?.[field]?.toString() || '-'}</Text>}
+      {editing ? <TextInput style={styles.input} value={editData?.[field]?.toString() || ''} onChangeText={(text) => updateField(field, text)} placeholder={placeholder || label} placeholderTextColor="#999" /> : <Text style={styles.value}>{player?.[field]?.toString() || '-'}</Text>}
     </View>
   );
 
@@ -344,7 +402,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
             style={styles.input} 
             value={editData?.fussball_de_url || ''} 
             onChangeText={(text) => updateField('fussball_de_url', text)} 
-            placeholder="https://www.fussball.de/mannschaft/..." 
+            placeholder="z.B. https://www.fussball.de/mannschaft/..." 
+            placeholderTextColor="#999"
           />
           <Text style={styles.spielplanHint}>
             💡 Gehe auf fussball.de → Suche die Mannschaft → Kopiere die URL
@@ -401,7 +460,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 }} 
                 onFocus={() => { setShowClubSuggestions(true); setShowFutureClubSuggestions(false); }}
                 onBlur={() => setTimeout(() => setShowClubSuggestions(false), 200)}
-                placeholder="Verein eingeben..." 
+                placeholder="z.B. Borussia Dortmund" 
+                placeholderTextColor="#999"
               />
             </View>
             {showClubSuggestions && filteredClubs.length > 0 && (
@@ -463,7 +523,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 }}
                 onFocus={() => { setShowFutureClubSuggestions(true); setShowClubSuggestions(false); }}
                 onBlur={() => setTimeout(() => setShowFutureClubSuggestions(false), 200)}
-                placeholder="Zukünftiger Verein eingeben..." 
+                placeholder="z.B. Bayern München" 
+                placeholderTextColor="#999"
               />
             </View>
             {showFutureClubSuggestions && filteredClubs.length > 0 && (
@@ -488,7 +549,38 @@ export function PlayerDetailScreen({ route, navigation }: any) {
             {(futureClubSearch || editData?.future_club) && (
               <View style={styles.futureContractRow}>
                 <Text style={styles.smallLabel}>Zukünftiges Vertragsende:</Text>
-                <input type="date" style={{ padding: 8, fontSize: 14, borderRadius: 8, border: '1px solid #ddd', flex: 1, boxSizing: 'border-box' as const }} value={convertToInputDate(editData?.future_contract_end || '')} onChange={(e) => updateField('future_contract_end', e.target.value)} />
+                <View style={[styles.datePickerRow, { flex: 1 }]}>
+                  <select 
+                    style={{ padding: 6, fontSize: 12, borderRadius: 6, border: '1px solid #ddd', flex: 1 }} 
+                    value={parseDateToParts(editData?.future_contract_end || '')?.day || 30}
+                    onChange={(e) => {
+                      const parts = parseDateToParts(editData?.future_contract_end || '') || { day: 30, month: 5, year: new Date().getFullYear() + 1 };
+                      updateField('future_contract_end', buildDateFromParts(parseInt(e.target.value), parts.month, parts.year));
+                    }}
+                  >
+                    {DAYS.map((d) => (<option key={d} value={d}>{d}</option>))}
+                  </select>
+                  <select 
+                    style={{ padding: 6, fontSize: 12, borderRadius: 6, border: '1px solid #ddd', flex: 2 }} 
+                    value={parseDateToParts(editData?.future_contract_end || '')?.month ?? 5}
+                    onChange={(e) => {
+                      const parts = parseDateToParts(editData?.future_contract_end || '') || { day: 30, month: 5, year: new Date().getFullYear() + 1 };
+                      updateField('future_contract_end', buildDateFromParts(parts.day, parseInt(e.target.value), parts.year));
+                    }}
+                  >
+                    {MONTHS.map((m, idx) => (<option key={m} value={idx}>{m}</option>))}
+                  </select>
+                  <select 
+                    style={{ padding: 6, fontSize: 12, borderRadius: 6, border: '1px solid #ddd', flex: 1 }} 
+                    value={parseDateToParts(editData?.future_contract_end || '')?.year || new Date().getFullYear() + 1}
+                    onChange={(e) => {
+                      const parts = parseDateToParts(editData?.future_contract_end || '') || { day: 30, month: 5, year: new Date().getFullYear() + 1 };
+                      updateField('future_contract_end', buildDateFromParts(parts.day, parts.month, parseInt(e.target.value)));
+                    }}
+                  >
+                    {YEARS.map((y) => (<option key={y} value={y}>{y}</option>))}
+                  </select>
+                </View>
               </View>
             )}
           </View>
@@ -507,7 +599,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       <Text style={styles.label}>{label}</Text>
       {editing ? (
         <View>
-          <TextInput style={styles.input} value={editData?.[field]?.toString() || ''} onChangeText={(text) => updateField(field, text)} placeholder={label} />
+          <TextInput style={styles.input} value={editData?.[field]?.toString() || ''} onChangeText={(text) => updateField(field, text)} placeholder={label} placeholderTextColor="#999" />
           <TouchableOpacity style={styles.smallUploadButton} onPress={() => uploadDocument(docField)}>
             <Text style={styles.smallUploadButtonText}>+ PDF</Text>
           </TouchableOpacity>
@@ -545,26 +637,170 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               {COUNTRY_CODES.map((c) => (<option key={c.code} value={c.code}>{c.code} ({c.country})</option>))}
             </select>
           </View>
-          <TextInput style={[styles.input, styles.phoneInput]} value={editData?.[phoneField]?.toString() || ''} onChangeText={(text) => updateField(phoneField, text)} placeholder="Telefonnummer" keyboardType="phone-pad" />
+          <TextInput style={[styles.input, styles.phoneInput]} value={editData?.[phoneField]?.toString() || ''} onChangeText={(text) => updateField(phoneField, text)} placeholder="z.B. 123456789" placeholderTextColor="#999" keyboardType="phone-pad" />
         </View>
       ) : (<Text style={styles.value}>{player?.[phoneField] ? `${player?.[codeField] || '+49'} ${player?.[phoneField]}` : '-'}</Text>)}
     </View>
   );
 
-  const renderDateField = (label: string, field: keyof Player) => (
-    <View style={styles.infoRow}>
-      <Text style={styles.label}>{label}</Text>
-      {editing ? <input type="date" style={{ padding: 12, fontSize: 15, borderRadius: 8, border: '1px solid #ddd', width: '100%', boxSizing: 'border-box' as const }} value={convertToInputDate(editData?.[field] as string || '')} onChange={(e) => updateField(field, e.target.value)} /> : <Text style={styles.value}>{player?.[field] ? formatDate(player[field] as string) : '-'}</Text>}
-    </View>
-  );
+  const renderDateField = (label: string, field: keyof Player) => {
+    const dateParts = parseDateToParts(editData?.[field] as string || '');
+    const currentDay = dateParts?.day || 1;
+    const currentMonth = dateParts?.month ?? 0;
+    const currentYear = dateParts?.year || 2000;
+    
+    const isActiveDay = activeDatePicker === field && activeDatePart === 'day';
+    const isActiveMonth = activeDatePicker === field && activeDatePart === 'month';
+    const isActiveYear = activeDatePicker === field && activeDatePart === 'year';
+    
+    return (
+      <View style={[styles.infoRow, { zIndex: activeDatePicker === field ? 500 : 1 }]}>
+        <Text style={styles.label}>{label}</Text>
+        {editing ? (
+          <View style={styles.datePickerRow}>
+            <View style={{ position: 'relative', flex: 1 }}>
+              <TouchableOpacity 
+                style={styles.dateDropdownButton} 
+                onPress={() => { closeAllDropdowns(); setActiveDatePicker(field); setActiveDatePart('day'); }}
+              >
+                <Text style={styles.dateDropdownText}>{currentDay || 'Tag'}</Text>
+                <Text>▼</Text>
+              </TouchableOpacity>
+              {isActiveDay && (
+                <View style={styles.pickerList}>
+                  <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
+                    {DAYS.map((d) => (
+                      <TouchableOpacity key={d} style={[styles.pickerItem, currentDay === d && styles.pickerItemSelected]} onPress={() => { updateField(field, buildDateFromParts(d, currentMonth, currentYear)); setActiveDatePart(null); }}>
+                        <Text style={[styles.pickerItemText, currentDay === d && styles.pickerItemTextSelected]}>{d}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+            <View style={{ position: 'relative', flex: 2 }}>
+              <TouchableOpacity 
+                style={styles.dateDropdownButton} 
+                onPress={() => { closeAllDropdowns(); setActiveDatePicker(field); setActiveDatePart('month'); }}
+              >
+                <Text style={styles.dateDropdownText}>{MONTHS[currentMonth] || 'Monat'}</Text>
+                <Text>▼</Text>
+              </TouchableOpacity>
+              {isActiveMonth && (
+                <View style={styles.pickerList}>
+                  <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
+                    {MONTHS.map((m, idx) => (
+                      <TouchableOpacity key={m} style={[styles.pickerItem, currentMonth === idx && styles.pickerItemSelected]} onPress={() => { updateField(field, buildDateFromParts(currentDay, idx, currentYear)); setActiveDatePart(null); }}>
+                        <Text style={[styles.pickerItemText, currentMonth === idx && styles.pickerItemTextSelected]}>{m}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+            <View style={{ position: 'relative', flex: 1 }}>
+              <TouchableOpacity 
+                style={styles.dateDropdownButton} 
+                onPress={() => { closeAllDropdowns(); setActiveDatePicker(field); setActiveDatePart('year'); }}
+              >
+                <Text style={styles.dateDropdownText}>{currentYear || 'Jahr'}</Text>
+                <Text>▼</Text>
+              </TouchableOpacity>
+              {isActiveYear && (
+                <View style={styles.pickerList}>
+                  <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
+                    {YEARS.map((y) => (
+                      <TouchableOpacity key={y} style={[styles.pickerItem, currentYear === y && styles.pickerItemSelected]} onPress={() => { updateField(field, buildDateFromParts(currentDay, currentMonth, y)); setActiveDatePart(null); }}>
+                        <Text style={[styles.pickerItemText, currentYear === y && styles.pickerItemTextSelected]}>{y}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+          </View>
+        ) : <Text style={styles.value}>{player?.[field] ? formatDate(player[field] as string) : '-'}</Text>}
+      </View>
+    );
+  };
 
   const renderBirthDateField = () => {
     const birthday = isBirthday(player?.birth_date || '');
+    const dateParts = parseDateToParts(editData?.birth_date || '');
+    const currentDay = dateParts?.day || 1;
+    const currentMonth = dateParts?.month ?? 0;
+    const currentYear = dateParts?.year || 2000;
+    
+    const isActiveDay = activeDatePicker === 'birth_date' && activeDatePart === 'day';
+    const isActiveMonth = activeDatePicker === 'birth_date' && activeDatePart === 'month';
+    const isActiveYear = activeDatePicker === 'birth_date' && activeDatePart === 'year';
+    
     return (
-      <View style={styles.infoRow}>
+      <View style={[styles.infoRow, { zIndex: activeDatePicker === 'birth_date' ? 500 : 1 }]}>
         <Text style={styles.label}>Geburtsdatum</Text>
         {editing ? (
-          <input type="date" style={{ padding: 12, fontSize: 15, borderRadius: 8, border: '1px solid #ddd', width: '100%', boxSizing: 'border-box' as const }} value={convertToInputDate(editData?.birth_date || '')} onChange={(e) => updateField('birth_date', e.target.value)} />
+          <View style={styles.datePickerRow}>
+            <View style={{ position: 'relative', flex: 1 }}>
+              <TouchableOpacity 
+                style={styles.dateDropdownButton} 
+                onPress={() => { closeAllDropdowns(); setActiveDatePicker('birth_date'); setActiveDatePart('day'); }}
+              >
+                <Text style={styles.dateDropdownText}>{currentDay || 'Tag'}</Text>
+                <Text>▼</Text>
+              </TouchableOpacity>
+              {isActiveDay && (
+                <View style={styles.pickerList}>
+                  <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
+                    {DAYS.map((d) => (
+                      <TouchableOpacity key={d} style={[styles.pickerItem, currentDay === d && styles.pickerItemSelected]} onPress={() => { updateField('birth_date', buildDateFromParts(d, currentMonth, currentYear)); setActiveDatePart(null); }}>
+                        <Text style={[styles.pickerItemText, currentDay === d && styles.pickerItemTextSelected]}>{d}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+            <View style={{ position: 'relative', flex: 2 }}>
+              <TouchableOpacity 
+                style={styles.dateDropdownButton} 
+                onPress={() => { closeAllDropdowns(); setActiveDatePicker('birth_date'); setActiveDatePart('month'); }}
+              >
+                <Text style={styles.dateDropdownText}>{MONTHS[currentMonth] || 'Monat'}</Text>
+                <Text>▼</Text>
+              </TouchableOpacity>
+              {isActiveMonth && (
+                <View style={styles.pickerList}>
+                  <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
+                    {MONTHS.map((m, idx) => (
+                      <TouchableOpacity key={m} style={[styles.pickerItem, currentMonth === idx && styles.pickerItemSelected]} onPress={() => { updateField('birth_date', buildDateFromParts(currentDay, idx, currentYear)); setActiveDatePart(null); }}>
+                        <Text style={[styles.pickerItemText, currentMonth === idx && styles.pickerItemTextSelected]}>{m}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+            <View style={{ position: 'relative', flex: 1 }}>
+              <TouchableOpacity 
+                style={styles.dateDropdownButton} 
+                onPress={() => { closeAllDropdowns(); setActiveDatePicker('birth_date'); setActiveDatePart('year'); }}
+              >
+                <Text style={styles.dateDropdownText}>{currentYear || 'Jahr'}</Text>
+                <Text>▼</Text>
+              </TouchableOpacity>
+              {isActiveYear && (
+                <View style={styles.pickerList}>
+                  <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
+                    {YEARS.map((y) => (
+                      <TouchableOpacity key={y} style={[styles.pickerItem, currentYear === y && styles.pickerItemSelected]} onPress={() => { updateField('birth_date', buildDateFromParts(currentDay, currentMonth, y)); setActiveDatePart(null); }}>
+                        <Text style={[styles.pickerItemText, currentYear === y && styles.pickerItemTextSelected]}>{y}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+          </View>
         ) : (
           <View style={styles.birthdayRow}>
             <Text style={styles.value}>{player?.birth_date ? formatDate(player.birth_date) : '-'}</Text>
@@ -578,10 +814,81 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const renderContractEndField = () => {
     const inCurrentSeason = isContractInCurrentSeason(player?.contract_end || '');
     const hasSecuredFuture = hasFutureClubAndExpiringContract(player);
+    const dateParts = parseDateToParts(editData?.contract_end || '');
+    const currentDay = dateParts?.day || 30;
+    const currentMonth = dateParts?.month ?? 5;
+    const currentYear = dateParts?.year || new Date().getFullYear() + 1;
+    
+    const isActiveDay = activeDatePicker === 'contract_end' && activeDatePart === 'day';
+    const isActiveMonth = activeDatePicker === 'contract_end' && activeDatePart === 'month';
+    const isActiveYear = activeDatePicker === 'contract_end' && activeDatePart === 'year';
+    
     return (
-      <View style={styles.infoRow}>
+      <View style={[styles.infoRow, { zIndex: activeDatePicker === 'contract_end' ? 500 : 1 }]}>
         <Text style={styles.label}>Vertragsende</Text>
-        {editing ? (<input type="date" style={{ padding: 12, fontSize: 15, borderRadius: 8, border: '1px solid #ddd', width: '100%', boxSizing: 'border-box' as const }} value={convertToInputDate(editData?.contract_end || '')} onChange={(e) => updateField('contract_end', e.target.value)} />
+        {editing ? (
+          <View style={styles.datePickerRow}>
+            <View style={{ position: 'relative', flex: 1 }}>
+              <TouchableOpacity 
+                style={styles.dateDropdownButton} 
+                onPress={() => { closeAllDropdowns(); setActiveDatePicker('contract_end'); setActiveDatePart('day'); }}
+              >
+                <Text style={styles.dateDropdownText}>{currentDay || 'Tag'}</Text>
+                <Text>▼</Text>
+              </TouchableOpacity>
+              {isActiveDay && (
+                <View style={styles.pickerList}>
+                  <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
+                    {DAYS.map((d) => (
+                      <TouchableOpacity key={d} style={[styles.pickerItem, currentDay === d && styles.pickerItemSelected]} onPress={() => { updateField('contract_end', buildDateFromParts(d, currentMonth, currentYear)); setActiveDatePart(null); }}>
+                        <Text style={[styles.pickerItemText, currentDay === d && styles.pickerItemTextSelected]}>{d}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+            <View style={{ position: 'relative', flex: 2 }}>
+              <TouchableOpacity 
+                style={styles.dateDropdownButton} 
+                onPress={() => { closeAllDropdowns(); setActiveDatePicker('contract_end'); setActiveDatePart('month'); }}
+              >
+                <Text style={styles.dateDropdownText}>{MONTHS[currentMonth] || 'Monat'}</Text>
+                <Text>▼</Text>
+              </TouchableOpacity>
+              {isActiveMonth && (
+                <View style={styles.pickerList}>
+                  <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
+                    {MONTHS.map((m, idx) => (
+                      <TouchableOpacity key={m} style={[styles.pickerItem, currentMonth === idx && styles.pickerItemSelected]} onPress={() => { updateField('contract_end', buildDateFromParts(currentDay, idx, currentYear)); setActiveDatePart(null); }}>
+                        <Text style={[styles.pickerItemText, currentMonth === idx && styles.pickerItemTextSelected]}>{m}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+            <View style={{ position: 'relative', flex: 1 }}>
+              <TouchableOpacity 
+                style={styles.dateDropdownButton} 
+                onPress={() => { closeAllDropdowns(); setActiveDatePicker('contract_end'); setActiveDatePart('year'); }}
+              >
+                <Text style={styles.dateDropdownText}>{currentYear || 'Jahr'}</Text>
+                <Text>▼</Text>
+              </TouchableOpacity>
+              {isActiveYear && (
+                <View style={styles.pickerList}>
+                  <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
+                    {YEARS.map((y) => (
+                      <TouchableOpacity key={y} style={[styles.pickerItem, currentYear === y && styles.pickerItemSelected]} onPress={() => { updateField('contract_end', buildDateFromParts(currentDay, currentMonth, y)); setActiveDatePart(null); }}>
+                        <Text style={[styles.pickerItemText, currentYear === y && styles.pickerItemTextSelected]}>{y}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+          </View>
         ) : player?.contract_end ? (<View style={[styles.statusBadge, hasSecuredFuture ? styles.statusBadgeGreen : (inCurrentSeason ? styles.statusBadgeRed : styles.statusBadgeNormal)]}><Text style={[styles.statusBadgeText, hasSecuredFuture ? styles.statusTextGreen : (inCurrentSeason ? styles.statusTextRed : styles.statusTextNormal)]}>{formatDate(player.contract_end)}</Text></View>) : <Text style={styles.value}>-</Text>}
       </View>
     );
@@ -591,10 +898,12 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     <View style={styles.infoRow}>
       <Text style={styles.label}>Adresse</Text>
       {editing ? (
-        <View style={styles.addressRow}>
-          <TextInput style={[styles.input, styles.addressStreet]} value={editData?.street || ''} onChangeText={(text) => updateField('street', text)} placeholder="Straße" />
-          <TextInput style={[styles.input, styles.addressPLZ]} value={editData?.postal_code || ''} onChangeText={(text) => updateField('postal_code', text)} placeholder="PLZ" />
-          <TextInput style={[styles.input, styles.addressCity]} value={editData?.city || ''} onChangeText={(text) => updateField('city', text)} placeholder="Wohnort" />
+        <View style={styles.addressColumn}>
+          <TextInput style={styles.input} value={editData?.street || ''} onChangeText={(text) => updateField('street', text)} placeholder="z.B. Musterstraße 1" placeholderTextColor="#999" />
+          <View style={styles.addressRowSmall}>
+            <TextInput style={[styles.input, styles.addressPLZ]} value={editData?.postal_code || ''} onChangeText={(text) => updateField('postal_code', text)} placeholder="PLZ" placeholderTextColor="#999" />
+            <TextInput style={[styles.input, styles.addressCitySmall]} value={editData?.city || ''} onChangeText={(text) => updateField('city', text)} placeholder="Stadt" placeholderTextColor="#999" />
+          </View>
         </View>
       ) : (
         <Text style={styles.value}>
@@ -606,10 +915,169 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     </View>
   );
 
+  const renderPositionDropdown = () => {
+    const displayPositions = selectedPositions.length > 0 
+      ? selectedPositions.map(p => shortToPosition(p)).join(', ')
+      : '-';
+    
+    return (
+      <View style={[styles.infoRow, { zIndex: 300 }]}>
+        <Text style={styles.label}>Position</Text>
+        {editing ? (
+          <View style={{ position: 'relative' }}>
+            <TouchableOpacity 
+              style={styles.dropdownButton} 
+              onPress={() => { 
+                closeAllDropdowns();
+                setShowPositionPicker(!showPositionPicker); 
+              }}
+            >
+              <Text style={styles.dropdownButtonText}>
+                {selectedPositions.length > 0 ? selectedPositions.map(p => positionToShort(p)).join(', ') : 'Positionen wählen'}
+              </Text>
+              <Text>{showPositionPicker ? '▲' : '▼'}</Text>
+            </TouchableOpacity>
+            {showPositionPicker && (
+              <View style={styles.pickerList}>
+                <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
+                  {POSITION_SHORTS.map((short) => {
+                    const fullName = POSITION_MAP[short];
+                    const isSelected = selectedPositions.includes(fullName);
+                    return (
+                      <TouchableOpacity 
+                        key={short} 
+                        style={[styles.pickerItem, isSelected && styles.pickerItemSelected]} 
+                        onPress={() => togglePosition(fullName)}
+                      >
+                        <Text style={[styles.pickerItemText, isSelected && styles.pickerItemTextSelected]}>
+                          {isSelected ? '✓ ' : ''}{short}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
+          </View>
+        ) : (
+          <Text style={styles.value}>{displayPositions}</Text>
+        )}
+      </View>
+    );
+  };
+
+  const renderSecondaryPositionDropdown = () => {
+    const displayPositions = selectedSecondaryPositions.length > 0 
+      ? selectedSecondaryPositions.map(p => shortToPosition(p)).join(', ')
+      : '-';
+    
+    return (
+      <View style={[styles.infoRow, { zIndex: 290 }]}>
+        <Text style={styles.label}>Nebenposition</Text>
+        {editing ? (
+          <View style={{ position: 'relative' }}>
+            <TouchableOpacity 
+              style={styles.dropdownButton} 
+              onPress={() => { 
+                closeAllDropdowns();
+                setShowSecondaryPositionPicker(!showSecondaryPositionPicker); 
+              }}
+            >
+              <Text style={styles.dropdownButtonText}>
+                {selectedSecondaryPositions.length > 0 ? selectedSecondaryPositions.map(p => positionToShort(p)).join(', ') : 'Nebenpositionen wählen'}
+              </Text>
+              <Text>{showSecondaryPositionPicker ? '▲' : '▼'}</Text>
+            </TouchableOpacity>
+            {showSecondaryPositionPicker && (
+              <View style={styles.pickerList}>
+                <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
+                  {POSITION_SHORTS.map((short) => {
+                    const fullName = POSITION_MAP[short];
+                    const isSelected = selectedSecondaryPositions.includes(fullName);
+                    return (
+                      <TouchableOpacity 
+                        key={short} 
+                        style={[styles.pickerItem, isSelected && styles.pickerItemSelected]} 
+                        onPress={() => toggleSecondaryPosition(fullName)}
+                      >
+                        <Text style={[styles.pickerItemText, isSelected && styles.pickerItemTextSelected]}>
+                          {isSelected ? '✓ ' : ''}{short}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
+          </View>
+        ) : (
+          <Text style={styles.value}>{displayPositions}</Text>
+        )}
+      </View>
+    );
+  };
+
   const renderPositionSelector = (label: string, selected: string[], toggle: (pos: string) => void) => (
     <View style={styles.infoRow}>
       <Text style={styles.label}>{label}</Text>
       {editing ? (<View style={styles.chipGrid}>{POSITIONS.map((pos) => (<TouchableOpacity key={pos} style={[styles.chip, selected.includes(pos) && styles.chipSelected]} onPress={() => toggle(pos)}><Text style={[styles.chipText, selected.includes(pos) && styles.chipTextSelected]}>{selected.includes(pos) ? '✓ ' : ''}{pos}</Text></TouchableOpacity>))}</View>) : <Text style={styles.value}>{selected.length > 0 ? selected.join(', ') : '-'}</Text>}
+    </View>
+  );
+
+  const renderTransfermarktField = () => (
+    <View style={styles.infoRow}>
+      <Text style={styles.label}>Transfermarkt</Text>
+      {editing ? (
+        <TextInput 
+          style={styles.input} 
+          value={editData?.transfermarkt_url || ''} 
+          onChangeText={(text) => updateField('transfermarkt_url', text)} 
+          placeholder="https://www.transfermarkt.de/spieler/..." 
+          placeholderTextColor="#999"
+        />
+      ) : player?.transfermarkt_url ? (
+        <TouchableOpacity onPress={() => Linking.openURL(player.transfermarkt_url)}>
+          <Image source={TransfermarktIcon} style={styles.tmLinkIcon} />
+        </TouchableOpacity>
+      ) : (
+        <Text style={styles.value}>-</Text>
+      )}
+    </View>
+  );
+
+  const renderStrengthsField = () => (
+    <View style={styles.infoRow}>
+      <Text style={styles.label}>Stärken</Text>
+      {editing ? (
+        <TextInput 
+          style={[styles.input, styles.smallTextArea]} 
+          value={editData?.strengths || ''} 
+          onChangeText={(text) => updateField('strengths', text)} 
+          placeholder="z.B. gutes 1v1, Kopfballstark, Schnelligkeit" 
+          placeholderTextColor="#999"
+          multiline
+        />
+      ) : (
+        <Text style={styles.value}>{player?.strengths || '-'}</Text>
+      )}
+    </View>
+  );
+
+  const renderPotentialsField = () => (
+    <View style={styles.infoRow}>
+      <Text style={styles.label}>Potentiale</Text>
+      {editing ? (
+        <TextInput 
+          style={[styles.input, styles.smallTextArea]} 
+          value={editData?.potentials || ''} 
+          onChangeText={(text) => updateField('potentials', text)} 
+          placeholder="z.B. Defensivarbeit, Spieleröffnung" 
+          placeholderTextColor="#999"
+          multiline
+        />
+      ) : (
+        <Text style={styles.value}>{player?.potentials || '-'}</Text>
+      )}
     </View>
   );
 
@@ -640,9 +1108,9 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   };
 
   const renderNationalitySelector = () => (
-    <View style={styles.infoRow}>
+    <View style={[styles.infoRow, { zIndex: 280 }]}>
       <Text style={styles.label}>Nationalität</Text>
-      {editing ? (<View><TouchableOpacity style={styles.dropdownButton} onPress={() => setShowNationalityPicker(!showNationalityPicker)}><Text style={styles.dropdownButtonText}>{selectedNationalities.length > 0 ? selectedNationalities.join(', ') : 'Nationalität wählen...'}</Text><Text>{showNationalityPicker ? '▲' : '▼'}</Text></TouchableOpacity>{showNationalityPicker && (<View style={styles.pickerList}><ScrollView style={styles.pickerScroll} nestedScrollEnabled>{COUNTRIES.map((country) => (<TouchableOpacity key={country} style={[styles.pickerItem, selectedNationalities.includes(country) && styles.pickerItemSelected]} onPress={() => toggleNationality(country)}><Text style={[styles.pickerItemText, selectedNationalities.includes(country) && styles.pickerItemTextSelected]}>{selectedNationalities.includes(country) ? '✓ ' : ''}{country}</Text></TouchableOpacity>))}</ScrollView></View>)}</View>) : <Text style={styles.value}>{selectedNationalities.length > 0 ? selectedNationalities.join(', ') : '-'}</Text>}
+      {editing ? (<View style={{ position: 'relative' }}><TouchableOpacity style={styles.dropdownButton} onPress={() => { closeAllDropdowns(); setShowNationalityPicker(!showNationalityPicker); }}><Text style={styles.dropdownButtonText}>{selectedNationalities.length > 0 ? selectedNationalities.join(', ') : 'Nationalität wählen...'}</Text><Text>{showNationalityPicker ? '▲' : '▼'}</Text></TouchableOpacity>{showNationalityPicker && (<View style={styles.pickerList}><ScrollView style={styles.pickerScroll} nestedScrollEnabled>{COUNTRIES.map((country) => (<TouchableOpacity key={country} style={[styles.pickerItem, selectedNationalities.includes(country) && styles.pickerItemSelected]} onPress={() => toggleNationality(country)}><Text style={[styles.pickerItemText, selectedNationalities.includes(country) && styles.pickerItemTextSelected]}>{selectedNationalities.includes(country) ? '✓ ' : ''}{country}</Text></TouchableOpacity>))}</ScrollView></View>)}</View>) : <Text style={styles.value}>{selectedNationalities.length > 0 ? selectedNationalities.join(', ') : '-'}</Text>}
     </View>
   );
 
@@ -654,9 +1122,9 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   );
 
   const renderHeightSelector = () => (
-    <View style={styles.infoRow}>
+    <View style={[styles.infoRow, { zIndex: 270 }]}>
       <Text style={styles.label}>Größe</Text>
-      {editing ? (<View><TouchableOpacity style={styles.dropdownButton} onPress={() => setShowHeightPicker(!showHeightPicker)}><Text style={styles.dropdownButtonText}>{editData?.height ? `${editData.height} cm` : 'Größe wählen...'}</Text><Text>{showHeightPicker ? '▲' : '▼'}</Text></TouchableOpacity>{showHeightPicker && (<View style={styles.pickerList}><ScrollView style={styles.pickerScroll} nestedScrollEnabled>{HEIGHTS.map((h) => (<TouchableOpacity key={h} style={[styles.pickerItem, editData?.height === h && styles.pickerItemSelected]} onPress={() => { updateField('height', h); setShowHeightPicker(false); }}><Text style={[styles.pickerItemText, editData?.height === h && styles.pickerItemTextSelected]}>{h} cm</Text></TouchableOpacity>))}</ScrollView></View>)}</View>) : <Text style={styles.value}>{player?.height ? `${player.height} cm` : '-'}</Text>}
+      {editing ? (<View style={{ position: 'relative' }}><TouchableOpacity style={styles.dropdownButton} onPress={() => { closeAllDropdowns(); setShowHeightPicker(!showHeightPicker); }}><Text style={styles.dropdownButtonText}>{editData?.height ? `${editData.height} cm` : 'Größe wählen...'}</Text><Text>{showHeightPicker ? '▲' : '▼'}</Text></TouchableOpacity>{showHeightPicker && (<View style={styles.pickerList}><ScrollView style={styles.pickerScroll} nestedScrollEnabled>{HEIGHTS.map((h) => (<TouchableOpacity key={h} style={[styles.pickerItem, editData?.height === h && styles.pickerItemSelected]} onPress={() => { updateField('height', h); setShowHeightPicker(false); }}><Text style={[styles.pickerItemText, editData?.height === h && styles.pickerItemTextSelected]}>{h} cm</Text></TouchableOpacity>))}</ScrollView></View>)}</View>) : <Text style={styles.value}>{player?.height ? `${player.height} cm` : '-'}</Text>}
     </View>
   );
 
@@ -689,7 +1157,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     return (
       <View style={styles.infoRow}>
         <Text style={styles.label}>Social Media</Text>
-        {editing ? (<View><View style={styles.socialInputRow}><Image source={InstagramIcon} style={styles.socialIconSmall} /><TextInput style={[styles.input, styles.socialInput]} value={editData?.instagram || ''} onChangeText={(text) => updateField('instagram', text)} placeholder="Instagram @username" /></View><View style={styles.socialInputRow}><Image source={LinkedInIcon} style={styles.socialIconSmall} /><TextInput style={[styles.input, styles.socialInput]} value={editData?.linkedin || ''} onChangeText={(text) => updateField('linkedin', text)} placeholder="LinkedIn URL" /></View><View style={styles.socialInputRow}><Image source={TikTokIcon} style={styles.socialIconSmall} /><TextInput style={[styles.input, styles.socialInput]} value={editData?.tiktok || ''} onChangeText={(text) => updateField('tiktok', text)} placeholder="TikTok @username" /></View></View>
+        {editing ? (<View><View style={styles.socialInputRow}><Image source={InstagramIcon} style={styles.socialIconSmall} /><TextInput style={[styles.input, styles.socialInput]} value={editData?.instagram || ''} onChangeText={(text) => updateField('instagram', text)} placeholder="z.B. @maxmustermann" placeholderTextColor="#999" /></View><View style={styles.socialInputRow}><Image source={LinkedInIcon} style={styles.socialIconSmall} /><TextInput style={[styles.input, styles.socialInput]} value={editData?.linkedin || ''} onChangeText={(text) => updateField('linkedin', text)} placeholder="z.B. linkedin.com/in/maxmustermann" placeholderTextColor="#999" /></View><View style={styles.socialInputRow}><Image source={TikTokIcon} style={styles.socialIconSmall} /><TextInput style={[styles.input, styles.socialInput]} value={editData?.tiktok || ''} onChangeText={(text) => updateField('tiktok', text)} placeholder="z.B. @maxmustermann" placeholderTextColor="#999" /></View></View>
         ) : (<View style={styles.socialIconsRow}>{player?.instagram && <TouchableOpacity onPress={() => Linking.openURL(player.instagram.startsWith('http') ? player.instagram : `https://instagram.com/${player.instagram.replace('@', '')}`)}><Image source={InstagramIcon} style={styles.socialIcon} /></TouchableOpacity>}{player?.linkedin && <TouchableOpacity onPress={() => Linking.openURL(player.linkedin.startsWith('http') ? player.linkedin : `https://linkedin.com/in/${player.linkedin}`)}><Image source={LinkedInIcon} style={styles.socialIcon} /></TouchableOpacity>}{player?.tiktok && <TouchableOpacity onPress={() => Linking.openURL(player.tiktok.startsWith('http') ? player.tiktok : `https://tiktok.com/@${player.tiktok.replace('@', '')}`)}><Image source={TikTokIcon} style={styles.socialIcon} /></TouchableOpacity>}</View>)}
       </View>
     );
@@ -752,6 +1220,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const displayClub = contractExpired ? 'Vereinslos' : player.club;
   const birthday = isBirthday(player.birth_date);
   const futureClubLogo = getClubLogo(player.future_club || '');
+  
+  const isAnyDropdownOpen = showPositionPicker || showSecondaryPositionPicker || showNationalityPicker || showHeightPicker || showClubSuggestions || showFutureClubSuggestions || activeDatePicker !== null;
 
   return (
     <View style={styles.modalOverlayContainer}>
@@ -761,22 +1231,25 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           <Text style={styles.headerTitle}>Spielerinfo</Text>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}><Text style={styles.closeButtonText}>✕</Text></TouchableOpacity>
         </View>
-        <ScrollView style={styles.content}>
+        <ScrollView 
+          style={styles.content} 
+          onScrollBeginDrag={() => closeAllDropdowns()}
+        >
+        <Pressable onPress={() => closeAllDropdowns()}>
         {/* Redesigned Top Section */}
         <View style={styles.topSection}>
           <View style={styles.topLeft}>
             <View style={styles.photoContainer}>
               {player.photo_url ? <Image source={{ uri: player.photo_url }} style={styles.photo} /> : <View style={styles.photoPlaceholder}><Text style={styles.photoPlaceholderText}>Foto</Text></View>}
             </View>
-            {editing && <TextInput style={styles.photoInput} placeholder="Foto-URL" value={editData.photo_url || ''} onChangeText={(text) => updateField('photo_url', text)} />}
+            {editing && <TextInput style={styles.photoInput} placeholder="z.B. https://..." value={editData.photo_url || ''} onChangeText={(text) => updateField('photo_url', text)} placeholderTextColor="#999" />}
           </View>
           
           <View style={styles.topCenter}>
             {editing ? (
               <>
-                <TextInput style={styles.nameInput} value={editData.first_name} onChangeText={(text) => updateField('first_name', text)} placeholder="Vorname" />
-                <TextInput style={styles.nameInput} value={editData.last_name} onChangeText={(text) => updateField('last_name', text)} placeholder="Nachname" />
-                <TextInput style={styles.tmInputTop} value={editData.transfermarkt_url || ''} onChangeText={(text) => updateField('transfermarkt_url', text)} placeholder="Transfermarkt URL" />
+                <TextInput style={styles.nameInput} value={editData.first_name} onChangeText={(text) => updateField('first_name', text)} placeholder="Vorname" placeholderTextColor="#999" />
+                <TextInput style={styles.nameInput} value={editData.last_name} onChangeText={(text) => updateField('last_name', text)} placeholder="Nachname" placeholderTextColor="#999" />
               </>
             ) : (
               <>
@@ -812,23 +1285,28 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 </View>
               )}
             </View>
-            {player.transfermarkt_url && !editing && (
-              <TouchableOpacity onPress={() => Linking.openURL(player.transfermarkt_url)} style={styles.tmButton}>
-                <Image source={TransfermarktIcon} style={styles.transfermarktIcon} />
-              </TouchableOpacity>
-            )}
           </View>
         </View>
 
         <View style={styles.twoColumnContainer}>
-          <View style={styles.halfColumn}>
-            <View style={styles.card}>
+          <View style={[styles.halfColumn, { zIndex: 400 }]}>
+            <View style={[styles.card, { zIndex: 400, overflow: 'visible' }]}>
               <Text style={styles.cardTitle}>Allgemein</Text>
-              {renderPositionSelector('Position', selectedPositions, togglePosition)}
-              {renderPositionSelector('Nebenposition', selectedSecondaryPositions, toggleSecondaryPosition)}
-              {renderNationalitySelector()}
-              {renderStrongFootSelector()}
-              {renderHeightSelector()}
+              <View style={[styles.splitContainer, { overflow: 'visible' }]}>
+                <View style={[styles.splitColumn, { overflow: 'visible', zIndex: 400 }]}>
+                  {renderTransfermarktField()}
+                  {renderPositionDropdown()}
+                  {renderSecondaryPositionDropdown()}
+                  {renderNationalitySelector()}
+                  {renderStrongFootSelector()}
+                  {renderHeightSelector()}
+                </View>
+                <View style={[styles.splitColumn, { overflow: 'visible', zIndex: 350 }]}>
+                  {renderStrengthsField()}
+                  <View style={{ height: 120 }} />
+                  {renderPotentialsField()}
+                </View>
+              </View>
             </View>
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Beratung</Text>
@@ -845,14 +1323,14 @@ export function PlayerDetailScreen({ route, navigation }: any) {
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Privat</Text>
               <View style={styles.splitContainer}>
-                <View style={styles.splitColumn}>
+                <View style={[styles.splitColumn, { zIndex: 10 }]}>
                   {renderBirthDateField()}
                   {renderPhoneField('Telefon', 'phone', 'phone_country_code')}
                   {renderField('E-Mail', 'email')}
                   {renderAddressField()}
                   {renderInternatField()}
                 </View>
-                <View style={styles.splitColumn}>
+                <View style={[styles.splitColumn, { zIndex: 1 }]}>
                   {renderField('Schulabschluss', 'education')}
                   {renderField('Ausbildung/Studium', 'training')}
                   {renderSocialLinks()}
@@ -914,6 +1392,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           <Text style={styles.cardTitle}>Verletzungen & Krankheiten</Text>
           <View style={styles.infoRow}>{editing ? <TextInput style={[styles.input, styles.textArea]} value={editData.injuries || ''} onChangeText={(text) => updateField('injuries', text)} placeholder="Verletzungshistorie..." multiline /> : <Text style={styles.value}>{player.injuries || '-'}</Text>}</View>
         </View>
+        </Pressable>
       </ScrollView>
       <View style={styles.bottomButtons}>
         {editing ? (
@@ -970,7 +1449,16 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 20,
   },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#ddd', borderTopLeftRadius: 16, borderTopRightRadius: 16 },
+  dropdownOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 100,
+    backgroundColor: 'transparent',
+  },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#ddd', borderTopLeftRadius: 16, borderTopRightRadius: 16, zIndex: 101 },
   headerTitle: { fontSize: 20, fontWeight: 'bold' },
   closeButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', justifyContent: 'center', alignItems: 'center' },
   closeButtonText: { color: '#64748b', fontSize: 18 },
@@ -1023,11 +1511,29 @@ const styles = StyleSheet.create({
   chipSelected: { backgroundColor: '#000', borderColor: '#000' },
   chipText: { fontSize: 13, color: '#333' },
   chipTextSelected: { color: '#fff' },
-  dropdownButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12 },
+  dropdownButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, backgroundColor: '#fff' },
   dropdownButtonText: { fontSize: 15, color: '#333' },
-  pickerList: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, marginTop: 4, maxHeight: 200 },
+  pickerList: { 
+    position: 'absolute', 
+    top: '100%', 
+    left: 0, 
+    right: 0, 
+    borderWidth: 1, 
+    borderColor: '#ddd', 
+    borderRadius: 8, 
+    marginTop: 4, 
+    maxHeight: 200, 
+    backgroundColor: '#fff',
+    zIndex: 9999,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 5,
+    overflow: 'hidden',
+  },
   pickerScroll: { maxHeight: 200 },
-  pickerItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#eee' },
+  pickerItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#eee', backgroundColor: '#fff' },
   pickerItemSelected: { backgroundColor: '#000' },
   pickerItemText: { fontSize: 14, color: '#333' },
   pickerItemTextSelected: { color: '#fff' },
@@ -1056,9 +1562,12 @@ const styles = StyleSheet.create({
   phoneCodePicker: { width: 120 },
   phoneInput: { flex: 1 },
   addressRow: { flexDirection: 'row', gap: 8 },
+  addressColumn: { flexDirection: 'column', gap: 8 },
+  addressRowSmall: { flexDirection: 'row', gap: 8 },
   addressStreet: { flex: 2 },
-  addressPLZ: { flex: 0.5, minWidth: 70 },
+  addressPLZ: { width: 80 },
   addressCity: { flex: 1 },
+  addressCitySmall: { flex: 1 },
   socialIconsRow: { flexDirection: 'row', gap: 12 },
   socialIcon: { width: 28, height: 28, resizeMode: 'contain' },
   socialInputRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
@@ -1151,5 +1660,126 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#999',
     fontStyle: 'italic',
+  },
+  datePickerRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  dateDropdownButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    backgroundColor: '#fff',
+  },
+  dateDropdownText: {
+    fontSize: 15,
+    color: '#333',
+  },
+  transfermarktLinkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  transfermarktIconSmall: {
+    width: 24,
+    height: 24,
+    resizeMode: 'contain',
+    marginRight: 8,
+  },
+  linkText: {
+    fontSize: 15,
+    color: '#007bff',
+  },
+  tmLinkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    alignSelf: 'flex-start',
+  },
+  tmLinkIcon: {
+    width: 32,
+    height: 32,
+    resizeMode: 'contain',
+  },
+  tmLinkText: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
+  },
+  // Position Picker Modal Styles
+  pickerModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pickerModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    width: 280,
+    maxHeight: 400,
+    overflow: 'hidden',
+  },
+  pickerModalTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    textAlign: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e5e5',
+    color: '#000',
+  },
+  pickerModalScroll: {
+    maxHeight: 280,
+  },
+  pickerModalItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#ccc',
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxSelected: {
+    backgroundColor: '#007aff',
+    borderColor: '#007aff',
+  },
+  checkboxCheck: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  pickerModalItemText: {
+    fontSize: 17,
+    color: '#000',
+  },
+  pickerModalDone: {
+    borderTopWidth: 1,
+    borderTopColor: '#e5e5e5',
+    paddingVertical: 14,
+  },
+  pickerModalDoneText: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#007aff',
+    textAlign: 'center',
   },
 });
