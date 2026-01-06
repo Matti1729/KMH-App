@@ -3,7 +3,14 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal,
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 import { getRelevantTermine, convertToDbFormat, getLastUpdateDisplay, getDFBTermineCount, getHallenTermineCount } from '../../services/dfbTermine';
-import { syncAllPlayerGames, getApiToken, registerApiToken } from '../../services/fussballDeApi';
+import { 
+  syncAllPlayerGames, 
+  getApiToken, 
+  saveApiToken, 
+  loadUpcomingGames,
+  extractTeamId,
+  getPlayersWithFussballDeUrl
+} from '../../services/fussballDeApi';
 import { Ionicons } from '@expo/vector-icons';
 
 interface Termin {
@@ -29,23 +36,26 @@ interface Advisor {
 
 interface PlayerGame {
   id: string;
+  player_id: string;
+  player_name: string;
   date: string;
+  time: string;
   home_team: string;
   away_team: string;
-  game_type: string;
+  home_team_logo?: string;
+  away_team_logo?: string;
   location: string;
-  player_id: string;
-  player_name?: string;
-  responsibility?: string;
-  created_at: string;
-}
-
-interface Player {
-  id: string;
-  first_name: string;
-  last_name: string;
-  club: string;
-  responsibility: string;
+  league: string;
+  matchday: string;
+  result?: string;
+  selected: boolean;
+  player?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    club: string;
+    responsibility: string;
+  };
 }
 
 interface ClubLogo {
@@ -57,7 +67,6 @@ type ViewMode = 'dashboard' | 'spiele' | 'termine' | 'kalender';
 type SortField = 'datum' | 'art' | 'titel' | 'jahrgang' | 'ort' | 'uebernahme';
 type SortDirection = 'asc' | 'desc';
 
-// Nur diese 3 Optionen beim Anlegen
 const TERMIN_ARTEN = ['Nationalmannschaft', 'Hallenturnier', 'Sonstiges'];
 const JAHRGAENGE = ['U13', 'U14', 'U15', 'U16', 'U17', 'U18', 'U19', 'U20', 'U21', 'U23', 'Herren', 'Sonstige'];
 
@@ -77,17 +86,18 @@ export function TermineScreen({ navigation }: any) {
   
   // Spiele unserer Spieler State
   const [playerGames, setPlayerGames] = useState<PlayerGame[]>([]);
-  const [players, setPlayers] = useState<Player[]>([]);
   const [clubLogos, setClubLogos] = useState<Record<string, string>>({});
   const [gamesSearchText, setGamesSearchText] = useState('');
   const [selectedResponsibilities, setSelectedResponsibilities] = useState<string[]>([]);
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [showResponsibilityDropdown, setShowResponsibilityDropdown] = useState(false);
   const [showPlayerDropdown, setShowPlayerDropdown] = useState(false);
-  const [showAddGameModal, setShowAddGameModal] = useState(false);
-  const [newGame, setNewGame] = useState({ date: '', home_team: '', away_team: '', game_type: 'Liga', location: '', player_id: '' });
   const [syncingGames, setSyncingGames] = useState(false);
   const [syncProgress, setSyncProgress] = useState<{ current: number; total: number; playerName: string } | null>(null);
+  const [gameSyncResult, setGameSyncResult] = useState<{ added: number; updated: number; errors: string[] } | null>(null);
+  const [showTokenModal, setShowTokenModal] = useState(false);
+  const [apiToken, setApiToken] = useState('');
+  const [playersWithUrl, setPlayersWithUrl] = useState<any[]>([]);
   
   // Sorting state
   const [sortField, setSortField] = useState<SortField>('datum');
@@ -103,27 +113,26 @@ export function TermineScreen({ navigation }: any) {
   const [formOrt, setFormOrt] = useState('');
   const [formUebernahme, setFormUebernahme] = useState('');
 
-  useEffect(() => { fetchProfile(); fetchAdvisors(); fetchTermine(); fetchPlayers(); fetchPlayerGames(); fetchClubLogos(); }, []);
+  useEffect(() => { 
+    fetchProfile(); 
+    fetchAdvisors(); 
+    fetchTermine(); 
+    fetchClubLogos(); 
+    fetchPlayersWithUrl();
+    fetchPlayerGames();
+  }, []);
 
-  const fetchPlayers = async () => {
-    const { data } = await supabase.from('players').select('id, first_name, last_name, club, responsibility').order('last_name');
-    if (data) setPlayers(data);
+  const fetchPlayersWithUrl = async () => {
+    const players = await getPlayersWithFussballDeUrl(supabase);
+    setPlayersWithUrl(players);
   };
 
   const fetchPlayerGames = async () => {
-    const { data } = await supabase.from('player_games').select('*').order('date', { ascending: true });
-    if (data) {
-      // Player names hinzufügen
-      const gamesWithNames = data.map(game => {
-        const player = players.find(p => p.id === game.player_id);
-        return {
-          ...game,
-          player_name: player ? `${player.first_name} ${player.last_name}` : '-',
-          responsibility: player?.responsibility || '-'
-        };
-      });
-      setPlayerGames(gamesWithNames);
-    }
+    const games = await loadUpcomingGames(supabase);
+    setPlayerGames(games.map(g => ({
+      ...g,
+      player_name: g.player ? `${g.player.first_name} ${g.player.last_name}` : g.player_name || '-'
+    })));
   };
 
   const fetchClubLogos = async () => {
@@ -135,15 +144,18 @@ export function TermineScreen({ navigation }: any) {
     }
   };
 
-  // Re-fetch games when players change
-  useEffect(() => {
-    if (players.length > 0) {
-      fetchPlayerGames();
-    }
-  }, [players]);
-
   const getClubLogo = (clubName: string): string | null => {
-    return clubLogos[clubName] || null;
+    if (!clubName) return null;
+    // Exakte Übereinstimmung
+    if (clubLogos[clubName]) return clubLogos[clubName];
+    // Teilübereinstimmung
+    for (const [name, url] of Object.entries(clubLogos)) {
+      if (clubName.toLowerCase().includes(name.toLowerCase()) || 
+          name.toLowerCase().includes(clubName.toLowerCase())) {
+        return url;
+      }
+    }
+    return null;
   };
 
   const fetchProfile = async () => {
@@ -165,9 +177,6 @@ export function TermineScreen({ navigation }: any) {
     const oneDayAgo = new Date(); 
     oneDayAgo.setDate(oneDayAgo.getDate() - 1);
     
-    // Hole Termine wo:
-    // 1. Startdatum >= gestern ODER
-    // 2. Enddatum >= heute (noch laufende Termine)
     const { data, error } = await supabase
       .from('termine')
       .select('*')
@@ -268,7 +277,6 @@ export function TermineScreen({ navigation }: any) {
     }
   };
 
-  // Prüfen ob Nationalmannschaft oder Hallenturnier - muss vor getSortedTermine sein
   const isNationalmannschaft = (termin: Termin): boolean => {
     return termin.quelle === 'DFB' || termin.art === 'DFB-Maßnahme' || termin.art === 'DFB-Spiel' || termin.art === 'Nationalmannschaft';
   };
@@ -286,7 +294,6 @@ export function TermineScreen({ navigation }: any) {
           valueB = new Date(b.datum).getTime();
           break;
         case 'art':
-          // Alphabetisch nach angezeigtem Art-Namen
           const artA = isNationalmannschaft(a) ? 'Nationalmannschaft' : isHallenturnier(a) ? 'Hallenturnier' : a.art;
           const artB = isNationalmannschaft(b) ? 'Nationalmannschaft' : isHallenturnier(b) ? 'Hallenturnier' : b.art;
           valueA = artA?.toLowerCase() || '';
@@ -322,7 +329,6 @@ export function TermineScreen({ navigation }: any) {
     return sortDirection === 'asc' ? '↑' : '↓';
   };
 
-  // Datum formatieren mit kurzem Jahr (26 statt 2026)
   const formatDate = (termin: Termin): string => {
     const startDate = new Date(termin.datum);
     const formatShort = (d: Date) => {
@@ -336,7 +342,6 @@ export function TermineScreen({ navigation }: any) {
       const endDate = new Date(termin.datum_ende);
       const startDay = startDate.getDate().toString().padStart(2, '0');
       const startMonth = (startDate.getMonth() + 1).toString().padStart(2, '0');
-      // Wenn gleicher Monat, nur Tag anzeigen
       if (startDate.getMonth() === endDate.getMonth() && startDate.getFullYear() === endDate.getFullYear()) {
         return `${startDay}.-${formatShort(endDate)}`;
       }
@@ -345,27 +350,22 @@ export function TermineScreen({ navigation }: any) {
     return formatShort(startDate);
   };
 
-  // Zeit nur anzeigen wenn echte Zeit vorhanden (nicht 00:00, 01:00, 02:00 etc.)
   const formatTime = (dateString: string): string => {
     const date = new Date(dateString);
     const hours = date.getHours();
     const minutes = date.getMinutes();
-    // Wenn Stunde 0, 1 oder 2 und Minuten 0 ist, dann keine echte Zeit
     if ((hours === 0 || hours === 1 || hours === 2) && minutes === 0) return '';
     return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
   };
 
   const isTerminPast = (dateString: string, datumEnde?: string): boolean => {
     const now = new Date();
-    // Wenn Enddatum vorhanden, prüfe ob das Enddatum in der Vergangenheit liegt
     if (datumEnde) {
       return new Date(datumEnde) < now;
     }
-    // Sonst nur Startdatum prüfen
     return new Date(dateString) < now;
   };
   
-  // Prüfen ob Termin heute ist
   const isTerminToday = (termin: Termin): boolean => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -375,7 +375,6 @@ export function TermineScreen({ navigation }: any) {
     const startDate = new Date(termin.datum);
     const endDate = termin.datum_ende ? new Date(termin.datum_ende) : startDate;
     
-    // Termin ist heute wenn: Start <= heute < morgen ODER heute liegt zwischen Start und Ende
     return (startDate >= today && startDate < tomorrow) || 
            (startDate <= today && endDate >= today);
   };
@@ -387,12 +386,245 @@ export function TermineScreen({ navigation }: any) {
     return termine.filter(t => { const d = new Date(t.datum); return d >= now && d <= in7Days; }).length; 
   };
 
-  // Art-Anzeige: DFB-Maßnahme, DFB-Spiel etc. → "Nationalmannschaft"
   const getDisplayArt = (art: string): string => {
     if (art === 'DFB-Maßnahme' || art === 'DFB-Spiel' || art === 'DFB' || art === 'Nationalmannschaft') {
       return 'Nationalmannschaft';
     }
     return art;
+  };
+
+  // === SPIELE SYNC FUNCTIONS ===
+  
+  const handleSyncGames = async () => {
+    // Prüfen ob Token vorhanden
+    const token = await getApiToken(supabase);
+    if (!token) {
+      setShowTokenModal(true);
+      return;
+    }
+    
+    if (playersWithUrl.length === 0) {
+      Alert.alert('Hinweis', 'Keine Spieler mit fussball.de URL gefunden.\n\nBitte trage zuerst im Spielerprofil die fussball.de URL ein.');
+      return;
+    }
+    
+    setSyncingGames(true);
+    setGameSyncResult(null);
+    setSyncProgress({ current: 0, total: playersWithUrl.length, playerName: '' });
+    
+    try {
+      const result = await syncAllPlayerGames(
+        supabase,
+        (current, total, playerName) => {
+          setSyncProgress({ current, total, playerName });
+        }
+      );
+      
+      setGameSyncResult(result);
+      
+      // Spiele neu laden
+      await fetchPlayerGames();
+      
+    } catch (error: any) {
+      console.error('Sync error:', error);
+      Alert.alert('Fehler', 'Fehler bei der Synchronisierung: ' + error.message);
+    } finally {
+      setSyncingGames(false);
+      setSyncProgress(null);
+    }
+  };
+
+  const handleSaveToken = async () => {
+    if (!apiToken.trim()) {
+      Alert.alert('Fehler', 'Bitte Token eingeben');
+      return;
+    }
+    
+    const success = await saveApiToken(supabase, apiToken.trim());
+    if (success) {
+      setShowTokenModal(false);
+      setApiToken('');
+      Alert.alert('Erfolg', 'API Token gespeichert. Du kannst jetzt synchronisieren.');
+    } else {
+      Alert.alert('Fehler', 'Token konnte nicht gespeichert werden');
+    }
+  };
+
+  const toggleGameSelection = async (gameId: string, currentValue: boolean) => {
+    const { error } = await supabase
+      .from('player_games')
+      .update({ selected: !currentValue })
+      .eq('id', gameId);
+    
+    if (!error) {
+      setPlayerGames(prev => prev.map(g => 
+        g.id === gameId ? { ...g, selected: !currentValue } : g
+      ));
+    }
+  };
+
+  const getSelectedGamesCount = () => playerGames.filter(g => g.selected).length;
+
+  const exportSelectedToCalendar = () => {
+    const selectedGames = playerGames.filter(g => g.selected);
+    if (selectedGames.length === 0) {
+      Alert.alert('Hinweis', 'Bitte wähle mindestens ein Spiel aus.');
+      return;
+    }
+    
+    // ICS Datei erstellen
+    let icsContent = `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//KMH-App//Spielplan//DE\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\n`;
+    
+    selectedGames.forEach(game => {
+      const dateStr = game.date.replace(/-/g, '');
+      // Zeit formatieren: HH:MM -> HHMMSS
+      let timeStr = '120000'; // Default 12:00
+      if (game.time) {
+        const timeParts = game.time.split(':');
+        timeStr = timeParts[0].padStart(2, '0') + (timeParts[1] || '00').padStart(2, '0') + '00';
+      }
+      
+      // Ende: 2 Stunden nach Start
+      const startHour = parseInt(timeStr.substring(0, 2));
+      const endHour = (startHour + 2) % 24;
+      const endTimeStr = endHour.toString().padStart(2, '0') + timeStr.substring(2);
+      
+      // Spielernamen für Description
+      const playerNames = (game as any).playerNames?.join(', ') || game.player_name || '';
+      
+      icsContent += `BEGIN:VEVENT\r\nDTSTART:${dateStr}T${timeStr}\r\nDTEND:${dateStr}T${endTimeStr}\r\nSUMMARY:${game.home_team} vs ${game.away_team}\r\nDESCRIPTION:Spieler: ${playerNames}\r\nLOCATION:${game.location || ''}\r\nEND:VEVENT\r\n`;
+    });
+    
+    icsContent += 'END:VCALENDAR';
+    
+    // Download
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `spielplan_${new Date().toISOString().split('T')[0]}.ics`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    Alert.alert('Erfolg', `${selectedGames.length} Spiele wurden exportiert.`);
+  };
+
+  // Alle gefilterten Spiele auswählen/abwählen
+  const toggleSelectAllFiltered = async () => {
+    const allSelected = filteredGames.every(g => g.selected);
+    
+    for (const game of filteredGames) {
+      if (allSelected !== game.selected) continue; // Nur ändern wenn nötig
+      
+      await supabase
+        .from('player_games')
+        .update({ selected: !allSelected })
+        .eq('id', game.id);
+    }
+    
+    // State aktualisieren
+    setPlayerGames(prev => prev.map(g => {
+      const isFiltered = filteredGames.some(fg => fg.id === g.id);
+      if (isFiltered) {
+        return { ...g, selected: !allSelected };
+      }
+      return g;
+    }));
+  };
+
+  const areAllFilteredSelected = () => {
+    if (filteredGames.length === 0) return false;
+    return filteredGames.every(g => g.selected);
+  };
+
+  // Filter Logic
+  const availableResponsibilities = useMemo(() => {
+    const responsibilities = new Set<string>();
+    playerGames.forEach(g => { 
+      if (g.player?.responsibility) responsibilities.add(g.player.responsibility); 
+    });
+    return Array.from(responsibilities).sort();
+  }, [playerGames]);
+
+  const availablePlayers = useMemo(() => {
+    const players = new Map<string, { id: string; name: string; club: string }>();
+    playerGames.forEach(g => {
+      if (g.player_id && !players.has(g.player_id)) {
+        players.set(g.player_id, {
+          id: g.player_id,
+          name: g.player_name || '-',
+          club: g.player?.club || ''
+        });
+      }
+    });
+    return Array.from(players.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [playerGames]);
+
+  const filteredGames = useMemo(() => {
+    let games = [...playerGames];
+    
+    if (gamesSearchText) {
+      const search = gamesSearchText.toLowerCase();
+      games = games.filter(g => 
+        g.home_team?.toLowerCase().includes(search) ||
+        g.away_team?.toLowerCase().includes(search) ||
+        g.player_name?.toLowerCase().includes(search) ||
+        g.location?.toLowerCase().includes(search)
+      );
+    }
+    
+    if (selectedResponsibilities.length > 0) {
+      games = games.filter(g => selectedResponsibilities.includes(g.player?.responsibility || ''));
+    }
+    
+    if (selectedPlayers.length > 0) {
+      games = games.filter(g => selectedPlayers.includes(g.player_id));
+    }
+    
+    // Duplikate zusammenführen: gleiche Spiele (Datum + Teams) mit mehreren Spielern
+    const gameMap = new Map<string, PlayerGame & { playerNames: string[], playerResponsibilities: string[] }>();
+    
+    games.forEach(game => {
+      const key = `${game.date}_${game.home_team}_${game.away_team}`;
+      
+      if (gameMap.has(key)) {
+        const existing = gameMap.get(key)!;
+        if (!existing.playerNames.includes(game.player_name)) {
+          existing.playerNames.push(game.player_name);
+        }
+        const resp = game.player?.responsibility || '';
+        if (resp && !existing.playerResponsibilities.includes(resp)) {
+          existing.playerResponsibilities.push(resp);
+        }
+      } else {
+        gameMap.set(key, {
+          ...game,
+          playerNames: [game.player_name],
+          playerResponsibilities: game.player?.responsibility ? [game.player.responsibility] : []
+        });
+      }
+    });
+    
+    return Array.from(gameMap.values());
+  }, [playerGames, gamesSearchText, selectedResponsibilities, selectedPlayers]);
+
+  const toggleResponsibility = (resp: string) => {
+    setSelectedResponsibilities(prev => 
+      prev.includes(resp) ? prev.filter(r => r !== resp) : [...prev, resp]
+    );
+  };
+
+  const togglePlayer = (playerId: string) => {
+    setSelectedPlayers(prev => 
+      prev.includes(playerId) ? prev.filter(p => p !== playerId) : [...prev, playerId]
+    );
+  };
+
+  const closeAllGameDropdowns = () => {
+    setShowResponsibilityDropdown(false);
+    setShowPlayerDropdown(false);
   };
 
   const DashboardCard = ({ id, children, style, onPress, hoverStyle }: { 
@@ -414,6 +646,28 @@ export function TermineScreen({ navigation }: any) {
     </TouchableOpacity>
   );
 
+  const formatGameDate = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const weekdays = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+    const weekday = weekdays[date.getDay()];
+    return `${weekday}, ${day}.${month}.`;
+  };
+
+  const isGameToday = (dateStr: string): boolean => {
+    const today = new Date().toISOString().split('T')[0];
+    return dateStr === today;
+  };
+
+  const isGameThisWeek = (dateStr: string): boolean => {
+    const today = new Date();
+    const gameDate = new Date(dateStr);
+    const diffTime = gameDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays >= 0 && diffDays <= 7;
+  };
+
   const renderDashboard = () => (
     <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
       <View style={styles.gridContainer}>
@@ -422,10 +676,23 @@ export function TermineScreen({ navigation }: any) {
             <View style={styles.mainCardContent}>
               <View style={styles.mainCardLeft}>
                 <Text style={styles.mainCardTitle}>Spiele unserer Spieler</Text>
-                <Text style={styles.mainCardSubtitle}>Alle Partien deiner Mandanten{'\n'}im Überblick</Text>
-                <View style={styles.mainCardFooter}><Text style={styles.mainCardLink}>Zur Übersicht</Text><Text style={styles.mainCardArrow}>→</Text></View>
+                <Text style={styles.mainCardSubtitle}>
+                  {playerGames.length > 0 
+                    ? `${playerGames.length} Spiele in den nächsten 8 Wochen`
+                    : 'Alle Partien deiner Mandanten\nim Überblick'
+                  }
+                </Text>
+                <View style={styles.mainCardFooter}>
+                  <Text style={styles.mainCardLink}>Zur Übersicht</Text>
+                  <Text style={styles.mainCardArrow}>→</Text>
+                </View>
               </View>
-              <View style={styles.mainCardRight}><Text style={styles.mainCardIcon}>⚽</Text></View>
+              <View style={styles.mainCardRight}>
+                <Text style={styles.mainCardIcon}>⚽</Text>
+                {playersWithUrl.length > 0 && (
+                  <Text style={styles.playerCountBadge}>{playersWithUrl.length} Spieler</Text>
+                )}
+              </View>
             </View>
           </DashboardCard>
           <View style={styles.rightColumn}>
@@ -453,6 +720,301 @@ export function TermineScreen({ navigation }: any) {
     </ScrollView>
   );
 
+  const renderSpieleUnsererSpieler = () => {
+    const isAnyDropdownOpen = showResponsibilityDropdown || showPlayerDropdown;
+    
+    const handleContainerPress = () => {
+      if (isAnyDropdownOpen) {
+        closeAllGameDropdowns();
+      }
+    };
+    
+    const getResponsibilityFilterLabel = () => {
+      if (selectedResponsibilities.length === 0) return 'Zuständigkeit';
+      if (selectedResponsibilities.length === 1) return selectedResponsibilities[0];
+      return `${selectedResponsibilities.length} Zuständigkeiten`;
+    };
+
+    const getPlayerFilterLabel = () => {
+      if (selectedPlayers.length === 0) return 'Spieler';
+      if (selectedPlayers.length === 1) {
+        const player = availablePlayers.find(p => p.id === selectedPlayers[0]);
+        return player?.name || 'Spieler';
+      }
+      return `${selectedPlayers.length} Spieler`;
+    };
+    
+    return (
+      <View style={styles.scoutingMainContent}>
+        {/* Header Banner */}
+        <Pressable style={styles.scoutingHeaderBanner} onPress={closeAllGameDropdowns}>
+          <TouchableOpacity style={styles.scoutingFilterButton} onPress={() => setViewMode('dashboard')}>
+            <Text style={styles.scoutingFilterButtonText}>← Zurück</Text>
+          </TouchableOpacity>
+          <View style={styles.scoutingHeaderBannerCenter}>
+            <Text style={styles.scoutingTitle}>Spiele unserer Spieler</Text>
+            <Text style={styles.scoutingSubtitle}>
+              {playersWithUrl.length} Spieler mit fussball.de URL • {playerGames.length} Spiele geladen
+            </Text>
+          </View>
+          <View style={styles.headerButtonsRow}>
+            {getSelectedGamesCount() > 0 && (
+              <TouchableOpacity style={styles.exportButton} onPress={exportSelectedToCalendar}>
+                <Text style={styles.exportButtonText}>📅 {getSelectedGamesCount()} exportieren</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity 
+              style={[styles.scoutingFilterButton, syncingGames && { opacity: 0.6 }]} 
+              onPress={handleSyncGames}
+              disabled={syncingGames}
+            >
+              <Text style={styles.scoutingFilterButtonText}>
+                {syncingGames 
+                  ? (syncProgress ? `⏳ ${syncProgress.current}/${syncProgress.total}` : '⏳ Lädt...') 
+                  : '🔄 Spiele laden'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+
+        {/* Sync Progress */}
+        {syncingGames && syncProgress && (
+          <View style={styles.syncProgressBar}>
+            <View style={[styles.syncProgressFill, { width: `${(syncProgress.current / syncProgress.total) * 100}%` }]} />
+            <Text style={styles.syncProgressText}>
+              Lade Spiele für: {syncProgress.playerName}
+            </Text>
+          </View>
+        )}
+
+        {/* Sync Result */}
+        {gameSyncResult && !syncingGames && (
+          <View style={[styles.syncResultBanner, gameSyncResult.errors.length > 0 ? styles.syncResultWarning : styles.syncResultSuccess]}>
+            <Text style={styles.syncResultText}>
+              ✓ {gameSyncResult.added} neue Spiele • {gameSyncResult.updated} aktualisiert
+              {gameSyncResult.errors.length > 0 && ` • ${gameSyncResult.errors.length} Fehler`}
+            </Text>
+            <TouchableOpacity onPress={() => setGameSyncResult(null)}>
+              <Text style={styles.syncResultClose}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Toolbar */}
+        <Pressable style={styles.scoutingToolbar} onPress={closeAllGameDropdowns}>
+          <Pressable style={styles.spieleSearchContainer} onPress={closeAllGameDropdowns}>
+            <Text style={styles.scoutingSearchIcon}>🔍</Text>
+            <TextInput 
+              style={styles.scoutingSearchInput} 
+              placeholder="Spieler, Verein suchen..." 
+              value={gamesSearchText} 
+              onChangeText={setGamesSearchText}
+              onFocus={closeAllGameDropdowns}
+            />
+          </Pressable>
+          
+          <View style={styles.scoutingFilterContainer}>
+            {/* Spieler Filter */}
+            <View style={[styles.scoutingDropdownContainer, { zIndex: 40 }]}>
+              <TouchableOpacity 
+                style={[styles.scoutingFilterButton, selectedPlayers.length > 0 && styles.scoutingFilterButtonActive]} 
+                onPress={(e) => { e.stopPropagation(); setShowPlayerDropdown(!showPlayerDropdown); setShowResponsibilityDropdown(false); }}
+              >
+                <Text style={[styles.scoutingFilterButtonText, selectedPlayers.length > 0 && styles.scoutingFilterButtonTextActive]}>
+                  {getPlayerFilterLabel()} ▼
+                </Text>
+              </TouchableOpacity>
+              {showPlayerDropdown && (
+                <Pressable style={styles.scoutingFilterDropdownMulti} onPress={(e) => e.stopPropagation()}>
+                  <View style={styles.scoutingFilterDropdownHeader}>
+                    <Text style={styles.scoutingFilterDropdownTitle}>Spieler wählen</Text>
+                    {selectedPlayers.length > 0 && (
+                      <TouchableOpacity onPress={() => setSelectedPlayers([])}>
+                        <Text style={styles.scoutingFilterClearText}>Alle löschen</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
+                    {availablePlayers.length === 0 ? (
+                      <Text style={styles.scoutingNoDataText}>Keine Spieler mit Spielen</Text>
+                    ) : (
+                      availablePlayers.map(player => {
+                        const isSelected = selectedPlayers.includes(player.id);
+                        const count = playerGames.filter(g => g.player_id === player.id).length;
+                        return (
+                          <TouchableOpacity key={player.id} style={styles.scoutingFilterCheckboxItem} onPress={() => togglePlayer(player.id)}>
+                            <View style={[styles.scoutingCheckbox, isSelected && styles.scoutingCheckboxSelected]}>
+                              {isSelected && <Text style={styles.scoutingCheckmark}>✓</Text>}
+                            </View>
+                            <Text style={styles.scoutingFilterCheckboxText}>{player.name}</Text>
+                            <Text style={styles.scoutingFilterCountBadge}>{count}</Text>
+                          </TouchableOpacity>
+                        );
+                      })
+                    )}
+                  </ScrollView>
+                  <TouchableOpacity style={styles.scoutingFilterDoneButton} onPress={() => setShowPlayerDropdown(false)}>
+                    <Text style={styles.scoutingFilterDoneText}>Fertig</Text>
+                  </TouchableOpacity>
+                </Pressable>
+              )}
+            </View>
+
+            {/* Zuständigkeit Filter */}
+            <View style={[styles.scoutingDropdownContainer, { zIndex: 30 }]}>
+              <TouchableOpacity 
+                style={[styles.scoutingFilterButton, selectedResponsibilities.length > 0 && styles.scoutingFilterButtonActive]} 
+                onPress={(e) => { e.stopPropagation(); setShowResponsibilityDropdown(!showResponsibilityDropdown); setShowPlayerDropdown(false); }}
+              >
+                <Text style={[styles.scoutingFilterButtonText, selectedResponsibilities.length > 0 && styles.scoutingFilterButtonTextActive]}>
+                  {getResponsibilityFilterLabel()} ▼
+                </Text>
+              </TouchableOpacity>
+              {showResponsibilityDropdown && (
+                <Pressable style={styles.scoutingFilterDropdownMulti} onPress={(e) => e.stopPropagation()}>
+                  <View style={styles.scoutingFilterDropdownHeader}>
+                    <Text style={styles.scoutingFilterDropdownTitle}>Zuständigkeit wählen</Text>
+                    {selectedResponsibilities.length > 0 && (
+                      <TouchableOpacity onPress={() => setSelectedResponsibilities([])}>
+                        <Text style={styles.scoutingFilterClearText}>Alle löschen</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
+                    {availableResponsibilities.length === 0 ? (
+                      <Text style={styles.scoutingNoDataText}>Keine Zuständigkeiten</Text>
+                    ) : (
+                      availableResponsibilities.map(resp => {
+                        const isSelected = selectedResponsibilities.includes(resp);
+                        const count = playerGames.filter(g => g.player?.responsibility === resp).length;
+                        return (
+                          <TouchableOpacity key={resp} style={styles.scoutingFilterCheckboxItem} onPress={() => toggleResponsibility(resp)}>
+                            <View style={[styles.scoutingCheckbox, isSelected && styles.scoutingCheckboxSelected]}>
+                              {isSelected && <Text style={styles.scoutingCheckmark}>✓</Text>}
+                            </View>
+                            <Text style={styles.scoutingFilterCheckboxText}>{resp}</Text>
+                            <Text style={styles.scoutingFilterCountBadge}>{count}</Text>
+                          </TouchableOpacity>
+                        );
+                      })
+                    )}
+                  </ScrollView>
+                  <TouchableOpacity style={styles.scoutingFilterDoneButton} onPress={() => setShowResponsibilityDropdown(false)}>
+                    <Text style={styles.scoutingFilterDoneText}>Fertig</Text>
+                  </TouchableOpacity>
+                </Pressable>
+              )}
+            </View>
+          </View>
+        </Pressable>
+
+        {/* Tabelle */}
+        <Pressable style={styles.scoutingContent} onPress={closeAllGameDropdowns}>
+          <View style={styles.scoutingGamesContainer}>
+            <View style={styles.scoutingTableHeader}>
+              <TouchableOpacity 
+                style={[styles.scoutingTableHeaderCell, { width: 40 }]} 
+                onPress={toggleSelectAllFiltered}
+              >
+                <View style={[styles.gameCheckbox, areAllFilteredSelected() && styles.gameCheckboxSelected]}>
+                  {areAllFilteredSelected() && <Text style={styles.gameCheckmark}>✓</Text>}
+                </View>
+              </TouchableOpacity>
+              <Text style={[styles.scoutingTableHeaderCell, { flex: 0.8 }]}>Datum</Text>
+              <Text style={[styles.scoutingTableHeaderCell, { flex: 0.5 }]}>Zeit</Text>
+              <Text style={[styles.scoutingTableHeaderCell, { flex: 2 }]}>Spiel</Text>
+              <Text style={[styles.scoutingTableHeaderCell, { flex: 1 }]}>Art</Text>
+              <Text style={[styles.scoutingTableHeaderCell, { flex: 1 }]}>Spieler</Text>
+              <Text style={[styles.scoutingTableHeaderCell, { flex: 1 }]}>Zuständigkeit</Text>
+            </View>
+            <ScrollView onScrollBeginDrag={closeAllGameDropdowns}>
+              {filteredGames.length === 0 ? (
+                <View style={styles.scoutingEmptyState}>
+                  {playersWithUrl.length === 0 ? (
+                    <>
+                      <Text style={styles.scoutingEmptyIcon}>👤</Text>
+                      <Text style={styles.scoutingEmptyTitle}>Keine Spieler mit fussball.de URL</Text>
+                      <Text style={styles.scoutingEmptyText}>
+                        Trage zuerst im Spielerprofil die fussball.de URL ein.{'\n'}
+                        Die URL findest du auf fussball.de bei der Mannschaft deines Spielers.
+                      </Text>
+                    </>
+                  ) : playerGames.length === 0 ? (
+                    <>
+                      <Text style={styles.scoutingEmptyIcon}>⚽</Text>
+                      <Text style={styles.scoutingEmptyTitle}>Noch keine Spiele geladen</Text>
+                      <Text style={styles.scoutingEmptyText}>
+                        Klicke auf "🔄 Spiele laden" um die Spielpläne{'\n'}von fussball.de zu synchronisieren.
+                      </Text>
+                      <TouchableOpacity style={styles.emptyStateButton} onPress={handleSyncGames}>
+                        <Text style={styles.emptyStateButtonText}>🔄 Jetzt Spiele laden</Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.scoutingEmptyIcon}>🔍</Text>
+                      <Text style={styles.scoutingEmptyTitle}>Keine Spiele gefunden</Text>
+                      <Text style={styles.scoutingEmptyText}>Ändere die Filterkriterien</Text>
+                    </>
+                  )}
+                </View>
+              ) : (
+                filteredGames.map(game => {
+                  const isToday = isGameToday(game.date);
+                  
+                  // Art aus dem League-Feld ableiten
+                  const getGameArt = (league: string): string => {
+                    if (!league) return 'Sonstiges';
+                    const l = league.toLowerCase();
+                    if (l.includes('hallenturnier') || l.includes('hallen')) return 'Hallenturnier';
+                    if (l.includes('pokal') || l.includes('cup')) return 'Pokalspiel';
+                    if (l.includes('nachwuchsliga') || l.includes('bundesliga') || l.includes('meisterschaft') || l.includes('liga') || l.includes('league') || l.includes('dnl')) return 'Punktspiel';
+                    if (l.includes('freundschaft') || l.includes('friendly') || l.includes('testspiel') || l.includes('turnier')) return 'Freundschaftsspiel';
+                    return 'Sonstiges';
+                  };
+                  
+                  return (
+                    <View key={game.id} style={[
+                      styles.scoutingTableRow,
+                      isToday && styles.gameRowToday
+                    ]}>
+                      <TouchableOpacity 
+                        style={[styles.scoutingTableCell, { width: 40 }]}
+                        onPress={() => toggleGameSelection(game.id, game.selected)}
+                      >
+                        <View style={[styles.gameCheckbox, game.selected && styles.gameCheckboxSelected]}>
+                          {game.selected && <Text style={styles.gameCheckmark}>✓</Text>}
+                        </View>
+                      </TouchableOpacity>
+                      <Text style={[styles.scoutingTableCell, { flex: 0.8 }, isToday && styles.textBold]}>
+                        {formatGameDate(game.date)}
+                      </Text>
+                      <Text style={[styles.scoutingTableCell, { flex: 0.5 }]}>
+                        {game.time || '-'}
+                      </Text>
+                      <Text style={[styles.scoutingTableCell, { flex: 2 }]} numberOfLines={1}>
+                        {game.home_team} vs {game.away_team}
+                      </Text>
+                      <Text style={[styles.scoutingTableCell, { flex: 1 }]} numberOfLines={1}>
+                        {getGameArt(game.league)}
+                      </Text>
+                      <Text style={[styles.scoutingTableCell, { flex: 1, fontWeight: '600' }]} numberOfLines={2}>
+                        {(game as any).playerNames?.join(', ') || game.player_name}
+                      </Text>
+                      <Text style={[styles.scoutingTableCell, { flex: 1 }]} numberOfLines={1}>
+                        {(game as any).playerResponsibilities?.join(', ') || game.player?.responsibility || '-'}
+                      </Text>
+                    </View>
+                  );
+                })
+              )}
+            </ScrollView>
+          </View>
+        </Pressable>
+      </View>
+    );
+  };
+
   const renderWeitereTermine = () => {
     const sortedTermine = getSortedTermine();
     const dfbCount = getDFBTermineCount();
@@ -460,7 +1022,6 @@ export function TermineScreen({ navigation }: any) {
     
     return (
       <View style={styles.scoutingMainContent}>
-        {/* Header Banner - wie Scouting */}
         <View style={styles.scoutingHeaderBanner}>
           <TouchableOpacity style={styles.scoutingFilterButton} onPress={() => setViewMode('dashboard')}>
             <Text style={styles.scoutingFilterButtonText}>← Zurück</Text>
@@ -479,7 +1040,6 @@ export function TermineScreen({ navigation }: any) {
           </View>
         </View>
 
-        {/* Tabelle */}
         <View style={styles.scoutingContent}>
           <View style={styles.scoutingGamesContainer}>
             <View style={styles.termineTableHeader}>
@@ -551,386 +1111,6 @@ export function TermineScreen({ navigation }: any) {
     );
   };
 
-  // Spiele Filter Logik
-  const availableResponsibilities = useMemo(() => {
-    const responsibilities = new Set<string>();
-    players.forEach(p => { if (p.responsibility) responsibilities.add(p.responsibility); });
-    return Array.from(responsibilities).sort();
-  }, [players]);
-
-  const availablePlayers = useMemo(() => {
-    return players.map(p => ({
-      id: p.id,
-      name: `${p.first_name} ${p.last_name}`,
-      club: p.club
-    })).sort((a, b) => a.name.localeCompare(b.name));
-  }, [players]);
-
-  const filteredGames = useMemo(() => {
-    let games = [...playerGames];
-    
-    // Text-Suche
-    if (gamesSearchText) {
-      const search = gamesSearchText.toLowerCase();
-      games = games.filter(g => 
-        g.home_team?.toLowerCase().includes(search) ||
-        g.away_team?.toLowerCase().includes(search) ||
-        g.player_name?.toLowerCase().includes(search) ||
-        g.location?.toLowerCase().includes(search)
-      );
-    }
-    
-    // Zuständigkeit Filter
-    if (selectedResponsibilities.length > 0) {
-      games = games.filter(g => selectedResponsibilities.includes(g.responsibility || ''));
-    }
-    
-    // Spieler Filter
-    if (selectedPlayers.length > 0) {
-      games = games.filter(g => selectedPlayers.includes(g.player_id));
-    }
-    
-    return games;
-  }, [playerGames, gamesSearchText, selectedResponsibilities, selectedPlayers]);
-
-  const toggleResponsibility = (resp: string) => {
-    setSelectedResponsibilities(prev => 
-      prev.includes(resp) ? prev.filter(r => r !== resp) : [...prev, resp]
-    );
-  };
-
-  const togglePlayer = (playerId: string) => {
-    setSelectedPlayers(prev => 
-      prev.includes(playerId) ? prev.filter(p => p !== playerId) : [...prev, playerId]
-    );
-  };
-
-  const closeAllGameDropdowns = () => {
-    setShowResponsibilityDropdown(false);
-    setShowPlayerDropdown(false);
-  };
-
-  // Sync Spiele von fussball.de API
-  const syncPlayerGames = async () => {
-    setSyncingGames(true);
-    setSyncProgress({ current: 0, total: players.length, playerName: '' });
-    
-    try {
-      // Prüfen ob API Token vorhanden
-      const token = await getApiToken(supabase);
-      
-      if (!token) {
-        // Token registrieren Dialog
-        Alert.alert(
-          'API Token benötigt',
-          'Um Spiele von fussball.de zu laden, wird ein API Token benötigt. Möchtest du einen Token registrieren?',
-          [
-            { text: 'Abbrechen', style: 'cancel', onPress: () => setSyncingGames(false) },
-            { 
-              text: 'Token registrieren', 
-              onPress: async () => {
-                const email = prompt('E-Mail für API Registrierung:');
-                if (email) {
-                  const newToken = await registerApiToken(supabase, email);
-                  if (newToken) {
-                    Alert.alert('Erfolg', 'API Token wurde registriert. Bitte erneut synchronisieren.');
-                  } else {
-                    Alert.alert('Fehler', 'Token konnte nicht registriert werden.');
-                  }
-                }
-                setSyncingGames(false);
-              }
-            }
-          ]
-        );
-        return;
-      }
-      
-      // Spieler mit fussball_de_club_id laden
-      const { data: playersWithClubId } = await supabase
-        .from('players')
-        .select('id, first_name, last_name, club, fussball_de_club_id');
-      
-      if (!playersWithClubId || playersWithClubId.length === 0) {
-        Alert.alert('Hinweis', 'Keine Spieler vorhanden.');
-        setSyncingGames(false);
-        return;
-      }
-      
-      // Sync durchführen
-      const result = await syncAllPlayerGames(
-        supabase,
-        playersWithClubId,
-        (current, total, playerName) => {
-          setSyncProgress({ current, total, playerName });
-        }
-      );
-      
-      // Ergebnis anzeigen
-      let message = `Synchronisierung abgeschlossen!\n\n`;
-      message += `✅ ${result.added} neue Spiele hinzugefügt\n`;
-      message += `🔄 ${result.updated} Spiele aktualisiert`;
-      
-      if (result.errors.length > 0) {
-        message += `\n\n⚠️ ${result.errors.length} Fehler:\n`;
-        message += result.errors.slice(0, 3).join('\n');
-        if (result.errors.length > 3) {
-          message += `\n... und ${result.errors.length - 3} weitere`;
-        }
-      }
-      
-      Alert.alert('Sync Ergebnis', message);
-      
-      // Spiele neu laden
-      await fetchPlayerGames();
-      
-    } catch (error: any) {
-      console.error('Sync error:', error);
-      Alert.alert('Fehler', 'Fehler bei der Synchronisierung: ' + error.message);
-    } finally {
-      setSyncingGames(false);
-      setSyncProgress(null);
-    }
-  };
-
-  const addPlayerGame = async () => {
-    if (!newGame.date || !newGame.home_team || !newGame.away_team || !newGame.player_id) {
-      alert('Bitte alle Pflichtfelder ausfüllen');
-      return;
-    }
-    
-    const { error } = await supabase.from('player_games').insert([{
-      date: newGame.date,
-      home_team: newGame.home_team,
-      away_team: newGame.away_team,
-      game_type: newGame.game_type,
-      location: newGame.location,
-      player_id: newGame.player_id
-    }]);
-    
-    if (error) {
-      alert('Fehler: ' + error.message);
-    } else {
-      setShowAddGameModal(false);
-      setNewGame({ date: '', home_team: '', away_team: '', game_type: 'Liga', location: '', player_id: '' });
-      fetchPlayerGames();
-    }
-  };
-
-  const deletePlayerGame = async (gameId: string) => {
-    const { error } = await supabase.from('player_games').delete().eq('id', gameId);
-    if (!error) fetchPlayerGames();
-  };
-
-  const renderSpieleUnsererSpieler = () => {
-    const isAnyDropdownOpen = showResponsibilityDropdown || showPlayerDropdown;
-    
-    const getResponsibilityFilterLabel = () => {
-      if (selectedResponsibilities.length === 0) return 'Zuständigkeit';
-      if (selectedResponsibilities.length === 1) return selectedResponsibilities[0];
-      return `${selectedResponsibilities.length} Zuständigkeiten`;
-    };
-
-    const getPlayerFilterLabel = () => {
-      if (selectedPlayers.length === 0) return 'Spieler';
-      if (selectedPlayers.length === 1) {
-        const player = availablePlayers.find(p => p.id === selectedPlayers[0]);
-        return player?.name || 'Spieler';
-      }
-      return `${selectedPlayers.length} Spieler`;
-    };
-    
-    return (
-      <View style={styles.scoutingMainContent}>
-        {/* Header Banner - wie Scouting */}
-        <View style={styles.scoutingHeaderBanner}>
-          <TouchableOpacity style={styles.scoutingFilterButton} onPress={() => setViewMode('dashboard')}>
-            <Text style={styles.scoutingFilterButtonText}>← Zurück</Text>
-          </TouchableOpacity>
-          <View style={styles.scoutingHeaderBannerCenter}>
-            <Text style={styles.scoutingTitle}>Spiele unserer Spieler</Text>
-            <Text style={styles.scoutingSubtitle}>Alle Termine und Partien unserer Spieler im Überblick für die nächsten 8 Wochen</Text>
-          </View>
-          <TouchableOpacity 
-            style={[styles.scoutingFilterButton, syncingGames && { opacity: 0.6 }]} 
-            onPress={syncPlayerGames}
-            disabled={syncingGames}
-          >
-            <Text style={styles.scoutingFilterButtonText}>
-              {syncingGames 
-                ? (syncProgress ? `⏳ ${syncProgress.current}/${syncProgress.total}` : '⏳ Lädt...') 
-                : '🔄 Aktualisieren'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Toolbar - wie Scouting */}
-        <View style={styles.scoutingToolbar}>
-          <View style={styles.spieleSearchContainer}>
-            <Text style={styles.scoutingSearchIcon}>🔍</Text>
-            <TextInput 
-              style={styles.scoutingSearchInput} 
-              placeholder="Spieler, Verein suchen..." 
-              value={gamesSearchText} 
-              onChangeText={setGamesSearchText} 
-            />
-          </View>
-          
-          <View style={styles.scoutingFilterContainer}>
-            {/* Spieler Filter */}
-            <View style={[styles.scoutingDropdownContainer, { zIndex: 40 }]}>
-              <TouchableOpacity 
-                style={[styles.scoutingFilterButton, selectedPlayers.length > 0 && styles.scoutingFilterButtonActive]} 
-                onPress={(e) => { e.stopPropagation(); setShowPlayerDropdown(!showPlayerDropdown); setShowResponsibilityDropdown(false); }}
-              >
-                <Text style={[styles.scoutingFilterButtonText, selectedPlayers.length > 0 && styles.scoutingFilterButtonTextActive]}>
-                  {getPlayerFilterLabel()} ▼
-                </Text>
-              </TouchableOpacity>
-              {showPlayerDropdown && (
-                <Pressable style={styles.scoutingFilterDropdownMulti} onPress={(e) => e.stopPropagation()}>
-                  <View style={styles.scoutingFilterDropdownHeader}>
-                    <Text style={styles.scoutingFilterDropdownTitle}>Spieler wählen</Text>
-                    {selectedPlayers.length > 0 && (
-                      <TouchableOpacity onPress={() => setSelectedPlayers([])}>
-                        <Text style={styles.scoutingFilterClearText}>Alle löschen</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                  <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
-                    {availablePlayers.length === 0 ? (
-                      <Text style={styles.scoutingNoDataText}>Keine Spieler vorhanden</Text>
-                    ) : (
-                      availablePlayers.map(player => {
-                        const isSelected = selectedPlayers.includes(player.id);
-                        const count = playerGames.filter(g => g.player_id === player.id).length;
-                        return (
-                          <TouchableOpacity key={player.id} style={styles.scoutingFilterCheckboxItem} onPress={() => togglePlayer(player.id)}>
-                            <View style={[styles.scoutingCheckbox, isSelected && styles.scoutingCheckboxSelected]}>
-                              {isSelected && <Text style={styles.scoutingCheckmark}>✓</Text>}
-                            </View>
-                            <Text style={styles.scoutingFilterCheckboxText}>{player.name}</Text>
-                            <Text style={styles.scoutingFilterCountBadge}>{count}</Text>
-                          </TouchableOpacity>
-                        );
-                      })
-                    )}
-                  </ScrollView>
-                  <TouchableOpacity style={styles.scoutingFilterDoneButton} onPress={() => setShowPlayerDropdown(false)}>
-                    <Text style={styles.scoutingFilterDoneText}>Fertig</Text>
-                  </TouchableOpacity>
-                </Pressable>
-              )}
-            </View>
-
-            {/* Zuständigkeit Filter */}
-            <View style={[styles.scoutingDropdownContainer, { zIndex: 30 }]}>
-              <TouchableOpacity 
-                style={[styles.scoutingFilterButton, selectedResponsibilities.length > 0 && styles.scoutingFilterButtonActive]} 
-                onPress={(e) => { e.stopPropagation(); setShowResponsibilityDropdown(!showResponsibilityDropdown); setShowPlayerDropdown(false); }}
-              >
-                <Text style={[styles.scoutingFilterButtonText, selectedResponsibilities.length > 0 && styles.scoutingFilterButtonTextActive]}>
-                  {getResponsibilityFilterLabel()} ▼
-                </Text>
-              </TouchableOpacity>
-              {showResponsibilityDropdown && (
-                <Pressable style={styles.scoutingFilterDropdownMulti} onPress={(e) => e.stopPropagation()}>
-                  <View style={styles.scoutingFilterDropdownHeader}>
-                    <Text style={styles.scoutingFilterDropdownTitle}>Zuständigkeit wählen</Text>
-                    {selectedResponsibilities.length > 0 && (
-                      <TouchableOpacity onPress={() => setSelectedResponsibilities([])}>
-                        <Text style={styles.scoutingFilterClearText}>Alle löschen</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                  <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
-                    {availableResponsibilities.length === 0 ? (
-                      <Text style={styles.scoutingNoDataText}>Keine Spieler vorhanden</Text>
-                    ) : (
-                      availableResponsibilities.map(resp => {
-                        const isSelected = selectedResponsibilities.includes(resp);
-                        const count = playerGames.filter(g => g.responsibility === resp).length;
-                        return (
-                          <TouchableOpacity key={resp} style={styles.scoutingFilterCheckboxItem} onPress={() => toggleResponsibility(resp)}>
-                            <View style={[styles.scoutingCheckbox, isSelected && styles.scoutingCheckboxSelected]}>
-                              {isSelected && <Text style={styles.scoutingCheckmark}>✓</Text>}
-                            </View>
-                            <Text style={styles.scoutingFilterCheckboxText}>{resp}</Text>
-                            <Text style={styles.scoutingFilterCountBadge}>{count}</Text>
-                          </TouchableOpacity>
-                        );
-                      })
-                    )}
-                  </ScrollView>
-                  <TouchableOpacity style={styles.scoutingFilterDoneButton} onPress={() => setShowResponsibilityDropdown(false)}>
-                    <Text style={styles.scoutingFilterDoneText}>Fertig</Text>
-                  </TouchableOpacity>
-                </Pressable>
-              )}
-            </View>
-          </View>
-
-          <TouchableOpacity style={styles.scoutingFilterButton} onPress={() => setShowAddGameModal(true)}>
-            <Text style={styles.scoutingFilterButtonText}>+ Neues Spiel</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Overlay zum Schließen */}
-        {isAnyDropdownOpen && (
-          <Pressable style={styles.scoutingDropdownOverlay} onPress={closeAllGameDropdowns} />
-        )}
-
-        {/* Tabelle - wie Scouting */}
-        <View style={styles.scoutingContent}>
-          <View style={styles.scoutingGamesContainer}>
-            <View style={styles.scoutingTableHeader}>
-              <Text style={[styles.scoutingTableHeaderCell, { flex: 1 }]}>Datum</Text>
-              <Text style={[styles.scoutingTableHeaderCell, { flex: 2 }]}>Spiel</Text>
-              <Text style={[styles.scoutingTableHeaderCell, { flex: 1 }]}>Art</Text>
-              <Text style={[styles.scoutingTableHeaderCell, { flex: 1 }]}>Ort</Text>
-              <Text style={[styles.scoutingTableHeaderCell, { flex: 1 }]}>Spieler</Text>
-              <Text style={[styles.scoutingTableHeaderCell, { flex: 1 }]}>Zuständigkeit</Text>
-              <Text style={[styles.scoutingTableHeaderCell, { flex: 0.5 }]}></Text>
-            </View>
-            <ScrollView>
-              {filteredGames.length === 0 ? (
-                <View style={styles.scoutingEmptyState}>
-                  <Text style={styles.scoutingEmptyText}>Keine Spiele vorhanden</Text>
-                  <Text style={[styles.scoutingEmptyText, { marginTop: 8 }]}>Klicke auf "🔄 Aktualisieren" um Spiele von fussball.de zu laden</Text>
-                </View>
-              ) : (
-                filteredGames.map(game => {
-                  const homelogo = getClubLogo(game.home_team);
-                  const awaylogo = getClubLogo(game.away_team);
-                  
-                  return (
-                    <View key={game.id} style={styles.scoutingTableRow}>
-                      <Text style={[styles.scoutingTableCell, { flex: 1 }]}>
-                        {new Date(game.date).toLocaleDateString('de-DE')}
-                      </Text>
-                      <View style={[styles.scoutingTableCell, { flex: 2, flexDirection: 'row', alignItems: 'center' }]}>
-                        {homelogo && <Image source={{ uri: homelogo }} style={styles.scoutingClubLogo} />}
-                        <Text style={styles.scoutingMatchText}>{game.home_team} vs {game.away_team}</Text>
-                        {awaylogo && <Image source={{ uri: awaylogo }} style={styles.scoutingClubLogo} />}
-                      </View>
-                      <Text style={[styles.scoutingTableCell, { flex: 1 }]}>{game.game_type || 'Liga'}</Text>
-                      <Text style={[styles.scoutingTableCell, { flex: 1 }]}>{game.location || '-'}</Text>
-                      <Text style={[styles.scoutingTableCell, { flex: 1, fontWeight: '600' }]}>{game.player_name || '-'}</Text>
-                      <Text style={[styles.scoutingTableCell, { flex: 1 }]}>{game.responsibility || '-'}</Text>
-                      <TouchableOpacity style={[styles.scoutingTableCell, { flex: 0.5 }]} onPress={() => deletePlayerGame(game.id)}>
-                        <Text>🗑️</Text>
-                      </TouchableOpacity>
-                    </View>
-                  );
-                })
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </View>
-    );
-  };
-
   const renderKalenderPlaceholder = () => (
     <View style={styles.placeholderContainer}>
       <TouchableOpacity onPress={() => setViewMode('dashboard')} style={styles.backButtonTop}>
@@ -979,30 +1159,18 @@ export function TermineScreen({ navigation }: any) {
               <TextInput style={styles.formInput} value={formTitel} onChangeText={setFormTitel} placeholder="z.B. Lehrgang, Meeting, ..." />
               <Text style={styles.formLabel}>Jahrgang</Text>
               <View style={styles.selectWrapper}>
-                <select
-                  style={styles.selectInput as any}
-                  value={formJahrgang}
-                  onChange={(e: any) => setFormJahrgang(e.target.value)}
-                >
+                <select style={styles.selectInput as any} value={formJahrgang} onChange={(e: any) => setFormJahrgang(e.target.value)}>
                   <option value="">- Kein Jahrgang -</option>
-                  {JAHRGAENGE.map((jg) => (
-                    <option key={jg} value={jg}>{jg}</option>
-                  ))}
+                  {JAHRGAENGE.map((jg) => (<option key={jg} value={jg}>{jg}</option>))}
                 </select>
               </View>
               <Text style={styles.formLabel}>Ort</Text>
               <TextInput style={styles.formInput} value={formOrt} onChangeText={setFormOrt} placeholder="z.B. Frankfurt, DFB-Campus..." />
               <Text style={styles.formLabel}>Übernahme durch</Text>
               <View style={styles.selectWrapper}>
-                <select
-                  style={styles.selectInput as any}
-                  value={formUebernahme}
-                  onChange={(e: any) => setFormUebernahme(e.target.value)}
-                >
+                <select style={styles.selectInput as any} value={formUebernahme} onChange={(e: any) => setFormUebernahme(e.target.value)}>
                   <option value="">- Keine Auswahl -</option>
-                  {advisors.map((adv) => (
-                    <option key={adv.id} value={adv.id}>{adv.first_name} {adv.last_name}</option>
-                  ))}
+                  {advisors.map((adv) => (<option key={adv.id} value={adv.id}>{adv.first_name} {adv.last_name}</option>))}
                 </select>
               </View>
               <View style={styles.modalButtons}>
@@ -1063,6 +1231,39 @@ export function TermineScreen({ navigation }: any) {
     </Modal>
   );
 
+  const renderTokenModal = () => (
+    <Modal visible={showTokenModal} transparent animationType="fade">
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>🔑 API Token einrichten</Text>
+          <Text style={styles.syncDescription}>
+            Um Spiele von fussball.de zu laden, wird ein API Token benötigt.{'\n\n'}
+            1. Gehe zu api-fussball.de/token{'\n'}
+            2. Registriere dich mit deiner E-Mail{'\n'}
+            3. Kopiere den Token und füge ihn hier ein
+          </Text>
+          <Text style={styles.formLabel}>API Token</Text>
+          <TextInput 
+            style={styles.formInput} 
+            value={apiToken} 
+            onChangeText={setApiToken} 
+            placeholder="Dein API Token..." 
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <View style={styles.modalButtons}>
+            <TouchableOpacity style={styles.cancelButton} onPress={() => { setShowTokenModal(false); setApiToken(''); }}>
+              <Text style={styles.cancelButtonText}>Abbrechen</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.saveButton} onPress={handleSaveToken}>
+              <Text style={styles.saveButtonText}>Speichern</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
   const renderContent = () => {
     switch (viewMode) {
       case 'spiele': return renderSpieleUnsererSpieler();
@@ -1089,104 +1290,7 @@ export function TermineScreen({ navigation }: any) {
       {renderAddEditModal(false)}
       {renderAddEditModal(true)}
       {renderSyncModal()}
-      
-      {/* Add Player Game Modal */}
-      <Modal visible={showAddGameModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Neues Spiel hinzufügen</Text>
-              <TouchableOpacity onPress={() => setShowAddGameModal(false)} style={styles.closeButton}>
-                <Text style={styles.closeButtonText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.formRow}>
-              <View style={styles.formHalf}>
-                <Text style={styles.formLabel}>Datum *</Text>
-                <TextInput 
-                  style={styles.formInput} 
-                  value={newGame.date} 
-                  onChangeText={(t) => setNewGame({...newGame, date: t})} 
-                  placeholder="YYYY-MM-DD" 
-                />
-              </View>
-              <View style={styles.formHalf}>
-                <Text style={styles.formLabel}>Art</Text>
-                <View style={styles.selectWrapper}>
-                  <select 
-                    style={styles.selectInput as any}
-                    value={newGame.game_type}
-                    onChange={(e) => setNewGame({...newGame, game_type: e.target.value})}
-                  >
-                    <option value="Liga">Liga</option>
-                    <option value="Pokal">Pokal</option>
-                    <option value="Freundschaftsspiel">Freundschaftsspiel</option>
-                    <option value="Turnier">Turnier</option>
-                  </select>
-                </View>
-              </View>
-            </View>
-            
-            <View style={styles.formRow}>
-              <View style={styles.formHalf}>
-                <Text style={styles.formLabel}>Heimmannschaft *</Text>
-                <TextInput 
-                  style={styles.formInput} 
-                  value={newGame.home_team} 
-                  onChangeText={(t) => setNewGame({...newGame, home_team: t})} 
-                  placeholder="Heim" 
-                />
-              </View>
-              <View style={styles.formHalf}>
-                <Text style={styles.formLabel}>Auswärtsmannschaft *</Text>
-                <TextInput 
-                  style={styles.formInput} 
-                  value={newGame.away_team} 
-                  onChangeText={(t) => setNewGame({...newGame, away_team: t})} 
-                  placeholder="Auswärts" 
-                />
-              </View>
-            </View>
-            
-            <View style={styles.formRow}>
-              <View style={styles.formHalf}>
-                <Text style={styles.formLabel}>Ort</Text>
-                <TextInput 
-                  style={styles.formInput} 
-                  value={newGame.location} 
-                  onChangeText={(t) => setNewGame({...newGame, location: t})} 
-                  placeholder="Spielort" 
-                />
-              </View>
-              <View style={styles.formHalf}>
-                <Text style={styles.formLabel}>Spieler *</Text>
-                <View style={styles.selectWrapper}>
-                  <select 
-                    style={styles.selectInput as any}
-                    value={newGame.player_id}
-                    onChange={(e) => setNewGame({...newGame, player_id: e.target.value})}
-                  >
-                    <option value="">Spieler auswählen...</option>
-                    {players.map(p => (
-                      <option key={p.id} value={p.id}>{p.last_name}, {p.first_name}</option>
-                    ))}
-                  </select>
-                </View>
-              </View>
-            </View>
-            
-            <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.cancelButton} onPress={() => setShowAddGameModal(false)}>
-                <Text style={styles.cancelButtonText}>Abbrechen</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.saveButton} onPress={addPlayerGame}>
-                <Text style={styles.saveButtonText}>Hinzufügen</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {renderTokenModal()}
     </View>
   );
 }
@@ -1211,8 +1315,7 @@ const styles = StyleSheet.create({
   mainCardLeft: { flex: 1, justifyContent: 'space-between' },
   mainCardRight: { width: 120, alignItems: 'center', justifyContent: 'center' },
   mainCardIcon: { fontSize: 80, opacity: 0.15 },
-  comingSoonBadge: { backgroundColor: '#fff3cd', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, alignSelf: 'flex-start', marginBottom: 16 },
-  comingSoonBadgeText: { fontSize: 11, fontWeight: '600', color: '#856404', letterSpacing: 0.5 },
+  playerCountBadge: { backgroundColor: '#e0f2fe', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, marginTop: 8 },
   mainCardTitle: { fontSize: 28, fontWeight: '700', color: '#1a1a1a', marginBottom: 12 },
   mainCardSubtitle: { fontSize: 14, color: '#888', lineHeight: 22 },
   mainCardFooter: { flexDirection: 'row', alignItems: 'center', marginTop: 'auto' as any, paddingTop: 20 },
@@ -1235,71 +1338,8 @@ const styles = StyleSheet.create({
   kalenderFooter: { marginTop: 'auto' as any },
   kalenderTitle: { fontSize: 18, fontWeight: '700', color: '#fff' },
   kalenderSubtitle: { fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 4 },
-  listContainer: { flex: 1 },
-  listHeader: { flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
-  backButton: { marginRight: 12 },
-  backButtonInner: { 
-    width: 32, 
-    height: 32, 
-    borderRadius: 8, 
-    backgroundColor: '#f5f5f5', 
-    justifyContent: 'center', 
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
   backButtonTop: { position: 'absolute', top: 20, left: 20 },
-  listTitle: { fontSize: 18, fontWeight: '600', flex: 1, textAlign: 'center' },
-  headerButtons: { flexDirection: 'row', gap: 12 },
-  syncButton: { backgroundColor: '#000', paddingVertical: 8, paddingHorizontal: 14, borderRadius: 8, alignItems: 'center' },
-  syncButtonText: { color: '#fff', fontWeight: '500', fontSize: 13 },
-  syncButtonSubtext: { color: 'rgba(255,255,255,0.6)', fontSize: 10, marginTop: 2 },
-  addButton: { backgroundColor: '#000', paddingVertical: 8, paddingHorizontal: 14, borderRadius: 8, justifyContent: 'center' },
-  addButtonText: { color: '#fff', fontWeight: '500', fontSize: 13 },
-  
-  // Info Banner - grau
-  dfbBanner: { backgroundColor: '#e9ecef', paddingVertical: 10, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#dee2e6' },
-  dfbBannerText: { fontSize: 13, color: '#495057', fontWeight: '500', textAlign: 'center' },
-
-  // Table styles - schwarzer Header
-  tableHeader: { flexDirection: 'row', backgroundColor: '#333', paddingVertical: 12, paddingHorizontal: 16 },
-  tableHeaderText: { color: '#fff', fontWeight: '600', fontSize: 13 },
-  sortableHeader: { cursor: 'pointer' as any },
-  tableBody: { flex: 1, backgroundColor: '#fff' },
-  tableRow: { flexDirection: 'row', paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#eee', alignItems: 'center' },
-  tableRowPast: { backgroundColor: '#fafafa' },
-  tableRowToday: { backgroundColor: '#e9ecef' },
-  tableCell: { fontSize: 14, color: '#333' },
-  cellPast: { color: '#999' },
-  colDatum: { flex: 1, minWidth: 90 },
-  colZeit: { flex: 0.6, minWidth: 50 },
-  colArt: { flex: 1.3, minWidth: 120 },
-  colTitel: { flex: 2, minWidth: 150, marginLeft: 8 },
-  colJahrgang: { flex: 0.6, minWidth: 55 },
-  colOrt: { flex: 1.1, minWidth: 90 },
-  colUebernahme: { flex: 1.1, minWidth: 90 },
-  
-  // Art Badges
-  artBadge: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6, alignSelf: 'flex-start' },
-  artBadgePast: { opacity: 0.6 },
-  artBadgeText: { color: '#fff', fontSize: 12, fontWeight: '600' },
-  
-  // Nationalmannschaft - hellrot
-  artNationalmannschaft: { backgroundColor: '#f8d7da' },
-  artNationalmannschaftText: { color: '#721c24' },
-  
-  // Hallenturnier - hellblau
-  artHallenturnier: { backgroundColor: '#d1ecf1' },
-  artHallenturnierText: { color: '#0c5460' },
-  
-  // Sonstige
-  artSonstige: { backgroundColor: '#6c757d' },
-  
   loadingText: { padding: 20, textAlign: 'center', color: '#666' },
-  emptyState: { padding: 40, alignItems: 'center' },
-  emptyText: { textAlign: 'center', color: '#666', fontSize: 16, marginBottom: 16 },
-  emptyDfbButton: { backgroundColor: '#e9ecef', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 10 },
-  emptyDfbButtonText: { color: '#495057', fontWeight: '600', fontSize: 14 },
   placeholderContainer: { flex: 1, position: 'relative' },
   placeholderContent: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
   placeholderIcon: { fontSize: 80, marginBottom: 20 },
@@ -1314,7 +1354,7 @@ const styles = StyleSheet.create({
   modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 600 },
   syncModalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 450 },
   modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 20 },
-  syncDescription: { fontSize: 14, color: '#666', lineHeight: 20, marginBottom: 12 },
+  syncDescription: { fontSize: 14, color: '#666', lineHeight: 22, marginBottom: 12 },
   syncStand: { fontSize: 12, color: '#999', marginBottom: 20 },
   syncLoadingContainer: { alignItems: 'center', paddingVertical: 20 },
   syncLoadingText: { marginTop: 12, color: '#666' },
@@ -1341,15 +1381,15 @@ const styles = StyleSheet.create({
   saveButton: { backgroundColor: '#000', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 10 },
   saveButtonText: { color: '#fff', fontWeight: '600' },
   
-  // Scouting-Style für Spiele unserer Spieler
+  // Scouting-Style
   scoutingMainContent: { flex: 1, backgroundColor: '#f8fafc' },
   scoutingHeaderBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 20, paddingHorizontal: 24, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
   scoutingHeaderBannerCenter: { alignItems: 'center', flex: 1 },
   scoutingTitle: { fontSize: 24, fontWeight: '700', color: '#1a1a1a' },
   scoutingSubtitle: { fontSize: 14, color: '#64748b', marginTop: 4 },
+  headerButtonsRow: { flexDirection: 'row', gap: 8 },
   scoutingToolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0', zIndex: 100 },
-  scoutingSearchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 8, paddingHorizontal: 12, flex: 1, maxWidth: 300 },
-  spieleSearchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', paddingHorizontal: 12, flex: 1, maxWidth: 500 },
+  spieleSearchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', paddingHorizontal: 12, flex: 1, maxWidth: 600 },
   scoutingSearchIcon: { fontSize: 16, marginRight: 8 },
   scoutingSearchInput: { flex: 1, paddingVertical: 10, fontSize: 14, outlineStyle: 'none' as any },
   scoutingFilterContainer: { flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: 16 },
@@ -1358,7 +1398,7 @@ const styles = StyleSheet.create({
   scoutingFilterButtonActive: { backgroundColor: '#e0f2fe', borderColor: '#3b82f6' },
   scoutingFilterButtonText: { fontSize: 14, color: '#64748b' },
   scoutingFilterButtonTextActive: { color: '#0369a1' },
-  scoutingFilterDropdownMulti: { position: 'absolute' as any, top: '100%', left: 0, backgroundColor: '#fff', borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, minWidth: 220, marginTop: 4, zIndex: 1001, borderWidth: 1, borderColor: '#e5e7eb' },
+  scoutingFilterDropdownMulti: { position: 'absolute' as any, top: '100%', right: 0, backgroundColor: '#fff', borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, minWidth: 220, marginTop: 4, zIndex: 1002, borderWidth: 1, borderColor: '#e5e7eb' },
   scoutingFilterDropdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', backgroundColor: '#f8fafc', borderTopLeftRadius: 12, borderTopRightRadius: 12 },
   scoutingFilterDropdownTitle: { fontSize: 13, fontWeight: '600', color: '#475569' },
   scoutingFilterClearText: { fontSize: 12, color: '#ef4444', fontWeight: '500' },
@@ -1371,22 +1411,48 @@ const styles = StyleSheet.create({
   scoutingFilterDoneButton: { padding: 12, backgroundColor: '#f8fafc', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#e2e8f0' },
   scoutingFilterDoneText: { fontSize: 14, fontWeight: '600', color: '#3b82f6' },
   scoutingNoDataText: { padding: 16, textAlign: 'center', color: '#94a3b8', fontSize: 14 },
-  scoutingDropdownOverlay: { position: 'absolute' as any, top: 0, left: 0, right: 0, bottom: 0, zIndex: 50 },
+  scoutingDropdownOverlay: { position: 'absolute' as any, top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000 },
   scoutingContent: { flex: 1, padding: 16 },
   scoutingGamesContainer: { flex: 1, backgroundColor: '#fff', borderRadius: 12, overflow: 'hidden' },
   scoutingTableHeader: { flexDirection: 'row', backgroundColor: '#f8fafc', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
   scoutingTableHeaderCell: { fontSize: 12, fontWeight: '600', color: '#64748b', textTransform: 'uppercase' as any },
   scoutingTableRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', alignItems: 'center' },
   scoutingTableCell: { fontSize: 14, color: '#1a1a1a' },
-  scoutingClubLogo: { width: 24, height: 24, resizeMode: 'contain' as any, marginHorizontal: 4 },
-  scoutingMatchText: { fontWeight: '500' },
-  scoutingEmptyState: { padding: 40, alignItems: 'center' },
-  scoutingEmptyText: { fontSize: 14, color: '#94a3b8' },
+  scoutingClubLogo: { width: 20, height: 20, resizeMode: 'contain' as any, marginHorizontal: 4 },
+  scoutingMatchText: { fontWeight: '500', marginHorizontal: 4 },
+  scoutingEmptyState: { padding: 60, alignItems: 'center' },
+  scoutingEmptyIcon: { fontSize: 48, marginBottom: 16 },
+  scoutingEmptyTitle: { fontSize: 18, fontWeight: '600', color: '#1a1a1a', marginBottom: 8 },
+  scoutingEmptyText: { fontSize: 14, color: '#64748b', textAlign: 'center', lineHeight: 22 },
+  emptyStateButton: { marginTop: 20, backgroundColor: '#3b82f6', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 8 },
+  emptyStateButtonText: { color: '#fff', fontWeight: '600', fontSize: 14 },
   
-  // Weitere Termine Styles
+  // Game specific styles
+  gameCheckbox: { width: 22, height: 22, borderRadius: 4, borderWidth: 2, borderColor: '#cbd5e1', justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
+  gameCheckboxSelected: { backgroundColor: '#10b981', borderColor: '#10b981' },
+  gameCheckmark: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
+  gameRowToday: { backgroundColor: '#d1fae5' },
+  textBold: { fontWeight: '700' },
+  
+  // Sync styles
+  syncButton: { backgroundColor: '#3b82f6', borderColor: '#3b82f6' },
+  syncButtonText: { color: '#fff', fontWeight: '600' },
+  exportButton: { backgroundColor: '#10b981', paddingVertical: 10, paddingHorizontal: 14, borderRadius: 8 },
+  exportButtonText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  syncProgressBar: { height: 32, backgroundColor: '#e2e8f0', position: 'relative' as any },
+  syncProgressFill: { height: '100%', backgroundColor: '#3b82f6' },
+  syncProgressText: { position: 'absolute' as any, left: 16, top: 8, fontSize: 12, color: '#1a1a1a', fontWeight: '500' },
+  syncResultBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, paddingHorizontal: 16 },
+  syncResultSuccess: { backgroundColor: '#d1fae5' },
+  syncResultWarning: { backgroundColor: '#fef3c7' },
+  syncResultText: { fontSize: 14, color: '#1a1a1a' },
+  syncResultClose: { fontSize: 18, color: '#64748b', paddingHorizontal: 8 },
+  
+  // Termine styles
   termineHeaderButtons: { flexDirection: 'row', gap: 8 },
   termineTableHeader: { flexDirection: 'row', backgroundColor: '#f8fafc', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
   termineTableHeaderText: { fontSize: 12, fontWeight: '600', color: '#64748b', textTransform: 'uppercase' as any },
+  sortableHeader: { cursor: 'pointer' as any },
   termineTableRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', alignItems: 'center' },
   termineTableRowPast: { backgroundColor: '#fafafa' },
   termineTableRowToday: { backgroundColor: '#f0fdf4' },
@@ -1400,7 +1466,13 @@ const styles = StyleSheet.create({
   termineColOrt: { flex: 1.1, minWidth: 90 },
   termineColUebernahme: { flex: 1.1, minWidth: 90 },
   
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  closeButton: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center' },
-  closeButtonText: { fontSize: 16, color: '#64748b' },
+  // Art Badges
+  artBadge: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6, alignSelf: 'flex-start' },
+  artBadgePast: { opacity: 0.6 },
+  artBadgeText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  artNationalmannschaft: { backgroundColor: '#f8d7da' },
+  artNationalmannschaftText: { color: '#721c24' },
+  artHallenturnier: { backgroundColor: '#d1ecf1' },
+  artHallenturnierText: { color: '#0c5460' },
+  artSonstige: { backgroundColor: '#6c757d' },
 });

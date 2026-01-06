@@ -1,186 +1,325 @@
-// fussball.de API Service
-// API Dokumentation: https://api-fussball.de
+// fussballDeApi.ts - Integration mit api-fussball.de
+// Holt Spielpläne von fussball.de über die kostenlose API
 
-const API_BASE_URL = 'https://api-fussball.de';
+import { SupabaseClient } from '@supabase/supabase-js';
 
-// Token wird in Supabase gespeichert (settings Tabelle)
-let cachedToken: string | null = null;
+// Nutze lokalen Proxy um CORS zu umgehen
+// Proxy läuft auf localhost:3001 und leitet an api-fussball.de weiter
+const USE_PROXY = true;
+const PROXY_URL = 'http://localhost:3001/proxy';
+const DIRECT_URL = 'https://api-fussball.de/api';
+const API_BASE_URL = USE_PROXY ? `${PROXY_URL}/api` : DIRECT_URL;
 
-interface FussballDeGame {
+// Typen
+export interface ApiGame {
   id: string;
   date: string;
   time: string;
-  home_team: string;
-  home_team_id: string;
-  away_team: string;
-  away_team_id: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeTeamLogo?: string;
+  awayTeamLogo?: string;
   location?: string;
-  competition?: string;
-  score?: string;
+  league?: string;
+  matchday?: string;
+  result?: string;
 }
 
-interface FussballDeTeam {
+export interface PlayerWithGames {
   id: string;
-  name: string;
-  club_id: string;
+  first_name: string;
+  last_name: string;
+  club: string;
+  league: string;
+  fussball_de_url: string;
+  team_id: string;
+  responsibility?: string;
+  games: ApiGame[];
 }
 
-interface FussballDeClubInfo {
-  id: string;
-  name: string;
-  teams: FussballDeTeam[];
-  next_games: FussballDeGame[];
+export interface SyncResult {
+  success: boolean;
+  added: number;
+  updated: number;
+  errors: string[];
 }
 
-// API Token aus Supabase holen oder registrieren
-export const getApiToken = async (supabase: any): Promise<string | null> => {
-  if (cachedToken) return cachedToken;
+// Team-ID aus fussball.de URL extrahieren
+export function extractTeamId(fussballDeUrl: string): string | null {
+  if (!fussballDeUrl) return null;
   
+  // URL Format: https://www.fussball.de/mannschaft/[name]/[...]/team-id/[TEAM_ID]
+  // Oder: /mannschaft/[...]/team-id/[TEAM_ID]
+  
+  const teamIdMatch = fussballDeUrl.match(/team-id\/([A-Z0-9]+)/i);
+  if (teamIdMatch) {
+    return teamIdMatch[1];
+  }
+  
+  // Alternativ: ID am Ende der URL
+  const altMatch = fussballDeUrl.match(/\/([A-Z0-9]{20,})(?:\?|#|$)/i);
+  if (altMatch) {
+    return altMatch[1];
+  }
+  
+  return null;
+}
+
+// Deutsches Datum "Sa, 25.10.2025" oder "25.10.2025" in ISO-Format "2025-10-25" umwandeln
+function convertGermanDateToISO(germanDate: string): string {
+  if (!germanDate) return '';
+  
+  // Bereits im ISO-Format?
+  if (/^\d{4}-\d{2}-\d{2}$/.test(germanDate)) {
+    return germanDate;
+  }
+  
+  // Entferne Wochentag falls vorhanden (z.B. "Sa, " oder "So, ")
+  const cleanDate = germanDate.replace(/^[A-Za-z]{2},?\s*/, '');
+  
+  // Format: DD.MM.YYYY
+  const match = cleanDate.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+  if (match) {
+    const day = match[1].padStart(2, '0');
+    const month = match[2].padStart(2, '0');
+    const year = match[3];
+    return `${year}-${month}-${day}`;
+  }
+  
+  // Format: DD.MM.YY
+  const shortMatch = cleanDate.match(/(\d{1,2})\.(\d{1,2})\.(\d{2})/);
+  if (shortMatch) {
+    const day = shortMatch[1].padStart(2, '0');
+    const month = shortMatch[2].padStart(2, '0');
+    const year = parseInt(shortMatch[3]) > 50 ? `19${shortMatch[3]}` : `20${shortMatch[3]}`;
+    return `${year}-${month}-${day}`;
+  }
+  
+  console.warn('Konnte Datum nicht konvertieren:', germanDate);
+  return '';
+}
+
+// API Token aus Supabase laden (settings Tabelle)
+export async function getApiToken(supabase: SupabaseClient): Promise<string | null> {
   try {
-    // Versuche Token aus settings zu holen
-    const { data: settings } = await supabase
-      .from('settings')
+    const { data, error } = await supabase
+      .from('app_settings')
       .select('value')
       .eq('key', 'fussball_de_api_token')
       .single();
     
-    if (settings?.value) {
-      cachedToken = settings.value;
-      return cachedToken;
+    if (error || !data) {
+      console.log('Kein API Token gefunden');
+      return null;
     }
     
-    return null;
-  } catch (error) {
-    console.error('Error getting API token:', error);
+    return data.value;
+  } catch (err) {
+    console.error('Fehler beim Laden des API Tokens:', err);
     return null;
   }
-};
+}
 
-// API Token registrieren
-export const registerApiToken = async (supabase: any, email: string): Promise<string | null> => {
+// API Token in Supabase speichern
+export async function saveApiToken(supabase: SupabaseClient, token: string): Promise<boolean> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
-      method: 'POST',
+    const { error } = await supabase
+      .from('app_settings')
+      .upsert({ 
+        key: 'fussball_de_api_token', 
+        value: token,
+        updated_at: new Date().toISOString()
+      }, { 
+        onConflict: 'key' 
+      });
+    
+    return !error;
+  } catch (err) {
+    console.error('Fehler beim Speichern des API Tokens:', err);
+    return false;
+  }
+}
+
+// Nächste Spiele eines Teams von der API holen
+export async function fetchTeamNextGames(teamId: string, token: string): Promise<ApiGame[]> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/team/next_games/${teamId}`, {
+      method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email }),
+        'x-auth-token': token,
+        'Content-Type': 'application/json'
+      }
     });
     
     if (!response.ok) {
-      throw new Error('Token registration failed');
+      console.error(`API Fehler: ${response.status} ${response.statusText}`);
+      return [];
     }
     
-    const data = await response.json();
-    const token = data.token;
+    const result = await response.json();
+    console.log('API Response für Team', teamId, ':', result);
     
-    if (token) {
-      // Token in Supabase speichern
-      await supabase
-        .from('settings')
-        .upsert({ key: 'fussball_de_api_token', value: token });
+    if (!result.success || !result.data) {
+      console.error('API Response nicht erfolgreich:', result);
+      return [];
+    }
+    
+    // API Response in unser Format umwandeln
+    const games: ApiGame[] = result.data.map((game: any) => {
+      // Datum konvertieren
+      const rawDate = game.date || game.datum || '';
+      const isoDate = convertGermanDateToISO(rawDate);
       
-      cachedToken = token;
-      return token;
+      console.log('Datum Konvertierung:', rawDate, '->', isoDate);
+      
+      return {
+        id: game.id || `${isoDate}_${game.homeTeam || game.home}_${game.awayTeam || game.away}`.replace(/\s/g, '_'),
+        date: isoDate,
+        time: game.time || game.uhrzeit || '',
+        homeTeam: game.homeTeam || game.heimmannschaft || game.home || '',
+        awayTeam: game.awayTeam || game.gastmannschaft || game.away || '',
+        homeTeamLogo: game.homeLogo || game.homeTeamLogo || game.heimLogo || null,
+        awayTeamLogo: game.awayLogo || game.awayTeamLogo || game.gastLogo || null,
+        location: game.location || game.ort || game.spielort || '',
+        league: game.competition || game.league || game.liga || game.wettbewerb || '',
+        matchday: game.matchday || game.spieltag || '',
+        result: game.result || game.ergebnis || null
+      };
+    }).filter((game: ApiGame) => game.date); // Nur Spiele mit gültigem Datum
+    
+    return games;
+  } catch (err) {
+    console.error('Fehler beim Abrufen der Spiele:', err);
+    return [];
+  }
+}
+
+// Alle Spieler mit fussball_de_url laden
+export async function getPlayersWithFussballDeUrl(supabase: SupabaseClient): Promise<any[]> {
+  const { data, error } = await supabase
+    .from('player_details')
+    .select('id, first_name, last_name, club, league, fussball_de_url, responsibility')
+    .not('fussball_de_url', 'is', null)
+    .neq('fussball_de_url', '');
+  
+  if (error) {
+    console.error('Fehler beim Laden der Spieler:', error);
+    return [];
+  }
+  
+  return data || [];
+}
+
+// Spiele in die Datenbank speichern/aktualisieren
+export async function saveGamesToDatabase(
+  supabase: SupabaseClient, 
+  playerId: string, 
+  playerName: string,
+  games: ApiGame[]
+): Promise<{ added: number; updated: number }> {
+  let added = 0;
+  let updated = 0;
+  
+  for (const game of games) {
+    // Überspringe Spiele ohne gültiges Datum
+    if (!game.date || game.date.length !== 10) {
+      console.warn('Überspringe Spiel ohne gültiges Datum:', game);
+      continue;
     }
     
-    return null;
-  } catch (error) {
-    console.error('Error registering API token:', error);
-    return null;
+    try {
+      // Prüfen ob Spiel bereits existiert (basierend auf Datum + Teams)
+      const { data: existing } = await supabase
+        .from('player_games')
+        .select('id')
+        .eq('player_id', playerId)
+        .eq('date', game.date)
+        .eq('home_team', game.homeTeam)
+        .eq('away_team', game.awayTeam)
+        .maybeSingle();
+      
+      const gameData = {
+        player_id: playerId,
+        player_name: playerName,
+        date: game.date,
+        time: game.time || null,
+        home_team: game.homeTeam,
+        away_team: game.awayTeam,
+        home_team_logo: game.homeTeamLogo || null,
+        away_team_logo: game.awayTeamLogo || null,
+        location: game.location || null,
+        league: game.league || null,
+        matchday: game.matchday || null,
+        result: game.result || null,
+        source: 'api-fussball.de',
+        updated_at: new Date().toISOString()
+      };
+      
+      if (existing) {
+        // Update
+        const { error } = await supabase
+          .from('player_games')
+          .update(gameData)
+          .eq('id', existing.id);
+        
+        if (error) {
+          console.error('Update Fehler:', error);
+        } else {
+          updated++;
+        }
+      } else {
+        // Insert
+        const { error } = await supabase
+          .from('player_games')
+          .insert([{ 
+            ...gameData, 
+            selected: false,
+            created_at: new Date().toISOString() 
+          }]);
+        
+        if (error) {
+          console.error('Insert Fehler:', error, 'Daten:', gameData);
+        } else {
+          added++;
+        }
+      }
+    } catch (err) {
+      console.error('Fehler beim Speichern:', err);
+    }
   }
-};
-
-// API Request mit Token
-const apiRequest = async (endpoint: string, token: string): Promise<any> => {
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    method: 'GET',
-    headers: {
-      'x-auth-token': token,
-    },
-  });
   
-  if (!response.ok) {
-    throw new Error(`API request failed: ${response.status}`);
-  }
-  
-  return response.json();
-};
+  return { added, updated };
+}
 
-// Club-Infos mit kommenden Spielen holen
-export const getClubNextGames = async (clubId: string, token: string): Promise<FussballDeGame[]> => {
-  try {
-    const data = await apiRequest(`/api/club/next_games/${clubId}`, token);
-    return data.games || data.next_games || [];
-  } catch (error) {
-    console.error('Error fetching club games:', error);
-    return [];
-  }
-};
-
-// Team-Infos mit kommenden Spielen holen
-export const getTeamNextGames = async (teamId: string, token: string): Promise<FussballDeGame[]> => {
-  try {
-    const data = await apiRequest(`/api/team/next_games/${teamId}`, token);
-    return data.games || data.next_games || [];
-  } catch (error) {
-    console.error('Error fetching team games:', error);
-    return [];
-  }
-};
-
-// Vollständige Club-Infos holen
-export const getClubInfo = async (clubId: string, token: string): Promise<FussballDeClubInfo | null> => {
-  try {
-    const data = await apiRequest(`/api/club/info/${clubId}`, token);
-    return data;
-  } catch (error) {
-    console.error('Error fetching club info:', error);
-    return null;
-  }
-};
-
-// Spiele für die nächsten X Wochen filtern
-export const filterGamesForWeeks = (games: FussballDeGame[], weeks: number = 8): FussballDeGame[] => {
-  const now = new Date();
-  const endDate = new Date(now.getTime() + weeks * 7 * 24 * 60 * 60 * 1000);
-  
-  return games.filter(game => {
-    const gameDate = new Date(game.date);
-    return gameDate >= now && gameDate <= endDate;
-  });
-};
-
-// Hauptfunktion: Spiele aller Spieler synchronisieren
-export const syncAllPlayerGames = async (
-  supabase: any,
-  players: Array<{ id: string; first_name: string; last_name: string; club: string; fussball_de_club_id?: string }>,
+// Hauptfunktion: Alle Spieler-Spiele synchronisieren
+export async function syncAllPlayerGames(
+  supabase: SupabaseClient,
   onProgress?: (current: number, total: number, playerName: string) => void
-): Promise<{ added: number; updated: number; errors: string[] }> => {
-  const result = { added: 0, updated: 0, errors: [] as string[] };
+): Promise<SyncResult> {
+  const result: SyncResult = {
+    success: false,
+    added: 0,
+    updated: 0,
+    errors: []
+  };
   
-  // Token holen
+  // API Token laden
   const token = await getApiToken(supabase);
   if (!token) {
-    result.errors.push('Kein API-Token vorhanden. Bitte zuerst Token registrieren.');
+    result.errors.push('Kein API Token konfiguriert. Bitte Token in Einstellungen hinterlegen.');
     return result;
   }
   
-  // Club-IDs aus club_logos Tabelle holen (falls fussball_de_id dort gespeichert)
-  const { data: clubData } = await supabase
-    .from('club_logos')
-    .select('club_name, fussball_de_id');
-  
-  const clubIdMap: Record<string, string> = {};
-  if (clubData) {
-    clubData.forEach((c: any) => {
-      if (c.fussball_de_id) {
-        clubIdMap[c.club_name] = c.fussball_de_id;
-      }
-    });
+  // Spieler laden
+  const players = await getPlayersWithFussballDeUrl(supabase);
+  if (players.length === 0) {
+    result.errors.push('Keine Spieler mit fussball.de URL gefunden.');
+    return result;
   }
   
-  // Für jeden Spieler Spiele holen
+  console.log(`Synchronisiere ${players.length} Spieler...`);
+  
+  // Für jeden Spieler Spiele laden
   for (let i = 0; i < players.length; i++) {
     const player = players[i];
     const playerName = `${player.first_name} ${player.last_name}`;
@@ -189,113 +328,105 @@ export const syncAllPlayerGames = async (
       onProgress(i + 1, players.length, playerName);
     }
     
-    // Club-ID ermitteln
-    const clubId = player.fussball_de_club_id || clubIdMap[player.club];
-    
-    if (!clubId) {
-      result.errors.push(`Keine fussball.de ID für Club "${player.club}" (${playerName})`);
+    // Team-ID extrahieren
+    const teamId = extractTeamId(player.fussball_de_url);
+    if (!teamId) {
+      result.errors.push(`${playerName}: Keine Team-ID in URL gefunden`);
+      console.error(`Keine Team-ID für ${playerName}:`, player.fussball_de_url);
       continue;
     }
     
-    try {
-      // Spiele vom Club holen
-      const games = await getClubNextGames(clubId, token);
-      const filteredGames = filterGamesForWeeks(games, 8);
-      
-      // Spiele in Datenbank speichern
-      for (const game of filteredGames) {
-        // Prüfen ob Spiel bereits existiert
-        const { data: existing } = await supabase
-          .from('player_games')
-          .select('id')
-          .eq('player_id', player.id)
-          .eq('date', game.date)
-          .eq('home_team', game.home_team)
-          .eq('away_team', game.away_team)
-          .single();
-        
-        if (existing) {
-          // Update
-          await supabase
-            .from('player_games')
-            .update({
-              location: game.location || null,
-              game_type: game.competition || 'Liga',
-            })
-            .eq('id', existing.id);
-          result.updated++;
-        } else {
-          // Insert
-          await supabase
-            .from('player_games')
-            .insert({
-              player_id: player.id,
-              date: game.date,
-              home_team: game.home_team,
-              away_team: game.away_team,
-              location: game.location || null,
-              game_type: game.competition || 'Liga',
-            });
-          result.added++;
-        }
-      }
-      
-      // Rate Limit beachten (max 30/min = 2 sek zwischen Requests)
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-    } catch (error: any) {
-      result.errors.push(`Fehler bei ${playerName}: ${error.message}`);
+    console.log(`Lade Spiele für ${playerName} (Team: ${teamId})...`);
+    
+    // Spiele von API holen
+    const games = await fetchTeamNextGames(teamId, token);
+    console.log(`${games.length} Spiele für ${playerName} gefunden`);
+    
+    if (games.length === 0) {
+      // Kein Fehler, vielleicht einfach keine Spiele
+      continue;
     }
+    
+    // Spiele speichern
+    const saveResult = await saveGamesToDatabase(supabase, player.id, playerName, games);
+    result.added += saveResult.added;
+    result.updated += saveResult.updated;
+    
+    console.log(`${playerName}: ${saveResult.added} neu, ${saveResult.updated} aktualisiert`);
+    
+    // Kurze Pause um API nicht zu überlasten
+    await new Promise(resolve => setTimeout(resolve, 500));
   }
   
+  result.success = true;
   return result;
-};
+}
 
-// Einzelnen Club synchronisieren (für manuelle Sync)
-export const syncClubGames = async (
-  supabase: any,
-  clubId: string,
-  playerId: string
-): Promise<{ added: number; errors: string[] }> => {
-  const result = { added: 0, errors: [] as string[] };
-  
+// Spiele eines einzelnen Spielers laden
+export async function syncPlayerGames(
+  supabase: SupabaseClient,
+  playerId: string,
+  fussballDeUrl: string,
+  playerName: string
+): Promise<{ success: boolean; games: ApiGame[]; error?: string }> {
   const token = await getApiToken(supabase);
   if (!token) {
-    result.errors.push('Kein API-Token vorhanden');
-    return result;
+    return { success: false, games: [], error: 'Kein API Token' };
   }
   
-  try {
-    const games = await getClubNextGames(clubId, token);
-    const filteredGames = filterGamesForWeeks(games, 8);
-    
-    for (const game of filteredGames) {
-      const { data: existing } = await supabase
-        .from('player_games')
-        .select('id')
-        .eq('player_id', playerId)
-        .eq('date', game.date)
-        .eq('home_team', game.home_team)
-        .eq('away_team', game.away_team)
-        .single();
-      
-      if (!existing) {
-        await supabase
-          .from('player_games')
-          .insert({
-            player_id: playerId,
-            date: game.date,
-            home_team: game.home_team,
-            away_team: game.away_team,
-            location: game.location || null,
-            game_type: game.competition || 'Liga',
-          });
-        result.added++;
-      }
-    }
-  } catch (error: any) {
-    result.errors.push(error.message);
+  const teamId = extractTeamId(fussballDeUrl);
+  if (!teamId) {
+    return { success: false, games: [], error: 'Keine Team-ID in URL' };
   }
   
-  return result;
-};
+  const games = await fetchTeamNextGames(teamId, token);
+  
+  if (games.length > 0) {
+    await saveGamesToDatabase(supabase, playerId, playerName, games);
+  }
+  
+  return { success: true, games };
+}
+
+// Alle gespeicherten Spiele laden (für die nächsten 8 Wochen)
+export async function loadUpcomingGames(supabase: SupabaseClient): Promise<any[]> {
+  const today = new Date();
+  const in8Weeks = new Date();
+  in8Weeks.setDate(in8Weeks.getDate() + 56); // 8 Wochen
+  
+  const { data, error } = await supabase
+    .from('player_games')
+    .select(`
+      *,
+      player:player_details(id, first_name, last_name, club, responsibility)
+    `)
+    .gte('date', today.toISOString().split('T')[0])
+    .lte('date', in8Weeks.toISOString().split('T')[0])
+    .order('date', { ascending: true });
+  
+  if (error) {
+    console.error('Fehler beim Laden der Spiele:', error);
+    return [];
+  }
+  
+  return data || [];
+}
+
+// Lösche alte Spiele (älter als 1 Tag)
+export async function cleanupOldGames(supabase: SupabaseClient): Promise<number> {
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  
+  const { data, error } = await supabase
+    .from('player_games')
+    .delete()
+    .lt('date', yesterday.toISOString().split('T')[0])
+    .select('id');
+  
+  if (error) {
+    console.error('Fehler beim Löschen alter Spiele:', error);
+    return 0;
+  }
+  
+  return data?.length || 0;
+}
