@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Image, Pressable } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Image, Pressable, Modal } from 'react-native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 
@@ -31,6 +31,7 @@ interface Player {
   listing: string;
   responsibility: string;
   future_club: string;
+  in_transfer_list: boolean;
 }
 
 interface Advisor {
@@ -47,6 +48,18 @@ interface ClubLogo {
 
 type SortField = 'name' | 'birth_date' | 'position' | 'club' | 'league' | 'contract_end' | 'listing' | 'responsibility';
 type SortDirection = 'asc' | 'desc';
+type ActiveTab = 'spieler' | 'vereine';
+
+interface SearchingClub {
+  id: string;
+  club_name: string;
+  league: string;
+  position_needed: string;
+  year_range: string;
+  contact_person: string;
+  notes: string;
+  created_at: string;
+}
 
 export function TransfersScreen({ navigation }: any) {
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
@@ -61,6 +74,46 @@ export function TransfersScreen({ navigation }: any) {
   const [userRole, setUserRole] = useState<string>('berater');
   const [myPlayerIds, setMyPlayerIds] = useState<string[]>([]);
   const [profile, setProfile] = useState<Advisor | null>(null);
+  
+  // Tab State
+  const [activeTab, setActiveTab] = useState<ActiveTab>('spieler');
+  
+  // Searching Clubs State
+  const [searchingClubs, setSearchingClubs] = useState<SearchingClub[]>([]);
+  const [filteredSearchingClubs, setFilteredSearchingClubs] = useState<SearchingClub[]>([]);
+  const [showAddClubModal, setShowAddClubModal] = useState(false);
+  const [newClub, setNewClub] = useState<Partial<SearchingClub>>({
+    club_name: '',
+    league: '',
+    position_needed: '',
+    year_range: '',
+    contact_person: '',
+    notes: '',
+  });
+  
+  // Club Search States
+  const [clubSearchText, setClubSearchText] = useState('');
+  const [selectedClubPositions, setSelectedClubPositions] = useState<string[]>([]);
+  const [selectedClubYears, setSelectedClubYears] = useState<string[]>([]);
+  const [showClubPositionDropdown, setShowClubPositionDropdown] = useState(false);
+  const [showClubYearDropdown, setShowClubYearDropdown] = useState(false);
+  
+  // Club Detail Modal
+  const [selectedClub, setSelectedClub] = useState<SearchingClub | null>(null);
+  const [showClubDetailModal, setShowClubDetailModal] = useState(false);
+  
+  // Form Position Picker (für neuen Verein)
+  const [formPositions, setFormPositions] = useState<string[]>([]);
+  
+  // Club Form Dropdown
+  const [formClubSearch, setFormClubSearch] = useState('');
+  const [showFormClubDropdown, setShowFormClubDropdown] = useState(false);
+  
+  // Editing State
+  const [editingClub, setEditingClub] = useState<SearchingClub | null>(null);
+  
+  // Liste aller Vereine für Dropdown
+  const [allClubNames, setAllClubNames] = useState<string[]>([]);
 
   const [searchText, setSearchText] = useState('');
   const [selectedYears, setSelectedYears] = useState<string[]>([]);
@@ -134,7 +187,7 @@ export function TransfersScreen({ navigation }: any) {
   const clearResponsibilities = () => setSelectedResponsibilities([]);
   
   // Prüfen ob ein Dropdown offen ist
-  const isAnyDropdownOpen = showYearDropdown || showPositionDropdown || showListingDropdown || showResponsibilityDropdown;
+  const isAnyDropdownOpen = showYearDropdown || showPositionDropdown || showListingDropdown || showResponsibilityDropdown || showClubPositionDropdown || showClubYearDropdown;
   
   // Alle Dropdowns schließen
   const closeAllDropdowns = () => {
@@ -142,6 +195,8 @@ export function TransfersScreen({ navigation }: any) {
     setShowPositionDropdown(false);
     setShowListingDropdown(false);
     setShowResponsibilityDropdown(false);
+    setShowClubPositionDropdown(false);
+    setShowClubYearDropdown(false);
   };
 
   useEffect(() => {
@@ -149,7 +204,8 @@ export function TransfersScreen({ navigation }: any) {
     fetchPlayers();
     fetchClubLogos();
     fetchAdvisors();
-    const unsubscribe = navigation.addListener('focus', () => { fetchPlayers(); fetchMyPlayerAccess(); });
+    fetchSearchingClubs();
+    const unsubscribe = navigation.addListener('focus', () => { fetchPlayers(); fetchMyPlayerAccess(); fetchSearchingClubs(); });
     return unsubscribe;
   }, [navigation]);
 
@@ -160,6 +216,170 @@ export function TransfersScreen({ navigation }: any) {
   useEffect(() => { 
     applyFilters(); 
   }, [searchText, transferPlayers, selectedYears, selectedPositions, selectedListings, selectedResponsibilities, sortField, sortDirection]);
+  
+  useEffect(() => {
+    applyClubFilters();
+  }, [clubSearchText, searchingClubs, selectedClubPositions, selectedClubYears]);
+
+  const fetchSearchingClubs = async () => {
+    const { data } = await supabase
+      .from('searching_clubs')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (data) {
+      setSearchingClubs(data);
+      setFilteredSearchingClubs(data);
+    }
+  };
+  
+  const applyClubFilters = () => {
+    let filtered = [...searchingClubs];
+    
+    if (clubSearchText.trim() !== '') {
+      const search = clubSearchText.toLowerCase();
+      filtered = filtered.filter(club => 
+        club.club_name?.toLowerCase().includes(search) ||
+        club.league?.toLowerCase().includes(search) ||
+        club.position_needed?.toLowerCase().includes(search) ||
+        club.year_range?.toLowerCase().includes(search) ||
+        club.contact_person?.toLowerCase().includes(search) ||
+        club.notes?.toLowerCase().includes(search)
+      );
+    }
+    
+    if (selectedClubPositions.length > 0) {
+      filtered = filtered.filter(club => 
+        club.position_needed && selectedClubPositions.some(pos => club.position_needed.includes(pos))
+      );
+    }
+    
+    if (selectedClubYears.length > 0) {
+      filtered = filtered.filter(club => 
+        club.year_range && selectedClubYears.some(year => club.year_range.includes(year))
+      );
+    }
+    
+    setFilteredSearchingClubs(filtered);
+  };
+  
+  const toggleFormPosition = (pos: string) => {
+    setFormPositions(prev => prev.includes(pos) ? prev.filter(p => p !== pos) : [...prev, pos]);
+  };
+  
+  const handleClubClick = (club: SearchingClub) => {
+    setSelectedClub(club);
+    setShowClubDetailModal(true);
+  };
+  
+  const resetClubForm = () => {
+    setNewClub({ club_name: '', league: '', position_needed: '', year_range: '', contact_person: '', notes: '' });
+    setFormPositions([]);
+    setFormClubSearch('');
+    setShowFormClubDropdown(false);
+    setEditingClub(null);
+  };
+  
+  const openEditClubModal = (club: SearchingClub) => {
+    setEditingClub(club);
+    setNewClub({
+      club_name: club.club_name,
+      league: club.league,
+      position_needed: club.position_needed,
+      year_range: club.year_range,
+      contact_person: club.contact_person,
+      notes: club.notes,
+    });
+    setFormClubSearch(club.club_name);
+    setFormPositions(club.position_needed ? club.position_needed.split(', ').filter(p => p.trim()) : []);
+    setShowClubDetailModal(false);
+    setShowAddClubModal(true);
+  };
+  
+  const saveSearchingClub = async () => {
+    const clubName = newClub.club_name || formClubSearch;
+    if (!clubName?.trim()) return;
+    
+    const clubData = {
+      club_name: clubName,
+      league: newClub.league || '',
+      position_needed: formPositions.join(', '),
+      year_range: newClub.year_range || '',
+      contact_person: newClub.contact_person || '',
+      notes: newClub.notes || '',
+    };
+    
+    if (editingClub) {
+      // Update existing - auch created_at aktualisieren für "Aktualität"
+      const { error } = await supabase.from('searching_clubs').update({
+        ...clubData,
+        created_at: new Date().toISOString(),
+      }).eq('id', editingClub.id);
+      if (!error) {
+        fetchSearchingClubs();
+        setShowAddClubModal(false);
+        resetClubForm();
+      }
+    } else {
+      // Insert new
+      const { error } = await supabase.from('searching_clubs').insert(clubData);
+      if (!error) {
+        fetchSearchingClubs();
+        setShowAddClubModal(false);
+        resetClubForm();
+      }
+    }
+  };
+  
+  const deleteSearchingClub = async () => {
+    if (!editingClub) return;
+    const { error } = await supabase.from('searching_clubs').delete().eq('id', editingClub.id);
+    if (!error) {
+      fetchSearchingClubs();
+      setShowAddClubModal(false);
+      resetClubForm();
+    }
+  };
+  
+  const getFilteredClubsForForm = () => {
+    if (!formClubSearch.trim()) return allClubNames.slice(0, 10);
+    return allClubNames.filter(name => name.toLowerCase().includes(formClubSearch.toLowerCase())).slice(0, 10);
+  };
+  
+  const toggleClubPosition = (pos: string) => {
+    setSelectedClubPositions(prev => prev.includes(pos) ? prev.filter(p => p !== pos) : [...prev, pos]);
+  };
+  
+  const toggleClubYear = (year: string) => {
+    setSelectedClubYears(prev => prev.includes(year) ? prev.filter(y => y !== year) : [...prev, year]);
+  };
+  
+  const clearClubPositions = () => setSelectedClubPositions([]);
+  const clearClubYears = () => setSelectedClubYears([]);
+  
+  const getClubPositionFilterLabel = () => {
+    if (selectedClubPositions.length === 0) return 'Position';
+    if (selectedClubPositions.length === 1) return POSITION_SHORT[selectedClubPositions[0]] || selectedClubPositions[0];
+    return `${selectedClubPositions.length} Positionen`;
+  };
+  
+  const getClubYearFilterLabel = () => {
+    if (selectedClubYears.length === 0) return 'Jahrgang';
+    if (selectedClubYears.length === 1) return `Jg. ${selectedClubYears[0]}`;
+    return `${selectedClubYears.length} Jahrgänge`;
+  };
+  
+  // Verfügbare Jahrgänge für Club-Filter
+  const availableClubYears = React.useMemo(() => {
+    const years = new Set<string>();
+    searchingClubs.forEach(club => {
+      if (club.year_range) {
+        // Extrahiere Jahre aus dem Range (z.B. "2005-2007" -> ["2005", "2006", "2007"])
+        const match = club.year_range.match(/\d{4}/g);
+        if (match) match.forEach(y => years.add(y));
+      }
+    });
+    return Array.from(years).sort((a, b) => parseInt(b) - parseInt(a));
+  }, [searchingClubs]);
 
   const fetchAdvisors = async () => {
     const { data } = await supabase.from('advisors').select('id, first_name, last_name').order('last_name');
@@ -196,12 +416,15 @@ export function TransfersScreen({ navigation }: any) {
     const { data, error } = await supabase.from('club_logos').select('club_name, logo_url');
     if (!error && data) {
       const logoMap: Record<string, string> = {};
+      const clubNames: string[] = [];
       data.forEach((item: ClubLogo) => {
         logoMap[item.club_name] = item.logo_url;
+        clubNames.push(item.club_name);
         const simplified = item.club_name.replace(' II', '').replace(' U23', '').replace(' U21', '').replace(' U19', '');
         if (simplified !== item.club_name) logoMap[simplified] = item.logo_url;
       });
       setClubLogos(logoMap);
+      setAllClubNames(clubNames.sort());
     }
   };
 
@@ -270,16 +493,20 @@ export function TransfersScreen({ navigation }: any) {
 
   const handlePlayerClick = (player: Player) => {
     if (hasAccessToPlayer(player.id)) {
-      navigation.navigate('PlayerDetail', { playerId: player.id });
+      navigation.navigate('TransferDetail', { playerId: player.id });
     }
   };
 
   // Filtere nur Spieler die:
-  // 1. Vereinslos sind (Vertrag bereits abgelaufen) ODER
-  // 2. Vertrag läuft in der aktuellen Saison aus (gleiche Logik wie im Spielerprofil)
-  // UND: Kein zukünftiger Verein eingetragen
+  // 1. Manuell zur Transfer-Liste hinzugefügt (in_transfer_list = true) ODER
+  // 2. Vereinslos sind (Vertrag bereits abgelaufen) ODER
+  // 3. Vertrag läuft in der aktuellen Saison aus (gleiche Logik wie im Spielerprofil)
+  // UND: Kein zukünftiger Verein eingetragen (außer manuell hinzugefügt)
   const filterTransferPlayers = () => {
     const transfers = allPlayers.filter(player => {
+      // Manuell zur Transfer-Liste hinzugefügt? -> Immer anzeigen
+      if (player.in_transfer_list) return true;
+      
       // Hat bereits zukünftigen Verein? -> Nicht in Transfers
       if (hasFutureClub(player)) return false;
       
@@ -345,7 +572,7 @@ export function TransfersScreen({ navigation }: any) {
 
   const fetchPlayers = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from('player_details').select('id, first_name, last_name, birth_date, position, club, league, contract_end, listing, responsibility, future_club').order('last_name', { ascending: true });
+    const { data, error } = await supabase.from('player_details').select('id, first_name, last_name, birth_date, position, club, league, contract_end, listing, responsibility, future_club, in_transfer_list').order('last_name', { ascending: true });
     if (!error) setAllPlayers(data || []);
     setLoading(false);
   };
@@ -450,24 +677,32 @@ export function TransfersScreen({ navigation }: any) {
       {/* Main Content */}
       <View style={styles.mainContent}>
         {/* Header Banner */}
-        <View style={styles.headerBanner}>
-          <TouchableOpacity onPress={() => navigation.navigate('AdvisorDashboard')} style={styles.backButton}>
-            <Text style={styles.backButtonText}>← Zurück</Text>
+        <Pressable style={styles.headerBanner} onPress={closeAllDropdowns}>
+          <TouchableOpacity style={styles.filterButton} onPress={() => navigation.navigate('AdvisorDashboard')}>
+            <Text style={styles.filterButtonText}>← Zurück</Text>
           </TouchableOpacity>
           <View style={styles.headerBannerCenter}>
             <Text style={styles.headerTitle}>Transfers</Text>
             <Text style={styles.headerSubtitle}>
-              {transferPlayers.length} Spieler mit auslaufendem Vertrag oder vereinslos
+              Spieler mit auslaufendem Vertrag und Vereine auf der Suche
             </Text>
           </View>
-          <View style={{ width: 80 }} />
-        </View>
+          <View style={styles.headerTabs}>
+            <TouchableOpacity style={[styles.filterButton, activeTab === 'spieler' && styles.filterButtonActive]} onPress={() => { closeAllDropdowns(); setActiveTab('spieler'); }}>
+              <Text style={[styles.filterButtonText, activeTab === 'spieler' && styles.filterButtonTextActive]}>Spieler ({transferPlayers.length})</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.filterButton, activeTab === 'vereine' && styles.filterButtonActive]} onPress={() => { closeAllDropdowns(); setActiveTab('vereine'); }}>
+              <Text style={[styles.filterButtonText, activeTab === 'vereine' && styles.filterButtonTextActive]}>Vereine auf der Suche...</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
 
-        {/* Toolbar wie Scouting */}
+        {activeTab === 'spieler' && (
+        /* Toolbar wie Scouting */
         <Pressable style={styles.toolbar} onPress={closeAllDropdowns}>
           <View style={styles.searchContainer}>
             <Text style={styles.searchIcon}>🔍</Text>
-            <TextInput style={styles.searchInput} placeholder="Spieler, Verein suchen..." value={searchText} onChangeText={setSearchText} onFocus={closeAllDropdowns} />
+            <TextInput style={styles.searchInput} placeholder="Spieler, Verein suchen..." placeholderTextColor="#9ca3af" value={searchText} onChangeText={setSearchText} onFocus={closeAllDropdowns} />
           </View>
           
           <View style={styles.filterContainer}>
@@ -601,33 +836,367 @@ export function TransfersScreen({ navigation }: any) {
             </View>
           </View>
         </Pressable>
+        )}
 
         {/* Dropdown Overlay - schließt alle Dropdowns beim Klicken */}
-        {isAnyDropdownOpen && (
+        {isAnyDropdownOpen && activeTab === 'spieler' && (
           <Pressable style={styles.dropdownOverlay} onPress={closeAllDropdowns} />
         )}
 
+        {activeTab === 'spieler' ? (
+          <ScrollView style={styles.tableContainer}>
+            <View style={styles.tableHeader}>
+              {renderSortableHeader('Name', 'name', styles.colName)}
+              {renderSortableHeader('Geb.-Datum', 'birth_date', styles.colBirthDate)}
+              {renderSortableHeader('Position', 'position', styles.colPosition)}
+              {renderSortableHeader('Verein', 'club', styles.colClub)}
+              {renderSortableHeader('Liga', 'league', styles.colLeague)}
+              {renderSortableHeader('Vertragsende', 'contract_end', styles.colContract)}
+              {renderSortableHeader('Listung', 'listing', styles.colListing)}
+              {renderSortableHeader('Zuständigkeit', 'responsibility', styles.colResponsibility)}
+            </View>
+
+            <View style={styles.tableBody}>
+              {loading ? <Text style={styles.loadingText}>Laden...</Text> : filteredPlayers.length === 0 ? <Text style={styles.emptyText}>Keine Spieler mit auslaufendem Vertrag gefunden</Text> : (
+                filteredPlayers.map((player) => renderPlayerRow(player))
+              )}
+            </View>
+          </ScrollView>
+        ) : (
+          renderVereineTab()
+        )}
+      </View>
+      
+      {/* Add Club Modal */}
+      <Modal visible={showAddClubModal} transparent animationType="fade">
+        <Pressable style={styles.modalOverlay} onPress={() => setShowFormClubDropdown(false)}>
+          <Pressable style={styles.modalContent} onPress={() => setShowFormClubDropdown(false)}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{editingClub ? 'Verein bearbeiten' : 'Neuen suchenden Verein anlegen'}</Text>
+              <TouchableOpacity onPress={() => { setShowAddClubModal(false); resetClubForm(); }} style={styles.closeButton}>
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={{ maxHeight: 500 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              <View style={[styles.formField, { zIndex: 1000 }]}>
+                <Text style={styles.formLabel}>Verein *</Text>
+                <View style={styles.clubSelectorContainer}>
+                  <TextInput 
+                    style={styles.formInput} 
+                    value={formClubSearch} 
+                    onChangeText={(t) => { setFormClubSearch(t); setShowFormClubDropdown(true); }}
+                    onFocus={() => setShowFormClubDropdown(true)}
+                    placeholder="Verein suchen oder eingeben..."
+                    placeholderTextColor="#9ca3af"
+                  />
+                  {showFormClubDropdown && formClubSearch.length > 0 && (
+                    <View style={styles.clubDropdown}>
+                      <ScrollView style={styles.clubDropdownScroll} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                        {getFilteredClubsForForm().map((club) => (
+                          <TouchableOpacity key={club} style={styles.clubDropdownItem} onPress={() => { setFormClubSearch(club); setNewClub({...newClub, club_name: club}); setShowFormClubDropdown(false); }}>
+                            {clubLogos[club] && <Image source={{ uri: clubLogos[club] }} style={styles.clubDropdownLogo} />}
+                            <Text style={styles.clubDropdownText}>{club}</Text>
+                          </TouchableOpacity>
+                        ))}
+                        {!getFilteredClubsForForm().includes(formClubSearch) && formClubSearch.trim() !== '' && (
+                          <TouchableOpacity style={[styles.clubDropdownItem, styles.clubDropdownCustom]} onPress={() => { setNewClub({...newClub, club_name: formClubSearch}); setShowFormClubDropdown(false); }}>
+                            <Text style={styles.clubDropdownCustomText}>"{formClubSearch}" verwenden</Text>
+                          </TouchableOpacity>
+                        )}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
+              </View>
+              
+              <View style={[styles.formField, { zIndex: 1 }]}>
+                <Text style={styles.formLabel}>Liga</Text>
+                <TextInput 
+                  style={styles.formInput} 
+                  value={newClub.league || ''} 
+                  onChangeText={(t) => setNewClub({...newClub, league: t})} 
+                  placeholder="z.B. Bundesliga, 2. Liga"
+                  placeholderTextColor="#9ca3af"
+                  onFocus={() => setShowFormClubDropdown(false)}
+                />
+              </View>
+              
+              <View style={[styles.formField, { zIndex: 1 }]}>
+                <Text style={styles.formLabel}>Gesuchte Position</Text>
+                <Pressable style={styles.positionPickerRow} onPress={() => setShowFormClubDropdown(false)}>
+                  {POSITIONS.map(pos => {
+                    const isSelected = formPositions.includes(pos);
+                    return (
+                      <TouchableOpacity 
+                        key={pos} 
+                        style={[styles.positionOption, isSelected && styles.positionOptionSelected]} 
+                        onPress={() => { setShowFormClubDropdown(false); toggleFormPosition(pos); }}
+                      >
+                        <Text style={[styles.positionOptionText, isSelected && styles.positionOptionTextSelected]}>{POSITION_SHORT[pos]}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </Pressable>
+              </View>
+              
+              <View style={[styles.formField, { zIndex: 1 }]}>
+                <Text style={styles.formLabel}>Alter/Jahrgang</Text>
+                <TextInput 
+                  style={styles.formInput} 
+                  value={newClub.year_range || ''} 
+                  onChangeText={(t) => setNewClub({...newClub, year_range: t})} 
+                  placeholder="z.B. 2005-2007"
+                  placeholderTextColor="#9ca3af"
+                  onFocus={() => setShowFormClubDropdown(false)}
+                />
+              </View>
+              
+              <View style={[styles.formField, { zIndex: 1 }]}>
+                <Text style={styles.formLabel}>Ansprechpartner</Text>
+                <TextInput 
+                  style={styles.formInput} 
+                  value={newClub.contact_person || ''} 
+                  onChangeText={(t) => setNewClub({...newClub, contact_person: t})} 
+                  placeholder="Name des Kontakts"
+                  placeholderTextColor="#9ca3af"
+                  onFocus={() => setShowFormClubDropdown(false)}
+                />
+              </View>
+              
+              <View style={[styles.formField, { zIndex: 1 }]}>
+                <Text style={styles.formLabel}>Notizen</Text>
+                <TextInput 
+                  style={[styles.formInput, { minHeight: 80 }]} 
+                  value={newClub.notes || ''} 
+                  onChangeText={(t) => setNewClub({...newClub, notes: t})} 
+                  placeholder="Weitere Informationen..."
+                  placeholderTextColor="#9ca3af"
+                  multiline
+                  onFocus={() => setShowFormClubDropdown(false)}
+                />
+              </View>
+            </ScrollView>
+            
+            <View style={styles.modalButtonsSpaced}>
+              {editingClub && (
+                <TouchableOpacity style={styles.deleteButton} onPress={deleteSearchingClub}>
+                  <Text style={styles.deleteButtonText}>Löschen</Text>
+                </TouchableOpacity>
+              )}
+              <View style={{ flex: 1 }} />
+              <TouchableOpacity style={styles.saveButton} onPress={saveSearchingClub}>
+                <Text style={styles.saveButtonText}>Speichern</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+      
+      {/* Club Detail Modal */}
+      <Modal visible={showClubDetailModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.detailModalContent}>
+            {/* Header mit Name, Liga und Logo */}
+            <View style={styles.detailModalHeader}>
+              <View style={styles.detailHeaderInfo}>
+                <View style={styles.detailHeaderNameRow}>
+                  <Text style={styles.detailModalTitle}>{selectedClub?.club_name}</Text>
+                  {selectedClub?.club_name && getClubLogo(selectedClub.club_name) && (
+                    <Image source={{ uri: getClubLogo(selectedClub.club_name)! }} style={styles.detailHeaderLogo} />
+                  )}
+                </View>
+                {selectedClub?.league && <Text style={styles.detailModalSubtitle}>{selectedClub.league}</Text>}
+              </View>
+              <TouchableOpacity onPress={() => { setShowClubDetailModal(false); setSelectedClub(null); }} style={styles.closeButton}>
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            
+            {selectedClub && (
+              <ScrollView style={styles.detailModalBody} showsVerticalScrollIndicator={false}>
+                {/* Zwei-Spalten-Layout mit hellblauer Füllung */}
+                <View style={styles.detailCardsRow}>
+                  {/* Linke Spalte */}
+                  <View style={styles.detailCard}>
+                    <View style={styles.detailCardField}>
+                      <Text style={styles.detailCardLabel}>Gesuchte Position</Text>
+                      <View style={styles.detailPositions}>
+                        {selectedClub.position_needed ? selectedClub.position_needed.split(', ').map((p, idx) => (
+                          <View key={idx} style={styles.positionBadgeDetail}>
+                            <Text style={styles.positionBadgeDetailText}>{POSITION_SHORT[p.trim()] || p}</Text>
+                          </View>
+                        )) : <Text style={styles.detailCardValue}>-</Text>}
+                      </View>
+                    </View>
+                    
+                    <View style={styles.detailCardField}>
+                      <Text style={styles.detailCardLabel}>Alter/Jahrgang</Text>
+                      <Text style={styles.detailCardValue}>{selectedClub.year_range || '-'}</Text>
+                    </View>
+                    
+                    <View style={styles.detailCardField}>
+                      <Text style={styles.detailCardLabel}>Ansprechpartner</Text>
+                      <Text style={styles.detailCardValue}>{selectedClub.contact_person || '-'}</Text>
+                    </View>
+                    
+                    <View style={styles.detailCardFieldLast}>
+                      <Text style={styles.detailCardLabel}>Aktualität</Text>
+                      <Text style={styles.detailCardValue}>{formatDate(selectedClub.created_at)}</Text>
+                    </View>
+                  </View>
+                  
+                </View>
+                
+                {/* Notizen Box - hellgelber Hintergrund */}
+                <View style={styles.detailNotesCard}>
+                  <Text style={styles.detailCardLabel}>Notizen</Text>
+                  <View style={styles.detailNotesBox}>
+                    <Text style={styles.detailNotesBoxText}>{selectedClub.notes || '-'}</Text>
+                  </View>
+                </View>
+                
+                {/* Action Buttons */}
+                <View style={styles.detailModalActions}>
+                  <TouchableOpacity style={styles.detailEditButton} onPress={() => openEditClubModal(selectedClub)}>
+                    <Text style={styles.detailEditButtonText}>Bearbeiten</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+  
+  function renderVereineTab() {
+    return (
+      <Pressable style={{ flex: 1 }} onPress={closeAllDropdowns}>
+        {/* Vereine Toolbar */}
+        <View style={styles.toolbar}>
+          <View style={styles.searchContainer}>
+            <Text style={styles.searchIcon}>🔍</Text>
+            <TextInput 
+              style={styles.searchInput} 
+              placeholder="Verein, Liga suchen..." 
+              placeholderTextColor="#9ca3af"
+              value={clubSearchText} 
+              onChangeText={setClubSearchText} 
+            />
+          </View>
+          
+          <View style={styles.filterContainer}>
+            {/* Position Filter */}
+            <View style={[styles.dropdownContainer, { zIndex: 40 }]}>
+              <TouchableOpacity 
+                style={[styles.filterButton, selectedClubPositions.length > 0 && styles.filterButtonActive]} 
+                onPress={(e) => { e.stopPropagation(); closeAllDropdowns(); setShowClubPositionDropdown(!showClubPositionDropdown); }}
+              >
+                <Text style={[styles.filterButtonText, selectedClubPositions.length > 0 && styles.filterButtonTextActive]}>{getClubPositionFilterLabel()} ▼</Text>
+              </TouchableOpacity>
+              {showClubPositionDropdown && (
+                <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
+                  <View style={styles.filterDropdownHeader}>
+                    <Text style={styles.filterDropdownTitle}>Position wählen</Text>
+                    {selectedClubPositions.length > 0 && <TouchableOpacity onPress={clearClubPositions}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
+                  </View>
+                  <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
+                    {POSITIONS.map(pos => {
+                      const isSelected = selectedClubPositions.includes(pos);
+                      const count = searchingClubs.filter(c => c.position_needed?.includes(pos)).length;
+                      return (
+                        <TouchableOpacity key={pos} style={styles.filterCheckboxItem} onPress={() => toggleClubPosition(pos)}>
+                          <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                          <Text style={styles.filterCheckboxText}>{POSITION_SHORT[pos]}</Text>
+                          <Text style={styles.filterCountBadge}>{count}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                  <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowClubPositionDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                </Pressable>
+              )}
+            </View>
+
+            {/* Jahrgang Filter */}
+            <View style={[styles.dropdownContainer, { zIndex: 30 }]}>
+              <TouchableOpacity 
+                style={[styles.filterButton, selectedClubYears.length > 0 && styles.filterButtonActive]} 
+                onPress={(e) => { e.stopPropagation(); closeAllDropdowns(); setShowClubYearDropdown(!showClubYearDropdown); }}
+              >
+                <Text style={[styles.filterButtonText, selectedClubYears.length > 0 && styles.filterButtonTextActive]}>{getClubYearFilterLabel()} ▼</Text>
+              </TouchableOpacity>
+              {showClubYearDropdown && (
+                <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
+                  <View style={styles.filterDropdownHeader}>
+                    <Text style={styles.filterDropdownTitle}>Jahrgang wählen</Text>
+                    {selectedClubYears.length > 0 && <TouchableOpacity onPress={clearClubYears}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
+                  </View>
+                  <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
+                    {availableClubYears.map(year => {
+                      const isSelected = selectedClubYears.includes(year);
+                      const count = searchingClubs.filter(c => c.year_range?.includes(year)).length;
+                      return (
+                        <TouchableOpacity key={year} style={styles.filterCheckboxItem} onPress={() => toggleClubYear(year)}>
+                          <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                          <Text style={styles.filterCheckboxText}>Jg. {year}</Text>
+                          <Text style={styles.filterCountBadge}>{count}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                  <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowClubYearDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                </Pressable>
+              )}
+            </View>
+          </View>
+          
+          <TouchableOpacity style={styles.addButton} onPress={() => setShowAddClubModal(true)}>
+            <Text style={styles.addButtonText}>+ neuen Verein anlegen</Text>
+          </TouchableOpacity>
+        </View>
+        
+        {/* Vereine Tabelle */}
         <ScrollView style={styles.tableContainer}>
           <View style={styles.tableHeader}>
-            {renderSortableHeader('Name', 'name', styles.colName)}
-            {renderSortableHeader('Geb.-Datum', 'birth_date', styles.colBirthDate)}
-            {renderSortableHeader('Position', 'position', styles.colPosition)}
-            {renderSortableHeader('Verein', 'club', styles.colClub)}
-            {renderSortableHeader('Liga', 'league', styles.colLeague)}
-            {renderSortableHeader('Vertragsende', 'contract_end', styles.colContract)}
-            {renderSortableHeader('Listung', 'listing', styles.colListing)}
-            {renderSortableHeader('Zuständigkeit', 'responsibility', styles.colResponsibility)}
+            <Text style={[styles.tableHeaderText, styles.colDate]}>Aktualität</Text>
+            <Text style={[styles.tableHeaderText, styles.colClubName]}>Verein</Text>
+            <Text style={[styles.tableHeaderText, styles.colLeagueName]}>Liga</Text>
+            <Text style={[styles.tableHeaderText, styles.colPositionNeeded]}>Position</Text>
+            <Text style={[styles.tableHeaderText, styles.colYearRange]}>Alter/Jahrgang</Text>
+            <Text style={[styles.tableHeaderText, styles.colContactPerson]}>Ansprechpartner</Text>
           </View>
 
           <View style={styles.tableBody}>
-            {loading ? <Text style={styles.loadingText}>Laden...</Text> : filteredPlayers.length === 0 ? <Text style={styles.emptyText}>Keine Spieler mit auslaufendem Vertrag gefunden</Text> : (
-              filteredPlayers.map((player) => renderPlayerRow(player))
+            {filteredSearchingClubs.length === 0 ? (
+              <Text style={styles.emptyText}>Keine suchenden Vereine gefunden</Text>
+            ) : (
+              filteredSearchingClubs.map((club) => (
+                <TouchableOpacity key={club.id} style={styles.tableRow} onPress={() => handleClubClick(club)}>
+                  <Text style={[styles.tableCell, styles.colDate]}>{formatDate(club.created_at)}</Text>
+                  <View style={[styles.colClubName, styles.clubCell]}>
+                    {clubLogos[club.club_name] && <Image source={{ uri: clubLogos[club.club_name] }} style={styles.clubLogo} />}
+                    <Text style={styles.tableCell} numberOfLines={1}>{club.club_name}</Text>
+                  </View>
+                  <Text style={[styles.tableCell, styles.colLeagueName]} numberOfLines={1}>{club.league || '-'}</Text>
+                  <View style={[styles.colPositionNeeded, { flexDirection: 'row', flexWrap: 'wrap', gap: 4 }]}>
+                    {club.position_needed ? club.position_needed.split(', ').map((p, idx) => (
+                      <View key={idx} style={styles.positionBadge}>
+                        <Text style={styles.positionBadgeText}>{POSITION_SHORT[p.trim()] || p}</Text>
+                      </View>
+                    )) : <Text style={styles.tableCell}>-</Text>}
+                  </View>
+                  <Text style={[styles.tableCell, styles.colYearRange]} numberOfLines={1}>{club.year_range || '-'}</Text>
+                  <Text style={[styles.tableCell, styles.colContactPerson]} numberOfLines={1}>{club.contact_person || '-'}</Text>
+                </TouchableOpacity>
+              ))
             )}
           </View>
         </ScrollView>
-      </View>
-    </View>
-  );
+      </Pressable>
+    );
+  }
 }
 
 const styles = StyleSheet.create({
@@ -714,4 +1283,108 @@ const styles = StyleSheet.create({
   
   loadingText: { padding: 20, textAlign: 'center', color: '#64748b' },
   emptyText: { padding: 20, textAlign: 'center', color: '#64748b' },
+  
+  // Header Tabs
+  headerTabs: { flexDirection: 'row', gap: 8 },
+  
+  // Add Button
+  addButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#1a1a1a' },
+  addButtonText: { fontSize: 14, color: '#fff', fontWeight: '600' },
+  
+  // Vereine Tab Spalten
+  colDate: { flex: 0.8, minWidth: 80 },
+  colClubName: { flex: 1.5, minWidth: 150 },
+  colLeagueName: { flex: 1.2, minWidth: 100 },
+  colPositionNeeded: { flex: 1.2, minWidth: 120 },
+  colYearRange: { flex: 1, minWidth: 100 },
+  colContactPerson: { flex: 1.2, minWidth: 100 },
+  
+  // Position Badge (Liste)
+  positionBadge: { backgroundColor: '#e0f2fe', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4 },
+  positionBadgeText: { fontSize: 11, fontWeight: '600', color: '#0369a1' },
+  
+  // Modal
+  modalOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
+  modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 500, maxHeight: '90%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
+  modalTitle: { fontSize: 20, fontWeight: '700', color: '#1a1a1a' },
+  closeButton: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center' },
+  closeButtonText: { fontSize: 18, color: '#64748b' },
+  formField: { marginBottom: 16 },
+  formLabel: { fontSize: 13, color: '#64748b', marginBottom: 6, fontWeight: '500' },
+  formInput: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 12, fontSize: 14, backgroundColor: '#fff' },
+  modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 20 },
+  modalButtonsRight: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 20 },
+  modalButtonsSpaced: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
+  cancelButton: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#f1f5f9' },
+  cancelButtonText: { color: '#64748b', fontWeight: '600' },
+  saveButton: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#10b981' },
+  saveButtonText: { color: '#10b981', fontWeight: '600' },
+  deleteButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ef4444' },
+  deleteButtonText: { color: '#ef4444', fontWeight: '600' },
+  
+  // Position Picker (Form)
+  positionPickerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  positionOption: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
+  positionOptionSelected: { backgroundColor: '#1a1a1a', borderColor: '#1a1a1a' },
+  positionOptionText: { fontSize: 12, fontWeight: '600', color: '#64748b' },
+  positionOptionTextSelected: { color: '#fff' },
+  
+  // Detail Modal - Neues Layout wie Spieler-Detail
+  detailHeaderLeft: { flex: 1 },
+  detailSubtitle: { fontSize: 14, color: '#64748b', marginTop: 4 },
+  detailContent: { marginTop: 8 },
+  detailRow: { marginBottom: 16 },
+  detailRowNotes: { marginTop: 8, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
+  detailLabel: { fontSize: 12, color: '#64748b', marginBottom: 6, fontWeight: '500' },
+  detailValue: { fontSize: 15, color: '#1a1a1a', fontWeight: '500' },
+  detailPositions: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  detailNotesText: { fontSize: 14, color: '#334155', lineHeight: 20, backgroundColor: '#f8fafc', padding: 12, borderRadius: 8 },
+  detailActions: { marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e2e8f0', flexDirection: 'row', justifyContent: 'flex-end' },
+  editButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0' },
+  editButtonText: { color: '#64748b', fontWeight: '600' },
+  
+  // Detail Modal - Neues Karten-Layout
+  detailModalContent: { backgroundColor: '#fff', borderRadius: 16, width: '90%', maxWidth: 550, maxHeight: '85%', overflow: 'hidden' },
+  detailModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 20, paddingBottom: 16 },
+  detailHeaderInfo: { flex: 1 },
+  detailHeaderNameRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  detailModalTitle: { fontSize: 22, fontWeight: '700', color: '#1a1a1a' },
+  detailModalSubtitle: { fontSize: 14, color: '#64748b', marginTop: 4 },
+  detailHeaderLogo: { width: 32, height: 32, resizeMode: 'contain' },
+  detailModalBody: { paddingHorizontal: 20, paddingBottom: 20 },
+  
+  // Karten-Layout - volle Breite
+  detailCardsRow: { marginBottom: 16 },
+  detailCard: { backgroundColor: '#eff6ff', borderRadius: 12, borderWidth: 1, borderColor: '#bfdbfe', padding: 20 },
+  detailCardField: { marginBottom: 16 },
+  detailCardFieldLast: { marginBottom: 0 },
+  detailCardLabel: { fontSize: 12, color: '#64748b', marginBottom: 4 },
+  detailCardValue: { fontSize: 15, color: '#1a1a1a', fontWeight: '600' },
+  
+  // Position Badge im Detail Modal - hellblau ohne Rahmen wie in Liste
+  positionBadgeDetail: { backgroundColor: '#e0f2fe', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6 },
+  positionBadgeDetailText: { fontSize: 13, fontWeight: '600', color: '#0369a1' },
+  
+  // Notizen Card - hellblau wie die anderen Karten
+  detailNotesCard: { marginBottom: 20 },
+  detailNotesBox: { backgroundColor: '#eff6ff', borderRadius: 10, padding: 14, borderWidth: 1, borderColor: '#bfdbfe', marginTop: 6 },
+  detailNotesBoxText: { fontSize: 14, color: '#1a1a1a', lineHeight: 20 },
+  
+  // Action Buttons im Detail Modal - nur Bearbeiten rechts
+  detailModalActions: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
+  detailDeleteButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#fff', borderWidth: 1, borderColor: '#fca5a5' },
+  detailDeleteButtonText: { color: '#ef4444', fontWeight: '600', fontSize: 14 },
+  detailEditButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#fff', borderWidth: 1, borderColor: '#3b82f6' },
+  detailEditButtonText: { color: '#3b82f6', fontWeight: '600', fontSize: 14 },
+  
+  // Club Selector in Form
+  clubSelectorContainer: { position: 'relative', zIndex: 100 },
+  clubDropdown: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', marginTop: 4, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 10, zIndex: 9999, elevation: 9999 },
+  clubDropdownScroll: { maxHeight: 200 },
+  clubDropdownItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', backgroundColor: '#fff' },
+  clubDropdownLogo: { width: 24, height: 24, resizeMode: 'contain', marginRight: 10 },
+  clubDropdownText: { fontSize: 14, color: '#333' },
+  clubDropdownCustom: { backgroundColor: '#f0fdf4' },
+  clubDropdownCustomText: { fontSize: 14, color: '#16a34a', fontWeight: '500' },
 });

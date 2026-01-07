@@ -6,9 +6,9 @@ import { Sidebar } from '../../components/Sidebar';
 const POSITIONS = ['TW', 'IV', 'LV', 'RV', 'DM', 'ZM', 'OM', 'LA', 'RA', 'ST'];
 
 const SCOUTING_STATUS = [
-  { id: 'gesichtet', label: 'Gesichtet', color: '#10b981' },
-  { id: 'in_beobachtung', label: 'In Beobachtung', color: '#f59e0b' },
-  { id: 'kontaktiert', label: 'Kontaktiert', color: '#3b82f6' },
+  { id: 'gesichtet', label: 'Talentpool', description: 'Empfohlen oder gescoutet, aber noch weitere Sichtung nötig', color: '#10b981' },
+  { id: 'in_beobachtung', label: 'Go-Kandidaten', description: 'Klares Ja - sofort aktiv ansprechen und verhaften', color: '#f59e0b' },
+  { id: 'kontaktiert', label: 'Austausch läuft', description: 'Bereits in Kontakt: Gespräche laufen, nächste Schritte sind in Arbeit', color: '#3b82f6' },
 ];
 
 const LISTINGS = ['Karl Herzog Sportmanagement', 'PM Sportmanagement'];
@@ -713,7 +713,8 @@ export function ScoutingScreen({ navigation }: any) {
           onChangeText={(t) => { setSearchTxt(t); onSelect(t); setShowDrop(t.length > 0 && getFilteredClubs(t).length > 0); }} 
           onFocus={() => { if (searchTxt.length > 0 && getFilteredClubs(searchTxt).length > 0) setShowDrop(true); }}
           onBlur={() => setTimeout(() => setShowDrop(false), 200)}
-          placeholder="Verein suchen..." 
+          placeholder="Verein suchen..."
+          placeholderTextColor="#9ca3af"
         />
         {showDrop && list.length > 0 && (
           <View style={styles.clubDropdown}>
@@ -762,7 +763,7 @@ export function ScoutingScreen({ navigation }: any) {
                 <View key={idx} style={styles.positionBadge}><Text style={styles.positionText}>{pos}</Text></View>
               ))}
             </View>
-            <View style={styles.ratingBadgeCard}><Text style={styles.ratingTextCard}>⭐ {player.rating}/10</Text></View>
+            {player.rating && <View style={styles.ratingBadgeCard}><Text style={styles.ratingTextCard}>⭐ {player.rating}/10</Text></View>}
           </View>
         </View>
         {/* IST-Stand */}
@@ -793,10 +794,10 @@ export function ScoutingScreen({ navigation }: any) {
       return (
         <div key={status.id} onDragOver={(e) => onDragOver(e, status.id)} onDragLeave={(e) => onDragLeave(e, status.id)} onDrop={(e) => onDrop(e, status.id)}
           style={{ 
-            width: 380, 
+            flex: 1,
+            minWidth: 250,
             backgroundColor: isDropTarget ? '#dbeafe' : '#f1f5f9', 
             borderRadius: 12, 
-            marginRight: 16, 
             padding: 12, 
             border: isDropTarget ? '2px dashed #3b82f6' : '2px solid transparent', 
             transition: 'background-color 0.2s', 
@@ -805,9 +806,12 @@ export function ScoutingScreen({ navigation }: any) {
             maxHeight: 'calc(100vh - 250px)',
           }}>
           <View style={styles.kanbanHeader}>
-            <View style={[styles.statusDot, { backgroundColor: status.color }]} />
-            <Text style={styles.kanbanTitle}>{status.label}</Text>
-            <View style={styles.countBadge}><Text style={styles.countText}>{players.length}</Text></View>
+            <View style={styles.kanbanHeaderTop}>
+              <View style={[styles.statusDot, { backgroundColor: status.color }]} />
+              <Text style={styles.kanbanTitle}>{status.label}</Text>
+              <View style={styles.countBadge}><Text style={styles.countText}>{players.length}</Text></View>
+            </View>
+            <Text style={styles.kanbanDescription}>{status.description}</Text>
           </View>
           <div style={{ flex: 1, overflowY: 'scroll', paddingRight: 4 }}>
             {players.map(player => renderPlayerCard(player))}
@@ -818,9 +822,12 @@ export function ScoutingScreen({ navigation }: any) {
     return (
       <View style={[styles.kanbanColumn, isDropTarget && styles.kanbanColumnDropTarget]} key={status.id}>
         <View style={styles.kanbanHeader}>
-          <View style={[styles.statusDot, { backgroundColor: status.color }]} />
-          <Text style={styles.kanbanTitle}>{status.label}</Text>
-          <View style={styles.countBadge}><Text style={styles.countText}>{players.length}</Text></View>
+          <View style={styles.kanbanHeaderTop}>
+            <View style={[styles.statusDot, { backgroundColor: status.color }]} />
+            <Text style={styles.kanbanTitle}>{status.label}</Text>
+            <View style={styles.countBadge}><Text style={styles.countText}>{players.length}</Text></View>
+          </View>
+          <Text style={styles.kanbanDescription}>{status.description}</Text>
         </View>
         <ScrollView style={styles.kanbanContent} showsVerticalScrollIndicator={false}>
           {players.map(player => renderPlayerCard(player))}
@@ -864,7 +871,7 @@ export function ScoutingScreen({ navigation }: any) {
             <Text style={[styles.tableCell, { flex: 1.4 }]} numberOfLines={1}>{player.club}</Text>
             <Text style={[styles.tableCell, { flex: 1.2 }]} numberOfLines={1}>{player.agent_name || '-'}</Text>
             <View style={[styles.tableCell, { flex: 0.7, flexDirection: 'row' }]}>
-              <View style={styles.ratingBadgeList}><Text style={styles.ratingTextList}>⭐ {player.rating}/10</Text></View>
+              {player.rating ? <View style={styles.ratingBadgeList}><Text style={styles.ratingTextList}>⭐ {player.rating}/10</Text></View> : <Text style={styles.tableCell}>-</Text>}
             </View>
             <Text style={[styles.tableCell, { flex: 1 }]} numberOfLines={1}>{player.scout_name}</Text>
             <Text style={[styles.tableCell, { flex: 1.1, color: SCOUTING_STATUS.find(s => s.id === player.status)?.color }]}>
@@ -954,11 +961,11 @@ export function ScoutingScreen({ navigation }: any) {
         <View style={styles.formRow}>
           <View style={styles.formField}>
             <Text style={styles.formLabel}>Vorname *</Text>
-            <TextInput style={styles.formInput} value={data.first_name} onChangeText={(t) => setData({...data, first_name: t})} placeholder="Vorname" />
+            <TextInput style={styles.formInput} value={data.first_name} onChangeText={(t) => setData({...data, first_name: t})} placeholder="Vorname" placeholderTextColor="#9ca3af" />
           </View>
           <View style={styles.formField}>
             <Text style={styles.formLabel}>Nachname *</Text>
-            <TextInput style={styles.formInput} value={data.last_name} onChangeText={(t) => setData({...data, last_name: t})} placeholder="Nachname" />
+            <TextInput style={styles.formInput} value={data.last_name} onChangeText={(t) => setData({...data, last_name: t})} placeholder="Nachname" placeholderTextColor="#9ca3af" />
           </View>
         </View>
         <View style={[styles.formRow, { zIndex: 9999 }]}>
@@ -968,7 +975,7 @@ export function ScoutingScreen({ navigation }: any) {
           </View>
           <View style={styles.formField}>
             <Text style={styles.formLabel}>Geburtsdatum / Jahrgang</Text>
-            <TextInput style={styles.formInput} value={data.birth_date || ''} onChangeText={(t) => setData({...data, birth_date: t})} placeholder="YYYY-MM-DD oder YYYY" />
+            <TextInput style={styles.formInput} value={data.birth_date || ''} onChangeText={(t) => setData({...data, birth_date: t})} placeholder="YYYY-MM-DD oder YYYY" placeholderTextColor="#9ca3af" />
           </View>
         </View>
         <View style={styles.formRow}>
@@ -978,7 +985,8 @@ export function ScoutingScreen({ navigation }: any) {
               style={styles.formInput} 
               value={data.phone || ''} 
               onChangeText={(t) => setData({...data, phone: t})} 
-              placeholder="Telefonnummer..." 
+              placeholder="Telefonnummer..."
+              placeholderTextColor="#9ca3af"
               keyboardType="phone-pad"
             />
           </View>
@@ -988,7 +996,8 @@ export function ScoutingScreen({ navigation }: any) {
               style={styles.formInput} 
               value={data.current_status || ''} 
               onChangeText={(t) => setData({...data, current_status: t})} 
-              placeholder="z.B. Termin am 15.01." 
+              placeholder="z.B. Termin am 15.01."
+              placeholderTextColor="#9ca3af"
             />
           </View>
         </View>
@@ -999,6 +1008,12 @@ export function ScoutingScreen({ navigation }: any) {
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Position:</Text>
           <View style={styles.positionPickerSmall}>
+            <TouchableOpacity 
+              style={[styles.positionOptionSmall, (!data.position || data.position === '') && styles.positionOptionSelected]} 
+              onPress={() => setData({...data, position: ''})}
+            >
+              <Text style={[styles.positionOptionTextSmall, (!data.position || data.position === '') && styles.positionOptionTextSelected]}>-</Text>
+            </TouchableOpacity>
             {POSITIONS.map(pos => {
               const currentPositions = parsePositions(data.position || '');
               const isSelected = currentPositions.includes(pos);
@@ -1022,6 +1037,9 @@ export function ScoutingScreen({ navigation }: any) {
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Einschätzung:</Text>
           <View style={styles.ratingPickerSmall}>
+            <TouchableOpacity style={[styles.ratingOptionSmall, !data.rating && styles.ratingOptionSelected]} onPress={() => setData({...data, rating: null})}>
+              <Text style={[styles.ratingOptionTextSmall, !data.rating && styles.ratingOptionTextSelected]}>-</Text>
+            </TouchableOpacity>
             {[1,2,3,4,5,6,7,8,9,10].map(r => (
               <TouchableOpacity key={r} style={[styles.ratingOptionSmall, data.rating === r && styles.ratingOptionSelected]} onPress={() => setData({...data, rating: r})}>
                 <Text style={[styles.ratingOptionTextSmall, data.rating === r && styles.ratingOptionTextSelected]}>{r}</Text>
@@ -1040,7 +1058,8 @@ export function ScoutingScreen({ navigation }: any) {
               style={[styles.formInput, { flex: 1 }]} 
               value={data.transfermarkt_url || ''} 
               onChangeText={(t) => setData({...data, transfermarkt_url: t})} 
-              placeholder="https://www.transfermarkt.de/spieler/profil/..." 
+              placeholder="https://www.transfermarkt.de/spieler/profil/..."
+              placeholderTextColor="#9ca3af"
             />
             {data.transfermarkt_url && (
               <TouchableOpacity style={styles.tmButton} onPress={() => openTransfermarkt(data.transfermarkt_url)}>
@@ -1054,13 +1073,13 @@ export function ScoutingScreen({ navigation }: any) {
       {/* Vierte Säule: Weitere Infos */}
       <View style={[styles.detailSection, { marginBottom: 10 }]}>
         <Text style={styles.detailSectionTitle}>Weitere Infos</Text>
-        <TextInput style={[styles.formInput, styles.textArea]} value={data.additional_info || ''} onChangeText={(t) => setData({...data, additional_info: t})} placeholder="Weitere Informationen..." multiline />
+        <TextInput style={[styles.formInput, styles.textArea]} value={data.additional_info || ''} onChangeText={(t) => setData({...data, additional_info: t})} placeholder="Weitere Informationen..." placeholderTextColor="#9ca3af" multiline />
       </View>
 
       {/* Ganz unten: Fußballerische Einschätzung */}
       <View style={[styles.detailSection, { marginBottom: 20 }]}>
         <Text style={styles.detailSectionTitle}>Fußballerische Einschätzung</Text>
-        <TextInput style={[styles.formInput, styles.textArea]} value={data.notes || ''} onChangeText={(t) => setData({...data, notes: t})} placeholder="Fußballerische Einschätzung..." multiline />
+        <TextInput style={[styles.formInput, styles.textArea]} value={data.notes || ''} onChangeText={(t) => setData({...data, notes: t})} placeholder="Fußballerische Einschätzung..." placeholderTextColor="#9ca3af" multiline />
       </View>
     </ScrollView>
   );
@@ -1116,7 +1135,7 @@ export function ScoutingScreen({ navigation }: any) {
         <View style={styles.toolbar}>
           <View style={styles.searchContainer}>
             <Text style={styles.searchIcon}>🔍</Text>
-            <TextInput style={styles.searchInput} placeholder="Spieler, Verein suchen..." value={searchText} onChangeText={setSearchText} />
+            <TextInput style={styles.searchInput} placeholder="Spieler, Verein suchen..." placeholderTextColor="#9ca3af" value={searchText} onChangeText={setSearchText} />
           </View>
           
           <View style={styles.filterContainer}>
@@ -1215,10 +1234,10 @@ export function ScoutingScreen({ navigation }: any) {
 
           <View style={styles.viewToggle}>
             <TouchableOpacity style={[styles.viewButton, viewMode === 'kanban' && styles.viewButtonActive]} onPress={() => setViewMode('kanban')}>
-              <Text style={[styles.viewButtonText, viewMode === 'kanban' && styles.viewButtonTextActive]}>Kanban</Text>
+              <Text style={[styles.viewButtonText, viewMode === 'kanban' && styles.viewButtonTextActive]}>▦</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.viewButton, viewMode === 'liste' && styles.viewButtonActive]} onPress={() => setViewMode('liste')}>
-              <Text style={[styles.viewButtonText, viewMode === 'liste' && styles.viewButtonTextActive]}>Liste</Text>
+              <Text style={[styles.viewButtonText, viewMode === 'liste' && styles.viewButtonTextActive]}>☰</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.viewButton, viewMode === 'archiv' && styles.viewButtonActive]} onPress={() => setViewMode('archiv')}>
               <Text style={[styles.viewButtonText, viewMode === 'archiv' && styles.viewButtonTextActive]}>Archiv ({archivedPlayersCount})</Text>
@@ -1233,9 +1252,9 @@ export function ScoutingScreen({ navigation }: any) {
         <View style={styles.content}>
           {activeTab === 'spieler' ? (
             viewMode === 'kanban' ? (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.kanbanContainer}>
+              <View style={styles.kanbanContainer}>
                 {SCOUTING_STATUS.map(status => renderKanbanColumn(status))}
-              </ScrollView>
+              </View>
             ) : viewMode === 'liste' ? (
               renderListView()
             ) : (
@@ -1275,14 +1294,14 @@ export function ScoutingScreen({ navigation }: any) {
               <TouchableOpacity onPress={() => setShowAddGameModal(false)} style={styles.closeButton}><Text style={styles.closeButtonText}>✕</Text></TouchableOpacity>
             </View>
             <View style={styles.formRow}>
-              <View style={styles.formField}><Text style={styles.formLabel}>Datum</Text><TextInput style={styles.formInput} value={newGame.date} onChangeText={(t) => setNewGame({...newGame, date: t})} placeholder="YYYY-MM-DD" /></View>
-              <View style={styles.formField}><Text style={styles.formLabel}>Ort</Text><TextInput style={styles.formInput} value={newGame.location} onChangeText={(t) => setNewGame({...newGame, location: t})} placeholder="Spielort" /></View>
+              <View style={styles.formField}><Text style={styles.formLabel}>Datum</Text><TextInput style={styles.formInput} value={newGame.date} onChangeText={(t) => setNewGame({...newGame, date: t})} placeholder="YYYY-MM-DD" placeholderTextColor="#9ca3af" /></View>
+              <View style={styles.formField}><Text style={styles.formLabel}>Ort</Text><TextInput style={styles.formInput} value={newGame.location} onChangeText={(t) => setNewGame({...newGame, location: t})} placeholder="Spielort" placeholderTextColor="#9ca3af" /></View>
             </View>
             <View style={styles.formRow}>
-              <View style={styles.formField}><Text style={styles.formLabel}>Heimmannschaft</Text><TextInput style={styles.formInput} value={newGame.home_team} onChangeText={(t) => setNewGame({...newGame, home_team: t})} placeholder="Heim" /></View>
-              <View style={styles.formField}><Text style={styles.formLabel}>Auswärtsmannschaft</Text><TextInput style={styles.formInput} value={newGame.away_team} onChangeText={(t) => setNewGame({...newGame, away_team: t})} placeholder="Auswärts" /></View>
+              <View style={styles.formField}><Text style={styles.formLabel}>Heimmannschaft</Text><TextInput style={styles.formInput} value={newGame.home_team} onChangeText={(t) => setNewGame({...newGame, home_team: t})} placeholder="Heim" placeholderTextColor="#9ca3af" /></View>
+              <View style={styles.formField}><Text style={styles.formLabel}>Auswärtsmannschaft</Text><TextInput style={styles.formInput} value={newGame.away_team} onChangeText={(t) => setNewGame({...newGame, away_team: t})} placeholder="Auswärts" placeholderTextColor="#9ca3af" /></View>
             </View>
-            <View style={styles.formField}><Text style={styles.formLabel}>Notizen</Text><TextInput style={[styles.formInput, styles.textArea]} value={newGame.notes} onChangeText={(t) => setNewGame({...newGame, notes: t})} placeholder="Notizen..." multiline /></View>
+            <View style={styles.formField}><Text style={styles.formLabel}>Notizen</Text><TextInput style={[styles.formInput, styles.textArea]} value={newGame.notes} onChangeText={(t) => setNewGame({...newGame, notes: t})} placeholder="Notizen..." placeholderTextColor="#9ca3af" multiline /></View>
             <View style={styles.modalButtons}>
               <TouchableOpacity style={styles.cancelButton} onPress={() => setShowAddGameModal(false)}><Text style={styles.cancelButtonText}>Abbrechen</Text></TouchableOpacity>
               <TouchableOpacity style={styles.saveButton} onPress={addScoutingGame}><Text style={styles.saveButtonText}>Hinzufügen</Text></TouchableOpacity>
@@ -1334,7 +1353,11 @@ export function ScoutingScreen({ navigation }: any) {
                         </View>
                         <View style={styles.detailRowVertical}>
                           <Text style={styles.detailLabelSmall}>Einschätzung</Text>
-                          <View style={styles.ratingBadgeLarge}><Text style={styles.ratingTextLarge}>⭐ {selectedPlayer.rating}/10</Text></View>
+                          {selectedPlayer.rating ? (
+                            <View style={styles.ratingBadgeLarge}><Text style={styles.ratingTextLarge}>⭐ {selectedPlayer.rating}/10</Text></View>
+                          ) : (
+                            <Text style={styles.detailValueLarge}>-</Text>
+                          )}
                         </View>
                         <View style={styles.detailRowVertical}>
                           <Text style={styles.detailLabelSmall}>Kontakt</Text>
@@ -1445,7 +1468,8 @@ export function ScoutingScreen({ navigation }: any) {
                 style={[styles.formInput, styles.textArea]} 
                 value={archiveReason} 
                 onChangeText={setArchiveReason} 
-                placeholder="z.B. Kein Interesse, Spieler hat abgesagt, andere Agentur gewählt..." 
+                placeholder="z.B. Kein Interesse, Spieler hat abgesagt, andere Agentur gewählt..."
+                placeholderTextColor="#9ca3af"
                 multiline
               />
             </View>
@@ -1563,12 +1587,14 @@ const styles = StyleSheet.create({
   addButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#1a1a1a' },
   addButtonText: { fontSize: 14, color: '#fff', fontWeight: '600' },
   content: { flex: 1, padding: 16 },
-  kanbanContainer: { flex: 1 },
-  kanbanColumn: { width: 300, backgroundColor: '#f1f5f9', borderRadius: 12, marginRight: 16, padding: 12, minHeight: 400 },
+  kanbanContainer: { flex: 1, flexDirection: 'row', gap: 12 },
+  kanbanColumn: { flex: 1, backgroundColor: '#f1f5f9', borderRadius: 12, padding: 12, minHeight: 400, minWidth: 200 },
   kanbanColumnDropTarget: { backgroundColor: '#dbeafe', borderWidth: 2, borderColor: '#3b82f6', borderStyle: 'dashed' },
-  kanbanHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  kanbanHeader: { marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  kanbanHeaderTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   statusDot: { width: 10, height: 10, borderRadius: 5, marginRight: 8 },
   kanbanTitle: { fontSize: 14, fontWeight: '600', color: '#475569', flex: 1 },
+  kanbanDescription: { fontSize: 11, color: '#94a3b8', fontStyle: 'italic', lineHeight: 14 },
   countBadge: { backgroundColor: '#e2e8f0', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
   countText: { fontSize: 12, color: '#64748b', fontWeight: '600' },
   kanbanContent: { flex: 1 },

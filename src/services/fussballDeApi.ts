@@ -3,12 +3,8 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 
-// Nutze lokalen Proxy um CORS zu umgehen
-// Proxy läuft auf localhost:3001 und leitet an api-fussball.de weiter
-const USE_PROXY = true;
-const PROXY_URL = 'http://localhost:3001/proxy';
-const DIRECT_URL = 'https://api-fussball.de/api';
-const API_BASE_URL = USE_PROXY ? `${PROXY_URL}/api` : DIRECT_URL;
+// Supabase Edge Function Proxy URL (ersetzt localhost Proxy)
+const SUPABASE_PROXY_URL = 'https://ozggtruvnwozhwjbznsm.supabase.co/functions/v1/proxy';
 
 // Typen
 export interface ApiGame {
@@ -140,19 +136,28 @@ export async function saveApiToken(supabase: SupabaseClient, token: string): Pro
   }
 }
 
-// Nächste Spiele eines Teams von der API holen
+// Nächste Spiele eines Teams von der API holen (über Supabase Edge Function Proxy)
 export async function fetchTeamNextGames(teamId: string, token: string): Promise<ApiGame[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/team/next_games/${teamId}`, {
+    // API URL die wir aufrufen wollen
+    const apiUrl = `https://api-fussball.de/api/team/next_games/${teamId}`;
+    
+    // Über Supabase Edge Function Proxy aufrufen
+    const proxyUrl = `${SUPABASE_PROXY_URL}?type=fussball&url=${encodeURIComponent(apiUrl)}`;
+    
+    console.log('Calling proxy:', proxyUrl);
+    
+    const response = await fetch(proxyUrl, {
       method: 'GET',
       headers: {
-        'x-auth-token': token,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'x-auth-token': token
       }
     });
     
     if (!response.ok) {
-      console.error(`API Fehler: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(`API Fehler: ${response.status} ${response.statusText}`, errorText);
       return [];
     }
     

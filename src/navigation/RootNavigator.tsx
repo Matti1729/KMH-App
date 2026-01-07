@@ -10,6 +10,8 @@ import { PlayerDetailScreen } from '../screens/advisor/PlayerDetailScreen';
 import { TermineScreen } from '../screens/advisor/TermineScreen';
 import { ScoutingScreen } from '../screens/advisor/ScoutingScreen';
 import { TransfersScreen } from '../screens/advisor/TransfersScreen';
+import { TransferDetailScreen } from '../screens/advisor/TransferDetailScreen';
+import { TasksRemindersScreen } from '../screens/advisor/TasksRemindersScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -51,6 +53,15 @@ export function RootNavigator() {
             <Stack.Screen name="Calendar" component={TermineScreen} />
             <Stack.Screen name="Scouting" component={ScoutingScreen} />
             <Stack.Screen name="Transfers" component={TransfersScreen} />
+            <Stack.Screen 
+              name="TransferDetail" 
+              component={TransferDetailScreen} 
+              options={{
+                presentation: 'transparentModal',
+                animation: 'fade',
+              }}
+            />
+            <Stack.Screen name="Tasks" component={TasksRemindersScreen} />
           </>
         ) : (
           <Stack.Screen name="PlayerHome" component={PlayerHomeScreen} />

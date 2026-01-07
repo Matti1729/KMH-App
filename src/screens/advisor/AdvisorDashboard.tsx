@@ -268,6 +268,24 @@ export function AdvisorDashboard({ navigation }: any) {
                 </View>
               </DashboardCard>
 
+              {/* Netzwerk */}
+              <DashboardCard 
+                id="netzwerk"
+                style={styles.bottomCard}
+                onPress={() => navigation.navigate('Network')}
+                hoverStyle={styles.lightCardHovered}
+              >
+                <View style={styles.bottomCardContent}>
+                  <View style={styles.bottomCardIcon}>
+                    <Text style={styles.bottomCardIconText}>🌐</Text>
+                  </View>
+                  <View style={styles.bottomCardText}>
+                    <Text style={styles.bottomCardTitle}>Netzwerk</Text>
+                    <Text style={styles.bottomCardSubtitle}>Alle unsere Kontakte</Text>
+                  </View>
+                </View>
+              </DashboardCard>
+
               {/* Admin Panel - only if admin */}
               {profile?.role === 'admin' && (
                 <DashboardCard 

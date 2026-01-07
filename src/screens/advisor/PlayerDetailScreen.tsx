@@ -1228,7 +1228,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       <TouchableOpacity style={styles.modalBackdrop} onPress={() => navigation.goBack()} activeOpacity={1} />
       <View style={styles.modalContainer}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Spielerinfo</Text>
+          <Text style={styles.headerTitle}>Spielerprofil</Text>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}><Text style={styles.closeButtonText}>✕</Text></TouchableOpacity>
         </View>
         <ScrollView 
@@ -1395,6 +1395,10 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         </Pressable>
       </ScrollView>
       <View style={styles.bottomButtons}>
+        <TouchableOpacity style={styles.transferButton} onPress={() => Alert.alert('Transfer', 'Spieler zur Transferliste hinzugefügt')}>
+          <Text style={styles.transferButtonText}>Zu Transfer hinzufügen</Text>
+        </TouchableOpacity>
+        <View style={styles.bottomButtonsRight}>
         {editing ? (
           <>
             <TouchableOpacity style={styles.deleteButton} onPress={() => setShowDeleteModal(true)}>
@@ -1412,6 +1416,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
             <Text style={styles.editButtonText}>Bearbeiten</Text>
           </TouchableOpacity>
         )}
+        </View>
       </View>
       {renderDeleteModal()}
       </View>
@@ -1589,8 +1594,11 @@ const styles = StyleSheet.create({
   smallDocItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8f8f8', padding: 6, borderRadius: 6, marginTop: 4 },
   smallDocName: { fontSize: 12, color: '#333', flex: 1 },
   docLink: { fontSize: 13, color: '#007bff', marginTop: 4 },
-  bottomButtons: { flexDirection: 'row', padding: 16, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#e2e8f0', justifyContent: 'flex-end', gap: 8 },
-  deleteButton: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#ef4444', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 10, marginRight: 'auto' },
+  bottomButtons: { flexDirection: 'row', padding: 16, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#e2e8f0', justifyContent: 'space-between', alignItems: 'center' },
+  bottomButtonsRight: { flexDirection: 'row', gap: 8 },
+  transferButton: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#64748b', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 10 },
+  transferButtonText: { color: '#64748b', fontSize: 16, fontWeight: '600' },
+  deleteButton: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#ef4444', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 10 },
   deleteButtonText: { color: '#ef4444', fontSize: 16, fontWeight: '600' },
   editButton: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#64748b', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 10 },
   editButtonText: { color: '#64748b', fontSize: 16, fontWeight: '600' },
