@@ -232,6 +232,24 @@ export function AdvisorDashboard({ navigation }: any) {
 
             {/* Row 2 - Bottom Cards */}
             <View style={styles.row}>
+              {/* Football Network */}
+              <DashboardCard 
+                id="network"
+                style={styles.bottomCard}
+                onPress={() => navigation.navigate('FootballNetwork')}
+                hoverStyle={styles.lightCardHovered}
+              >
+                <View style={styles.bottomCardContent}>
+                  <View style={styles.bottomCardIcon}>
+                    <Text style={styles.bottomCardIconText}>⚽</Text>
+                  </View>
+                  <View style={styles.bottomCardText}>
+                    <Text style={styles.bottomCardTitle}>Football Network</Text>
+                    <Text style={styles.bottomCardSubtitle}>Kontakte zu Vereinen und Entscheidern</Text>
+                  </View>
+                </View>
+              </DashboardCard>
+
               {/* Team & Partner */}
               <DashboardCard 
                 id="team"
@@ -264,24 +282,6 @@ export function AdvisorDashboard({ navigation }: any) {
                   <View style={styles.bottomCardText}>
                     <Text style={styles.bottomCardTitle}>Aufgaben</Text>
                     <Text style={styles.bottomCardSubtitle}>To-Dos & Erinnerungen</Text>
-                  </View>
-                </View>
-              </DashboardCard>
-
-              {/* Netzwerk */}
-              <DashboardCard 
-                id="netzwerk"
-                style={styles.bottomCard}
-                onPress={() => navigation.navigate('Network')}
-                hoverStyle={styles.lightCardHovered}
-              >
-                <View style={styles.bottomCardContent}>
-                  <View style={styles.bottomCardIcon}>
-                    <Text style={styles.bottomCardIconText}>🌐</Text>
-                  </View>
-                  <View style={styles.bottomCardText}>
-                    <Text style={styles.bottomCardTitle}>Netzwerk</Text>
-                    <Text style={styles.bottomCardSubtitle}>Alle unsere Kontakte</Text>
                   </View>
                 </View>
               </DashboardCard>

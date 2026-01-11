@@ -12,6 +12,7 @@ import { ScoutingScreen } from '../screens/advisor/ScoutingScreen';
 import { TransfersScreen } from '../screens/advisor/TransfersScreen';
 import { TransferDetailScreen } from '../screens/advisor/TransferDetailScreen';
 import { TasksRemindersScreen } from '../screens/advisor/TasksRemindersScreen';
+import { FootballNetworkScreen } from '../screens/advisor/FootballNetworkScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -62,6 +63,7 @@ export function RootNavigator() {
               }}
             />
             <Stack.Screen name="Tasks" component={TasksRemindersScreen} />
+            <Stack.Screen name="FootballNetwork" component={FootballNetworkScreen} />
           </>
         ) : (
           <Stack.Screen name="PlayerHome" component={PlayerHomeScreen} />

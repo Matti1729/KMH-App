@@ -271,6 +271,7 @@ export function ScoutingScreen({ navigation }: any) {
   
   // Track which game player is being added to database
   const [addingGamePlayerId, setAddingGamePlayerId] = useState<string | null>(null);
+  const [gameToReopenAfterAdd, setGameToReopenAfterAdd] = useState<ScoutingGame | null>(null);
   
   // Games search and archive
   const [gamesSearchQuery, setGamesSearchQuery] = useState('');
@@ -654,15 +655,22 @@ export function ScoutingScreen({ navigation }: any) {
       // If this was from a game player, mark them as added
       if (addingGamePlayerId) {
         await supabase.from('scouting_game_players').update({ added_to_database: true }).eq('id', addingGamePlayerId);
-        if (selectedGame) {
-          await fetchGamePlayers(selectedGame.id);
-        }
         setAddingGamePlayerId(null);
       }
+      
       setShowAddPlayerModal(false);
       setNewPlayer({ first_name: '', last_name: '', birth_date: '2005', position: 'ST', club: '', rating: 5, notes: '', status: 'gesichtet', photo_url: '', transfermarkt_url: '', agent_name: '', phone: '', additional_info: '', current_status: '' });
       setNewPlayerClubSearch('');
       fetchScoutedPlayers();
+      
+      // Reopen the game detail modal if we came from there
+      if (gameToReopenAfterAdd) {
+        const gameToReopen = gameToReopenAfterAdd;
+        setGameToReopenAfterAdd(null);
+        setTimeout(() => {
+          openGameDetail(gameToReopen);
+        }, 100);
+      }
     }
   };
 
@@ -845,6 +853,14 @@ export function ScoutingScreen({ navigation }: any) {
     
     // Store the game player ID being added
     setAddingGamePlayerId(player.id);
+    
+    // Store the current game to reopen after adding
+    if (selectedGame) {
+      setGameToReopenAfterAdd(selectedGame);
+    }
+    
+    // Close the game detail modal first
+    setSelectedGame(null);
     
     // Prefill the new player form with data from the game player
     setNewPlayer({
@@ -1350,6 +1366,39 @@ export function ScoutingScreen({ navigation }: any) {
     </View>
   );
 
+  // Check if a game player is already in the scouted_players database (by name match)
+  const isPlayerInDatabase = (player: GamePlayer): boolean => {
+    return scoutedPlayers.some(sp => 
+      sp.last_name?.toLowerCase() === player.last_name?.toLowerCase() &&
+      sp.first_name?.toLowerCase() === player.first_name?.toLowerCase() &&
+      !sp.archived
+    );
+  };
+
+  // Add game player to database from search results
+  const addSearchPlayerToDatabase = (player: GamePlayer & { game?: ScoutingGame, team_name?: string }) => {
+    const clubName = player.team_name || '';
+    
+    setNewPlayer({
+      first_name: player.first_name || '',
+      last_name: player.last_name || '',
+      birth_date: player.birth_year || '2005',
+      position: player.position || 'ST',
+      club: clubName,
+      rating: player.rating || 5,
+      notes: player.notes || '',
+      status: 'gesichtet',
+      photo_url: '',
+      transfermarkt_url: '',
+      agent_name: '',
+      phone: '',
+      additional_info: '',
+      current_status: ''
+    });
+    setNewPlayerClubSearch(clubName);
+    setShowAddPlayerModal(true);
+  };
+
   const renderGamesTab = () => {
     const gamesToShow = gamesViewMode === 'upcoming' ? upcomingGames : gamesViewMode === 'archive' ? archivedGames : [];
     const hasSearchOrFilter = gamesSearchQuery.trim() || selectedGamesRatings.length > 0 || selectedGamesYears.length > 0;
@@ -1402,54 +1451,72 @@ export function ScoutingScreen({ navigation }: any) {
                 </View>
                 <View style={styles.tableHeader}>
                   <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Name</Text>
-                  <Text style={[styles.tableHeaderCell, { flex: 0.8 }]}>Position</Text>
-                  <Text style={[styles.tableHeaderCell, { flex: 0.9 }]}>Verein</Text>
-                  <Text style={[styles.tableHeaderCell, { flex: 0.5 }]}>Jahrgang</Text>
-                  <Text style={[styles.tableHeaderCell, { flex: 0.6 }]}>Einschätzung</Text>
-                  <Text style={[styles.tableHeaderCell, { flex: 0.6 }]}>Notiz</Text>
-                  <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Event</Text>
+                  <Text style={[styles.tableHeaderCell, { flex: 0.7 }]}>Position</Text>
+                  <Text style={[styles.tableHeaderCell, { flex: 0.8 }]}>Verein</Text>
+                  <Text style={[styles.tableHeaderCell, { flex: 0.45 }]}>Jahrgang</Text>
+                  <Text style={[styles.tableHeaderCell, { flex: 0.55 }]}>Einschätzung</Text>
+                  <Text style={[styles.tableHeaderCell, { flex: 0.4 }]}>Notiz</Text>
+                  <Text style={[styles.tableHeaderCell, { flex: 0.9 }]}>Event</Text>
+                  <Text style={[styles.tableHeaderCell, { flex: 1.2 }]}></Text>
                 </View>
-                {searchResultsPlayers.map(player => (
-                  <View key={player.id} style={styles.tableRow}>
-                    <Text style={[styles.tableCell, styles.tableCellText, { flex: 1 }]}>
-                      {player.last_name}{player.first_name ? `, ${player.first_name}` : ''}
-                    </Text>
-                    <View style={[styles.tableCell, { flex: 0.8 }]}>
-                      {player.position ? (
-                        <View style={styles.positionBadgeSmall}><Text style={styles.positionTextSmall}>{player.position}</Text></View>
-                      ) : (
-                        <Text>-</Text>
-                      )}
+                {searchResultsPlayers.map(player => {
+                  const inDatabase = isPlayerInDatabase(player);
+                  return (
+                    <View key={player.id} style={styles.tableRow}>
+                      <Text style={[styles.tableCell, styles.tableCellText, { flex: 1 }]}>
+                        {player.last_name}{player.first_name ? `, ${player.first_name}` : ''}
+                      </Text>
+                      <View style={[styles.tableCell, { flex: 0.7 }]}>
+                        {player.position ? (
+                          <View style={styles.positionBadgeSmall}><Text style={styles.positionTextSmall}>{player.position}</Text></View>
+                        ) : (
+                          <Text>-</Text>
+                        )}
+                      </View>
+                      <Text style={[styles.tableCell, { flex: 0.8 }]}>{player.team_name || '-'}</Text>
+                      <Text style={[styles.tableCell, { flex: 0.45 }]}>{player.birth_year || '-'}</Text>
+                      <View style={[styles.tableCell, { flex: 0.55 }]}>
+                        {player.rating ? (
+                          <View style={styles.ratingBadgeTight}><Text style={styles.ratingTextTight}>⭐ {player.rating}/10</Text></View>
+                        ) : (
+                          <Text>-</Text>
+                        )}
+                      </View>
+                      <TouchableOpacity 
+                        style={[styles.tableCell, { flex: 0.4 }]}
+                        onPress={() => {
+                          if (player.notes) {
+                            setSelectedGamePlayer(player);
+                            setEditingPlayerNotes(player.notes);
+                            setShowPlayerNotesModal(true);
+                          }
+                        }}
+                      >
+                        <Text style={{ color: player.notes ? '#3b82f6' : '#9ca3af' }}>{player.notes ? '📝' : '-'}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={[styles.tableCell, { flex: 0.9 }]}
+                        onPress={() => player.game && openGameDetail(player.game)}
+                      >
+                        <Text style={{ color: '#3b82f6' }}>{player.game?.description || '-'}</Text>
+                      </TouchableOpacity>
+                      <View style={[styles.tableCell, { flex: 1.2 }]}>
+                        {inDatabase ? (
+                          <View style={styles.addedToDatabaseBtn}>
+                            <Text style={styles.addedToDatabaseBtnText}>wurde zur Spieler-Datenbank hinzugefügt</Text>
+                          </View>
+                        ) : (
+                          <TouchableOpacity 
+                            style={styles.addToDatabaseBtn}
+                            onPress={() => addSearchPlayerToDatabase(player)}
+                          >
+                            <Text style={styles.addToDatabaseBtnText}>zur Spieler-Datenbank hinzufügen</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
                     </View>
-                    <Text style={[styles.tableCell, { flex: 0.9 }]}>{player.team_name || '-'}</Text>
-                    <Text style={[styles.tableCell, { flex: 0.5 }]}>{player.birth_year || '-'}</Text>
-                    <View style={[styles.tableCell, { flex: 0.6 }]}>
-                      {player.rating ? (
-                        <View style={styles.ratingBadgeTight}><Text style={styles.ratingTextTight}>⭐ {player.rating}/10</Text></View>
-                      ) : (
-                        <Text>-</Text>
-                      )}
-                    </View>
-                    <TouchableOpacity 
-                      style={[styles.tableCell, { flex: 0.6 }]}
-                      onPress={() => {
-                        if (player.notes) {
-                          setSelectedGamePlayer(player);
-                          setEditingPlayerNotes(player.notes);
-                          setShowPlayerNotesModal(true);
-                        }
-                      }}
-                    >
-                      <Text style={{ color: player.notes ? '#3b82f6' : '#9ca3af' }}>{player.notes ? '📝' : '-'}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      style={[styles.tableCell, { flex: 1 }]}
-                      onPress={() => player.game && openGameDetail(player.game)}
-                    >
-                      <Text style={{ color: '#3b82f6' }}>{player.game?.description || '-'}</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
+                  );
+                })}
               </>
             )}
 
@@ -1699,6 +1766,21 @@ export function ScoutingScreen({ navigation }: any) {
     setShowGamesRatingDropdown(false);
   };
 
+  const closeAddPlayerModal = () => {
+    setShowAddPlayerModal(false);
+    setNewPlayerClubSearch('');
+    setShowNewPlayerClubDropdown(false);
+    setAddingGamePlayerId(null);
+    
+    // Reopen the game detail modal if we came from there
+    if (gameToReopenAfterAdd) {
+      setTimeout(() => {
+        openGameDetail(gameToReopenAfterAdd);
+        setGameToReopenAfterAdd(null);
+      }, 100);
+    }
+  };
+
   return (
     <Pressable style={styles.container} onPress={closeAllDropdowns}>
       <Sidebar activeScreen="scouting" navigation={navigation} />
@@ -1727,7 +1809,7 @@ export function ScoutingScreen({ navigation }: any) {
             <Text style={styles.searchIcon}>🔍</Text>
             <TextInput 
               style={styles.searchInput} 
-              placeholder={activeTab === 'spieler' ? "Spieler, Verein suchen..." : "Spieler, Verein, Bewertung (1-10) suchen..."} 
+              placeholder={activeTab === 'spieler' ? "Spieler, Verein suchen..." : "Spieler, Verein, Event suchen..."} 
               placeholderTextColor="#9ca3af" 
               value={activeTab === 'spieler' ? searchText : gamesSearchQuery} 
               onChangeText={(text) => {
@@ -1964,13 +2046,13 @@ export function ScoutingScreen({ navigation }: any) {
           <View style={[styles.modalContent, { overflow: 'visible' }]}>
             <View style={styles.detailHeader}>
               <Text style={styles.modalTitle}>Neuen Spieler hinzufügen</Text>
-              <TouchableOpacity onPress={() => { setShowAddPlayerModal(false); setNewPlayerClubSearch(''); setShowNewPlayerClubDropdown(false); }} style={styles.closeButton}>
+              <TouchableOpacity onPress={closeAddPlayerModal} style={styles.closeButton}>
                 <Text style={styles.closeButtonText}>✕</Text>
               </TouchableOpacity>
             </View>
             {renderPlayerForm(newPlayer, setNewPlayer, newPlayerClubSearch, setNewPlayerClubSearch, showNewPlayerClubDropdown, setShowNewPlayerClubDropdown)}
             <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.cancelButton} onPress={() => { setShowAddPlayerModal(false); setNewPlayerClubSearch(''); setShowNewPlayerClubDropdown(false); }}>
+              <TouchableOpacity style={styles.cancelButton} onPress={closeAddPlayerModal}>
                 <Text style={styles.cancelButtonText}>Abbrechen</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.saveButton} onPress={addScoutedPlayer}><Text style={styles.saveButtonText}>Hinzufügen</Text></TouchableOpacity>

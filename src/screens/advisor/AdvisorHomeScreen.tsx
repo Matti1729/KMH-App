@@ -335,6 +335,24 @@ export function AdvisorHomeScreen({ navigation }: any) {
 
             {/* Row 2 - Bottom Cards */}
             <View style={styles.row}>
+              {/* Football Network */}
+              <DashboardCard 
+                id="network"
+                style={styles.bottomCard}
+                onPress={() => navigation.navigate('FootballNetwork')}
+                hoverStyle={styles.lightCardHovered}
+              >
+                <View style={styles.bottomCardContent}>
+                  <View style={styles.bottomCardIcon}>
+                    <Text style={styles.bottomCardIconText}>⚽</Text>
+                  </View>
+                  <View style={styles.bottomCardText}>
+                    <Text style={styles.bottomCardTitle}>Football Network</Text>
+                    <Text style={styles.bottomCardSubtitle}>Kontakte zu Vereinen und Entscheidern</Text>
+                  </View>
+                </View>
+              </DashboardCard>
+
               {/* Team & Partner */}
               <DashboardCard 
                 id="team"
