@@ -47,6 +47,18 @@ const calculateAge = (birthDate: string): number => {
   return age;
 };
 
+const getDaysUntilReminder = (createdAt: string, reminderDays: number | null): number | null => {
+  if (reminderDays === null || reminderDays === undefined || reminderDays < 0) return null;
+  const created = new Date(createdAt);
+  const reminderDate = new Date(created);
+  reminderDate.setDate(reminderDate.getDate() + reminderDays);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  reminderDate.setHours(0, 0, 0, 0);
+  const diff = reminderDate.getTime() - today.getTime();
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+};
+
 interface TransferClub {
   id: string;
   player_id: string;
@@ -80,7 +92,7 @@ interface ClubLogo {
 type ViewMode = 'kanban' | 'liste';
 
 export function TransferDetailScreen({ route, navigation }: any) {
-  const { playerId } = route.params;
+  const { playerId, highlightClub } = route.params;
   const [player, setPlayer] = useState<Player | null>(null);
   const [clubs, setClubs] = useState<TransferClub[]>([]);
   const [clubLogos, setClubLogos] = useState<Record<string, string>>({});
@@ -109,6 +121,17 @@ export function TransferDetailScreen({ route, navigation }: any) {
   const [showDayPicker, setShowDayPicker] = useState(false);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [showYearPicker, setShowYearPicker] = useState(false);
+  const [showReminderPicker, setShowReminderPicker] = useState(false);
+  
+  // Reminder options
+  const REMINDER_OPTIONS = [
+    { value: -1, label: 'Keine Erinnerung' },
+    { value: 0, label: 'Heute' },
+    ...Array.from({ length: 60 }, (_, i) => ({ 
+      value: i + 1, 
+      label: `${i + 1} ${i + 1 === 1 ? 'Tag' : 'Tage'}` 
+    }))
+  ];
   
   // Date constants
   const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
@@ -218,6 +241,7 @@ export function TransferDetailScreen({ route, navigation }: any) {
     setShowMonthPicker(false);
     setShowYearPicker(false);
     setShowClubSuggestions(false);
+    setShowReminderPicker(false);
   };
 
   const addClub = async () => {
@@ -230,7 +254,7 @@ export function TransferDetailScreen({ route, navigation }: any) {
       advisor_name: formData.advisor_name,
       last_contact: formData.last_contact || null,
       notes: formData.notes,
-      reminder_days: formData.reminder_days,
+      reminder_days: formData.reminder_days === -1 ? null : formData.reminder_days,
     });
     
     if (!error) {
@@ -243,6 +267,8 @@ export function TransferDetailScreen({ route, navigation }: any) {
   const updateClub = async () => {
     if (!selectedClub) return;
     
+    const now = new Date().toISOString();
+    
     const { error } = await supabase
       .from('transfer_clubs')
       .update({
@@ -251,8 +277,10 @@ export function TransferDetailScreen({ route, navigation }: any) {
         advisor_name: formData.advisor_name,
         last_contact: formData.last_contact || null,
         notes: formData.notes,
-        reminder_days: formData.reminder_days,
-        updated_at: new Date().toISOString(),
+        reminder_days: formData.reminder_days === -1 ? null : formData.reminder_days,
+        updated_at: now,
+        // Wenn reminder_days geändert wurde, setze created_at auf jetzt damit die Berechnung stimmt
+        ...(selectedClub.reminder_days !== formData.reminder_days ? { created_at: now } : {}),
       })
       .eq('id', selectedClub.id);
     
@@ -300,7 +328,7 @@ export function TransferDetailScreen({ route, navigation }: any) {
       advisor_name: club.advisor_name || '',
       last_contact: club.last_contact || '',
       notes: club.notes || '',
-      reminder_days: club.reminder_days || 30,
+      reminder_days: club.reminder_days === null || club.reminder_days === undefined ? -1 : club.reminder_days,
     });
     setClubSearch(club.club_name);
     closeAllDropdowns();
@@ -336,6 +364,31 @@ export function TransferDetailScreen({ route, navigation }: any) {
 
   const renderClubCard = (club: TransferClub) => {
     const logo = getClubLogo(club.club_name);
+    const isHighlighted = highlightClub && club.club_name === highlightClub;
+    const daysUntil = getDaysUntilReminder(club.created_at, club.reminder_days);
+    
+    const renderReminderBadge = () => {
+      if (daysUntil === null) return null;
+      if (daysUntil < 0) {
+        return (
+          <View style={styles.reminderBadgeOverdue}>
+            <Text style={styles.reminderBadgeOverdueText}>vor {Math.abs(daysUntil)} {Math.abs(daysUntil) === 1 ? 'Tag' : 'Tagen'}</Text>
+          </View>
+        );
+      }
+      if (daysUntil === 0) {
+        return (
+          <View style={styles.reminderBadgeToday}>
+            <Text style={styles.reminderBadgeTodayText}>Heute</Text>
+          </View>
+        );
+      }
+      return (
+        <View style={styles.reminderBadge}>
+          <Text style={styles.reminderBadgeText}>in {daysUntil} {daysUntil === 1 ? 'Tag' : 'Tagen'}</Text>
+        </View>
+      );
+    };
     
     if (Platform.OS === 'web') {
       return (
@@ -349,7 +402,8 @@ export function TransferDetailScreen({ route, navigation }: any) {
             opacity: draggedClub?.id === club.id ? 0.5 : 1,
           }}
         >
-          <TouchableOpacity style={styles.clubCard} onPress={() => openEditModal(club)}>
+          <TouchableOpacity style={[styles.clubCard, isHighlighted && styles.clubCardHighlighted]} onPress={() => openEditModal(club)}>
+            {renderReminderBadge()}
             <View style={styles.clubCardHeader}>
               {logo && (
                 <Image source={{ uri: logo }} style={styles.clubLogo} />
@@ -377,7 +431,8 @@ export function TransferDetailScreen({ route, navigation }: any) {
     }
 
     return (
-      <TouchableOpacity key={club.id} style={styles.clubCard} onPress={() => openEditModal(club)}>
+      <TouchableOpacity key={club.id} style={[styles.clubCard, isHighlighted && styles.clubCardHighlighted]} onPress={() => openEditModal(club)}>
+        {renderReminderBadge()}
         <View style={styles.clubCardHeader}>
           {logo && (
             <Image source={{ uri: logo }} style={styles.clubLogo} />
@@ -704,17 +759,56 @@ export function TransferDetailScreen({ route, navigation }: any) {
           </View>
         </View>
 
-        <View style={styles.formRow}>
-          <Text style={styles.formLabel}>Erinnerung in (Tagen)</Text>
-          <TextInput
-            style={styles.reminderInput}
-            value={formData.reminder_days.toString()}
-            onChangeText={(text) => setFormData({ ...formData, reminder_days: parseInt(text) || 30 })}
-            onFocus={() => closeAllDropdowns()}
-            keyboardType="numeric"
-            placeholder="30"
-            placeholderTextColor="#999"
-          />
+        <View style={[styles.formRow, { zIndex: 50 }]}>
+          <Text style={styles.formLabel}>Erinnerung in</Text>
+          <View style={{ position: 'relative' }}>
+            <TouchableOpacity 
+              style={styles.reminderDropdownButton}
+              onPress={() => { 
+                setShowReminderPicker(!showReminderPicker);
+                setShowDayPicker(false);
+                setShowMonthPicker(false);
+                setShowYearPicker(false);
+                setShowClubSuggestions(false);
+              }}
+            >
+              <Text style={styles.reminderDropdownText}>
+                {formData.reminder_days === -1 
+                  ? 'Keine Erinnerung' 
+                  : formData.reminder_days === 0 
+                    ? 'Heute'
+                    : `${formData.reminder_days} Tage`
+                }
+              </Text>
+              <Text>▼</Text>
+            </TouchableOpacity>
+            {showReminderPicker && (
+              <View style={styles.reminderDropdownList}>
+                <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
+                  {REMINDER_OPTIONS.map(option => (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[
+                        styles.reminderDropdownItem,
+                        formData.reminder_days === option.value && styles.reminderDropdownItemSelected
+                      ]}
+                      onPress={() => {
+                        setFormData({ ...formData, reminder_days: option.value });
+                        setShowReminderPicker(false);
+                      }}
+                    >
+                      <Text style={[
+                        styles.reminderDropdownItemText,
+                        formData.reminder_days === option.value && styles.reminderDropdownItemTextSelected
+                      ]}>
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+          </View>
         </View>
 
         <View style={styles.formRow}>
@@ -979,8 +1073,47 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.03, 
     shadowRadius: 2, 
     shadowOffset: { width: 0, height: 1 },
+    position: 'relative',
   },
-  clubCardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  clubCardHighlighted: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#fecaca',
+    borderWidth: 2,
+  },
+  reminderBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    backgroundColor: '#fef3c7',
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 4,
+    zIndex: 1,
+  },
+  reminderBadgeText: { fontSize: 10, color: '#b45309', fontWeight: '600' },
+  reminderBadgeToday: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    backgroundColor: '#fef3c7',
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 4,
+    zIndex: 1,
+  },
+  reminderBadgeTodayText: { fontSize: 10, color: '#b45309', fontWeight: '600' },
+  reminderBadgeOverdue: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    backgroundColor: '#fecaca',
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 4,
+    zIndex: 1,
+  },
+  reminderBadgeOverdueText: { fontSize: 10, color: '#dc2626', fontWeight: '600' },
+  clubCardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 6, paddingRight: 60 },
   clubLogo: { width: 24, height: 24, borderRadius: 3, marginRight: 8, resizeMode: 'contain' },
   clubLogoPlaceholder: { width: 24, height: 24, borderRadius: 3, backgroundColor: '#e2e8f0', justifyContent: 'center', alignItems: 'center', marginRight: 8 },
   clubLogoText: { fontSize: 9, fontWeight: '600', color: '#64748b' },
@@ -1054,6 +1187,40 @@ const styles = StyleSheet.create({
   datePickerItemText: { fontSize: 13, color: '#333' },
   datePickerItemTextSelected: { color: '#3b82f6', fontWeight: '600' },
   
-  // Reminder Input - gleiche Größe wie Date Picker
-  reminderInput: { width: 70, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 10, fontSize: 13, backgroundColor: '#fff', textAlign: 'center' },
+  // Reminder Dropdown
+  reminderDropdownButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: '#fff',
+    minWidth: 150,
+  },
+  reminderDropdownText: { fontSize: 13, color: '#333' },
+  reminderDropdownList: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    marginTop: 4,
+    backgroundColor: '#fff',
+    zIndex: 9999,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 5,
+    overflow: 'hidden',
+  },
+  reminderDropdownItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  reminderDropdownItemSelected: { backgroundColor: '#1a1a1a' },
+  reminderDropdownItemText: { fontSize: 13, color: '#333' },
+  reminderDropdownItemTextSelected: { color: '#fff' },
 });

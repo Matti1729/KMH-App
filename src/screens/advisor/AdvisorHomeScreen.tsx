@@ -17,12 +17,14 @@ export function AdvisorHomeScreen({ navigation }: any) {
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [hoveredNav, setHoveredNav] = useState<string | null>(null);
   const [transferCount, setTransferCount] = useState(0);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
 
   useEffect(() => {
     fetchProfile();
     fetchPlayerCount();
     fetchScoutingCount();
     fetchTransferCount();
+    fetchPendingRequestsCount();
   }, []);
 
   const fetchProfile = async () => {
@@ -48,7 +50,11 @@ export function AdvisorHomeScreen({ navigation }: any) {
   };
 
   const fetchScoutingCount = async () => {
-    setScoutingCount(12);
+    const { count } = await supabase
+      .from('scouted_players')
+      .select('*', { count: 'exact', head: true });
+    
+    setScoutingCount(count || 0);
   };
 
   // Spieler mit auslaufendem Vertrag in der aktuellen Saison und ohne zukünftigen Verein
@@ -90,6 +96,15 @@ export function AdvisorHomeScreen({ navigation }: any) {
       
       setTransferCount(transferPlayers.length);
     }
+  };
+
+  const fetchPendingRequestsCount = async () => {
+    const { count } = await supabase
+      .from('access_requests')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'pending');
+    
+    setPendingRequestsCount(count || 0);
   };
 
   const handleLogout = async () => {
@@ -267,6 +282,7 @@ export function AdvisorHomeScreen({ navigation }: any) {
                     <View style={styles.searchIcon}>
                       <Text style={styles.searchIconText}>🔍</Text>
                     </View>
+                    <View style={{ flex: 1 }} />
                     <Text style={styles.scoutingCount}>{scoutingCount}</Text>
                   </View>
                   <View style={styles.scoutingFooter}>
@@ -336,24 +352,6 @@ export function AdvisorHomeScreen({ navigation }: any) {
                   </View>
                 </View>
               </DashboardCard>
-
-              {/* Netzwerk */}
-              <DashboardCard 
-                id="netzwerk"
-                style={styles.bottomCard}
-                onPress={() => navigation.navigate('Network')}
-                hoverStyle={styles.lightCardHovered}
-              >
-                <View style={styles.bottomCardContent}>
-                  <View style={styles.bottomCardIcon}>
-                    <Text style={styles.bottomCardIconText}>🌐</Text>
-                  </View>
-                  <View style={styles.bottomCardText}>
-                    <Text style={styles.bottomCardTitle}>Netzwerk</Text>
-                    <Text style={styles.bottomCardSubtitle}>Alle unsere Kontakte</Text>
-                  </View>
-                </View>
-              </DashboardCard>
             </View>
 
             {/* Row 3 - Aufgaben & Admin */}
@@ -392,6 +390,11 @@ export function AdvisorHomeScreen({ navigation }: any) {
                       <Text style={styles.bottomCardTitle}>Administration</Text>
                       <Text style={styles.bottomCardSubtitle}>Benutzer & Rechte</Text>
                     </View>
+                    {pendingRequestsCount > 0 && (
+                      <View style={styles.badgeContainer}>
+                        <Text style={styles.badgeText}>{pendingRequestsCount}</Text>
+                      </View>
+                    )}
                   </View>
                 </DashboardCard>
               ) : (
@@ -873,5 +876,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#888',
     marginTop: 2,
+  },
+  badgeContainer: {
+    backgroundColor: '#ef4444',
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

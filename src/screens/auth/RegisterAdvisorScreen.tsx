@@ -1,7 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Platform, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
+
+const showAlert = (title: string, message: string, onOk?: () => void) => {
+  if (Platform.OS === 'web') {
+    window.alert(title + '\n\n' + message);
+    if (onOk) onOk();
+  } else {
+    Alert.alert(title, message, [{ text: 'OK', onPress: onOk }]);
+  }
+};
 
 export function RegisterAdvisorScreen({ navigation }: any) {
   const { signUp } = useAuth();
@@ -9,22 +18,38 @@ export function RegisterAdvisorScreen({ navigation }: any) {
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
-    if (!firstName || !lastName || !email || !password) {
-      Alert.alert('Fehler', 'Bitte alle Felder ausfüllen');
+    if (!firstName || !lastName || !email || !password || !confirmPassword) {
+      showAlert('Fehler', 'Bitte alle Felder ausfüllen');
       return;
     }
+    
+    if (password.length < 6) {
+      showAlert('Fehler', 'Das Passwort muss mindestens 6 Zeichen haben');
+      return;
+    }
+    
+    if (password !== confirmPassword) {
+      showAlert('Fehler', 'Die Passwörter stimmen nicht überein');
+      return;
+    }
+    
     setLoading(true);
     const { error } = await signUp(email, password, firstName, lastName, 'advisor');
     setLoading(false);
+    
     if (error) {
-      Alert.alert('Fehler', error.message);
+      showAlert('Fehler', error.message);
     } else {
-      Alert.alert('Erfolg', 'Bitte bestätige deine E-Mail', [
-        { text: 'OK', onPress: () => navigation.navigate('Login') }
-      ]);
+      showAlert(
+        'Registrierung erfolgreich!', 
+        'Dein Konto wurde erstellt. Du kannst dich jetzt anmelden.',
+        () => navigation.navigate('Login')
+      );
     }
   };
 
@@ -61,13 +86,33 @@ export function RegisterAdvisorScreen({ navigation }: any) {
           autoCapitalize="none"
         />
 
-        <TextInput
-          style={styles.input}
-          placeholder="Passwort (min. 6 Zeichen)"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
+        <View style={styles.passwordContainer}>
+          <TextInput
+            style={styles.passwordInput}
+            placeholder="Passwort (min. 6 Zeichen)"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+          />
+          <TouchableOpacity 
+            style={styles.showButton} 
+            onPress={() => setShowPassword(!showPassword)}
+          >
+            <Text style={styles.showButtonText}>
+              {showPassword ? 'Verbergen' : 'Anzeigen'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.passwordContainer}>
+          <TextInput
+            style={styles.passwordInput}
+            placeholder="Passwort wiederholen"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry={!showPassword}
+          />
+        </View>
 
         <TouchableOpacity style={styles.button} onPress={handleRegister} disabled={loading}>
           <Text style={styles.buttonText}>{loading ? 'Laden...' : 'Konto erstellen'}</Text>
@@ -83,7 +128,41 @@ const styles = StyleSheet.create({
   back: { fontSize: 16, color: '#666', marginBottom: 24 },
   title: { fontSize: 28, fontWeight: 'bold', marginBottom: 8 },
   subtitle: { fontSize: 16, color: '#666', marginBottom: 32 },
-  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 12, padding: 16, fontSize: 16, marginBottom: 16 },
-  button: { backgroundColor: '#000', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 8 },
+  input: { 
+    borderWidth: 1, 
+    borderColor: '#ddd', 
+    borderRadius: 12, 
+    padding: 16, 
+    fontSize: 16, 
+    marginBottom: 16 
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  passwordInput: {
+    flex: 1,
+    padding: 16,
+    fontSize: 16,
+  },
+  showButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  showButtonText: {
+    color: '#666',
+    fontSize: 14,
+  },
+  button: { 
+    backgroundColor: '#000', 
+    padding: 16, 
+    borderRadius: 12, 
+    alignItems: 'center', 
+    marginTop: 8 
+  },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });

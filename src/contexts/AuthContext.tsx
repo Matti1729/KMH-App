@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../config/supabase';
 
-type UserRole = 'player' | 'staff' | 'advisor';
+type UserRole = 'player' | 'advisor' | 'admin';
 
 interface Profile {
   id: string;
@@ -30,27 +30,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (userId: string) => {
-    const { data } = await supabase
+  const fetchProfile = async (userId: string, userEmail: string | undefined) => {
+    // Zuerst in advisors Tabelle schauen
+    const { data: advisorData } = await supabase
+      .from('advisors')
+      .select('id, first_name, last_name, role')
+      .eq('id', userId)
+      .single();
+    
+    if (advisorData && (advisorData.role === 'advisor' || advisorData.role === 'admin' || advisorData.role === 'berater')) {
+      // Berater gefunden - role normalisieren
+      const normalizedRole = advisorData.role === 'berater' ? 'advisor' : advisorData.role;
+      setProfile({
+        id: advisorData.id,
+        first_name: advisorData.first_name,
+        last_name: advisorData.last_name,
+        role: normalizedRole as UserRole,
+        email: userEmail || null
+      });
+      return;
+    }
+
+    // Sonst in profiles Tabelle schauen (für Spieler)
+    const { data: profileData } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
       .single();
-    setProfile(data);
+    
+    if (profileData) {
+      setProfile(profileData);
+    } else {
+      // Kein Profil gefunden - Standard: Spieler
+      setProfile({
+        id: userId,
+        first_name: null,
+        last_name: null,
+        role: 'player',
+        email: userEmail || null
+      });
+    }
   };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) fetchProfile(session.user.id);
+      if (session?.user) fetchProfile(session.user.id, session.user.email);
       setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) await fetchProfile(session.user.id);
+      if (session?.user) await fetchProfile(session.user.id, session.user.email);
       else setProfile(null);
       setLoading(false);
     });
@@ -64,14 +97,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, firstName: string, lastName: string, role: UserRole = 'player') => {
-    const { error } = await supabase.auth.signUp({
+    // 1. Supabase Auth User erstellen
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: { first_name: firstName, last_name: lastName, role }
       }
     });
-    return { error };
+
+    if (error) return { error };
+
+    // 2. Wenn Berater, direkt in advisors Tabelle eintragen
+    if (role === 'advisor' && data.user) {
+      const { error: advisorError } = await supabase
+        .from('advisors')
+        .insert({
+          id: data.user.id,
+          email: email,
+          first_name: firstName,
+          last_name: lastName,
+          role: 'advisor',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+      
+      if (advisorError) {
+        console.log('Advisor insert error:', advisorError);
+        return { error: advisorError };
+      }
+
+      // 3. WICHTIG: Profil sofort setzen, nicht auf onAuthStateChange warten
+      setProfile({
+        id: data.user.id,
+        first_name: firstName,
+        last_name: lastName,
+        role: 'advisor',
+        email: email
+      });
+    }
+
+    return { error: null };
   };
 
   const signOut = async () => {

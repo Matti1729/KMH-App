@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, Image, Linking, Modal, Pressable } from 'react-native';
 import { supabase } from '../../config/supabase';
-import { useAuth } from '../../contexts/AuthContext';
 import * as DocumentPicker from 'expo-document-picker';
 
 const POSITION_SHORTS = ['TW', 'IV', 'LV', 'RV', 'DM', 'ZM', 'OM', 'LA', 'RA', 'ST'];
@@ -41,7 +40,7 @@ const TransfermarktIcon = require('../../../assets/transfermarkt-logo.png');
 const ArbeitsamtIcon = require('../../../assets/arbeitsamt.png');
 
 interface Player {
-  id: string; advisor_id: string | null; first_name: string; last_name: string; nationality: string; birth_date: string; club: string; league: string; position: string; contract_end: string; photo_url: string; strong_foot: string; height: number; secondary_position: string; salary_month: string; point_bonus: string; appearance_bonus: string; contract_option: string; contract_scope: string; fixed_fee: string; contract_notes: string; u23_player: boolean; provision: string; transfer_commission: string; mandate_until: string; responsibility: string; listing: string; phone: string; phone_country_code: string; email: string; education: string; training: string; instagram: string; linkedin: string; tiktok: string; transfermarkt_url: string; interests: string; father_name: string; father_phone: string; father_phone_country_code: string; father_job: string; mother_name: string; mother_phone: string; mother_phone_country_code: string; mother_job: string; siblings: string; other_notes: string; injuries: string; street: string; postal_code: string; city: string; internat: boolean; future_club: string; future_contract_end: string; contract_documents: any[]; provision_documents: any[]; transfer_commission_documents: any[]; fussball_de_url: string; strengths: string; potentials: string;
+  id: string; first_name: string; last_name: string; nationality: string; birth_date: string; club: string; league: string; position: string; contract_end: string; photo_url: string; strong_foot: string; height: number; secondary_position: string; salary_month: string; point_bonus: string; appearance_bonus: string; contract_option: string; contract_scope: string; fixed_fee: string; contract_notes: string; u23_player: boolean; provision: string; transfer_commission: string; mandate_until: string; responsibility: string; listing: string; phone: string; phone_country_code: string; email: string; education: string; training: string; instagram: string; linkedin: string; tiktok: string; transfermarkt_url: string; interests: string; father_name: string; father_phone: string; father_phone_country_code: string; father_job: string; mother_name: string; mother_phone: string; mother_phone_country_code: string; mother_job: string; siblings: string; other_notes: string; injuries: string; street: string; postal_code: string; city: string; internat: boolean; future_club: string; future_contract_end: string; contract_documents: any[]; provision_documents: any[]; transfer_commission_documents: any[]; fussball_de_url: string; strengths: string; potentials: string;
 }
 
 interface ClubLogo {
@@ -57,7 +56,6 @@ interface Advisor {
 
 export function PlayerDetailScreen({ route, navigation }: any) {
   const { playerId } = route.params;
-  const { profile } = useAuth();
   const [player, setPlayer] = useState<Player | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -75,14 +73,6 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const [showSpielplanModal, setShowSpielplanModal] = useState(false);
   const [showPositionPicker, setShowPositionPicker] = useState(false);
   const [showSecondaryPositionPicker, setShowSecondaryPositionPicker] = useState(false);
-  
-  // ============================================
-  // SAUBERE ACCESS CONTROL - NUR advisor_access
-  // ============================================
-  const [accessChecked, setAccessChecked] = useState(false);
-  const [hasAccess, setHasAccess] = useState(false);
-  const [pendingRequest, setPendingRequest] = useState<any>(null);
-  const [accessRequested, setAccessRequested] = useState(false);
   
   // Date picker states
   const [activeDatePicker, setActiveDatePicker] = useState<string | null>(null);
@@ -115,14 +105,6 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   };
 
   useEffect(() => { fetchPlayer(); fetchClubLogos(); fetchAdvisors(); }, []);
-  
-  // Access Check separat - wartet auf profile
-  useEffect(() => {
-    if (profile?.id && playerId) {
-      checkAccess();
-    }
-  }, [profile?.id, playerId]);
-  
   useEffect(() => {
     if (player) {
       setSelectedPositions(player.position ? player.position.split(', ').filter(p => POSITIONS.includes(p)) : []);
@@ -159,96 +141,6 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     const paddedMonth = (month + 1).toString().padStart(2, '0');
     const paddedDay = day.toString().padStart(2, '0');
     return `${year}-${paddedMonth}-${paddedDay}`;
-  };
-
-  // ============================================
-  // ACCESS CHECK - NUR advisor_access TABELLE
-  // ============================================
-  const checkAccess = async () => {
-    if (!profile?.id || !playerId) {
-      setAccessChecked(true);
-      return;
-    }
-    
-    // Admin hat immer Zugriff
-    if (profile.role === 'admin') {
-      setHasAccess(true);
-      setAccessChecked(true);
-      return;
-    }
-    
-    // Prüfe ob Berater in advisor_access eingetragen ist
-    const { data: accessData } = await supabase
-      .from('advisor_access')
-      .select('*')
-      .eq('player_id', playerId)
-      .eq('advisor_id', profile.id)
-      .maybeSingle();
-    
-    if (accessData) {
-      setHasAccess(true);
-      setAccessChecked(true);
-      return;
-    }
-    
-    // Prüfe ob bereits eine Anfrage existiert
-    const { data: requestData } = await supabase
-      .from('access_requests')
-      .select('*')
-      .eq('player_id', playerId)
-      .eq('requester_id', profile.id)
-      .maybeSingle();
-    
-    if (requestData) {
-      setPendingRequest(requestData);
-    }
-    
-    setHasAccess(false);
-    setAccessChecked(true);
-  };
-
-  // Zugriff anfragen
-  const requestAccess = async () => {
-    if (!profile?.id || !playerId) return;
-    
-    // Prüfe ob bereits eine pending/rejected Anfrage existiert
-    if (pendingRequest) {
-      if (pendingRequest.status === 'rejected') {
-        // Erneut beantragen
-        const { error } = await supabase
-          .from('access_requests')
-          .update({ status: 'pending', created_at: new Date().toISOString() })
-          .eq('id', pendingRequest.id);
-        
-        if (error) {
-          Alert.alert('Fehler', 'Anfrage konnte nicht gesendet werden');
-        } else {
-          setAccessRequested(true);
-          setPendingRequest({ ...pendingRequest, status: 'pending' });
-          Alert.alert('Erfolg', 'Zuständigkeit wurde erneut beantragt.');
-        }
-        return;
-      } else if (pendingRequest.status === 'pending') {
-        Alert.alert('Info', 'Du hast bereits eine Anfrage gestellt.');
-        return;
-      }
-    }
-    
-    const { error } = await supabase
-      .from('access_requests')
-      .insert({ 
-        player_id: playerId, 
-        requester_id: profile.id, 
-        status: 'pending' 
-      });
-    
-    if (error) {
-      Alert.alert('Fehler', 'Anfrage konnte nicht gesendet werden');
-    } else {
-      setAccessRequested(true);
-      setPendingRequest({ status: 'pending' });
-      Alert.alert('Erfolg', 'Zuständigkeit wurde beantragt. Ein Admin wird deine Anfrage prüfen.');
-    }
   };
 
   const fetchAdvisors = async () => {
@@ -464,52 +356,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     if (!editData) return;
     const u23Status = calculateU23Status(editData.birth_date);
     const updateData: any = {
-      first_name: editData.first_name, last_name: editData.last_name, nationality: selectedNationalities.join(', ') || null, birth_date: editData.birth_date || null, club: editData.club || null, league: editData.league || null, position: selectedPositions.join(', ') || null, contract_end: editData.contract_end || null, photo_url: editData.photo_url || null, strong_foot: editData.strong_foot || null, height: editData.height || null, secondary_position: selectedSecondaryPositions.join(', ') || null, salary_month: editData.salary_month || null, point_bonus: editData.point_bonus || null, appearance_bonus: editData.appearance_bonus || null, contract_option: editData.contract_option || null, contract_scope: editData.contract_scope || null, fixed_fee: editData.fixed_fee || null, contract_notes: editData.contract_notes || null, u23_player: u23Status.isU23, provision: editData.provision || null, transfer_commission: editData.transfer_commission || null, mandate_until: editData.mandate_until || null, listing: editData.listing || null, phone: editData.phone || null, phone_country_code: editData.phone_country_code || '+49', email: editData.email || null, education: editData.education || null, training: editData.training || null, instagram: editData.instagram || null, linkedin: editData.linkedin || null, tiktok: editData.tiktok || null, transfermarkt_url: editData.transfermarkt_url || null, interests: editData.interests || null, father_name: editData.father_name || null, father_phone: editData.father_phone || null, father_phone_country_code: editData.father_phone_country_code || '+49', father_job: editData.father_job || null, mother_name: editData.mother_name || null, mother_phone: editData.mother_phone || null, mother_phone_country_code: editData.mother_phone_country_code || '+49', mother_job: editData.mother_job || null, siblings: editData.siblings || null, other_notes: editData.other_notes || null, injuries: editData.injuries || null, street: editData.street || null, postal_code: editData.postal_code || null, city: editData.city || null, internat: editData.internat || false, future_club: editData.future_club || null, future_contract_end: editData.future_contract_end || null, contract_documents: editData.contract_documents || [], provision_documents: editData.provision_documents || [], transfer_commission_documents: editData.transfer_commission_documents || [], fussball_de_url: editData.fussball_de_url || null, strengths: editData.strengths || null, potentials: editData.potentials || null,
+      first_name: editData.first_name, last_name: editData.last_name, nationality: selectedNationalities.join(', ') || null, birth_date: editData.birth_date || null, club: editData.club || null, league: editData.league || null, position: selectedPositions.join(', ') || null, contract_end: editData.contract_end || null, photo_url: editData.photo_url || null, strong_foot: editData.strong_foot || null, height: editData.height || null, secondary_position: selectedSecondaryPositions.join(', ') || null, salary_month: editData.salary_month || null, point_bonus: editData.point_bonus || null, appearance_bonus: editData.appearance_bonus || null, contract_option: editData.contract_option || null, contract_scope: editData.contract_scope || null, fixed_fee: editData.fixed_fee || null, contract_notes: editData.contract_notes || null, u23_player: u23Status.isU23, provision: editData.provision || null, transfer_commission: editData.transfer_commission || null, mandate_until: editData.mandate_until || null, responsibility: selectedResponsibilities.join(', ') || null, listing: editData.listing || null, phone: editData.phone || null, phone_country_code: editData.phone_country_code || '+49', email: editData.email || null, education: editData.education || null, training: editData.training || null, instagram: editData.instagram || null, linkedin: editData.linkedin || null, tiktok: editData.tiktok || null, transfermarkt_url: editData.transfermarkt_url || null, interests: editData.interests || null, father_name: editData.father_name || null, father_phone: editData.father_phone || null, father_phone_country_code: editData.father_phone_country_code || '+49', father_job: editData.father_job || null, mother_name: editData.mother_name || null, mother_phone: editData.mother_phone || null, mother_phone_country_code: editData.mother_phone_country_code || '+49', mother_job: editData.mother_job || null, siblings: editData.siblings || null, other_notes: editData.other_notes || null, injuries: editData.injuries || null, street: editData.street || null, postal_code: editData.postal_code || null, city: editData.city || null, internat: editData.internat || false, future_club: editData.future_club || null, future_contract_end: editData.future_contract_end || null, contract_documents: editData.contract_documents || [], provision_documents: editData.provision_documents || [], transfer_commission_documents: editData.transfer_commission_documents || [], fussball_de_url: editData.fussball_de_url || null, strengths: editData.strengths || null, potentials: editData.potentials || null,
     };
-    // Nur Admin kann Zuständigkeit ändern
-    if (profile?.role === 'admin') {
-      updateData.responsibility = selectedResponsibilities.join(', ') || null;
-      
-      // Synchronisiere advisor_access Tabelle mit der Zuständigkeit
-      // 1. Hole alle Berater-IDs basierend auf den ausgewählten Namen
-      const selectedAdvisorIds: string[] = [];
-      for (const name of selectedResponsibilities) {
-        const advisor = advisors.find(a => `${a.first_name} ${a.last_name}`.trim() === name);
-        if (advisor) selectedAdvisorIds.push(advisor.id);
-      }
-      
-      // 2. Hole aktuelle advisor_access Einträge um zu sehen wer entfernt wird
-      const { data: currentAccess } = await supabase
-        .from('advisor_access')
-        .select('advisor_id')
-        .eq('player_id', playerId);
-      
-      const currentAdvisorIds = currentAccess?.map(a => a.advisor_id) || [];
-      const removedAdvisorIds = currentAdvisorIds.filter(id => !selectedAdvisorIds.includes(id));
-      
-      // 3. Lösche access_requests für entfernte Berater (damit sie neu anfragen können)
-      if (removedAdvisorIds.length > 0) {
-        await supabase
-          .from('access_requests')
-          .delete()
-          .eq('player_id', playerId)
-          .in('requester_id', removedAdvisorIds);
-      }
-      
-      // 4. Lösche alle bestehenden advisor_access Einträge für diesen Spieler
-      await supabase.from('advisor_access').delete().eq('player_id', playerId);
-      
-      // 5. Füge neue Einträge für alle zuständigen Berater hinzu
-      if (selectedAdvisorIds.length > 0) {
-        const accessEntries = selectedAdvisorIds.map(advisorId => ({
-          player_id: playerId,
-          advisor_id: advisorId,
-          granted_by: profile.id,
-          granted_at: new Date().toISOString()
-        }));
-        await supabase.from('advisor_access').insert(accessEntries);
-      }
-    }
     const { error } = await supabase.from('player_details').update(updateData).eq('id', playerId);
     if (error) Alert.alert('Fehler', error.message);
     else { Alert.alert('Erfolg', 'Spieler wurde gespeichert'); setEditing(false); fetchPlayer(); }
@@ -517,8 +365,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
 
   const confirmDelete = async () => {
     try {
-      await supabase.from('advisor_access').delete().eq('player_id', playerId);
-      await supabase.from('access_requests').delete().eq('player_id', playerId);
+      await supabase.from('player_access').delete().eq('player_id', playerId);
       const { error } = await supabase.from('player_details').delete().eq('id', playerId);
       if (error) { 
         Alert.alert('Fehler', error.message); 
@@ -1234,17 +1081,12 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     </View>
   );
 
-  // Zuständigkeit kann nur vom Admin bearbeitet werden
-  // Wird automatisch gesetzt beim: Anlegen eines Spielers, Genehmigen einer Zugriffsanfrage
-  // Wenn Admin einen Berater entfernt, verliert dieser den Zugriff
   const renderResponsibilitySelector = () => {
     const advisorNames = advisors.map(a => `${a.first_name} ${a.last_name}`.trim());
-    const isAdmin = profile?.role === 'admin';
-    
     return (
       <View style={styles.infoRow}>
         <Text style={styles.label}>Zuständigkeit</Text>
-        {editing && isAdmin ? (
+        {editing ? (
           <View style={styles.chipGrid}>
             {advisorNames.map((name) => (
               <TouchableOpacity 
@@ -1358,83 +1200,22 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     </Modal>
   );
 
-  // ============================================
-  // MAIN RENDER - Saubere Reihenfolge
-  // ============================================
-  
-  // 1. Laden...
-  if (loading || !accessChecked) {
-    return (
-      <View style={styles.modalOverlayContainer}>
-        <View style={styles.modalContainer}>
-          <Text style={styles.loadingText}>Laden...</Text>
-        </View>
+  if (loading) return (
+    <View style={styles.modalOverlayContainer}>
+      <View style={styles.modalContainer}>
+        <Text style={styles.loadingText}>Laden...</Text>
       </View>
-    );
-  }
-
-  // 2. Kein Zugriff
-  if (!hasAccess) {
-    return (
-      <View style={styles.modalOverlayContainer}>
-        <TouchableOpacity style={styles.modalBackdrop} onPress={() => navigation.goBack()} activeOpacity={1} />
-        <View style={[styles.modalContainer, { padding: 40, alignItems: 'center', justifyContent: 'center', maxWidth: 450 }]}>
-          <Text style={{ fontSize: 64, marginBottom: 20 }}>🔒</Text>
-          <Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 12, textAlign: 'center' }}>Kein Zugriff</Text>
-          <Text style={{ fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 8 }}>Du hast keine Berechtigung, dieses Spielerprofil einzusehen.</Text>
-          <Text style={{ fontSize: 14, color: '#999', textAlign: 'center', marginBottom: 24 }}>Beantrage Zuständigkeit um Zugriff zu erhalten.</Text>
-          
-          {pendingRequest?.status === 'pending' && (
-            <View style={{ backgroundColor: '#fef3c7', padding: 12, borderRadius: 8, marginBottom: 16 }}>
-              <Text style={{ fontSize: 14, color: '#92400e', textAlign: 'center' }}>⏳ Deine Anfrage wird geprüft...</Text>
-            </View>
-          )}
-          
-          {pendingRequest?.status === 'rejected' && (
-            <View style={{ backgroundColor: '#fee2e2', padding: 12, borderRadius: 8, marginBottom: 16 }}>
-              <Text style={{ fontSize: 14, color: '#991b1b', textAlign: 'center' }}>❌ Deine Anfrage wurde abgelehnt</Text>
-            </View>
-          )}
-          
-          {(!pendingRequest || pendingRequest.status === 'rejected') && !accessRequested && (
-            <TouchableOpacity 
-              style={{ backgroundColor: '#000', paddingVertical: 14, paddingHorizontal: 32, borderRadius: 10, marginBottom: 12 }} 
-              onPress={requestAccess}
-            >
-              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>Zugriff anfragen</Text>
-            </TouchableOpacity>
-          )}
-          
-          {accessRequested && (
-            <View style={{ backgroundColor: '#d1fae5', padding: 12, borderRadius: 8, marginBottom: 16 }}>
-              <Text style={{ fontSize: 14, color: '#065f46', textAlign: 'center' }}>✓ Anfrage wurde gesendet</Text>
-            </View>
-          )}
-          
-          <TouchableOpacity 
-            style={{ backgroundColor: '#f0f0f0', paddingVertical: 12, paddingHorizontal: 32, borderRadius: 8 }} 
-            onPress={() => navigation.goBack()}
-          >
-            <Text style={{ color: '#666', fontSize: 16, fontWeight: '600' }}>Zurück</Text>
-          </TouchableOpacity>
-        </View>
+    </View>
+  );
+  if (!player || !editData) return (
+    <View style={styles.modalOverlayContainer}>
+      <TouchableOpacity style={styles.modalBackdrop} onPress={() => navigation.goBack()} activeOpacity={1} />
+      <View style={styles.modalContainer}>
+        <Text style={styles.loadingText}>Spieler nicht gefunden</Text>
       </View>
-    );
-  }
+    </View>
+  );
 
-  // 3. Spieler nicht gefunden
-  if (!player || !editData) {
-    return (
-      <View style={styles.modalOverlayContainer}>
-        <TouchableOpacity style={styles.modalBackdrop} onPress={() => navigation.goBack()} activeOpacity={1} />
-        <View style={styles.modalContainer}>
-          <Text style={styles.loadingText}>Spieler nicht gefunden</Text>
-        </View>
-      </View>
-    );
-  }
-
-  // 4. Normales Profil anzeigen
   const contractExpired = isContractExpired(player.contract_end);
   const displayClub = contractExpired ? 'Vereinslos' : player.club;
   const birthday = isBirthday(player.birth_date);

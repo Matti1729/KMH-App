@@ -1,9 +1,21 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Modal } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Modal, Pressable, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../config/supabase';
 
-const ADVISOR_CODE = 'KMH_Berater2026';
+// Fallback falls Datenbank nicht erreichbar
+const FALLBACK_CODE = 'KMH_Berater2026';
+
+// Platform-spezifischer Alert
+const showAlert = (title: string, message: string, onOk?: () => void) => {
+  if (Platform.OS === 'web') {
+    window.alert(`${title}\n\n${message}`);
+    if (onOk) onOk();
+  } else {
+    Alert.alert(title, message, [{ text: 'OK', onPress: onOk }]);
+  }
+};
 
 export function LoginScreen({ navigation }: any) {
   const { signIn } = useAuth();
@@ -12,33 +24,67 @@ export function LoginScreen({ navigation }: any) {
   const [loading, setLoading] = useState(false);
   const [showAdvisorModal, setShowAdvisorModal] = useState(false);
   const [advisorCode, setAdvisorCode] = useState('');
+  const [validCode, setValidCode] = useState<string>(FALLBACK_CODE);
+  const [codeError, setCodeError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchInvitationCode();
+  }, []);
+
+  const fetchInvitationCode = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'invitation_code')
+        .single();
+      
+      if (data && data.value) {
+        setValidCode(data.value);
+      }
+    } catch (e) {
+      console.log('Could not fetch invitation code, using fallback');
+    }
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Fehler', 'Bitte alle Felder ausfüllen');
+      showAlert('Fehler', 'Bitte alle Felder ausfüllen');
       return;
     }
     setLoading(true);
     const { error } = await signIn(email, password);
     setLoading(false);
-    if (error) Alert.alert('Fehler', error.message);
+    if (error) showAlert('Fehler', error.message);
   };
 
   const handleAdvisorCode = () => {
-    if (advisorCode === ADVISOR_CODE) {
+    setCodeError(null);
+    
+    if (!advisorCode.trim()) {
+      setCodeError('Bitte gib einen Einladungscode ein.');
+      return;
+    }
+    
+    if (advisorCode.trim() === validCode) {
       setShowAdvisorModal(false);
       setAdvisorCode('');
-      navigation.navigate('RegisterAdvisor');
+      setCodeError(null);
+      showAlert(
+        'Code bestätigt',
+        'Du wirst jetzt zur Registrierung weitergeleitet. Nach der Registrierung erhältst du eine E-Mail zur Bestätigung deiner Adresse.',
+        () => navigation.navigate('RegisterAdvisor')
+      );
     } else {
-      Alert.alert('Fehler', 'Ungültiger Code');
+      setCodeError('Der eingegebene Einladungscode ist ungültig.');
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.title}>KMH Sports</Text>
-        <Text style={styles.subtitle}>Willkommen zurück</Text>
+        <Text style={styles.title}>Karl M. Herzog</Text>
+        <Text style={styles.titleSecond}>Sportmanagement</Text>
 
         <TextInput
           style={styles.input}
@@ -65,31 +111,36 @@ export function LoginScreen({ navigation }: any) {
           <Text style={styles.link}>Noch kein Konto? Registrieren</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => setShowAdvisorModal(true)} style={styles.advisorLink}>
+        <TouchableOpacity onPress={() => { setShowAdvisorModal(true); setCodeError(null); setAdvisorCode(''); }} style={styles.advisorLink}>
           <Text style={styles.advisorText}>Als Berater registrieren</Text>
         </TouchableOpacity>
       </View>
 
+      {/* Berater-Zugang Modal */}
       <Modal visible={showAdvisorModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowAdvisorModal(false)}>
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <TouchableOpacity style={styles.modalClose} onPress={() => setShowAdvisorModal(false)}>
+              <Text style={styles.modalCloseText}>✕</Text>
+            </TouchableOpacity>
             <Text style={styles.modalTitle}>Berater-Zugang</Text>
             <Text style={styles.modalSubtitle}>Bitte Einladungscode eingeben</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.modalInput, codeError && styles.modalInputError]}
               placeholder="Einladungscode"
               value={advisorCode}
-              onChangeText={setAdvisorCode}
+              onChangeText={(text) => { setAdvisorCode(text); setCodeError(null); }}
               autoCapitalize="none"
+              placeholderTextColor="#999"
             />
-            <TouchableOpacity style={styles.button} onPress={handleAdvisorCode}>
-              <Text style={styles.buttonText}>Weiter</Text>
+            {codeError && (
+              <Text style={styles.errorText}>{codeError}</Text>
+            )}
+            <TouchableOpacity style={styles.modalButton} onPress={handleAdvisorCode}>
+              <Text style={styles.modalButtonText}>Weiter</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setShowAdvisorModal(false)}>
-              <Text style={styles.link}>Abbrechen</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
     </SafeAreaView>
   );
@@ -98,16 +149,68 @@ export function LoginScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   content: { flex: 1, padding: 24, justifyContent: 'center', maxWidth: 400, width: '100%', alignSelf: 'center' },
-  title: { fontSize: 32, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 },
-  subtitle: { fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 32 },
+  title: { fontSize: 32, fontWeight: 'bold', textAlign: 'center', marginBottom: 0 },
+  titleSecond: { fontSize: 32, fontWeight: 'bold', textAlign: 'center', marginBottom: 32 },
   input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 12, padding: 16, fontSize: 16, marginBottom: 16 },
   button: { backgroundColor: '#000', padding: 16, borderRadius: 12, alignItems: 'center', marginBottom: 16 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   link: { color: '#000', textAlign: 'center', marginTop: 8 },
   advisorLink: { marginTop: 32 },
   advisorText: { color: '#666', textAlign: 'center', fontSize: 14 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 },
-  modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24 },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 8 },
-  modalSubtitle: { fontSize: 14, color: '#666', marginBottom: 16 },
+  
+  // Modal Styles - zentriert und kompakt
+  modalOverlay: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0,0,0,0.5)', 
+    justifyContent: 'center', 
+    alignItems: 'center',
+  },
+  modalContent: { 
+    backgroundColor: '#fff', 
+    borderRadius: 16, 
+    padding: 24,
+    width: '90%',
+    maxWidth: 340,
+    position: 'relative',
+  },
+  modalClose: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f1f5f9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCloseText: { fontSize: 16, color: '#64748b' },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' },
+  modalSubtitle: { fontSize: 14, color: '#666', marginBottom: 20, textAlign: 'center' },
+  modalInput: { 
+    borderWidth: 1, 
+    borderColor: '#ddd', 
+    borderRadius: 12, 
+    padding: 16, 
+    fontSize: 16, 
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalInputError: {
+    borderColor: '#ef4444',
+    borderWidth: 2,
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  modalButton: { 
+    backgroundColor: '#000', 
+    padding: 16, 
+    borderRadius: 12, 
+    alignItems: 'center',
+  },
+  modalButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });

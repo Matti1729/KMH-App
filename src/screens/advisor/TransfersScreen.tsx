@@ -439,6 +439,18 @@ export function TransfersScreen({ navigation }: any) {
     return null;
   };
 
+  // Konvertiert "Magnus Klemm, Matti Langer" zu "MK, ML"
+  const getResponsibilityInitials = (responsibility: string): string => {
+    if (!responsibility) return '-';
+    return responsibility.split(', ').map(name => {
+      const parts = name.trim().split(' ');
+      if (parts.length >= 2) {
+        return parts[0][0].toUpperCase() + parts[parts.length - 1][0].toUpperCase();
+      }
+      return name.substring(0, 2).toUpperCase();
+    }).join(', ');
+  };
+
   const isContractExpired = (contractEnd: string): boolean => {
     if (!contractEnd) return false; // Kein Vertragsende = nicht als abgelaufen betrachten
     const today = new Date();
@@ -664,7 +676,7 @@ export function TransfersScreen({ navigation }: any) {
         <Text style={[styles.tableCell, styles.colLeague]} numberOfLines={1}>{player.league || '-'}</Text>
         {renderContractCell(player)}
         <View style={styles.colListing}>{renderListingBadge(player.listing)}</View>
-        <Text style={[styles.tableCell, styles.colResponsibility]} numberOfLines={1}>{player.responsibility || '-'}</Text>
+        <Text style={[styles.tableCell, styles.colResponsibility]} numberOfLines={1}>{getResponsibilityInitials(player.responsibility)}</Text>
       </TouchableOpacity>
     );
   };

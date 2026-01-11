@@ -63,9 +63,8 @@ export function PlayerOverviewScreen({ navigation }: any) {
   const [currentUserName, setCurrentUserName] = useState<string>('');
   const [userRole, setUserRole] = useState<string>('berater');
   const [myPlayerIds, setMyPlayerIds] = useState<string[]>([]);
-  const [accessLoaded, setAccessLoaded] = useState(false);
   const [profile, setProfile] = useState<Advisor | null>(null);
-  
+
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
 
@@ -75,7 +74,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
   const [selectedListings, setSelectedListings] = useState<string[]>([]);
   const [selectedResponsibilities, setSelectedResponsibilities] = useState<string[]>([]);
   const [selectedContractYears, setSelectedContractYears] = useState<string[]>([]);
-  
+
   // Separate Dropdown States wie in Scouting
   const [showYearDropdown, setShowYearDropdown] = useState(false);
   const [showPositionDropdown, setShowPositionDropdown] = useState(false);
@@ -94,7 +93,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
     });
     return Array.from(years).sort().reverse();
   }, [players]);
-  
+
   // Dynamische Vertragsende-Optionen aus den vorhandenen Spielerdaten
   const contractYearOptions = React.useMemo(() => {
     const years = new Set<string>();
@@ -106,40 +105,40 @@ export function PlayerOverviewScreen({ navigation }: any) {
     });
     return Array.from(years).sort();
   }, [players]);
-  
+
   // Helper Funktionen für Filter Labels
   const getYearFromDate = (dateStr: string) => dateStr ? new Date(dateStr).getFullYear().toString() : '';
-  
+
   const getPositionFilterLabel = () => {
     if (selectedPositions.length === 0) return 'Position';
     if (selectedPositions.length === 1) return POSITION_SHORT[selectedPositions[0]] || selectedPositions[0];
     return `${selectedPositions.length} Positionen`;
   };
-  
+
   const getYearFilterLabel = () => {
     if (selectedYears.length === 0) return 'Jahrgang';
     if (selectedYears.length === 1) return `Jg. ${selectedYears[0]}`;
     return `${selectedYears.length} Jahrgänge`;
   };
-  
+
   const getListingFilterLabel = () => {
     if (selectedListings.length === 0) return 'Listung';
     if (selectedListings.length === 1) return selectedListings[0] === 'Karl Herzog Sportmanagement' ? 'KMH' : 'PM';
     return `${selectedListings.length} Listungen`;
   };
-  
+
   const getResponsibilityFilterLabel = () => {
     if (selectedResponsibilities.length === 0) return 'Zuständigkeit';
     if (selectedResponsibilities.length === 1) return selectedResponsibilities[0].split(' ')[0];
     return `${selectedResponsibilities.length} Zuständige`;
   };
-  
+
   const getContractFilterLabel = () => {
     if (selectedContractYears.length === 0) return 'Vertragsende';
     if (selectedContractYears.length === 1) return selectedContractYears[0];
     return `${selectedContractYears.length} Jahre`;
   };
-  
+
   // Toggle Funktionen
   const togglePosition = (pos: string) => {
     setSelectedPositions(prev => prev.includes(pos) ? prev.filter(p => p !== pos) : [...prev, pos]);
@@ -156,17 +155,17 @@ export function PlayerOverviewScreen({ navigation }: any) {
   const toggleContractYear = (year: string) => {
     setSelectedContractYears(prev => prev.includes(year) ? prev.filter(y => y !== year) : [...prev, year]);
   };
-  
+
   // Clear Funktionen
   const clearPositions = () => setSelectedPositions([]);
   const clearYears = () => setSelectedYears([]);
   const clearListings = () => setSelectedListings([]);
   const clearResponsibilities = () => setSelectedResponsibilities([]);
   const clearContractYears = () => setSelectedContractYears([]);
-  
+
   // Prüfen ob ein Dropdown offen ist
   const isAnyDropdownOpen = showYearDropdown || showPositionDropdown || showListingDropdown || showResponsibilityDropdown || showContractDropdown;
-  
+
   // Alle Dropdowns schließen
   const closeAllDropdowns = () => {
     setShowYearDropdown(false);
@@ -208,31 +207,15 @@ export function PlayerOverviewScreen({ navigation }: any) {
 
   const fetchMyPlayerAccess = async (userId?: string) => {
     const uid = userId || currentUserId;
-    if (!uid) {
-      setAccessLoaded(true);
-      return;
-    }
-    
-    // 1. Hole IDs aus advisor_access
-    const { data: accessData } = await supabase
-      .from('advisor_access')
+    if (!uid) return;
+
+    const { data } = await supabase
+      .from('player_access')
       .select('player_id')
-      .eq('advisor_id', uid);
-    
-    // 2. Hole IDs aus access_requests (approved)
-    const { data: requestData } = await supabase
-      .from('access_requests')
-      .select('player_id')
-      .eq('requester_id', uid)
-      .eq('status', 'approved');
-    
-    // 3. Kombiniere beide Listen (ohne Duplikate)
-    const accessIds = accessData?.map(d => d.player_id) || [];
-    const requestIds = requestData?.map(d => d.player_id) || [];
-    const allIds = [...new Set([...accessIds, ...requestIds])];
-    
-    setMyPlayerIds(allIds);
-    setAccessLoaded(true);
+      .eq('advisor_id', uid)
+      .in('access_type', ['owner', 'viewer']);
+
+    if (data) setMyPlayerIds(data.map(d => d.player_id));
   };
 
   const fetchClubLogos = async () => {
@@ -297,22 +280,8 @@ export function PlayerOverviewScreen({ navigation }: any) {
     return isContractInCurrentSeason(player.contract_end);
   };
 
-  // Konvertiert "Magnus Klemm, Matti Langer" zu "MK, ML"
-  const getResponsibilityInitials = (responsibility: string): string => {
-    if (!responsibility) return '-';
-    return responsibility.split(', ').map(name => {
-      const parts = name.trim().split(' ');
-      if (parts.length >= 2) {
-        return parts[0][0].toUpperCase() + parts[parts.length - 1][0].toUpperCase();
-      }
-      return name.substring(0, 2).toUpperCase();
-    }).join(', ');
-  };
-
   const hasAccessToPlayer = (playerId: string): boolean => {
     if (userRole === 'admin') return true;
-    // Solange accessLoaded false ist, zeige kein Schloss (verhindert Flackern)
-    if (!accessLoaded) return true;
     return myPlayerIds.includes(playerId);
   };
 
@@ -327,40 +296,21 @@ export function PlayerOverviewScreen({ navigation }: any) {
 
   const handleRequestAccess = async () => {
     if (!selectedPlayer || !currentUserId) return;
-    
-    // Prüfe ob bereits eine Anfrage existiert
-    const { data: existing } = await supabase
-      .from('access_requests')
-      .select('*')
-      .eq('player_id', selectedPlayer.id)
-      .eq('requester_id', currentUserId)
-      .single();
-    
-    if (existing) {
-      if (existing.status === 'rejected') {
-        // Erneut beantragen
-        await supabase
-          .from('access_requests')
-          .update({ status: 'pending', created_at: new Date().toISOString() })
-          .eq('id', existing.id);
-        alert('Zugriff wurde erneut beantragt.');
-      } else if (existing.status === 'pending') {
+
+    const { error } = await supabase.from('player_access').insert({
+      player_id: selectedPlayer.id,
+      advisor_id: currentUserId,
+      access_type: 'requested'
+    });
+
+    if (error) {
+      if (error.code === '23505') {
         alert('Sie haben bereits eine Anfrage für diesen Spieler gestellt.');
       } else {
-        alert('Sie haben bereits Zugriff auf diesen Spieler.');
+        alert('Fehler: ' + error.message);
       }
     } else {
-      const { error } = await supabase.from('access_requests').insert({
-        player_id: selectedPlayer.id,
-        requester_id: currentUserId,
-        status: 'pending'
-      });
-      
-      if (error) {
-        alert('Fehler: ' + error.message);
-      } else {
-        alert('Zuständigkeit wurde beantragt. Ein Admin wird Ihre Anfrage prüfen.');
-      }
+      alert('Zuständigkeit wurde beantragt. Ein Admin wird Ihre Anfrage prüfen.');
     }
     setShowRequestModal(false);
     setSelectedPlayer(null);
@@ -396,7 +346,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
     if (selectedContractYears.length > 0) {
       filtered = filtered.filter(player => player.contract_end && selectedContractYears.includes(new Date(player.contract_end).getFullYear().toString()));
     }
-    
+
     filtered.sort((a, b) => {
       let valueA: any, valueB: any;
       switch (sortField) {
@@ -427,25 +377,26 @@ export function PlayerOverviewScreen({ navigation }: any) {
 
   const handleAddPlayer = async () => {
     if (!newFirstName.trim() || !newLastName.trim() || !currentUserId) return;
-    
+
     const { data: newPlayer, error } = await supabase
       .from('player_details')
-      .insert([{ 
-        first_name: newFirstName.trim(), 
+      .insert([{
+        first_name: newFirstName.trim(),
         last_name: newLastName.trim(),
         responsibility: currentUserName
       }])
       .select()
       .single();
-    
+
     if (!error && newPlayer) {
-      await supabase.from('advisor_access').insert({
+      await supabase.from('player_access').insert({
         player_id: newPlayer.id,
         advisor_id: currentUserId,
-        granted_by: currentUserId,
-        granted_at: new Date().toISOString()
+        access_type: 'owner',
+        approved_at: new Date().toISOString(),
+        approved_by: currentUserId
       });
-      
+
       setNewFirstName('');
       setNewLastName('');
       setShowAddModal(false);
@@ -497,7 +448,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
   const renderContractCell = (player: Player) => {
     const inCurrentSeason = isContractInCurrentSeason(player.contract_end);
     const hasSecuredFuture = hasFutureClubAndExpiringContract(player);
-    
+
     if (hasSecuredFuture) {
       return (
         <View style={styles.colContract}>
@@ -521,17 +472,17 @@ export function PlayerOverviewScreen({ navigation }: any) {
   const renderPlayerRow = (player: Player) => {
     const hasAccess = hasAccessToPlayer(player.id);
     // Position in Kürzel umwandeln
-    const positionDisplay = player.position 
+    const positionDisplay = player.position
       ? player.position.split(', ').map(p => POSITION_SHORT[p.trim()] || p).join(', ')
       : '-';
     return (
-      <TouchableOpacity 
-        key={player.id} 
-        style={[styles.tableRow, !hasAccess && styles.tableRowLocked]} 
+      <TouchableOpacity
+        key={player.id}
+        style={[styles.tableRow, !hasAccess && styles.tableRowLocked]}
         onPress={() => handlePlayerClick(player)}
       >
         <View style={[styles.colName, styles.nameContainer]}>
-          {!hasAccess && <Text style={styles.lockIcon}>🔒 </Text>}
+          {!hasAccess && <Text style={styles.lockIcon}>🔒</Text>}
           <Text style={[styles.tableCell, styles.nameCell]} numberOfLines={1}>
             {player.last_name}, {player.first_name}
           </Text>
@@ -542,7 +493,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
         <Text style={[styles.tableCell, styles.colLeague]} numberOfLines={1}>{player.league || '-'}</Text>
         {renderContractCell(player)}
         <View style={styles.colListing}>{renderListingBadge(player.listing)}</View>
-        <Text style={[styles.tableCell, styles.colResponsibility]} numberOfLines={1}>{getResponsibilityInitials(player.responsibility)}</Text>
+        <Text style={[styles.tableCell, styles.colResponsibility]} numberOfLines={1}>{player.responsibility || '-'}</Text>
       </TouchableOpacity>
     );
   };
@@ -572,12 +523,12 @@ export function PlayerOverviewScreen({ navigation }: any) {
             <Text style={styles.searchIcon}>🔍</Text>
             <TextInput style={styles.searchInput} placeholder="Spieler, Verein suchen..." value={searchText} onChangeText={setSearchText} onFocus={closeAllDropdowns} />
           </View>
-          
+
           <View style={styles.filterContainer}>
             {/* Position Filter */}
             <View style={[styles.dropdownContainer, { zIndex: 50 }]}>
-              <TouchableOpacity 
-                style={[styles.filterButton, selectedPositions.length > 0 && styles.filterButtonActive]} 
+              <TouchableOpacity
+                style={[styles.filterButton, selectedPositions.length > 0 && styles.filterButtonActive]}
                 onPress={(e) => { e.stopPropagation(); closeAllDropdowns(); setShowPositionDropdown(!showPositionDropdown); }}
               >
                 <Text style={[styles.filterButtonText, selectedPositions.length > 0 && styles.filterButtonTextActive]}>{getPositionFilterLabel()} ▼</Text>
@@ -608,8 +559,8 @@ export function PlayerOverviewScreen({ navigation }: any) {
 
             {/* Jahrgang Filter */}
             <View style={[styles.dropdownContainer, { zIndex: 40 }]}>
-              <TouchableOpacity 
-                style={[styles.filterButton, selectedYears.length > 0 && styles.filterButtonActive]} 
+              <TouchableOpacity
+                style={[styles.filterButton, selectedYears.length > 0 && styles.filterButtonActive]}
                 onPress={(e) => { e.stopPropagation(); closeAllDropdowns(); setShowYearDropdown(!showYearDropdown); }}
               >
                 <Text style={[styles.filterButtonText, selectedYears.length > 0 && styles.filterButtonTextActive]}>{getYearFilterLabel()} ▼</Text>
@@ -640,8 +591,8 @@ export function PlayerOverviewScreen({ navigation }: any) {
 
             {/* Listung Filter */}
             <View style={[styles.dropdownContainer, { zIndex: 30 }]}>
-              <TouchableOpacity 
-                style={[styles.filterButton, selectedListings.length > 0 && styles.filterButtonActive]} 
+              <TouchableOpacity
+                style={[styles.filterButton, selectedListings.length > 0 && styles.filterButtonActive]}
                 onPress={(e) => { e.stopPropagation(); closeAllDropdowns(); setShowListingDropdown(!showListingDropdown); }}
               >
                 <Text style={[styles.filterButtonText, selectedListings.length > 0 && styles.filterButtonTextActive]}>{getListingFilterLabel()} ▼</Text>
@@ -672,8 +623,8 @@ export function PlayerOverviewScreen({ navigation }: any) {
 
             {/* Zuständigkeit Filter */}
             <View style={[styles.dropdownContainer, { zIndex: 20 }]}>
-              <TouchableOpacity 
-                style={[styles.filterButton, selectedResponsibilities.length > 0 && styles.filterButtonActive]} 
+              <TouchableOpacity
+                style={[styles.filterButton, selectedResponsibilities.length > 0 && styles.filterButtonActive]}
                 onPress={(e) => { e.stopPropagation(); closeAllDropdowns(); setShowResponsibilityDropdown(!showResponsibilityDropdown); }}
               >
                 <Text style={[styles.filterButtonText, selectedResponsibilities.length > 0 && styles.filterButtonTextActive]}>{getResponsibilityFilterLabel()} ▼</Text>
@@ -705,8 +656,8 @@ export function PlayerOverviewScreen({ navigation }: any) {
 
             {/* Vertragsende Filter */}
             <View style={[styles.dropdownContainer, { zIndex: 10 }]}>
-              <TouchableOpacity 
-                style={[styles.filterButton, selectedContractYears.length > 0 && styles.filterButtonActive]} 
+              <TouchableOpacity
+                style={[styles.filterButton, selectedContractYears.length > 0 && styles.filterButtonActive]}
                 onPress={(e) => { e.stopPropagation(); closeAllDropdowns(); setShowContractDropdown(!showContractDropdown); }}
               >
                 <Text style={[styles.filterButtonText, selectedContractYears.length > 0 && styles.filterButtonTextActive]}>{getContractFilterLabel()} ▼</Text>
@@ -735,7 +686,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
               )}
             </View>
           </View>
-          
+
           <TouchableOpacity onPress={() => setShowAddModal(true)} style={styles.addButton}>
             <Text style={styles.addButtonText}>+ Spieler anlegen</Text>
           </TouchableOpacity>
@@ -810,13 +761,13 @@ export function PlayerOverviewScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1, flexDirection: 'row', backgroundColor: '#f8fafc' },
   mainContent: { flex: 1, backgroundColor: '#f8fafc' },
-  
+
   // Header Banner - weiß mit Titel mittig
   headerBanner: { flexDirection: 'row', alignItems: 'center', padding: 24, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
   headerBannerCenter: { flex: 1, alignItems: 'center' },
   headerTitle: { fontSize: 28, fontWeight: '700', color: '#1a1a1a' },
   headerSubtitle: { fontSize: 14, color: '#64748b', marginTop: 4 },
-  
+
   // Toolbar - wie Scouting
   toolbar: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0', zIndex: 100 },
   searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', paddingHorizontal: 12 },
@@ -824,13 +775,13 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, paddingVertical: 10, fontSize: 14 },
   filterContainer: { flexDirection: 'row', gap: 8 },
   dropdownContainer: { position: 'relative' },
-  
+
   // Filter Buttons - wie Scouting
   filterButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0' },
   filterButtonActive: { backgroundColor: '#e0f2fe', borderColor: '#3b82f6' },
   filterButtonText: { fontSize: 14, color: '#64748b' },
   filterButtonTextActive: { color: '#0369a1' },
-  
+
   // Filter Dropdown - wie Scouting
   filterDropdownMulti: { position: 'absolute', top: '100%', left: 0, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', marginTop: 4, minWidth: 220, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, zIndex: 1000, overflow: 'hidden' },
   filterDropdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#e2e8f0', backgroundColor: '#f8fafc' },
@@ -844,14 +795,14 @@ const styles = StyleSheet.create({
   filterCountBadge: { backgroundColor: '#f1f5f9', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, fontSize: 12, color: '#64748b', overflow: 'hidden' },
   filterDoneButton: { padding: 12, backgroundColor: '#f8fafc', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#e2e8f0' },
   filterDoneText: { fontSize: 14, fontWeight: '600', color: '#3b82f6' },
-  
+
   // Dropdown Overlay
   dropdownOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, backgroundColor: 'transparent' },
-  
+
   // Add Button
   addButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#1a1a1a' },
   addButtonText: { fontSize: 14, color: '#fff', fontWeight: '600' },
-  
+
   // Tabelle wie Scouting
   tableHeader: { flexDirection: 'row', backgroundColor: '#f1f5f9', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
   tableHeaderText: { color: '#64748b', fontWeight: '600', fontSize: 13 },
@@ -861,7 +812,7 @@ const styles = StyleSheet.create({
   tableCell: { fontSize: 14, color: '#334155' },
   nameContainer: { flexDirection: 'row', alignItems: 'center' },
   nameCell: { fontWeight: '500', flex: 1 },
-  lockIcon: { fontSize: 12, marginRight: 4 },
+  lockIcon: { fontSize: 12, marginLeft: 4 },
   clubCell: { flexDirection: 'row', alignItems: 'center' },
   clubTextRed: { color: '#dc3545' },
   clubLogo: { width: 22, height: 22, resizeMode: 'contain', marginRight: 8 },
@@ -885,7 +836,7 @@ const styles = StyleSheet.create({
   listingBadgeText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   loadingText: { padding: 20, textAlign: 'center', color: '#64748b' },
   emptyText: { padding: 20, textAlign: 'center', color: '#64748b' },
-  
+
   // Modal - dezente Buttons
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 400 },

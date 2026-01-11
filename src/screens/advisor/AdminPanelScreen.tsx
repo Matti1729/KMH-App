@@ -6,11 +6,11 @@ import { supabase } from '../../config/supabase';
 interface AccessRequest {
   id: string;
   player_id: string;
-  advisor_id: string;
-  access_type: string;
-  requested_at: string;
+  requester_id: string;
+  status: string;
+  created_at: string;
   player_name: string;
-  advisor_name: string;
+  requester_name: string;
 }
 
 interface Advisor {
@@ -37,11 +37,14 @@ export function AdminPanelScreen({ navigation }: any) {
     setLoading(false);
   };
 
+  // UPDATED: Nutzt jetzt access_requests statt player_access
   const fetchPendingRequests = async () => {
-    const { data: requests } = await supabase
-      .from('player_access')
+    const { data: requests, error } = await supabase
+      .from('access_requests')
       .select('*')
-      .eq('access_type', 'requested');
+      .eq('status', 'pending');
+
+    console.log('Pending requests:', requests, 'Error:', error);
 
     if (requests && requests.length > 0) {
       // Get player names
@@ -51,20 +54,20 @@ export function AdminPanelScreen({ navigation }: any) {
         .select('id, first_name, last_name')
         .in('id', playerIds);
 
-      // Get advisor names
-      const advisorIds = requests.map(r => r.advisor_id);
+      // Get requester names from advisors table
+      const requesterIds = requests.map(r => r.requester_id);
       const { data: advisorData } = await supabase
         .from('advisors')
         .select('id, first_name, last_name')
-        .in('id', advisorIds);
+        .in('id', requesterIds);
 
       const enrichedRequests = requests.map(req => ({
         ...req,
         player_name: players?.find(p => p.id === req.player_id)
           ? `${players.find(p => p.id === req.player_id)?.first_name} ${players.find(p => p.id === req.player_id)?.last_name}`
           : 'Unbekannt',
-        advisor_name: advisorData?.find(a => a.id === req.advisor_id)
-          ? `${advisorData.find(a => a.id === req.advisor_id)?.first_name} ${advisorData.find(a => a.id === req.advisor_id)?.last_name}`
+        requester_name: advisorData?.find(a => a.id === req.requester_id)
+          ? `${advisorData.find(a => a.id === req.requester_id)?.first_name} ${advisorData.find(a => a.id === req.requester_id)?.last_name}`
           : 'Unbekannt'
       }));
 
@@ -83,30 +86,69 @@ export function AdminPanelScreen({ navigation }: any) {
     if (data) setAdvisors(data);
   };
 
-  const handleApprove = async (requestId: string, accessType: 'owner' | 'viewer') => {
+  // UPDATED: Erstellt advisor_access Eintrag + updated access_requests
+  const handleApprove = async (request: AccessRequest) => {
     const { data: { user } } = await supabase.auth.getUser();
-    
-    const { error } = await supabase
-      .from('player_access')
-      .update({
-        access_type: accessType,
-        approved_at: new Date().toISOString(),
-        approved_by: user?.id
-      })
-      .eq('id', requestId);
+    if (!user) return;
 
-    if (error) {
-      Alert.alert('Fehler', error.message);
-    } else {
-      Alert.alert('Erfolg', 'Anfrage genehmigt');
-      fetchPendingRequests();
+    // 1. Erstelle Eintrag in advisor_access
+    const { error: accessError } = await supabase
+      .from('advisor_access')
+      .insert({
+        player_id: request.player_id,
+        advisor_id: request.requester_id,
+        granted_by: user.id,
+        granted_at: new Date().toISOString()
+      });
+
+    if (accessError) {
+      // Wenn bereits existiert (unique constraint), ist das ok
+      if (accessError.code !== '23505') {
+        Alert.alert('Fehler', accessError.message);
+        return;
+      }
     }
+
+    // 2. Update access_requests Status auf 'approved'
+    const { error: updateError } = await supabase
+      .from('access_requests')
+      .update({ status: 'approved' })
+      .eq('id', request.id);
+
+    if (updateError) {
+      Alert.alert('Fehler', updateError.message);
+      return;
+    }
+
+    // 3. Optional: Update responsibility Feld beim Spieler
+    const requesterName = request.requester_name;
+    const { data: playerData } = await supabase
+      .from('player_details')
+      .select('responsibility')
+      .eq('id', request.player_id)
+      .single();
+
+    if (playerData) {
+      const currentResp = playerData.responsibility || '';
+      // Nur hinzufügen wenn nicht bereits vorhanden
+      if (!currentResp.includes(requesterName)) {
+        const newResp = currentResp ? `${currentResp}, ${requesterName}` : requesterName;
+        await supabase
+          .from('player_details')
+          .update({ responsibility: newResp })
+          .eq('id', request.player_id);
+      }
+    }
+
+    Alert.alert('Erfolg', 'Anfrage genehmigt');
+    fetchPendingRequests();
   };
 
+  // UPDATED: Setzt access_requests Status auf 'rejected'
   const handleReject = async (requestId: string) => {
     const { error } = await supabase
-      .from('player_access')
-      .delete()
+      .from('access_requests')
+      .update({ status: 'rejected' })
       .eq('id', requestId);
 
     if (error) {
@@ -180,23 +222,17 @@ export function AdminPanelScreen({ navigation }: any) {
             pendingRequests.map((request) => (
               <View key={request.id} style={styles.requestCard}>
                 <View style={styles.requestInfo}>
-                  <Text style={styles.requestAdvisor}>{request.advisor_name}</Text>
+                  <Text style={styles.requestAdvisor}>{request.requester_name}</Text>
                   <Text style={styles.requestText}>möchte Zugriff auf</Text>
                   <Text style={styles.requestPlayer}>{request.player_name}</Text>
-                  <Text style={styles.requestDate}>Angefragt am {formatDate(request.requested_at)}</Text>
+                  <Text style={styles.requestDate}>Angefragt am {formatDate(request.created_at)}</Text>
                 </View>
                 <View style={styles.requestActions}>
                   <TouchableOpacity
-                    style={styles.approveOwnerButton}
-                    onPress={() => handleApprove(request.id, 'owner')}
+                    style={styles.approveButton}
+                    onPress={() => handleApprove(request)}
                   >
-                    <Text style={styles.approveButtonText}>Hauptzuständig</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.approveViewerButton}
-                    onPress={() => handleApprove(request.id, 'viewer')}
-                  >
-                    <Text style={styles.approveButtonText}>Lesezugriff</Text>
+                    <Text style={styles.approveButtonText}>Genehmigen</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.rejectButton}
@@ -270,11 +306,10 @@ const styles = StyleSheet.create({
   requestPlayer: { fontSize: 16, fontWeight: '600', color: '#000' },
   requestDate: { fontSize: 12, color: '#999', marginTop: 8 },
   requestActions: { flexDirection: 'row', gap: 8 },
-  approveOwnerButton: { flex: 1, backgroundColor: '#000', paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
-  approveViewerButton: { flex: 1, backgroundColor: '#6c757d', paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
-  approveButtonText: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  rejectButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, borderWidth: 1, borderColor: '#ff4444', alignItems: 'center' },
-  rejectButtonText: { color: '#ff4444', fontSize: 13, fontWeight: '600' },
+  approveButton: { flex: 1, backgroundColor: '#000', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
+  approveButtonText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  rejectButton: { flex: 1, paddingVertical: 12, borderRadius: 8, borderWidth: 1, borderColor: '#dc3545', alignItems: 'center' },
+  rejectButtonText: { color: '#dc3545', fontSize: 14, fontWeight: '600' },
   advisorCard: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   advisorInfo: { flex: 1 },
   advisorName: { fontSize: 16, fontWeight: '600', color: '#000', marginBottom: 4 },

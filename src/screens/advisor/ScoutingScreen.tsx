@@ -13,6 +13,15 @@ const SCOUTING_STATUS = [
 
 const LISTINGS = ['Karl Herzog Sportmanagement', 'PM Sportmanagement'];
 
+// Date picker constants
+const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
+const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+const YEARS = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() + i - 1); // Current year -1 to +8
+
+// Game type options
+const GAME_TYPES = ['Punktspiel', 'Pokalspiel', 'Freundschaftsspiel', 'Hallenturnier', 'Turnier'];
+const AGE_GROUPS = ['U13', 'U14', 'U15', 'U16', 'U17', 'U18', 'U19', 'U21', 'U23', 'Herren'];
+
 // Local Transfermarkt logo
 const TransfermarktLogo = require('../../../assets/transfermarkt-logo.png');
 
@@ -39,6 +48,29 @@ const formatPositions = (positions: string[]): string => {
 interface ScoutingGame {
   id: string; date: string; home_team: string; away_team: string; 
   location: string; scout_id: string; scout_name?: string; notes: string; created_at: string;
+  game_type?: string; description?: string; age_group?: string;
+}
+
+interface GameTeam {
+  id: string;
+  game_id: string;
+  team_name: string;
+  created_at: string;
+}
+
+interface GamePlayer {
+  id: string;
+  game_id: string;
+  team_id: string;
+  number: string;
+  last_name: string;
+  first_name: string;
+  birth_year: string;
+  position: string;
+  rating: number | null;
+  notes: string;
+  created_at: string;
+  added_to_database?: boolean;
 }
 
 interface Advisor { id: string; first_name: string; last_name: string; }
@@ -62,6 +94,40 @@ const formatBirthDisplay = (dateStr: string): string => {
   } catch {
     return dateStr;
   }
+};
+
+// Date helper functions for game date picker
+const parseDateToParts = (dateString: string): { day: number; month: number; year: number } | null => {
+  if (!dateString) return null;
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return null;
+  return { day: date.getDate(), month: date.getMonth(), year: date.getFullYear() };
+};
+
+const buildDateFromParts = (day: number, month: number, year: number): string => {
+  if (!day || month === undefined || month === null || !year) return '';
+  const paddedMonth = (month + 1).toString().padStart(2, '0');
+  const paddedDay = day.toString().padStart(2, '0');
+  return `${year}-${paddedMonth}-${paddedDay}`;
+};
+
+const formatGameDate = (dateStr: string): string => {
+  if (!dateStr) return '-';
+  try {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+  } catch {
+    return dateStr;
+  }
+};
+
+const isGameToday = (dateStr: string): boolean => {
+  if (!dateStr) return false;
+  const today = new Date();
+  const gameDate = new Date(dateStr);
+  return today.getFullYear() === gameDate.getFullYear() &&
+         today.getMonth() === gameDate.getMonth() &&
+         today.getDate() === gameDate.getDate();
 };
 
 // Function to fetch agent from Transfermarkt (via proxy/scraping service)
@@ -161,8 +227,59 @@ export function ScoutingScreen({ navigation }: any) {
   const [showNewPlayerClubDropdown, setShowNewPlayerClubDropdown] = useState(false);
 
   const [newGame, setNewGame] = useState({
-    date: '', home_team: '', away_team: '', location: '', notes: ''
+    date: '', home_team: '', away_team: '', location: '', notes: '',
+    game_type: '', description: '', age_group: '', scout_id: ''
   });
+
+  // Date picker states for game modal
+  const [showGameDatePicker, setShowGameDatePicker] = useState(false);
+  const [gameDatePart, setGameDatePart] = useState<'day' | 'month' | 'year' | null>(null);
+  const [showGameTypePicker, setShowGameTypePicker] = useState(false);
+  const [showAgeGroupPicker, setShowAgeGroupPicker] = useState(false);
+  const [showScoutPicker, setShowScoutPicker] = useState(false);
+  
+  // Game detail modal
+  const [showGameDetailModal, setShowGameDetailModal] = useState(false);
+  const [selectedGame, setSelectedGame] = useState<ScoutingGame | null>(null);
+  const [isEditingGame, setIsEditingGame] = useState(false);
+  const [editGameData, setEditGameData] = useState<Partial<ScoutingGame>>({});
+  
+  // Teams and Players for Game Detail
+  const [gameTeams, setGameTeams] = useState<GameTeam[]>([]);
+  const [gamePlayers, setGamePlayers] = useState<GamePlayer[]>([]);
+  const [selectedTeam, setSelectedTeam] = useState<GameTeam | null>(null);
+  const [newTeamName, setNewTeamName] = useState('');
+  const [newGamePlayer, setNewGamePlayer] = useState({ number: '', last_name: '', first_name: '', birth_year: '', position: '', rating: null as number | null, notes: '' });
+  const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
+  const [editingPlayerNotes, setEditingPlayerNotes] = useState('');
+  const [showPlayerNotesModal, setShowPlayerNotesModal] = useState(false);
+  const [selectedGamePlayer, setSelectedGamePlayer] = useState<GamePlayer | null>(null);
+  
+  // Edit game dropdowns
+  const [showEditGameTypePicker, setShowEditGameTypePicker] = useState(false);
+  const [showEditAgeGroupPicker, setShowEditAgeGroupPicker] = useState(false);
+  const [showEditDatePicker, setShowEditDatePicker] = useState(false);
+  const [editDatePart, setEditDatePart] = useState<'day' | 'month' | 'year' | null>(null);
+  
+  // New player dropdowns
+  const [showNewPlayerPositionPicker, setShowNewPlayerPositionPicker] = useState(false);
+  const [showNewPlayerRatingPicker, setShowNewPlayerRatingPicker] = useState(false);
+  
+  // Edit player dropdowns
+  const [showEditPlayerPositionPicker, setShowEditPlayerPositionPicker] = useState(false);
+  const [showEditPlayerRatingPicker, setShowEditPlayerRatingPicker] = useState(false);
+  
+  // Track which game player is being added to database
+  const [addingGamePlayerId, setAddingGamePlayerId] = useState<string | null>(null);
+  
+  // Games search and archive
+  const [gamesSearchQuery, setGamesSearchQuery] = useState('');
+  const [gamesViewMode, setGamesViewMode] = useState<'upcoming' | 'archive' | 'search'>('upcoming');
+  const [allGamePlayers, setAllGamePlayers] = useState<(GamePlayer & { game?: ScoutingGame, team_name?: string })[]>([]);
+  const [selectedGamesRatings, setSelectedGamesRatings] = useState<number[]>([]);
+  const [selectedGamesYears, setSelectedGamesYears] = useState<string[]>([]);
+  const [showGamesRatingDropdown, setShowGamesRatingDropdown] = useState(false);
+  const [showGamesYearDropdown, setShowGamesYearDropdown] = useState(false);
 
   const [draggedPlayerId, setDraggedPlayerId] = useState<string | null>(null);
   const [dragOverStatus, setDragOverStatus] = useState<string | null>(null);
@@ -183,6 +300,95 @@ export function ScoutingScreen({ navigation }: any) {
     });
     return POSITIONS.filter(p => positions.has(p));
   }, [scoutedPlayers]);
+
+  // Split games into upcoming and past (archive)
+  const { upcomingGames, archivedGames } = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const upcoming: ScoutingGame[] = [];
+    const archived: ScoutingGame[] = [];
+    scoutingGames.forEach(game => {
+      const gameDate = new Date(game.date);
+      gameDate.setHours(0, 0, 0, 0);
+      if (gameDate < today) {
+        archived.push(game);
+      } else {
+        upcoming.push(game);
+      }
+    });
+    return { upcomingGames: upcoming, archivedGames: archived.reverse() };
+  }, [scoutingGames]);
+
+  // Search results for games tab - separate events and players
+  const { searchResultsEvents, searchResultsPlayers } = useMemo(() => {
+    const query = gamesSearchQuery.toLowerCase().trim();
+    const events: ScoutingGame[] = [];
+    const players: (GamePlayer & { game?: ScoutingGame, team_name?: string })[] = [];
+    
+    if (!query && selectedGamesRatings.length === 0 && selectedGamesYears.length === 0) {
+      return { searchResultsEvents: events, searchResultsPlayers: players };
+    }
+    
+    // Check if query is a rating number
+    const ratingQuery = parseInt(query);
+    const isRatingSearch = !isNaN(ratingQuery) && ratingQuery >= 1 && ratingQuery <= 10;
+    
+    // Search events by description, game_type, location (only if text query and no rating search)
+    if (query && !isRatingSearch && selectedGamesRatings.length === 0 && selectedGamesYears.length === 0) {
+      scoutingGames.forEach(game => {
+        if (game.description?.toLowerCase().includes(query) ||
+            game.game_type?.toLowerCase().includes(query) ||
+            game.location?.toLowerCase().includes(query)) {
+          events.push(game);
+        }
+      });
+    }
+    
+    // Search players - combine all conditions with AND logic
+    allGamePlayers.forEach(player => {
+      let matchesText = true;
+      let matchesRating = true;
+      let matchesYear = true;
+      
+      // Text search filter
+      if (query && !isRatingSearch) {
+        matchesText = (player.first_name?.toLowerCase().includes(query) || 
+            player.last_name?.toLowerCase().includes(query) ||
+            player.team_name?.toLowerCase().includes(query)) || false;
+      }
+      
+      // Rating search (text input like "8")
+      if (isRatingSearch) {
+        matchesRating = player.rating === ratingQuery;
+      }
+      
+      // Rating filter (dropdown)
+      if (selectedGamesRatings.length > 0) {
+        matchesRating = player.rating !== null && selectedGamesRatings.includes(player.rating);
+      }
+      
+      // Year filter (dropdown)
+      if (selectedGamesYears.length > 0) {
+        matchesYear = player.birth_year !== null && selectedGamesYears.includes(player.birth_year);
+      }
+      
+      // All conditions must match (AND logic)
+      if (matchesText && matchesRating && matchesYear) {
+        players.push(player);
+      }
+    });
+    
+    return { searchResultsEvents: events, searchResultsPlayers: players };
+  }, [gamesSearchQuery, allGamePlayers, scoutingGames, selectedGamesRatings, selectedGamesYears]);
+
+  // Available years in game players for filter
+  const availableGamesYears = useMemo(() => {
+    const years = new Set<string>();
+    allGamePlayers.forEach(p => {
+      if (p.birth_year) years.add(p.birth_year);
+    });
+    return Array.from(years).sort((a, b) => b.localeCompare(a));
+  }, [allGamePlayers]);
 
   useEffect(() => {
     fetchCurrentUser(); fetchScoutedPlayers(); fetchScoutingGames(); fetchAdvisors(); fetchClubLogos();
@@ -319,6 +525,24 @@ export function ScoutingScreen({ navigation }: any) {
       } else {
         setScoutingGames(data);
       }
+      // Load all game players for search
+      fetchAllGamePlayers(data);
+    }
+  };
+
+  const fetchAllGamePlayers = async (games: ScoutingGame[]) => {
+    const { data: players } = await supabase.from('scouting_game_players').select('*');
+    const { data: teams } = await supabase.from('scouting_game_teams').select('*');
+    if (players && teams) {
+      const teamMap: Record<string, string> = {};
+      teams.forEach(t => teamMap[t.id] = t.team_name);
+      const gameMap: Record<string, ScoutingGame> = {};
+      games.forEach(g => gameMap[g.id] = g);
+      setAllGamePlayers(players.map(p => ({
+        ...p,
+        team_name: teamMap[p.team_id] || '',
+        game: gameMap[p.game_id]
+      })));
     }
   };
 
@@ -418,11 +642,23 @@ export function ScoutingScreen({ navigation }: any) {
       ...newPlayer,
       agent_name: agentName,
       agent_updated_at: newPlayer.transfermarkt_url ? new Date().toISOString() : null,
-      scout_id: currentUserId
+      scout_id: currentUserId,
+      archived: false
     };
     
     const { error } = await supabase.from('scouted_players').insert(playerData);
-    if (!error) {
+    if (error) {
+      console.error('Error adding player:', error);
+      alert('Fehler beim Hinzufügen: ' + error.message);
+    } else {
+      // If this was from a game player, mark them as added
+      if (addingGamePlayerId) {
+        await supabase.from('scouting_game_players').update({ added_to_database: true }).eq('id', addingGamePlayerId);
+        if (selectedGame) {
+          await fetchGamePlayers(selectedGame.id);
+        }
+        setAddingGamePlayerId(null);
+      }
       setShowAddPlayerModal(false);
       setNewPlayer({ first_name: '', last_name: '', birth_date: '2005', position: 'ST', club: '', rating: 5, notes: '', status: 'gesichtet', photo_url: '', transfermarkt_url: '', agent_name: '', phone: '', additional_info: '', current_status: '' });
       setNewPlayerClubSearch('');
@@ -472,13 +708,237 @@ export function ScoutingScreen({ navigation }: any) {
   };
 
   const addScoutingGame = async () => {
-    if (!newGame.date || !newGame.home_team || !newGame.away_team || !currentUserId) return;
-    const { error } = await supabase.from('scouting_games').insert({ ...newGame, scout_id: currentUserId });
+    if (!newGame.date || !newGame.description || !currentUserId) {
+      alert('Bitte Datum und Beschreibung ausfüllen');
+      return;
+    }
+    const gameData = {
+      date: newGame.date,
+      home_team: newGame.home_team || '',
+      away_team: newGame.away_team || '',
+      location: newGame.location || '',
+      notes: newGame.notes || '',
+      game_type: newGame.game_type || '',
+      description: newGame.description || '',
+      age_group: newGame.age_group || '',
+      scout_id: newGame.scout_id || currentUserId
+    };
+    const { error } = await supabase.from('scouting_games').insert(gameData);
     if (!error) {
       setShowAddGameModal(false);
-      setNewGame({ date: '', home_team: '', away_team: '', location: '', notes: '' });
+      setNewGame({ date: '', home_team: '', away_team: '', location: '', notes: '', game_type: '', description: '', age_group: '', scout_id: '' });
+      setShowGameDatePicker(false);
+      setGameDatePart(null);
       fetchScoutingGames();
+    } else {
+      alert('Fehler: ' + error.message);
     }
+  };
+
+  // Game detail functions
+  const openGameDetail = async (game: ScoutingGame) => {
+    setSelectedGame(game);
+    setEditGameData(game);
+    setShowGameDetailModal(true);
+    setIsEditingGame(false);
+    setSelectedTeam(null);
+    setNewTeamName('');
+    setNewGamePlayer({ number: '', last_name: '', first_name: '', rating: null, notes: '' });
+    
+    // Fetch teams and players for this game
+    await fetchGameTeams(game.id);
+    await fetchGamePlayers(game.id);
+  };
+
+  const fetchGameTeams = async (gameId: string) => {
+    const { data } = await supabase
+      .from('scouting_game_teams')
+      .select('*')
+      .eq('game_id', gameId)
+      .order('created_at', { ascending: true });
+    setGameTeams(data || []);
+  };
+
+  const fetchGamePlayers = async (gameId: string) => {
+    const { data } = await supabase
+      .from('scouting_game_players')
+      .select('*')
+      .eq('game_id', gameId)
+      .order('created_at', { ascending: true });
+    setGamePlayers(data || []);
+  };
+
+  const addTeam = async () => {
+    if (!selectedGame || !newTeamName.trim()) return;
+    const { error } = await supabase.from('scouting_game_teams').insert({
+      game_id: selectedGame.id,
+      team_name: newTeamName.trim()
+    });
+    if (!error) {
+      setNewTeamName('');
+      await fetchGameTeams(selectedGame.id);
+    }
+  };
+
+  const deleteTeam = async (teamId: string) => {
+    if (!selectedGame) return;
+    await supabase.from('scouting_game_players').delete().eq('team_id', teamId);
+    await supabase.from('scouting_game_teams').delete().eq('id', teamId);
+    if (selectedTeam?.id === teamId) setSelectedTeam(null);
+    await fetchGameTeams(selectedGame.id);
+    await fetchGamePlayers(selectedGame.id);
+  };
+
+  const addGamePlayer = async () => {
+    if (!selectedGame || !selectedTeam) return;
+    // Allow adding if at least one field is provided (any field counts)
+    const hasNumber = newGamePlayer.number && newGamePlayer.number.trim().length > 0;
+    const hasLastName = newGamePlayer.last_name && newGamePlayer.last_name.trim().length > 0;
+    const hasFirstName = newGamePlayer.first_name && newGamePlayer.first_name.trim().length > 0;
+    const hasBirthYear = newGamePlayer.birth_year && newGamePlayer.birth_year.trim().length > 0;
+    const hasPosition = newGamePlayer.position && newGamePlayer.position.trim().length > 0;
+    const hasRating = newGamePlayer.rating !== null;
+    
+    if (!hasNumber && !hasLastName && !hasFirstName && !hasBirthYear && !hasPosition && !hasRating) return;
+    
+    const playerData = {
+      game_id: selectedGame.id,
+      team_id: selectedTeam.id,
+      number: newGamePlayer.number?.trim() || '',
+      last_name: newGamePlayer.last_name?.trim() || '',
+      first_name: newGamePlayer.first_name?.trim() || '',
+      birth_year: newGamePlayer.birth_year?.trim() || '',
+      position: newGamePlayer.position?.trim() || '',
+      rating: newGamePlayer.rating,
+      notes: newGamePlayer.notes || ''
+    };
+    
+    const { error } = await supabase.from('scouting_game_players').insert(playerData);
+    if (!error) {
+      setNewGamePlayer({ number: '', last_name: '', first_name: '', birth_year: '', position: '', rating: null, notes: '' });
+      await fetchGamePlayers(selectedGame.id);
+      // Refresh all game players for search
+      fetchAllGamePlayers(scoutingGames);
+    }
+  };
+
+  const updateGamePlayerRating = async (playerId: string, rating: number) => {
+    if (!selectedGame) return;
+    // rating 0 means no rating (null)
+    await supabase.from('scouting_game_players').update({ rating: rating === 0 ? null : rating }).eq('id', playerId);
+    await fetchGamePlayers(selectedGame.id);
+  };
+
+  const deleteGamePlayer = async (playerId: string) => {
+    if (!selectedGame) return;
+    if (!confirm('Spieler wirklich löschen?')) return;
+    await supabase.from('scouting_game_players').delete().eq('id', playerId);
+    await fetchGamePlayers(selectedGame.id);
+    // Refresh all game players for search
+    fetchAllGamePlayers(scoutingGames);
+  };
+
+  const addGamePlayerToDatabase = (player: GamePlayer) => {
+    // Get team name as club if available
+    const team = gameTeams.find(t => t.id === player.team_id);
+    const clubName = team?.team_name || '';
+    
+    // Store the game player ID being added
+    setAddingGamePlayerId(player.id);
+    
+    // Prefill the new player form with data from the game player
+    setNewPlayer({
+      first_name: player.first_name || '',
+      last_name: player.last_name || '',
+      birth_date: player.birth_year || '2005',
+      position: player.position || 'ST',
+      club: clubName,
+      rating: player.rating || 5,
+      notes: player.notes || '',
+      status: 'gesichtet',
+      photo_url: '',
+      transfermarkt_url: '',
+      agent_name: '',
+      phone: '',
+      additional_info: '',
+      current_status: ''
+    });
+    setNewPlayerClubSearch(clubName);
+    
+    // Open the add player modal
+    setShowAddPlayerModal(true);
+  };
+
+  const openPlayerNotes = (player: GamePlayer) => {
+    setSelectedGamePlayer(player);
+    setEditingPlayerNotes(player.notes || '');
+    setShowPlayerNotesModal(true);
+  };
+
+  const savePlayerNotes = async () => {
+    if (!selectedGamePlayer || !selectedGame) return;
+    await supabase.from('scouting_game_players').update({ 
+      notes: editingPlayerNotes,
+      number: selectedGamePlayer.number,
+      last_name: selectedGamePlayer.last_name,
+      first_name: selectedGamePlayer.first_name,
+      birth_year: selectedGamePlayer.birth_year,
+      position: selectedGamePlayer.position,
+      rating: selectedGamePlayer.rating
+    }).eq('id', selectedGamePlayer.id);
+    setShowPlayerNotesModal(false);
+    setSelectedGamePlayer(null);
+    await fetchGamePlayers(selectedGame.id);
+  };
+
+  const updateSelectedGamePlayerRating = (rating: number | null) => {
+    if (!selectedGamePlayer) return;
+    setSelectedGamePlayer({ ...selectedGamePlayer, rating });
+  };
+
+  const updateSelectedGamePlayer = (field: string, value: string) => {
+    if (!selectedGamePlayer) return;
+    setSelectedGamePlayer({ ...selectedGamePlayer, [field]: value });
+  };
+
+  const saveGameEdit = async () => {
+    if (!selectedGame || !editGameData) return;
+    const { error } = await supabase.from('scouting_games').update({
+      date: editGameData.date,
+      home_team: editGameData.home_team,
+      away_team: editGameData.away_team,
+      location: editGameData.location,
+      notes: editGameData.notes,
+      game_type: editGameData.game_type,
+      description: editGameData.description,
+      age_group: editGameData.age_group
+    }).eq('id', selectedGame.id);
+    
+    if (!error) {
+      fetchScoutingGames();
+      setSelectedGame({ ...selectedGame, ...editGameData } as ScoutingGame);
+      setIsEditingGame(false);
+    }
+  };
+
+  const closeAllGameDropdowns = () => {
+    setShowGameDatePicker(false);
+    setGameDatePart(null);
+    setShowGameTypePicker(false);
+    setShowAgeGroupPicker(false);
+    setShowScoutPicker(false);
+  };
+
+  const closeAllEditDropdowns = () => {
+    setShowEditDatePicker(false);
+    setEditDatePart(null);
+    setShowEditGameTypePicker(false);
+    setShowEditAgeGroupPicker(false);
+    setEditingPlayerId(null);
+    setShowNewPlayerPositionPicker(false);
+    setShowNewPlayerRatingPicker(false);
+    setShowEditPlayerPositionPicker(false);
+    setShowEditPlayerRatingPicker(false);
   };
 
   const updatePlayerStatus = async (playerId: string, newStatus: string) => {
@@ -890,28 +1350,156 @@ export function ScoutingScreen({ navigation }: any) {
     </View>
   );
 
-  const renderGamesTab = () => (
-    <View style={styles.gamesContainer}>
-      <View style={styles.tableHeader}>
-        <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Datum</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Spiel</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Ort</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Scout</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 0.5 }]}></Text>
-      </View>
-      <ScrollView>
-        {scoutingGames.map(game => (
-          <View key={game.id} style={styles.tableRow}>
-            <Text style={[styles.tableCell, { flex: 1 }]}>{new Date(game.date).toLocaleDateString('de-DE')}</Text>
-            <Text style={[styles.tableCell, { flex: 2, fontWeight: '600' }]}>{game.home_team} vs {game.away_team}</Text>
-            <Text style={[styles.tableCell, { flex: 1 }]}>{game.location}</Text>
-            <Text style={[styles.tableCell, { flex: 1 }]}>{game.scout_name}</Text>
-            <TouchableOpacity style={[styles.tableCell, { flex: 0.5 }]} onPress={() => deleteScoutingGame(game.id)}><Text>🗑️</Text></TouchableOpacity>
-          </View>
-        ))}
-      </ScrollView>
-    </View>
-  );
+  const renderGamesTab = () => {
+    const gamesToShow = gamesViewMode === 'upcoming' ? upcomingGames : gamesViewMode === 'archive' ? archivedGames : [];
+    const hasSearchOrFilter = gamesSearchQuery.trim() || selectedGamesRatings.length > 0 || selectedGamesYears.length > 0;
+    const totalResults = searchResultsEvents.length + searchResultsPlayers.length;
+    
+    const closeGamesDropdowns = () => {
+      setShowGamesRatingDropdown(false);
+      setShowGamesYearDropdown(false);
+    };
+    
+    return (
+      <Pressable style={styles.gamesContainer} onPress={closeGamesDropdowns}>
+        {/* Search Results */}
+        {gamesViewMode === 'search' && (
+          <ScrollView>
+            {/* Events Results */}
+            {searchResultsEvents.length > 0 && (
+              <>
+                <View style={styles.searchResultsHeader}>
+                  <Text style={styles.searchResultsTitle}>Events ({searchResultsEvents.length})</Text>
+                </View>
+                <View style={styles.tableHeader}>
+                  <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Datum</Text>
+                  <Text style={[styles.tableHeaderCell, { flex: 0.8 }]}>Art</Text>
+                  <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Beschreibung</Text>
+                  <Text style={[styles.tableHeaderCell, { flex: 0.6 }]}>Mannschaft</Text>
+                  <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Scout</Text>
+                </View>
+                {searchResultsEvents.map(game => (
+                  <TouchableOpacity 
+                    key={game.id} 
+                    style={styles.tableRow} 
+                    onPress={() => openGameDetail(game)}
+                  >
+                    <Text style={[styles.tableCell, { flex: 1 }]}>{formatGameDate(game.date)}</Text>
+                    <Text style={[styles.tableCell, { flex: 0.8, color: '#6b7280' }]}>{game.game_type || '-'}</Text>
+                    <Text style={[styles.tableCell, { flex: 2, fontWeight: '600' }]}>{game.description || '-'}</Text>
+                    <Text style={[styles.tableCell, { flex: 0.6 }]}>{game.age_group || '-'}</Text>
+                    <Text style={[styles.tableCell, { flex: 1 }]}>{game.scout_name || '-'}</Text>
+                  </TouchableOpacity>
+                ))}
+              </>
+            )}
+
+            {/* Players Results */}
+            {searchResultsPlayers.length > 0 && (
+              <>
+                <View style={[styles.searchResultsHeader, searchResultsEvents.length > 0 && { marginTop: 16 }]}>
+                  <Text style={styles.searchResultsTitle}>Spieler ({searchResultsPlayers.length})</Text>
+                </View>
+                <View style={styles.tableHeader}>
+                  <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Name</Text>
+                  <Text style={[styles.tableHeaderCell, { flex: 0.8 }]}>Position</Text>
+                  <Text style={[styles.tableHeaderCell, { flex: 0.9 }]}>Verein</Text>
+                  <Text style={[styles.tableHeaderCell, { flex: 0.5 }]}>Jahrgang</Text>
+                  <Text style={[styles.tableHeaderCell, { flex: 0.6 }]}>Einschätzung</Text>
+                  <Text style={[styles.tableHeaderCell, { flex: 0.6 }]}>Notiz</Text>
+                  <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Event</Text>
+                </View>
+                {searchResultsPlayers.map(player => (
+                  <View key={player.id} style={styles.tableRow}>
+                    <Text style={[styles.tableCell, styles.tableCellText, { flex: 1 }]}>
+                      {player.last_name}{player.first_name ? `, ${player.first_name}` : ''}
+                    </Text>
+                    <View style={[styles.tableCell, { flex: 0.8 }]}>
+                      {player.position ? (
+                        <View style={styles.positionBadgeSmall}><Text style={styles.positionTextSmall}>{player.position}</Text></View>
+                      ) : (
+                        <Text>-</Text>
+                      )}
+                    </View>
+                    <Text style={[styles.tableCell, { flex: 0.9 }]}>{player.team_name || '-'}</Text>
+                    <Text style={[styles.tableCell, { flex: 0.5 }]}>{player.birth_year || '-'}</Text>
+                    <View style={[styles.tableCell, { flex: 0.6 }]}>
+                      {player.rating ? (
+                        <View style={styles.ratingBadgeTight}><Text style={styles.ratingTextTight}>⭐ {player.rating}/10</Text></View>
+                      ) : (
+                        <Text>-</Text>
+                      )}
+                    </View>
+                    <TouchableOpacity 
+                      style={[styles.tableCell, { flex: 0.6 }]}
+                      onPress={() => {
+                        if (player.notes) {
+                          setSelectedGamePlayer(player);
+                          setEditingPlayerNotes(player.notes);
+                          setShowPlayerNotesModal(true);
+                        }
+                      }}
+                    >
+                      <Text style={{ color: player.notes ? '#3b82f6' : '#9ca3af' }}>{player.notes ? '📝' : '-'}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={[styles.tableCell, { flex: 1 }]}
+                      onPress={() => player.game && openGameDetail(player.game)}
+                    >
+                      <Text style={{ color: '#3b82f6' }}>{player.game?.description || '-'}</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </>
+            )}
+
+            {totalResults === 0 && (
+              <View style={styles.emptyArchiv}>
+                <Text style={styles.emptyArchivText}>
+                  {gamesSearchQuery ? `Keine Ergebnisse für "${gamesSearchQuery}"` : 'Keine Ergebnisse für die ausgewählten Filter'}
+                </Text>
+              </View>
+            )}
+          </ScrollView>
+        )}
+
+        {/* Games List (upcoming or archive) */}
+        {gamesViewMode !== 'search' && (
+          <>
+            <View style={styles.tableHeader}>
+              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Datum</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 0.8 }]}>Art</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Beschreibung</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 0.6 }]}>Mannschaft</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Scout</Text>
+            </View>
+            <ScrollView>
+              {gamesToShow.map(game => (
+                <TouchableOpacity 
+                  key={game.id} 
+                  style={[styles.tableRow, isGameToday(game.date) && styles.tableRowToday]} 
+                  onPress={() => openGameDetail(game)}
+                >
+                  <Text style={[styles.tableCell, { flex: 1 }, isGameToday(game.date) && styles.tableCellToday]}>{formatGameDate(game.date)}</Text>
+                  <Text style={[styles.tableCell, { flex: 0.8, color: isGameToday(game.date) ? '#166534' : '#6b7280' }]}>{game.game_type || '-'}</Text>
+                  <Text style={[styles.tableCell, { flex: 2, fontWeight: '600' }, isGameToday(game.date) && styles.tableCellToday]}>{game.description || `${game.home_team} vs ${game.away_team}`}</Text>
+                  <Text style={[styles.tableCell, { flex: 0.6 }, isGameToday(game.date) && styles.tableCellToday]}>{game.age_group || '-'}</Text>
+                  <Text style={[styles.tableCell, { flex: 1 }, isGameToday(game.date) && styles.tableCellToday]}>{game.scout_name || '-'}</Text>
+                </TouchableOpacity>
+              ))}
+              {gamesToShow.length === 0 && (
+                <View style={styles.emptyArchiv}>
+                  <Text style={styles.emptyArchivText}>
+                    {gamesViewMode === 'upcoming' ? 'Keine anstehenden Termine' : 'Keine archivierten Termine'}
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
+          </>
+        )}
+      </Pressable>
+    );
+  };
 
   const renderArchivView = () => (
     <View style={styles.tableContainer}>
@@ -1107,6 +1695,8 @@ export function ScoutingScreen({ navigation }: any) {
     setShowPositionDropdown(false);
     setShowYearDropdown(false);
     setShowRatingDropdown(false);
+    setShowGamesYearDropdown(false);
+    setShowGamesRatingDropdown(false);
   };
 
   return (
@@ -1135,113 +1725,217 @@ export function ScoutingScreen({ navigation }: any) {
         <View style={styles.toolbar}>
           <View style={styles.searchContainer}>
             <Text style={styles.searchIcon}>🔍</Text>
-            <TextInput style={styles.searchInput} placeholder="Spieler, Verein suchen..." placeholderTextColor="#9ca3af" value={searchText} onChangeText={setSearchText} />
+            <TextInput 
+              style={styles.searchInput} 
+              placeholder={activeTab === 'spieler' ? "Spieler, Verein suchen..." : "Spieler, Verein, Bewertung (1-10) suchen..."} 
+              placeholderTextColor="#9ca3af" 
+              value={activeTab === 'spieler' ? searchText : gamesSearchQuery} 
+              onChangeText={(text) => {
+                if (activeTab === 'spieler') {
+                  setSearchText(text);
+                } else {
+                  setGamesSearchQuery(text);
+                  if (text.trim()) {
+                    setGamesViewMode('search');
+                  } else {
+                    setGamesViewMode('upcoming');
+                  }
+                }
+              }} 
+            />
+            {activeTab === 'spiele' && gamesSearchQuery && (
+              <TouchableOpacity onPress={() => { setGamesSearchQuery(''); setGamesViewMode('upcoming'); }}>
+                <Text style={{ fontSize: 16, color: '#9ca3af', marginLeft: 8 }}>✕</Text>
+              </TouchableOpacity>
+            )}
           </View>
           
-          <View style={styles.filterContainer}>
-            <View style={[styles.dropdownContainer, { zIndex: 30 }]}>
-              <TouchableOpacity style={[styles.filterButton, selectedPositions.length > 0 && styles.filterButtonActive]} 
-                onPress={(e) => { e.stopPropagation(); setShowPositionDropdown(!showPositionDropdown); setShowYearDropdown(false); setShowRatingDropdown(false); }}>
-                <Text style={[styles.filterButtonText, selectedPositions.length > 0 && styles.filterButtonTextActive]}>{getPositionFilterLabel()} ▼</Text>
-              </TouchableOpacity>
-              {showPositionDropdown && (
-                <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
-                  <View style={styles.filterDropdownHeader}>
-                    <Text style={styles.filterDropdownTitle}>Positionen wählen</Text>
-                    {selectedPositions.length > 0 && <TouchableOpacity onPress={clearPositions}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
-                  </View>
-                  <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
-                    {POSITIONS.map(pos => {
-                      const isSelected = selectedPositions.includes(pos);
-                      const count = scoutedPlayers.filter(p => p.position === pos).length;
-                      return (
-                        <TouchableOpacity key={pos} style={styles.filterCheckboxItem} onPress={() => togglePosition(pos)}>
-                          <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                          <Text style={styles.filterCheckboxText}>{pos}</Text>
-                          <Text style={styles.filterCountBadge}>{count}</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
-                  <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowPositionDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
-                </Pressable>
-              )}
-            </View>
+          {activeTab === 'spieler' && (
+            <View style={styles.filterContainer}>
+              <View style={[styles.dropdownContainer, { zIndex: 30 }]}>
+                <TouchableOpacity style={[styles.filterButton, selectedPositions.length > 0 && styles.filterButtonActive]} 
+                  onPress={(e) => { e.stopPropagation(); setShowPositionDropdown(!showPositionDropdown); setShowYearDropdown(false); setShowRatingDropdown(false); }}>
+                  <Text style={[styles.filterButtonText, selectedPositions.length > 0 && styles.filterButtonTextActive]}>{getPositionFilterLabel()} ▼</Text>
+                </TouchableOpacity>
+                {showPositionDropdown && (
+                  <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
+                    <View style={styles.filterDropdownHeader}>
+                      <Text style={styles.filterDropdownTitle}>Positionen wählen</Text>
+                      {selectedPositions.length > 0 && <TouchableOpacity onPress={clearPositions}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
+                    </View>
+                    <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
+                      {POSITIONS.map(pos => {
+                        const isSelected = selectedPositions.includes(pos);
+                        const count = scoutedPlayers.filter(p => p.position === pos).length;
+                        return (
+                          <TouchableOpacity key={pos} style={styles.filterCheckboxItem} onPress={() => togglePosition(pos)}>
+                            <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                            <Text style={styles.filterCheckboxText}>{pos}</Text>
+                            <Text style={styles.filterCountBadge}>{count}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                    <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowPositionDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                  </Pressable>
+                )}
+              </View>
 
-            <View style={[styles.dropdownContainer, { zIndex: 20 }]}>
-              <TouchableOpacity style={[styles.filterButton, selectedYears.length > 0 && styles.filterButtonActive]} 
-                onPress={(e) => { e.stopPropagation(); setShowYearDropdown(!showYearDropdown); setShowPositionDropdown(false); setShowRatingDropdown(false); }}>
-                <Text style={[styles.filterButtonText, selectedYears.length > 0 && styles.filterButtonTextActive]}>{getYearFilterLabel()} ▼</Text>
-              </TouchableOpacity>
-              {showYearDropdown && (
-                <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
-                  <View style={styles.filterDropdownHeader}>
-                    <Text style={styles.filterDropdownTitle}>Jahrgänge wählen</Text>
-                    {selectedYears.length > 0 && <TouchableOpacity onPress={clearYears}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
-                  </View>
-                  <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
-                    {availableYears.length === 0 ? (
-                      <Text style={styles.noDataText}>Keine Spieler vorhanden</Text>
-                    ) : (
-                      availableYears.map(year => {
+              <View style={[styles.dropdownContainer, { zIndex: 20 }]}>
+                <TouchableOpacity style={[styles.filterButton, selectedYears.length > 0 && styles.filterButtonActive]} 
+                  onPress={(e) => { e.stopPropagation(); setShowYearDropdown(!showYearDropdown); setShowPositionDropdown(false); setShowRatingDropdown(false); }}>
+                  <Text style={[styles.filterButtonText, selectedYears.length > 0 && styles.filterButtonTextActive]}>{getYearFilterLabel()} ▼</Text>
+                </TouchableOpacity>
+                {showYearDropdown && (
+                  <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
+                    <View style={styles.filterDropdownHeader}>
+                      <Text style={styles.filterDropdownTitle}>Jahrgänge wählen</Text>
+                      {selectedYears.length > 0 && <TouchableOpacity onPress={clearYears}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
+                    </View>
+                    <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
+                      {availableYears.map(year => {
                         const isSelected = selectedYears.includes(year);
                         const count = scoutedPlayers.filter(p => getYearFromDate(p.birth_date) === year).length;
                         return (
                           <TouchableOpacity key={year} style={styles.filterCheckboxItem} onPress={() => toggleYear(year)}>
                             <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                            <Text style={styles.filterCheckboxText}>Jg. {year}</Text>
+                            <Text style={styles.filterCheckboxText}>{year}</Text>
                             <Text style={styles.filterCountBadge}>{count}</Text>
                           </TouchableOpacity>
                         );
-                      })
-                    )}
-                  </ScrollView>
-                  <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowYearDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
-                </Pressable>
-              )}
-            </View>
+                      })}
+                    </ScrollView>
+                    <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowYearDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                  </Pressable>
+                )}
+              </View>
 
-            {/* Rating Filter */}
-            <View style={[styles.dropdownContainer, { zIndex: 10 }]}>
-              <TouchableOpacity style={[styles.filterButton, selectedRatings.length > 0 && styles.filterButtonActive]} 
-                onPress={(e) => { e.stopPropagation(); setShowRatingDropdown(!showRatingDropdown); setShowPositionDropdown(false); setShowYearDropdown(false); }}>
-                <Text style={[styles.filterButtonText, selectedRatings.length > 0 && styles.filterButtonTextActive]}>{getRatingFilterLabel()} ▼</Text>
-              </TouchableOpacity>
-              {showRatingDropdown && (
-                <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
-                  <View style={styles.filterDropdownHeader}>
-                    <Text style={styles.filterDropdownTitle}>Einschätzung wählen</Text>
-                    {selectedRatings.length > 0 && <TouchableOpacity onPress={clearRatings}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
-                  </View>
-                  <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
-                    {[1,2,3,4,5,6,7,8,9,10].map(rating => {
-                      const isSelected = selectedRatings.includes(rating);
-                      const count = activePlayers.filter(p => p.rating === rating).length;
-                      return (
-                        <TouchableOpacity key={rating} style={styles.filterCheckboxItem} onPress={() => toggleRating(rating)}>
-                          <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                          <Text style={styles.filterCheckboxText}>⭐ {rating}/10</Text>
-                          <Text style={styles.filterCountBadge}>{count}</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
-                  <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowRatingDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
-                </Pressable>
-              )}
+              <View style={[styles.dropdownContainer, { zIndex: 10 }]}>
+                <TouchableOpacity style={[styles.filterButton, selectedRatings.length > 0 && styles.filterButtonActive]} 
+                  onPress={(e) => { e.stopPropagation(); setShowRatingDropdown(!showRatingDropdown); setShowPositionDropdown(false); setShowYearDropdown(false); }}>
+                  <Text style={[styles.filterButtonText, selectedRatings.length > 0 && styles.filterButtonTextActive]}>{getRatingFilterLabel()} ▼</Text>
+                </TouchableOpacity>
+                {showRatingDropdown && (
+                  <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
+                    <View style={styles.filterDropdownHeader}>
+                      <Text style={styles.filterDropdownTitle}>Einschätzung wählen</Text>
+                      {selectedRatings.length > 0 && <TouchableOpacity onPress={clearRatings}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
+                    </View>
+                    <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
+                      {[1,2,3,4,5,6,7,8,9,10].map(rating => {
+                        const isSelected = selectedRatings.includes(rating);
+                        const count = activePlayers.filter(p => p.rating === rating).length;
+                        return (
+                          <TouchableOpacity key={rating} style={styles.filterCheckboxItem} onPress={() => toggleRating(rating)}>
+                            <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                            <Text style={styles.filterCheckboxText}>⭐ {rating}/10</Text>
+                            <Text style={styles.filterCountBadge}>{count}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                    <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowRatingDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                  </Pressable>
+                )}
+              </View>
             </View>
-          </View>
+          )}
+
+          {activeTab === 'spiele' && (
+            <View style={styles.filterContainer}>
+              <View style={[styles.dropdownContainer, { zIndex: 20 }]}>
+                <TouchableOpacity style={[styles.filterButton, selectedGamesYears.length > 0 && styles.filterButtonActive]} 
+                  onPress={(e) => { e.stopPropagation(); setShowGamesYearDropdown(!showGamesYearDropdown); setShowGamesRatingDropdown(false); }}>
+                  <Text style={[styles.filterButtonText, selectedGamesYears.length > 0 && styles.filterButtonTextActive]}>
+                    {selectedGamesYears.length === 0 ? 'Jahrgang' : selectedGamesYears.length === 1 ? selectedGamesYears[0] : `${selectedGamesYears.length} Jahrgänge`} ▼
+                  </Text>
+                </TouchableOpacity>
+                {showGamesYearDropdown && (
+                  <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
+                    <View style={styles.filterDropdownHeader}>
+                      <Text style={styles.filterDropdownTitle}>Jahrgänge wählen</Text>
+                      {selectedGamesYears.length > 0 && <TouchableOpacity onPress={() => setSelectedGamesYears([])}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
+                    </View>
+                    <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
+                      {availableGamesYears.map(year => {
+                        const isSelected = selectedGamesYears.includes(year);
+                        const count = allGamePlayers.filter(p => p.birth_year === year).length;
+                        return (
+                          <TouchableOpacity key={year} style={styles.filterCheckboxItem} onPress={() => {
+                            setSelectedGamesYears(prev => prev.includes(year) ? prev.filter(y => y !== year) : [...prev, year]);
+                            setGamesViewMode('search');
+                          }}>
+                            <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                            <Text style={styles.filterCheckboxText}>{year}</Text>
+                            <Text style={styles.filterCountBadge}>{count}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                    <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowGamesYearDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                  </Pressable>
+                )}
+              </View>
+
+              <View style={[styles.dropdownContainer, { zIndex: 10 }]}>
+                <TouchableOpacity style={[styles.filterButton, selectedGamesRatings.length > 0 && styles.filterButtonActive]} 
+                  onPress={(e) => { e.stopPropagation(); setShowGamesRatingDropdown(!showGamesRatingDropdown); setShowGamesYearDropdown(false); }}>
+                  <Text style={[styles.filterButtonText, selectedGamesRatings.length > 0 && styles.filterButtonTextActive]}>
+                    {selectedGamesRatings.length === 0 ? 'Einschätzung' : selectedGamesRatings.length === 1 ? `⭐ ${selectedGamesRatings[0]}/10` : `${selectedGamesRatings.length} Einsch.`} ▼
+                  </Text>
+                </TouchableOpacity>
+                {showGamesRatingDropdown && (
+                  <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
+                    <View style={styles.filterDropdownHeader}>
+                      <Text style={styles.filterDropdownTitle}>Einschätzung wählen</Text>
+                      {selectedGamesRatings.length > 0 && <TouchableOpacity onPress={() => setSelectedGamesRatings([])}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
+                    </View>
+                    <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
+                      {[10,9,8,7,6,5,4,3,2,1].map(rating => {
+                        const isSelected = selectedGamesRatings.includes(rating);
+                        const count = allGamePlayers.filter(p => p.rating === rating).length;
+                        return (
+                          <TouchableOpacity key={rating} style={styles.filterCheckboxItem} onPress={() => {
+                            setSelectedGamesRatings(prev => prev.includes(rating) ? prev.filter(r => r !== rating) : [...prev, rating]);
+                            setGamesViewMode('search');
+                          }}>
+                            <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                            <Text style={styles.filterCheckboxText}>⭐ {rating}/10</Text>
+                            <Text style={styles.filterCountBadge}>{count}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                    <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowGamesRatingDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                  </Pressable>
+                )}
+              </View>
+            </View>
+          )}
 
           <View style={styles.viewToggle}>
-            <TouchableOpacity style={[styles.viewButton, viewMode === 'kanban' && styles.viewButtonActive]} onPress={() => setViewMode('kanban')}>
-              <Text style={[styles.viewButtonText, viewMode === 'kanban' && styles.viewButtonTextActive]}>▦</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.viewButton, viewMode === 'liste' && styles.viewButtonActive]} onPress={() => setViewMode('liste')}>
-              <Text style={[styles.viewButtonText, viewMode === 'liste' && styles.viewButtonTextActive]}>☰</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.viewButton, viewMode === 'archiv' && styles.viewButtonActive]} onPress={() => setViewMode('archiv')}>
-              <Text style={[styles.viewButtonText, viewMode === 'archiv' && styles.viewButtonTextActive]}>Archiv ({archivedPlayersCount})</Text>
-            </TouchableOpacity>
+            {activeTab === 'spieler' ? (
+              <>
+                <TouchableOpacity style={[styles.viewButton, viewMode === 'kanban' && styles.viewButtonActive]} onPress={() => setViewMode('kanban')}>
+                  <Text style={[styles.viewButtonText, viewMode === 'kanban' && styles.viewButtonTextActive]}>▦</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.viewButton, viewMode === 'liste' && styles.viewButtonActive]} onPress={() => setViewMode('liste')}>
+                  <Text style={[styles.viewButtonText, viewMode === 'liste' && styles.viewButtonTextActive]}>☰</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.viewButton, viewMode === 'archiv' && styles.viewButtonActive]} onPress={() => setViewMode('archiv')}>
+                  <Text style={[styles.viewButtonText, viewMode === 'archiv' && styles.viewButtonTextActive]}>Archiv ({archivedPlayersCount})</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <TouchableOpacity style={[styles.viewButton, gamesViewMode === 'upcoming' && styles.viewButtonActive]} onPress={() => { setGamesViewMode('upcoming'); setGamesSearchQuery(''); setSelectedGamesRatings([]); setSelectedGamesYears([]); }}>
+                  <Text style={[styles.viewButtonText, gamesViewMode === 'upcoming' && styles.viewButtonTextActive]}>Anstehend ({upcomingGames.length})</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.viewButton, gamesViewMode === 'archive' && styles.viewButtonActive]} onPress={() => { setGamesViewMode('archive'); setGamesSearchQuery(''); setSelectedGamesRatings([]); setSelectedGamesYears([]); }}>
+                  <Text style={[styles.viewButtonText, gamesViewMode === 'archive' && styles.viewButtonTextActive]}>Archiv ({archivedGames.length})</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
 
           <TouchableOpacity style={styles.filterButton} onPress={() => activeTab === 'spieler' ? setShowAddPlayerModal(true) : setShowAddGameModal(true)}>
@@ -1266,7 +1960,7 @@ export function ScoutingScreen({ navigation }: any) {
 
       {/* Add Player Modal */}
       <Modal visible={showAddPlayerModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
+        <View style={styles.modalOverlayTop}>
           <View style={[styles.modalContent, { overflow: 'visible' }]}>
             <View style={styles.detailHeader}>
               <Text style={styles.modalTitle}>Neuen Spieler hinzufügen</Text>
@@ -1287,28 +1981,798 @@ export function ScoutingScreen({ navigation }: any) {
 
       {/* Add Game Modal */}
       <Modal visible={showAddGameModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <Pressable style={styles.modalOverlay} onPress={closeAllGameDropdowns}>
+          <Pressable style={[styles.modalContent, { overflow: 'visible', maxWidth: 500 }]} onPress={closeAllGameDropdowns}>
             <View style={styles.detailHeader}>
-              <Text style={styles.modalTitle}>Scouting-Spiel hinzufügen</Text>
-              <TouchableOpacity onPress={() => setShowAddGameModal(false)} style={styles.closeButton}><Text style={styles.closeButtonText}>✕</Text></TouchableOpacity>
+              <Text style={styles.modalTitle}>Neues Spiel anlegen</Text>
+              <TouchableOpacity onPress={() => { setShowAddGameModal(false); closeAllGameDropdowns(); }} style={styles.closeButton}>
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
             </View>
-            <View style={styles.formRow}>
-              <View style={styles.formField}><Text style={styles.formLabel}>Datum</Text><TextInput style={styles.formInput} value={newGame.date} onChangeText={(t) => setNewGame({...newGame, date: t})} placeholder="YYYY-MM-DD" placeholderTextColor="#9ca3af" /></View>
-              <View style={styles.formField}><Text style={styles.formLabel}>Ort</Text><TextInput style={styles.formInput} value={newGame.location} onChangeText={(t) => setNewGame({...newGame, location: t})} placeholder="Spielort" placeholderTextColor="#9ca3af" /></View>
+            
+            {/* Datum mit Dropdown */}
+            <View style={[styles.formField, { zIndex: 400 }]}>
+              <Text style={styles.formLabel}>Datum *</Text>
+              <View style={styles.datePickerRow}>
+                <View style={{ position: 'relative', flex: 1 }}>
+                  <TouchableOpacity 
+                    style={styles.dateDropdownButton}
+                    onPress={(e) => { e.stopPropagation(); closeAllGameDropdowns(); setShowGameDatePicker(true); setGameDatePart('day'); }}
+                  >
+                    <Text style={styles.dateDropdownText}>
+                      {parseDateToParts(newGame.date)?.day || 'Tag'}
+                    </Text>
+                    <Text>▼</Text>
+                  </TouchableOpacity>
+                  {showGameDatePicker && gameDatePart === 'day' && (
+                    <View style={styles.datePickerList}>
+                      <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
+                        {DAYS.map((d) => (
+                          <TouchableOpacity 
+                            key={d} 
+                            style={styles.datePickerItem}
+                            onPress={() => {
+                              const parts = parseDateToParts(newGame.date) || { day: 1, month: new Date().getMonth(), year: new Date().getFullYear() };
+                              setNewGame({ ...newGame, date: buildDateFromParts(d, parts.month, parts.year) });
+                              setGameDatePart(null);
+                              setShowGameDatePicker(false);
+                            }}
+                          >
+                            <Text style={styles.datePickerItemText}>{d}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
+                <View style={{ position: 'relative', flex: 2 }}>
+                  <TouchableOpacity 
+                    style={styles.dateDropdownButton}
+                    onPress={(e) => { e.stopPropagation(); closeAllGameDropdowns(); setShowGameDatePicker(true); setGameDatePart('month'); }}
+                  >
+                    <Text style={styles.dateDropdownText}>
+                      {parseDateToParts(newGame.date) ? MONTHS[parseDateToParts(newGame.date)!.month] : 'Monat'}
+                    </Text>
+                    <Text>▼</Text>
+                  </TouchableOpacity>
+                  {showGameDatePicker && gameDatePart === 'month' && (
+                    <View style={styles.datePickerList}>
+                      <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
+                        {MONTHS.map((m, idx) => (
+                          <TouchableOpacity 
+                            key={m} 
+                            style={styles.datePickerItem}
+                            onPress={() => {
+                              const parts = parseDateToParts(newGame.date) || { day: 1, month: 0, year: new Date().getFullYear() };
+                              setNewGame({ ...newGame, date: buildDateFromParts(parts.day, idx, parts.year) });
+                              setGameDatePart(null);
+                              setShowGameDatePicker(false);
+                            }}
+                          >
+                            <Text style={styles.datePickerItemText}>{m}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
+                <View style={{ position: 'relative', flex: 1 }}>
+                  <TouchableOpacity 
+                    style={styles.dateDropdownButton}
+                    onPress={(e) => { e.stopPropagation(); closeAllGameDropdowns(); setShowGameDatePicker(true); setGameDatePart('year'); }}
+                  >
+                    <Text style={styles.dateDropdownText}>
+                      {parseDateToParts(newGame.date)?.year || 'Jahr'}
+                    </Text>
+                    <Text>▼</Text>
+                  </TouchableOpacity>
+                  {showGameDatePicker && gameDatePart === 'year' && (
+                    <View style={styles.datePickerList}>
+                      <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
+                        {YEARS.map((y) => (
+                          <TouchableOpacity 
+                            key={y} 
+                            style={styles.datePickerItem}
+                            onPress={() => {
+                              const parts = parseDateToParts(newGame.date) || { day: 1, month: new Date().getMonth(), year: new Date().getFullYear() };
+                              setNewGame({ ...newGame, date: buildDateFromParts(parts.day, parts.month, y) });
+                              setGameDatePart(null);
+                              setShowGameDatePicker(false);
+                            }}
+                          >
+                            <Text style={styles.datePickerItemText}>{y}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
+              </View>
             </View>
-            <View style={styles.formRow}>
-              <View style={styles.formField}><Text style={styles.formLabel}>Heimmannschaft</Text><TextInput style={styles.formInput} value={newGame.home_team} onChangeText={(t) => setNewGame({...newGame, home_team: t})} placeholder="Heim" placeholderTextColor="#9ca3af" /></View>
-              <View style={styles.formField}><Text style={styles.formLabel}>Auswärtsmannschaft</Text><TextInput style={styles.formInput} value={newGame.away_team} onChangeText={(t) => setNewGame({...newGame, away_team: t})} placeholder="Auswärts" placeholderTextColor="#9ca3af" /></View>
+
+            {/* Art - Dropdown mit manueller Eingabe */}
+            <View style={[styles.formField, { zIndex: 300 }]}>
+              <Text style={styles.formLabel}>Art</Text>
+              <View style={{ position: 'relative' }}>
+                <TouchableOpacity 
+                  style={styles.dateDropdownButton}
+                  onPress={(e) => { e.stopPropagation(); closeAllGameDropdowns(); setShowGameTypePicker(true); }}
+                >
+                  <Text style={styles.dateDropdownText}>
+                    {newGame.game_type || 'Art auswählen...'}
+                  </Text>
+                  <Text>▼</Text>
+                </TouchableOpacity>
+                {showGameTypePicker && (
+                  <Pressable style={styles.datePickerList} onPress={(e) => e.stopPropagation()}>
+                    <TextInput
+                      style={[styles.formInput, { margin: 8, marginBottom: 0 }]}
+                      value={newGame.game_type}
+                      onChangeText={(t) => setNewGame({ ...newGame, game_type: t })}
+                      placeholder="Eigene Art eingeben..."
+                      placeholderTextColor="#9ca3af"
+                      onFocus={(e) => e.stopPropagation?.()}
+                    />
+                    <ScrollView style={{ maxHeight: 150 }} nestedScrollEnabled>
+                      {GAME_TYPES.map((type) => (
+                        <TouchableOpacity 
+                          key={type} 
+                          style={styles.datePickerItem}
+                          onPress={() => {
+                            setNewGame({ ...newGame, game_type: type });
+                            setShowGameTypePicker(false);
+                          }}
+                        >
+                          <Text style={styles.datePickerItemText}>{type}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </Pressable>
+                )}
+              </View>
             </View>
-            <View style={styles.formField}><Text style={styles.formLabel}>Notizen</Text><TextInput style={[styles.formInput, styles.textArea]} value={newGame.notes} onChangeText={(t) => setNewGame({...newGame, notes: t})} placeholder="Notizen..." placeholderTextColor="#9ca3af" multiline /></View>
+
+            {/* Spiel/Beschreibung */}
+            <View style={[styles.formField, { zIndex: 1 }]}>
+              <Text style={styles.formLabel}>Spiel/Beschreibung *</Text>
+              <TextInput 
+                style={styles.formInput} 
+                value={newGame.description} 
+                onChangeText={(t) => setNewGame({...newGame, description: t})} 
+                placeholder="z.B. Hallenmasters Wieseck" 
+                placeholderTextColor="#9ca3af"
+                onFocus={closeAllGameDropdowns}
+              />
+            </View>
+
+            {/* Jahrgang - Dropdown */}
+            <View style={[styles.formField, { zIndex: 200 }]}>
+              <Text style={styles.formLabel}>Jahrgang</Text>
+              <View style={{ position: 'relative' }}>
+                <TouchableOpacity 
+                  style={styles.dateDropdownButton}
+                  onPress={(e) => { e.stopPropagation(); closeAllGameDropdowns(); setShowAgeGroupPicker(true); }}
+                >
+                  <Text style={styles.dateDropdownText}>
+                    {newGame.age_group || 'Jahrgang auswählen...'}
+                  </Text>
+                  <Text>▼</Text>
+                </TouchableOpacity>
+                {showAgeGroupPicker && (
+                  <View style={styles.datePickerList}>
+                    <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
+                      {AGE_GROUPS.map((age) => (
+                        <TouchableOpacity 
+                          key={age} 
+                          style={styles.datePickerItem}
+                          onPress={() => {
+                            setNewGame({ ...newGame, age_group: age });
+                            setShowAgeGroupPicker(false);
+                          }}
+                        >
+                          <Text style={styles.datePickerItemText}>{age}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {/* Scout - Dropdown */}
+            <View style={[styles.formField, { zIndex: 100 }]}>
+              <Text style={styles.formLabel}>Scout</Text>
+              <View style={{ position: 'relative' }}>
+                <TouchableOpacity 
+                  style={styles.dateDropdownButton}
+                  onPress={(e) => { e.stopPropagation(); closeAllGameDropdowns(); setShowScoutPicker(true); }}
+                >
+                  <Text style={styles.dateDropdownText}>
+                    {newGame.scout_id ? advisors.find(a => a.id === newGame.scout_id)?.first_name + ' ' + advisors.find(a => a.id === newGame.scout_id)?.last_name : 'Scout auswählen...'}
+                  </Text>
+                  <Text>▼</Text>
+                </TouchableOpacity>
+                {showScoutPicker && (
+                  <View style={styles.datePickerList}>
+                    <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
+                      {advisors.map((advisor) => (
+                        <TouchableOpacity 
+                          key={advisor.id} 
+                          style={styles.datePickerItem}
+                          onPress={() => {
+                            setNewGame({ ...newGame, scout_id: advisor.id });
+                            setShowScoutPicker(false);
+                          }}
+                        >
+                          <Text style={styles.datePickerItemText}>{advisor.first_name} {advisor.last_name}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+            </View>
+
             <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.cancelButton} onPress={() => setShowAddGameModal(false)}><Text style={styles.cancelButtonText}>Abbrechen</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.saveButton} onPress={addScoutingGame}><Text style={styles.saveButtonText}>Hinzufügen</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.cancelButton} onPress={() => { setShowAddGameModal(false); closeAllGameDropdowns(); }}>
+                <Text style={styles.cancelButtonText}>Abbrechen</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.saveButton} onPress={addScoutingGame}>
+                <Text style={styles.saveButtonText}>Hinzufügen</Text>
+              </TouchableOpacity>
             </View>
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
+
+      {/* Game Detail Modal - Expanded */}
+      {selectedGame && (
+        <Modal visible={showGameDetailModal} transparent animationType="fade">
+          <Pressable style={styles.modalOverlay} onPress={closeAllEditDropdowns}>
+            <Pressable style={[styles.modalContentLarge, { maxWidth: 1100, width: '95%', height: '85%', overflow: 'visible' }]} onPress={closeAllEditDropdowns}>
+              {/* Header with Description */}
+              <View style={[styles.gameDetailHeader, { zIndex: 100 }]}>
+                <View style={styles.gameDetailHeaderLeft}>
+                  {isEditingGame ? (
+                    <TextInput 
+                      style={styles.gameDetailTitleInput} 
+                      value={editGameData.description || ''} 
+                      onChangeText={(t) => setEditGameData({...editGameData, description: t})}
+                      placeholder="Beschreibung"
+                    />
+                  ) : (
+                    <Text style={styles.gameDetailTitle}>{selectedGame.description || 'Scouting-Termin'}</Text>
+                  )}
+                  <View style={[styles.gameDetailMeta, { zIndex: 50 }]}>
+                    {isEditingGame ? (
+                      <>
+                        {/* Datum Dropdown */}
+                        <View style={[styles.gameDetailMetaItem, { zIndex: 40 }]}>
+                          <Text style={styles.gameDetailMetaLabel}>Datum:</Text>
+                          <View style={styles.editDateRow}>
+                            <View style={{ position: 'relative' }}>
+                              <TouchableOpacity 
+                                style={styles.editDateBtn}
+                                onPress={(e) => { e.stopPropagation(); closeAllEditDropdowns(); setShowEditDatePicker(true); setEditDatePart('day'); }}
+                              >
+                                <Text style={styles.editDateBtnText}>{parseDateToParts(editGameData.date || '')?.day || 'Tag'}</Text>
+                              </TouchableOpacity>
+                              {showEditDatePicker && editDatePart === 'day' && (
+                                <View style={styles.editDropdownList}>
+                                  <ScrollView style={{ maxHeight: 150 }} nestedScrollEnabled>
+                                    {DAYS.map((d) => (
+                                      <TouchableOpacity key={d} style={styles.editDropdownItem} onPress={() => {
+                                        const parts = parseDateToParts(editGameData.date || '') || { day: 1, month: new Date().getMonth(), year: new Date().getFullYear() };
+                                        setEditGameData({ ...editGameData, date: buildDateFromParts(d, parts.month, parts.year) });
+                                        setShowEditDatePicker(false); setEditDatePart(null);
+                                      }}>
+                                        <Text style={styles.editDropdownItemText}>{d}</Text>
+                                      </TouchableOpacity>
+                                    ))}
+                                  </ScrollView>
+                                </View>
+                              )}
+                            </View>
+                            <View style={{ position: 'relative' }}>
+                              <TouchableOpacity 
+                                style={styles.editDateBtn}
+                                onPress={(e) => { e.stopPropagation(); closeAllEditDropdowns(); setShowEditDatePicker(true); setEditDatePart('month'); }}
+                              >
+                                <Text style={styles.editDateBtnText}>{parseDateToParts(editGameData.date || '') ? MONTHS[parseDateToParts(editGameData.date || '')!.month] : 'Monat'}</Text>
+                              </TouchableOpacity>
+                              {showEditDatePicker && editDatePart === 'month' && (
+                                <View style={styles.editDropdownList}>
+                                  <ScrollView style={{ maxHeight: 150 }} nestedScrollEnabled>
+                                    {MONTHS.map((m, idx) => (
+                                      <TouchableOpacity key={m} style={styles.editDropdownItem} onPress={() => {
+                                        const parts = parseDateToParts(editGameData.date || '') || { day: 1, month: 0, year: new Date().getFullYear() };
+                                        setEditGameData({ ...editGameData, date: buildDateFromParts(parts.day, idx, parts.year) });
+                                        setShowEditDatePicker(false); setEditDatePart(null);
+                                      }}>
+                                        <Text style={styles.editDropdownItemText}>{m}</Text>
+                                      </TouchableOpacity>
+                                    ))}
+                                  </ScrollView>
+                                </View>
+                              )}
+                            </View>
+                            <View style={{ position: 'relative' }}>
+                              <TouchableOpacity 
+                                style={styles.editDateBtn}
+                                onPress={(e) => { e.stopPropagation(); closeAllEditDropdowns(); setShowEditDatePicker(true); setEditDatePart('year'); }}
+                              >
+                                <Text style={styles.editDateBtnText}>{parseDateToParts(editGameData.date || '')?.year || 'Jahr'}</Text>
+                              </TouchableOpacity>
+                              {showEditDatePicker && editDatePart === 'year' && (
+                                <View style={styles.editDropdownList}>
+                                  <ScrollView style={{ maxHeight: 150 }} nestedScrollEnabled>
+                                    {YEARS.map((y) => (
+                                      <TouchableOpacity key={y} style={styles.editDropdownItem} onPress={() => {
+                                        const parts = parseDateToParts(editGameData.date || '') || { day: 1, month: new Date().getMonth(), year: new Date().getFullYear() };
+                                        setEditGameData({ ...editGameData, date: buildDateFromParts(parts.day, parts.month, y) });
+                                        setShowEditDatePicker(false); setEditDatePart(null);
+                                      }}>
+                                        <Text style={styles.editDropdownItemText}>{y}</Text>
+                                      </TouchableOpacity>
+                                    ))}
+                                  </ScrollView>
+                                </View>
+                              )}
+                            </View>
+                          </View>
+                        </View>
+                        {/* Art Dropdown */}
+                        <View style={[styles.gameDetailMetaItem, { zIndex: 30 }]}>
+                          <Text style={styles.gameDetailMetaLabel}>Art:</Text>
+                          <View style={{ position: 'relative' }}>
+                            <TouchableOpacity 
+                              style={styles.editDateBtn}
+                              onPress={(e) => { e.stopPropagation(); closeAllEditDropdowns(); setShowEditGameTypePicker(true); }}
+                            >
+                              <Text style={styles.editDateBtnText}>{editGameData.game_type || 'Auswählen'}</Text>
+                            </TouchableOpacity>
+                            {showEditGameTypePicker && (
+                              <Pressable style={styles.editDropdownList} onPress={(e) => e.stopPropagation()}>
+                                <TextInput
+                                  style={[styles.formInput, { margin: 4, fontSize: 12 }]}
+                                  value={editGameData.game_type || ''}
+                                  onChangeText={(t) => setEditGameData({ ...editGameData, game_type: t })}
+                                  placeholder="Eigene Art..."
+                                  placeholderTextColor="#9ca3af"
+                                />
+                                <ScrollView style={{ maxHeight: 120 }} nestedScrollEnabled>
+                                  {GAME_TYPES.map((type) => (
+                                    <TouchableOpacity key={type} style={styles.editDropdownItem} onPress={() => {
+                                      setEditGameData({ ...editGameData, game_type: type });
+                                      setShowEditGameTypePicker(false);
+                                    }}>
+                                      <Text style={styles.editDropdownItemText}>{type}</Text>
+                                    </TouchableOpacity>
+                                  ))}
+                                </ScrollView>
+                              </Pressable>
+                            )}
+                          </View>
+                        </View>
+                        {/* Jahrgang Dropdown */}
+                        <View style={[styles.gameDetailMetaItem, { zIndex: 20 }]}>
+                          <Text style={styles.gameDetailMetaLabel}>Jahrgang:</Text>
+                          <View style={{ position: 'relative' }}>
+                            <TouchableOpacity 
+                              style={styles.editDateBtn}
+                              onPress={(e) => { e.stopPropagation(); closeAllEditDropdowns(); setShowEditAgeGroupPicker(true); }}
+                            >
+                              <Text style={styles.editDateBtnText}>{editGameData.age_group || 'Auswählen'}</Text>
+                            </TouchableOpacity>
+                            {showEditAgeGroupPicker && (
+                              <View style={styles.editDropdownList}>
+                                <ScrollView style={{ maxHeight: 150 }} nestedScrollEnabled>
+                                  {AGE_GROUPS.map((age) => (
+                                    <TouchableOpacity key={age} style={styles.editDropdownItem} onPress={() => {
+                                      setEditGameData({ ...editGameData, age_group: age });
+                                      setShowEditAgeGroupPicker(false);
+                                    }}>
+                                      <Text style={styles.editDropdownItemText}>{age}</Text>
+                                    </TouchableOpacity>
+                                  ))}
+                                </ScrollView>
+                              </View>
+                            )}
+                          </View>
+                        </View>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={styles.gameDetailMetaText}>{formatGameDate(selectedGame.date)}</Text>
+                        {selectedGame.game_type && <Text style={styles.gameDetailMetaText}>• {selectedGame.game_type}</Text>}
+                        {selectedGame.age_group && <Text style={styles.gameDetailMetaText}>• {selectedGame.age_group}</Text>}
+                        {selectedGame.scout_name && <Text style={styles.gameDetailMetaText}>• {selectedGame.scout_name}</Text>}
+                      </>
+                    )}
+                  </View>
+                </View>
+                <View style={styles.gameDetailHeaderRight}>
+                  {isEditingGame ? (
+                    <>
+                      <TouchableOpacity style={styles.headerBtn} onPress={() => { setIsEditingGame(false); closeAllEditDropdowns(); }}>
+                        <Text style={styles.headerBtnText}>Abbrechen</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={[styles.headerBtn, styles.headerBtnPrimary]} onPress={() => { saveGameEdit(); setIsEditingGame(false); closeAllEditDropdowns(); }}>
+                        <Text style={styles.headerBtnTextPrimary}>Speichern</Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <TouchableOpacity style={styles.headerBtn} onPress={() => { setIsEditingGame(true); setEditGameData(selectedGame); }}>
+                      <Text style={styles.headerBtnText}>Bearbeiten</Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity onPress={() => { setShowGameDetailModal(false); setIsEditingGame(false); setSelectedTeam(null); closeAllEditDropdowns(); }} style={styles.closeButton}>
+                    <Text style={styles.closeButtonText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+              
+              {/* Two Column Layout */}
+              <View style={styles.gameDetailBody}>
+                {/* Left Column - Teams */}
+                <View style={styles.teamsColumn}>
+                  <Text style={styles.columnTitle}>Mannschaften</Text>
+                  <View style={styles.addTeamContainer}>
+                    <TextInput
+                      style={styles.addTeamInputNew}
+                      value={newTeamName}
+                      onChangeText={setNewTeamName}
+                      placeholder="Neue Mannschaft..."
+                      placeholderTextColor="#9ca3af"
+                      onSubmitEditing={addTeam}
+                    />
+                    <TouchableOpacity style={styles.addTeamBtnNew} onPress={addTeam}>
+                      <Text style={styles.addTeamBtnTextNew}>+</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <ScrollView style={styles.teamsList}>
+                    {gameTeams.map(team => (
+                      <TouchableOpacity 
+                        key={team.id}
+                        style={[styles.teamItem, selectedTeam?.id === team.id && styles.teamItemSelected]}
+                        onPress={() => setSelectedTeam(selectedTeam?.id === team.id ? null : team)}
+                      >
+                        <Text style={[styles.teamItemText, selectedTeam?.id === team.id && styles.teamItemTextSelected]}>
+                          {team.team_name}
+                        </Text>
+                        <Text style={[styles.teamPlayerCount, selectedTeam?.id === team.id && { color: '#9ca3af' }]}>
+                          {gamePlayers.filter(p => p.team_id === team.id).length}
+                        </Text>
+                        <TouchableOpacity 
+                          style={styles.teamDeleteBtn}
+                          onPress={() => { if (confirm(`"${team.team_name}" löschen?`)) deleteTeam(team.id); }}
+                        >
+                          <Text style={[styles.teamDeleteBtnText, selectedTeam?.id === team.id && { color: '#9ca3af' }]}>✕</Text>
+                        </TouchableOpacity>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+
+                {/* Right Column - Players */}
+                <View style={styles.playersColumn}>
+                  {selectedTeam ? (
+                    <>
+                      <View style={styles.playersHeaderRow}>
+                        <Text style={styles.columnTitle}>Spieler - {selectedTeam.team_name}</Text>
+                      </View>
+                      
+                      {/* Add Player Row - Now at top */}
+                      <View style={[styles.addPlayerRowTop, { zIndex: 50 }]}>
+                        <TextInput
+                          style={[styles.addPlayerInputNew, { width: 40 }]}
+                          value={newGamePlayer.number}
+                          onChangeText={(t) => setNewGamePlayer({...newGamePlayer, number: t})}
+                          placeholder="Nr."
+                          placeholderTextColor="#9ca3af"
+                          onSubmitEditing={addGamePlayer}
+                        />
+                        {/* Position Dropdown */}
+                        <View style={{ position: 'relative', zIndex: 40 }}>
+                          <TouchableOpacity 
+                            style={[styles.addPlayerDropdownBtn, { width: 50 }]}
+                            onPress={(e) => { e.stopPropagation(); setShowNewPlayerPositionPicker(!showNewPlayerPositionPicker); setShowNewPlayerRatingPicker(false); }}
+                          >
+                            <Text style={styles.addPlayerDropdownBtnText}>{newGamePlayer.position || 'Pos.'}</Text>
+                            <Text style={styles.addPlayerDropdownArrow}>▼</Text>
+                          </TouchableOpacity>
+                          {showNewPlayerPositionPicker && (
+                            <View style={styles.addPlayerDropdownList}>
+                              <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
+                                <TouchableOpacity style={styles.addPlayerDropdownItem} onPress={() => { setNewGamePlayer({...newGamePlayer, position: ''}); setShowNewPlayerPositionPicker(false); }}>
+                                  <Text style={styles.addPlayerDropdownItemText}>-</Text>
+                                </TouchableOpacity>
+                                {POSITIONS.map((pos) => (
+                                  <TouchableOpacity key={pos} style={styles.addPlayerDropdownItem} onPress={() => { setNewGamePlayer({...newGamePlayer, position: pos}); setShowNewPlayerPositionPicker(false); }}>
+                                    <Text style={styles.addPlayerDropdownItemText}>{pos}</Text>
+                                  </TouchableOpacity>
+                                ))}
+                              </ScrollView>
+                            </View>
+                          )}
+                        </View>
+                        <TextInput
+                          style={[styles.addPlayerInputNew, { width: 100 }]}
+                          value={newGamePlayer.last_name}
+                          onChangeText={(t) => setNewGamePlayer({...newGamePlayer, last_name: t})}
+                          placeholder="Nachname"
+                          placeholderTextColor="#9ca3af"
+                          onSubmitEditing={addGamePlayer}
+                        />
+                        <TextInput
+                          style={[styles.addPlayerInputNew, { width: 80 }]}
+                          value={newGamePlayer.first_name}
+                          onChangeText={(t) => setNewGamePlayer({...newGamePlayer, first_name: t})}
+                          placeholder="Vorname"
+                          placeholderTextColor="#9ca3af"
+                          onSubmitEditing={addGamePlayer}
+                        />
+                        <TextInput
+                          style={[styles.addPlayerInputNew, { width: 75 }]}
+                          value={newGamePlayer.birth_year}
+                          onChangeText={(t) => setNewGamePlayer({...newGamePlayer, birth_year: t})}
+                          placeholder="Jahrgang"
+                          placeholderTextColor="#9ca3af"
+                          onSubmitEditing={addGamePlayer}
+                        />
+                        {/* Einschätzung Dropdown */}
+                        <View style={{ position: 'relative', zIndex: 30 }}>
+                          <TouchableOpacity 
+                            style={[styles.addPlayerDropdownBtn, { width: 70 }, newGamePlayer.rating !== null && styles.addPlayerDropdownBtnRating]}
+                            onPress={(e) => { e.stopPropagation(); setShowNewPlayerRatingPicker(!showNewPlayerRatingPicker); setShowNewPlayerPositionPicker(false); }}
+                          >
+                            <Text style={[styles.addPlayerDropdownBtnText, newGamePlayer.rating !== null && styles.addPlayerDropdownBtnTextRating]}>
+                              {newGamePlayer.rating !== null ? `⭐ ${newGamePlayer.rating}` : 'Einsch.'}
+                            </Text>
+                            <Text style={[styles.addPlayerDropdownArrow, newGamePlayer.rating !== null && styles.addPlayerDropdownArrowRating]}>▼</Text>
+                          </TouchableOpacity>
+                          {showNewPlayerRatingPicker && (
+                            <View style={styles.addPlayerDropdownList}>
+                              <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
+                                <TouchableOpacity style={styles.addPlayerDropdownItem} onPress={() => { setNewGamePlayer({...newGamePlayer, rating: null}); setShowNewPlayerRatingPicker(false); }}>
+                                  <Text style={styles.addPlayerDropdownItemText}>-</Text>
+                                </TouchableOpacity>
+                                {[1,2,3,4,5,6,7,8,9,10].map((r) => (
+                                  <TouchableOpacity key={r} style={[styles.addPlayerDropdownItem, newGamePlayer.rating === r && styles.addPlayerDropdownItemActive]} onPress={() => { setNewGamePlayer({...newGamePlayer, rating: r}); setShowNewPlayerRatingPicker(false); }}>
+                                    <Text style={[styles.addPlayerDropdownItemText, newGamePlayer.rating === r && styles.addPlayerDropdownItemTextActive]}>⭐ {r}/10</Text>
+                                  </TouchableOpacity>
+                                ))}
+                              </ScrollView>
+                            </View>
+                          )}
+                        </View>
+                        <TouchableOpacity style={styles.addPlayerBtnNew} onPress={addGamePlayer}>
+                          <Text style={styles.addPlayerBtnTextNew}>+</Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* Players Table Header */}
+                      <View style={styles.playersTableHeaderNew}>
+                        <Text style={[styles.playersHeaderCellNew, { width: 35 }]}>Nr.</Text>
+                        <Text style={[styles.playersHeaderCellNew, { width: 40 }]}>Pos.</Text>
+                        <Text style={[styles.playersHeaderCellNew, { width: 85 }]}>Nachname</Text>
+                        <Text style={[styles.playersHeaderCellNew, { width: 70 }]}>Vorname</Text>
+                        <Text style={[styles.playersHeaderCellNew, { width: 60 }]}>Jahrgang</Text>
+                        <Text style={[styles.playersHeaderCellNew, { width: 90 }]}>Einschätzung</Text>
+                        <Text style={[styles.playersHeaderCellNew, { width: 38 }]}>Notiz</Text>
+                        <Text style={[styles.playersHeaderCellNew, { flex: 1 }]}></Text>
+                      </View>
+
+                      {/* Players List */}
+                      <ScrollView style={styles.playersListScroll}>
+                        {gamePlayers.filter(p => p.team_id === selectedTeam.id).map(player => (
+                          <TouchableOpacity key={player.id} style={styles.playersTableRowNew} onPress={() => openPlayerNotes(player)}>
+                            <Text style={[styles.playersCellNew, { width: 35 }]}>{player.number || '-'}</Text>
+                            <View style={[styles.playersCellNew, { width: 40 }]}>
+                              {player.position ? (
+                                <View style={styles.positionBadgeSmall}><Text style={styles.positionTextSmall}>{player.position}</Text></View>
+                              ) : (
+                                <Text>-</Text>
+                              )}
+                            </View>
+                            <Text style={[styles.playersCellNew, { width: 85 }]}>{player.last_name || '-'}</Text>
+                            <Text style={[styles.playersCellNew, { width: 70 }]}>{player.first_name || '-'}</Text>
+                            <Text style={[styles.playersCellNew, { width: 60 }]}>{player.birth_year || '-'}</Text>
+                            <View style={[styles.playersCellNew, { width: 90 }]}>
+                              {player.rating ? (
+                                <View style={styles.ratingBadgeTight}><Text style={styles.ratingTextTight}>⭐ {player.rating}/10</Text></View>
+                              ) : (
+                                <Text>-</Text>
+                              )}
+                            </View>
+                            <View style={[styles.playersCellNew, { width: 38, alignItems: 'center' }]}>
+                              <Text style={styles.notesBtnNew}>{player.notes ? '📝' : '-'}</Text>
+                            </View>
+                            <View style={{ flex: 1 }} />
+                            {player.added_to_database ? (
+                              <View style={styles.addedToDatabaseBtn}>
+                                <Text style={styles.addedToDatabaseBtnText}>wurde zur Spieler-Datenbank hinzugefügt</Text>
+                              </View>
+                            ) : (
+                              <TouchableOpacity 
+                                style={styles.addToDatabaseBtn}
+                                onPress={(e) => { e.stopPropagation(); addGamePlayerToDatabase(player); }}
+                              >
+                                <Text style={styles.addToDatabaseBtnText}>zur Spieler-Datenbank hinzufügen</Text>
+                              </TouchableOpacity>
+                            )}
+                            <TouchableOpacity 
+                              style={styles.deletePlayerBtn}
+                              onPress={(e) => { e.stopPropagation(); deleteGamePlayer(player.id); }}
+                            >
+                              <Text style={styles.deleteBtnSmall}>🗑️</Text>
+                            </TouchableOpacity>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </>
+                  ) : (
+                    <View style={styles.noTeamSelected}>
+                      <Text style={styles.noTeamSelectedText}>← Mannschaft auswählen</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              {/* Bottom Buttons */}
+              <View style={styles.gameDetailFooter}>
+                <TouchableOpacity style={styles.deleteButton} onPress={() => { 
+                  if (confirm('Spiel wirklich löschen? Alle Mannschaften und Spieler werden ebenfalls gelöscht.')) {
+                    deleteScoutingGame(selectedGame.id); 
+                    setShowGameDetailModal(false); 
+                  }
+                }}>
+                  <Text style={styles.deleteButtonText}>Spiel löschen</Text>
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
+
+      {/* Player Edit Modal - Higher z-index */}
+      {showPlayerNotesModal && (
+        <Modal visible={showPlayerNotesModal} transparent animationType="fade">
+          <Pressable style={[styles.modalOverlay, { zIndex: 9999 }]} onPress={() => { setShowEditPlayerPositionPicker(false); setShowEditPlayerRatingPicker(false); }}>
+            <Pressable style={[styles.modalContent, { maxWidth: 500, zIndex: 10000, overflow: 'visible' }]} onPress={() => { setShowEditPlayerPositionPicker(false); setShowEditPlayerRatingPicker(false); }}>
+              <View style={styles.detailHeader}>
+                <Text style={styles.modalTitle}>Spieler bearbeiten</Text>
+                <TouchableOpacity onPress={() => { setShowPlayerNotesModal(false); setShowEditPlayerPositionPicker(false); setShowEditPlayerRatingPicker(false); }} style={styles.closeButton}>
+                  <Text style={styles.closeButtonText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              {selectedGamePlayer && (
+                <>
+                  <View style={[styles.playerEditRow, { zIndex: 30 }]}>
+                    <View style={[styles.playerEditField, { width: 50 }]}>
+                      <Text style={styles.playerEditLabel}>Nr.</Text>
+                      <TextInput
+                        style={styles.playerEditInput}
+                        value={selectedGamePlayer.number || ''}
+                        onChangeText={(t) => updateSelectedGamePlayer('number', t)}
+                        placeholder="-"
+                        placeholderTextColor="#9ca3af"
+                      />
+                    </View>
+                    {/* Position Dropdown */}
+                    <View style={[styles.playerEditField, { width: 80, zIndex: 40 }]}>
+                      <Text style={styles.playerEditLabel}>Position</Text>
+                      <View style={{ position: 'relative' }}>
+                        <TouchableOpacity 
+                          style={styles.playerEditDropdownBtn}
+                          onPress={(e) => { e.stopPropagation(); setShowEditPlayerPositionPicker(!showEditPlayerPositionPicker); setShowEditPlayerRatingPicker(false); }}
+                        >
+                          <Text style={styles.playerEditDropdownBtnText}>{selectedGamePlayer.position || '-'}</Text>
+                          <Text style={styles.playerEditDropdownArrow}>▼</Text>
+                        </TouchableOpacity>
+                        {showEditPlayerPositionPicker && (
+                          <View style={styles.playerEditDropdownList}>
+                            <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
+                              <TouchableOpacity style={styles.playerEditDropdownItem} onPress={() => { updateSelectedGamePlayer('position', ''); setShowEditPlayerPositionPicker(false); }}>
+                                <Text style={styles.playerEditDropdownItemText}>-</Text>
+                              </TouchableOpacity>
+                              {POSITIONS.map((pos) => (
+                                <TouchableOpacity key={pos} style={[styles.playerEditDropdownItem, selectedGamePlayer.position === pos && styles.playerEditDropdownItemActive]} onPress={() => { updateSelectedGamePlayer('position', pos); setShowEditPlayerPositionPicker(false); }}>
+                                  <Text style={[styles.playerEditDropdownItemText, selectedGamePlayer.position === pos && styles.playerEditDropdownItemTextActive]}>{pos}</Text>
+                                </TouchableOpacity>
+                              ))}
+                            </ScrollView>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                    <View style={[styles.playerEditField, { flex: 1 }]}>
+                      <Text style={styles.playerEditLabel}>Nachname</Text>
+                      <TextInput
+                        style={styles.playerEditInput}
+                        value={selectedGamePlayer.last_name || ''}
+                        onChangeText={(t) => updateSelectedGamePlayer('last_name', t)}
+                        placeholder="Nachname"
+                        placeholderTextColor="#9ca3af"
+                      />
+                    </View>
+                    <View style={[styles.playerEditField, { flex: 1 }]}>
+                      <Text style={styles.playerEditLabel}>Vorname</Text>
+                      <TextInput
+                        style={styles.playerEditInput}
+                        value={selectedGamePlayer.first_name || ''}
+                        onChangeText={(t) => updateSelectedGamePlayer('first_name', t)}
+                        placeholder="Vorname"
+                        placeholderTextColor="#9ca3af"
+                      />
+                    </View>
+                  </View>
+                  <View style={[styles.playerEditRow, { zIndex: 20 }]}>
+                    <View style={[styles.playerEditField, { width: 80 }]}>
+                      <Text style={styles.playerEditLabel}>Jahrgang</Text>
+                      <TextInput
+                        style={styles.playerEditInput}
+                        value={selectedGamePlayer.birth_year || ''}
+                        onChangeText={(t) => updateSelectedGamePlayer('birth_year', t)}
+                        placeholder="2008"
+                        placeholderTextColor="#9ca3af"
+                      />
+                    </View>
+                    {/* Einschätzung Dropdown */}
+                    <View style={[styles.playerEditField, { width: 100, zIndex: 30 }]}>
+                      <Text style={styles.playerEditLabel}>Einschätzung</Text>
+                      <View style={{ position: 'relative' }}>
+                        <TouchableOpacity 
+                          style={[styles.playerEditDropdownBtn, selectedGamePlayer.rating !== null && styles.playerEditDropdownBtnRating]}
+                          onPress={(e) => { e.stopPropagation(); setShowEditPlayerRatingPicker(!showEditPlayerRatingPicker); setShowEditPlayerPositionPicker(false); }}
+                        >
+                          <Text style={[styles.playerEditDropdownBtnText, selectedGamePlayer.rating !== null && styles.playerEditDropdownBtnTextRating]}>
+                            {selectedGamePlayer.rating !== null ? `${selectedGamePlayer.rating}/10` : '-'}
+                          </Text>
+                          <Text style={[styles.playerEditDropdownArrow, selectedGamePlayer.rating !== null && styles.playerEditDropdownArrowRating]}>▼</Text>
+                        </TouchableOpacity>
+                        {showEditPlayerRatingPicker && (
+                          <View style={styles.playerEditDropdownList}>
+                            <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
+                              <TouchableOpacity style={styles.playerEditDropdownItem} onPress={() => { updateSelectedGamePlayerRating(null); setShowEditPlayerRatingPicker(false); }}>
+                                <Text style={styles.playerEditDropdownItemText}>-</Text>
+                              </TouchableOpacity>
+                              {[1,2,3,4,5,6,7,8,9,10].map((r) => (
+                                <TouchableOpacity key={r} style={[styles.playerEditDropdownItem, selectedGamePlayer.rating === r && styles.playerEditDropdownItemActive]} onPress={() => { updateSelectedGamePlayerRating(r); setShowEditPlayerRatingPicker(false); }}>
+                                  <Text style={[styles.playerEditDropdownItemText, selectedGamePlayer.rating === r && styles.playerEditDropdownItemTextActive]}>⭐ {r}/10</Text>
+                                </TouchableOpacity>
+                              ))}
+                            </ScrollView>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  </View>
+                  <View style={[styles.playerEditField, { zIndex: 1 }]}>
+                    <Text style={styles.playerEditLabel}>Notizen</Text>
+                    <TextInput
+                      style={[styles.playerEditInput, styles.textArea, { minHeight: 100 }]}
+                      value={editingPlayerNotes}
+                      onChangeText={setEditingPlayerNotes}
+                      placeholder="Notizen zum Spieler..."
+                      placeholderTextColor="#9ca3af"
+                      multiline
+                    />
+                  </View>
+                </>
+              )}
+              <View style={styles.modalButtons}>
+                <TouchableOpacity style={styles.cancelButton} onPress={() => setShowPlayerNotesModal(false)}>
+                  <Text style={styles.cancelButtonText}>Abbrechen</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.saveButton} onPress={savePlayerNotes}>
+                  <Text style={styles.saveButtonText}>Speichern</Text>
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
 
       {/* Player Detail Modal - New Layout */}
       {selectedPlayer && (
@@ -1644,6 +3108,17 @@ const styles = StyleSheet.create({
   statusBadge: { paddingVertical: 4, paddingHorizontal: 8, borderRadius: 4 },
   statusBadgeText: { fontSize: 11, fontWeight: '600' },
   gamesContainer: { flex: 1, backgroundColor: '#fff', borderRadius: 12, overflow: 'hidden' },
+  gamesSearchRow: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#e2e8f0', backgroundColor: '#f8fafc' },
+  gamesSearchInput: { flex: 1, backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', paddingVertical: 10, paddingHorizontal: 12, fontSize: 14 },
+  gamesSearchClear: { marginLeft: 8, padding: 8 },
+  gamesSearchClearText: { fontSize: 16, color: '#9ca3af' },
+  gamesViewToggle: { flexDirection: 'row', padding: 12, gap: 8, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  gamesViewBtn: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#f1f5f9' },
+  gamesViewBtnActive: { backgroundColor: '#1a1a1a' },
+  gamesViewBtnText: { fontSize: 13, color: '#64748b', fontWeight: '500' },
+  gamesViewBtnTextActive: { color: '#fff' },
+  searchResultsHeader: { padding: 12, backgroundColor: '#f8fafc', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  searchResultsTitle: { fontSize: 14, fontWeight: '600', color: '#1a1a1a' },
   clubSelectorContainer: { position: 'relative', zIndex: 9999 },
   clubDropdown: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', marginTop: 4, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 10, zIndex: 9999, elevation: 9999 },
   clubDropdownScroll: { maxHeight: 200 },
@@ -1651,6 +3126,7 @@ const styles = StyleSheet.create({
   clubDropdownLogo: { width: 24, height: 24, resizeMode: 'contain', marginRight: 10 },
   clubDropdownText: { fontSize: 14, color: '#333' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  modalOverlayTop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', zIndex: 9999 },
   modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 600, maxHeight: '90%', zIndex: 1 },
   modalContentLarge: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 800, maxHeight: '90%', zIndex: 1 },
   modalTitle: { fontSize: 20, fontWeight: '700', color: '#1a1a1a' },
@@ -1748,4 +3224,137 @@ const styles = StyleSheet.create({
   advisorOptionText: { fontSize: 13, color: '#64748b' },
   advisorOptionTextSelected: { color: '#fff' },
   viewButtonTextActive: { color: '#1a1a1a', fontWeight: '600' },
+  // Date Picker Styles
+  datePickerRow: { flexDirection: 'row', gap: 8 },
+  dateDropdownButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 12, backgroundColor: '#fff' },
+  dateDropdownText: { fontSize: 14, color: '#1a1a1a' },
+  datePickerList: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, marginTop: 4, zIndex: 1000, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 5 },
+  datePickerItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  datePickerItemText: { fontSize: 14, color: '#1a1a1a' },
+  // Chip Styles
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
+  chipSelected: { backgroundColor: '#1a1a1a', borderColor: '#1a1a1a' },
+  chipText: { fontSize: 13, color: '#64748b' },
+  chipTextSelected: { color: '#fff' },
+  // Game Detail Modal Styles
+  gameDetailDate: { fontSize: 14, color: '#64748b', marginTop: 4 },
+  gameDetailContent: { paddingVertical: 16 },
+  gameDetailRow: { flexDirection: 'row', marginBottom: 12 },
+  gameDetailLabel: { fontSize: 14, color: '#64748b', width: 100 },
+  gameDetailValue: { fontSize: 14, color: '#1a1a1a', flex: 1 },
+  deleteButton: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#ef4444' },
+  deleteButtonText: { fontSize: 14, color: '#ef4444', fontWeight: '600' },
+  editButton: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
+  editButtonText: { fontSize: 14, color: '#1a1a1a', fontWeight: '600' },
+  // Today's game highlighting
+  tableRowToday: { backgroundColor: '#dcfce7' },
+  tableCellToday: { color: '#166534' },
+  // Game Detail Modal - Two Column Layout
+  gameDetailHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0', marginBottom: 16 },
+  gameDetailHeaderLeft: { flex: 1 },
+  gameDetailHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  gameDetailTitle: { fontSize: 24, fontWeight: '700', color: '#1a1a1a', marginBottom: 8 },
+  gameDetailTitleInput: { fontSize: 24, fontWeight: '700', color: '#1a1a1a', marginBottom: 8, borderBottomWidth: 1, borderBottomColor: '#3b82f6', paddingBottom: 4 },
+  gameDetailMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, alignItems: 'center' },
+  gameDetailMetaText: { fontSize: 14, color: '#64748b' },
+  gameDetailMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  gameDetailMetaLabel: { fontSize: 12, color: '#64748b' },
+  gameDetailMetaInput: { fontSize: 14, color: '#1a1a1a', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 4, padding: 4, minWidth: 80 },
+  headerBtn: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, backgroundColor: '#f1f5f9' },
+  headerBtnPrimary: { backgroundColor: '#3b82f6' },
+  headerBtnText: { fontSize: 13, color: '#64748b' },
+  headerBtnTextPrimary: { fontSize: 13, color: '#fff' },
+  // Edit Dropdowns
+  editDateRow: { flexDirection: 'row', gap: 4 },
+  editDateBtn: { backgroundColor: '#f1f5f9', borderRadius: 4, paddingVertical: 4, paddingHorizontal: 8, minWidth: 50 },
+  editDateBtnText: { fontSize: 12, color: '#1a1a1a' },
+  editDropdownList: { position: 'absolute', top: '100%', left: 0, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, marginTop: 2, zIndex: 1000, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 5, minWidth: 100 },
+  editDropdownItem: { padding: 8, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  editDropdownItemText: { fontSize: 12, color: '#1a1a1a' },
+  // Two Column Body
+  gameDetailBody: { flex: 1, flexDirection: 'row', gap: 20 },
+  teamsColumn: { width: 220, borderRightWidth: 1, borderRightColor: '#e2e8f0', paddingRight: 16 },
+  playersColumn: { flex: 1 },
+  columnTitle: { fontSize: 14, fontWeight: '600', color: '#64748b', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
+  playersHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  // Teams List
+  teamsList: { flex: 1, marginBottom: 12 },
+  teamItem: { flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#f8fafc', borderRadius: 8, marginBottom: 6 },
+  teamItemSelected: { backgroundColor: '#1a1a1a' },
+  teamItemText: { flex: 1, fontSize: 14, color: '#1a1a1a', fontWeight: '500' },
+  teamItemTextSelected: { color: '#fff' },
+  teamPlayerCount: { fontSize: 12, color: '#9ca3af', marginRight: 8 },
+  teamDeleteBtn: { padding: 4 },
+  teamDeleteBtnText: { fontSize: 12, color: '#9ca3af' },
+  addTeamContainer: { flexDirection: 'row', gap: 6, marginBottom: 12 },
+  addTeamInputNew: { flex: 1, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, padding: 8, fontSize: 13 },
+  addTeamBtnNew: { backgroundColor: '#1a1a1a', width: 32, height: 32, borderRadius: 6, justifyContent: 'center', alignItems: 'center' },
+  addTeamBtnTextNew: { color: '#fff', fontSize: 18, fontWeight: '600' },
+  // Players Table
+  addPlayerRowTop: { flexDirection: 'row', gap: 6, alignItems: 'center', marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  playersTableHeaderNew: { flexDirection: 'row', backgroundColor: '#f1f5f9', paddingVertical: 8, paddingHorizontal: 4, borderRadius: 4, marginBottom: 4 },
+  playersHeaderCellNew: { fontSize: 11, fontWeight: '600', color: '#64748b', paddingHorizontal: 4 },
+  playersListScroll: { flex: 1 },
+  playersTableRowNew: { flexDirection: 'row', paddingVertical: 10, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', alignItems: 'center' },
+  playersCellNew: { fontSize: 13, color: '#1a1a1a', paddingHorizontal: 4 },
+  notesBtnNew: { fontSize: 14, color: '#64748b' },
+  addToDatabaseBtn: { backgroundColor: '#1a1a1a', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, marginRight: 8 },
+  addToDatabaseBtnText: { fontSize: 10, color: '#fff', fontWeight: '600' },
+  addedToDatabaseBtn: { backgroundColor: '#10b981', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, marginRight: 8 },
+  addedToDatabaseBtnText: { fontSize: 10, color: '#fff', fontWeight: '600' },
+  deletePlayerBtn: { paddingHorizontal: 8 },
+  deleteBtnSmall: { fontSize: 11 },
+  ratingBadgeTight: { backgroundColor: '#dcfce7', paddingVertical: 2, paddingHorizontal: 4, borderRadius: 4, alignSelf: 'flex-start' },
+  ratingTextTight: { fontSize: 10, fontWeight: '600', color: '#166534' },
+  // Add Player Row
+  addPlayerRowNew: { flexDirection: 'row', gap: 6, alignItems: 'center', paddingTop: 12, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
+  addPlayerInputNew: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, padding: 8, fontSize: 13 },
+  addPlayerBtnNew: { backgroundColor: '#1a1a1a', width: 32, height: 32, borderRadius: 6, justifyContent: 'center', alignItems: 'center' },
+  addPlayerBtnTextNew: { color: '#fff', fontSize: 18, fontWeight: '600' },
+  // No Team Selected
+  noTeamSelected: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  noTeamSelectedText: { fontSize: 16, color: '#9ca3af' },
+  // Footer
+  gameDetailFooter: { paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e2e8f0', flexDirection: 'row', justifyContent: 'flex-start' },
+  notesPlayerName: { fontSize: 14, color: '#64748b', marginBottom: 12 },
+  // Player Edit Modal
+  playerEditRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+  playerEditField: { marginBottom: 12 },
+  playerEditLabel: { fontSize: 12, color: '#64748b', marginBottom: 4 },
+  playerEditInput: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 10, fontSize: 14, color: '#1a1a1a' },
+  positionChipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  positionChipSmall: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
+  positionChipSmallSelected: { backgroundColor: '#1a1a1a', borderColor: '#1a1a1a' },
+  positionChipSmallText: { fontSize: 12, color: '#64748b', fontWeight: '500' },
+  positionChipSmallTextSelected: { color: '#fff' },
+  ratingChipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  ratingChipSmall: { width: 32, height: 32, borderRadius: 6, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0', justifyContent: 'center', alignItems: 'center' },
+  ratingChipSmallSelected: { backgroundColor: '#10b981', borderColor: '#10b981' },
+  ratingChipSmallText: { fontSize: 12, color: '#64748b', fontWeight: '600' },
+  ratingChipSmallTextSelected: { color: '#fff' },
+  // Add Player Dropdowns
+  addPlayerDropdownBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f1f5f9', borderRadius: 6, paddingVertical: 8, paddingHorizontal: 8, borderWidth: 1, borderColor: '#e2e8f0' },
+  addPlayerDropdownBtnRating: { backgroundColor: '#dcfce7', borderColor: '#10b981' },
+  addPlayerDropdownBtnText: { fontSize: 12, color: '#1a1a1a' },
+  addPlayerDropdownBtnTextRating: { color: '#166534', fontWeight: '600' },
+  addPlayerDropdownArrow: { fontSize: 8, color: '#9ca3af', marginLeft: 2 },
+  addPlayerDropdownArrowRating: { color: '#166534' },
+  addPlayerDropdownList: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, marginTop: 2, zIndex: 1000, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 5, minWidth: 80 },
+  addPlayerDropdownItem: { padding: 8, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  addPlayerDropdownItemActive: { backgroundColor: '#dcfce7' },
+  addPlayerDropdownItemText: { fontSize: 12, color: '#1a1a1a' },
+  addPlayerDropdownItemTextActive: { color: '#166534', fontWeight: '600' },
+  // Edit Player Dropdowns
+  playerEditDropdownBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f1f5f9', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 10, borderWidth: 1, borderColor: '#e2e8f0' },
+  playerEditDropdownBtnRating: { backgroundColor: '#dcfce7', borderColor: '#10b981' },
+  playerEditDropdownBtnText: { fontSize: 14, color: '#1a1a1a' },
+  playerEditDropdownBtnTextRating: { color: '#166534', fontWeight: '600' },
+  playerEditDropdownArrow: { fontSize: 10, color: '#9ca3af', marginLeft: 4 },
+  playerEditDropdownArrowRating: { color: '#166534' },
+  playerEditDropdownList: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, marginTop: 2, zIndex: 1000, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 5 },
+  playerEditDropdownItem: { padding: 10, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  playerEditDropdownItemActive: { backgroundColor: '#dcfce7' },
+  playerEditDropdownItemText: { fontSize: 14, color: '#1a1a1a' },
+  playerEditDropdownItemTextActive: { color: '#166534', fontWeight: '600' },
 });

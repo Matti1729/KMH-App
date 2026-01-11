@@ -35,7 +35,7 @@ export function RootNavigator() {
             <Stack.Screen name="Register" component={RegisterScreen} />
             <Stack.Screen name="RegisterAdvisor" component={RegisterAdvisorScreen} />
           </>
-        ) : profile?.role === 'advisor' ? (
+        ) : (profile?.role === 'advisor' || profile?.role === 'admin') ? (
           <>
             <Stack.Screen name="AdvisorHome" component={AdvisorHomeScreen} />
             <Stack.Screen name="AdvisorDashboard" component={AdvisorHomeScreen} />

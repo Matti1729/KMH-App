@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Pressable } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 
@@ -30,6 +31,7 @@ interface Reminder {
   source_type: string;
   source_id?: string;
   player_name?: string;
+  club_name?: string; // Für Highlight im TransferDetail
   due_date: string;
   completed: boolean;
   completed_at?: string;
@@ -148,6 +150,15 @@ export function TasksRemindersScreen({ navigation }: any) {
     }
   }, [currentUserId]);
 
+  // Daten neu laden wenn Screen fokussiert wird (z.B. nach Rückkehr von TransferDetail)
+  useFocusEffect(
+    useCallback(() => {
+      if (currentUserId) {
+        fetchReminders();
+      }
+    }, [currentUserId])
+  );
+
   const fetchProfile = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
@@ -225,8 +236,9 @@ export function TasksRemindersScreen({ navigation }: any) {
         user_id: currentUserId,
         title: `${tr.club_name} nachfassen`,
         source_type: 'transfer',
-        source_id: tr.id,
+        source_id: tr.player_details.id, // Player ID für Navigation
         player_name: `${tr.player_details.first_name} ${tr.player_details.last_name}`,
+        club_name: tr.club_name, // Für Highlight im TransferDetail
         due_date: dueDate.toISOString().split('T')[0],
         completed: false,
       };
@@ -391,8 +403,11 @@ export function TasksRemindersScreen({ navigation }: any) {
 
   const navigateToTransfer = (reminder: Reminder) => {
     if (reminder.source_type === 'transfer' && reminder.source_id) {
-      // Navigate to transfer detail
-      navigation.navigate('TransferDetail', { transferId: reminder.source_id });
+      // Navigate to transfer detail with player ID and club to highlight
+      navigation.navigate('TransferDetail', { 
+        playerId: reminder.source_id,
+        highlightClub: reminder.club_name 
+      });
     }
   };
 
@@ -962,11 +977,11 @@ const styles = StyleSheet.create({
   backButtonText: { fontSize: 14, color: '#64748b' },
 
   // Split Container
-  splitContainer: { flex: 1, flexDirection: 'row', padding: 16, gap: 16 },
+  splitContainer: { flex: 1, flexDirection: 'row', padding: 16, gap: 16, height: '100%' },
   
-  // Panels - beide gleiche Höhe
-  leftPanel: { flex: 6, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', display: 'flex', flexDirection: 'column' },
-  rightPanel: { flex: 4, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', display: 'flex', flexDirection: 'column' },
+  // Panels - beide gleiche Höhe durch flex: 1 in row
+  leftPanel: { flex: 6, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', overflow: 'hidden', height: '100%' },
+  rightPanel: { flex: 4, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', overflow: 'hidden', height: '100%' },
   
   panelHeader: { 
     flexDirection: 'row', 
@@ -1027,12 +1042,12 @@ const styles = StyleSheet.create({
   taskTitle: { fontSize: 14, fontWeight: '500', color: '#1a1a1a' },
   taskTitleCompleted: { textDecorationLine: 'line-through', color: '#94a3b8' },
   taskDateBadge: { 
-    backgroundColor: '#f1f5f9', 
+    backgroundColor: '#fef3c7', 
     paddingVertical: 2, 
     paddingHorizontal: 6, 
     borderRadius: 4,
   },
-  taskDateBadgeText: { fontSize: 11, color: '#64748b', fontWeight: '500' },
+  taskDateBadgeText: { fontSize: 11, color: '#b45309', fontWeight: '600' },
   taskDescriptionPreview: { fontSize: 12, color: '#64748b', marginTop: 4 },
   taskDueDate: { fontSize: 12, color: '#64748b' },
   subtaskCountBadge: { 
