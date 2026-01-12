@@ -36,12 +36,14 @@ export function Sidebar({ navigation, activeScreen, profile }: SidebarProps) {
     navigation.navigate(screen);
   };
 
-  // Neue Reihenfolge: KMH-Spieler, Transfers, Scouting, Termine
+  // Sidebar Navigation - alle Bereiche
   const navItems = [
     { id: 'players', label: 'KMH-Spieler', icon: '👤', screen: 'PlayerOverview' },
-    { id: 'transfers', label: 'Transfers', icon: '↔️', screen: 'Transfers' },
+    { id: 'transfers', label: 'Transfers', icon: '🔄', screen: 'Transfers' },
     { id: 'scouting', label: 'Scouting', icon: '🔍', screen: 'Scouting' },
-    { id: 'termine', label: 'Termine', icon: '📅', screen: 'Calendar' },
+    { id: 'network', label: 'Football Network', icon: '💼', screen: 'FootballNetwork' },
+    { id: 'termine', label: 'Spieltage', icon: '📅', screen: 'Calendar' },
+    { id: 'aufgaben', label: 'Aufgaben & Erinnerungen', icon: '✓', screen: 'Tasks' },
   ];
 
   return (
@@ -111,7 +113,7 @@ export function Sidebar({ navigation, activeScreen, profile }: SidebarProps) {
         ]}
       >
         <Text style={styles.logoutIcon}>↪</Text>
-        <Text style={styles.logoutText}>Abmelden</Text>
+        <Text style={styles.logoutText}>Logout</Text>
       </Pressable>
     </View>
   );
@@ -131,6 +133,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 32,
     paddingHorizontal: 8,
+    // @ts-ignore
+    cursor: 'pointer',
   },
   logoBox: {
     width: 40,
@@ -160,6 +164,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 12,
     borderRadius: 10,
+    // @ts-ignore
+    cursor: 'pointer',
+    // @ts-ignore
+    transition: 'all 0.15s ease',
   },
   navItemActive: {
     backgroundColor: '#f5f5f5',
@@ -189,20 +197,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 10,
     marginTop: 8,
+    backgroundColor: '#fef2f2',
+    // @ts-ignore
+    cursor: 'pointer',
+    // @ts-ignore
+    transition: 'all 0.15s ease',
   },
   logoutButtonHovered: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#fee2e2',
   },
   logoutIcon: {
     fontSize: 18,
     marginRight: 12,
     width: 24,
     textAlign: 'center',
-    color: '#999',
+    color: '#ef4444',
   },
   logoutText: {
     fontSize: 14,
-    color: '#999',
+    color: '#ef4444',
     fontWeight: '500',
   },
 });

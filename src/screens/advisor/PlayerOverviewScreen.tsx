@@ -570,7 +570,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
         <Pressable style={styles.toolbar} onPress={closeAllDropdowns}>
           <View style={styles.searchContainer}>
             <Text style={styles.searchIcon}>🔍</Text>
-            <TextInput style={styles.searchInput} placeholder="Spieler, Verein suchen..." value={searchText} onChangeText={setSearchText} onFocus={closeAllDropdowns} />
+            <TextInput style={styles.searchInput} placeholder="Spieler, Verein suchen..." placeholderTextColor="#9ca3af" value={searchText} onChangeText={setSearchText} onFocus={closeAllDropdowns} />
           </View>
           
           <View style={styles.filterContainer}>

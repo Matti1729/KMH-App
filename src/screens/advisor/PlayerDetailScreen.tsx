@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert,
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 
 const POSITION_SHORTS = ['TW', 'IV', 'LV', 'RV', 'DM', 'ZM', 'OM', 'LA', 'RA', 'ST'];
 const POSITION_MAP: Record<string, string> = {
@@ -411,20 +412,48 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       if (result.canceled) return;
       
       const file = result.assets[0];
-      const fileName = `${playerId}/${field}/${Date.now()}_${file.name}`;
+      // Dateinamen bereinigen: Umlaute ersetzen, Sonderzeichen und Leerzeichen entfernen
+      const sanitizedName = file.name
+        .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue')
+        .replace(/Ä/g, 'Ae').replace(/Ö/g, 'Oe').replace(/Ü/g, 'Ue')
+        .replace(/ß/g, 'ss')
+        .replace(/[^a-zA-Z0-9._-]/g, '_');
+      const fileName = `${playerId}/${field}/${Date.now()}_${sanitizedName}`;
       
-      const response = await fetch(file.uri);
-      const blob = await response.blob();
+      // Web-kompatible Upload-Methode
+      let fileData: Blob | ArrayBuffer;
       
-      const { error: uploadError } = await supabase.storage.from('contracts').upload(fileName, blob);
-      if (uploadError) { Alert.alert('Fehler', uploadError.message); return; }
+      if (file.file) {
+        // Web: file.file ist bereits ein File-Objekt
+        fileData = file.file;
+      } else {
+        // Native: fetch und blob verwenden
+        const response = await fetch(file.uri);
+        fileData = await response.blob();
+      }
+      
+      const { error: uploadError } = await supabase.storage
+        .from('contracts')
+        .upload(fileName, fileData, {
+          contentType: 'application/pdf',
+          upsert: false
+        });
+      
+      if (uploadError) { 
+        console.error('Upload error:', uploadError);
+        Alert.alert('Fehler', uploadError.message); 
+        return; 
+      }
       
       const { data: urlData } = supabase.storage.from('contracts').getPublicUrl(fileName);
       const currentDocs = editData?.[field] || [];
       const newDocs = [...currentDocs, { name: file.name, url: urlData.publicUrl, path: fileName }];
       updateField(field, newDocs);
       Alert.alert('Erfolg', 'Dokument hochgeladen');
-    } catch (error) { Alert.alert('Fehler', 'Dokument konnte nicht hochgeladen werden'); }
+    } catch (error) { 
+      console.error('Upload catch error:', error);
+      Alert.alert('Fehler', 'Dokument konnte nicht hochgeladen werden'); 
+    }
   };
 
   const openDocument = (url: string) => { Linking.openURL(url); };
@@ -434,6 +463,58 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     if (!error) {
       const newDocs = (editData?.[field] || []).filter((doc: any) => doc.path !== path);
       updateField(field, newDocs);
+    }
+  };
+
+  const uploadPhoto = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [3, 4],
+        quality: 0.8,
+      });
+      
+      if (result.canceled) return;
+      
+      const image = result.assets[0];
+      const fileExtension = image.uri.split('.').pop()?.toLowerCase() || 'jpg';
+      const sanitizedName = `${playerId}_${Date.now()}.${fileExtension}`;
+      const fileName = `${playerId}/${sanitizedName}`;
+      
+      // Web-kompatible Upload-Methode
+      let fileData: Blob;
+      
+      const response = await fetch(image.uri);
+      fileData = await response.blob();
+      
+      // Altes Foto löschen falls vorhanden
+      if (player?.photo_url && player.photo_url.includes('player-photos')) {
+        const oldPath = player.photo_url.split('player-photos/')[1];
+        if (oldPath) {
+          await supabase.storage.from('player-photos').remove([oldPath]);
+        }
+      }
+      
+      const { error: uploadError } = await supabase.storage
+        .from('player-photos')
+        .upload(fileName, fileData, {
+          contentType: `image/${fileExtension === 'jpg' ? 'jpeg' : fileExtension}`,
+          upsert: true
+        });
+      
+      if (uploadError) { 
+        console.error('Photo upload error:', uploadError);
+        Alert.alert('Fehler', uploadError.message); 
+        return; 
+      }
+      
+      const { data: urlData } = supabase.storage.from('player-photos').getPublicUrl(fileName);
+      updateField('photo_url', urlData.publicUrl);
+      Alert.alert('Erfolg', 'Foto hochgeladen');
+    } catch (error) { 
+      console.error('Photo upload catch error:', error);
+      Alert.alert('Fehler', 'Foto konnte nicht hochgeladen werden'); 
     }
   };
 
@@ -525,7 +606,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         setShowDeleteModal(false); 
       } else { 
         setShowDeleteModal(false); 
-        navigation.popToTop();
+        navigation.navigate('PlayerOverview');
       }
     } catch (err) { 
       Alert.alert('Fehler', 'Spieler konnte nicht gelöscht werden'); 
@@ -1458,10 +1539,25 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         {/* Redesigned Top Section */}
         <View style={styles.topSection}>
           <View style={styles.topLeft}>
-            <View style={styles.photoContainer}>
-              {player.photo_url ? <Image source={{ uri: player.photo_url }} style={styles.photo} /> : <View style={styles.photoPlaceholder}><Text style={styles.photoPlaceholderText}>Foto</Text></View>}
-            </View>
-            {editing && <TextInput style={styles.photoInput} placeholder="z.B. https://..." value={editData.photo_url || ''} onChangeText={(text) => updateField('photo_url', text)} placeholderTextColor="#999" />}
+            {editing ? (
+              <TouchableOpacity onPress={uploadPhoto} style={styles.photoContainer}>
+                {editData?.photo_url ? (
+                  <Image source={{ uri: editData.photo_url }} style={styles.photo} />
+                ) : (
+                  <View style={styles.photoPlaceholder}>
+                    <Text style={styles.photoPlaceholderText}>📷</Text>
+                    <Text style={styles.photoUploadHint}>Foto{'\n'}hochladen</Text>
+                  </View>
+                )}
+                <View style={styles.photoEditBadge}>
+                  <Text style={styles.photoEditBadgeText}>✎</Text>
+                </View>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.photoContainer}>
+                {player.photo_url ? <Image source={{ uri: player.photo_url }} style={styles.photo} /> : <View style={styles.photoPlaceholder}><Text style={styles.photoPlaceholderText}>Foto</Text></View>}
+              </View>
+            )}
           </View>
           
           <View style={styles.topCenter}>
@@ -1690,10 +1786,13 @@ const styles = StyleSheet.create({
   loadingText: { padding: 20, textAlign: 'center', color: '#666' },
   topSection: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 16, padding: 20, marginBottom: 16 },
   topLeft: { alignItems: 'center', marginRight: 20 },
-  photoContainer: { width: 120, height: 120, borderRadius: 60, overflow: 'hidden', marginBottom: 8, borderWidth: 3, borderColor: '#000' },
-  photo: { width: '100%', height: '100%' },
-  photoPlaceholder: { width: '100%', height: '100%', backgroundColor: '#eee', justifyContent: 'center', alignItems: 'center' },
-  photoPlaceholderText: { color: '#999', fontSize: 16 },
+  photoContainer: { width: 100, height: 130, borderRadius: 8, overflow: 'hidden', marginBottom: 8, borderWidth: 1, borderColor: '#ddd', position: 'relative', backgroundColor: '#f5f5f5' },
+  photo: { width: '100%', height: '100%', resizeMode: 'cover' },
+  photoPlaceholder: { width: '100%', height: '100%', backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' },
+  photoPlaceholderText: { color: '#999', fontSize: 24 },
+  photoUploadHint: { color: '#666', fontSize: 11, textAlign: 'center', marginTop: 4 },
+  photoEditBadge: { position: 'absolute', bottom: 4, right: 4, backgroundColor: '#000', width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#fff' },
+  photoEditBadgeText: { color: '#fff', fontSize: 14 },
   photoInput: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 8, fontSize: 12, width: 120, textAlign: 'center' },
   topCenter: { flex: 1, justifyContent: 'center' },
   playerFirstName: { fontSize: 28, color: '#666' },

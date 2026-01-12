@@ -13,11 +13,13 @@ export function AdvisorHomeScreen({ navigation }: any) {
   const [profile, setProfile] = useState<AdvisorProfile | null>(null);
   const [playerCount, setPlayerCount] = useState(0);
   const [scoutingCount, setScoutingCount] = useState(0);
-  const [urgentCount, setUrgentCount] = useState(2);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [hoveredNav, setHoveredNav] = useState<string | null>(null);
   const [transferCount, setTransferCount] = useState(0);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+  const [todayGamesCount, setTodayGamesCount] = useState(0);
+  const [tasksAndRemindersCount, setTasksAndRemindersCount] = useState(0);
+  const [networkContactsCount, setNetworkContactsCount] = useState(0);
 
   useEffect(() => {
     fetchProfile();
@@ -25,6 +27,9 @@ export function AdvisorHomeScreen({ navigation }: any) {
     fetchScoutingCount();
     fetchTransferCount();
     fetchPendingRequestsCount();
+    fetchTodayGamesCount();
+    fetchTasksAndRemindersCount();
+    fetchNetworkContactsCount();
   }, []);
 
   const fetchProfile = async () => {
@@ -107,17 +112,90 @@ export function AdvisorHomeScreen({ navigation }: any) {
     setPendingRequestsCount(count || 0);
   };
 
+  const fetchTodayGamesCount = async () => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+    
+    let totalCount = 0;
+    
+    // 1. Spiele aus player_games zählen (date = heute)
+    const { count: gamesCount } = await supabase
+      .from('player_games')
+      .select('*', { count: 'exact', head: true })
+      .eq('date', todayStr);
+    
+    totalCount += gamesCount || 0;
+    
+    // 2. Termine aus termine zählen (heute zwischen datum und datum_ende)
+    const { data: termineData } = await supabase
+      .from('termine')
+      .select('*');
+    
+    if (termineData) {
+      const todayTermineCount = termineData.filter(t => {
+        const terminStart = new Date(t.datum);
+        const terminEnde = t.datum_ende ? new Date(t.datum_ende) : terminStart;
+        const terminStartDay = new Date(terminStart.getFullYear(), terminStart.getMonth(), terminStart.getDate());
+        const terminEndeDay = new Date(terminEnde.getFullYear(), terminEnde.getMonth(), terminEnde.getDate());
+        
+        return terminStartDay <= today && today <= terminEndeDay;
+      }).length;
+      
+      totalCount += todayTermineCount;
+    }
+    
+    setTodayGamesCount(totalCount);
+  };
+
+  const fetchTasksAndRemindersCount = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    
+    let totalCount = 0;
+    
+    // Offene Aufgaben zählen
+    const { count: tasksCount } = await supabase
+      .from('tasks')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('completed', false);
+    
+    totalCount += tasksCount || 0;
+    
+    // Offene Erinnerungen zählen
+    const { count: remindersCount } = await supabase
+      .from('reminders')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('completed', false);
+    
+    totalCount += remindersCount || 0;
+    
+    setTasksAndRemindersCount(totalCount);
+  };
+
+  const fetchNetworkContactsCount = async () => {
+    const { count } = await supabase
+      .from('football_network_contacts')
+      .select('*', { count: 'exact', head: true });
+    
+    setNetworkContactsCount(count || 0);
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
   };
 
-  // Neue Reihenfolge: KMH-Spieler, Transfers, Scouting, Termine (ohne Dashboard)
+  // Sidebar Navigation - alle Bereiche
   const navItems = [
     { id: 'players', label: 'KMH-Spieler', icon: '👤', screen: 'PlayerOverview' },
-    { id: 'transfers', label: 'Transfers', icon: '↔️', screen: 'Transfers' },
+    { id: 'transfers', label: 'Transfers', icon: '🔄', screen: 'Transfers' },
     { id: 'scouting', label: 'Scouting', icon: '🔍', screen: 'Scouting' },
-    { id: 'termine', label: 'Termine', icon: '📅', screen: 'Calendar' },
+    { id: 'network', label: 'Football Network', icon: '💼', screen: 'FootballNetwork' },
+    { id: 'termine', label: 'Spieltage', icon: '📅', screen: 'Calendar' },
+    { id: 'aufgaben', label: 'Aufgaben & Erinnerungen', icon: '✓', screen: 'Tasks' },
   ];
 
   const DashboardCard = ({ 
@@ -210,7 +288,7 @@ export function AdvisorHomeScreen({ navigation }: any) {
           ]}
         >
           <Text style={styles.logoutIcon}>↪</Text>
-          <Text style={styles.logoutText}>Abmelden</Text>
+          <Text style={styles.logoutText}>Logout</Text>
         </Pressable>
       </View>
 
@@ -220,9 +298,9 @@ export function AdvisorHomeScreen({ navigation }: any) {
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>
-              Hallo, {profile?.first_name || 'User'}!
+              Hallo {profile?.first_name || 'User'}
             </Text>
-            <Text style={styles.subGreeting}>Willkommen zurück</Text>
+            <Text style={styles.subGreeting}>Willkommen im Karl M. Herzog Sportmanagement!</Text>
           </View>
           <TouchableOpacity 
             onPress={() => navigation.navigate('MyProfile')}
@@ -244,181 +322,164 @@ export function AdvisorHomeScreen({ navigation }: any) {
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
           <View style={styles.gridContainer}>
             
-            {/* Row 1 - Main Cards */}
+            {/* Row 1 - KMH-Spieler + Transfers + Football Network links, Scouting rechts als Säule */}
             <View style={styles.row}>
-              {/* KMH-Spieler - Large Card */}
-              <DashboardCard 
-                id="players"
-                style={styles.mainCard}
-                onPress={() => navigation.navigate('PlayerOverview')}
-                hoverStyle={styles.mainCardHovered}
-              >
-                <Text style={styles.playerCountTopRight}>{playerCount}</Text>
-                <View style={styles.mainCardContent}>
-                  <View style={styles.mainCardLeft}>
-                    <Text style={styles.mainCardTitle}>KMH-Spieler</Text>
-                    <Text style={styles.mainCardSubtitle}>
-                      Verwaltung aller Daten unserer{'\n'}
-                      aktiven Spieler und Trainer.
-                    </Text>
-                    <View style={styles.mainCardFooter}>
-                      <Text style={styles.mainCardLink}>Zur Übersicht</Text>
-                      <Text style={styles.mainCardArrow}>→</Text>
+              {/* Linke Spalte - KMH-Spieler, Transfers, Football Network */}
+              <View style={styles.leftColumn}>
+                {/* Obere Zeile - KMH-Spieler + Transfers */}
+                <View style={styles.topRow}>
+                  {/* KMH-Spieler - Large Card */}
+                  <DashboardCard 
+                    id="players"
+                    style={styles.mainCard}
+                    onPress={() => navigation.navigate('PlayerOverview')}
+                    hoverStyle={styles.mainCardHovered}
+                  >
+                    <Text style={styles.playerCountTopRight}>{playerCount}</Text>
+                    <Text style={styles.mainCardBackgroundEmoji}>👤</Text>
+                    <View style={styles.mainCardContent}>
+                      <View style={styles.mainCardLeft}>
+                        <Text style={styles.mainCardTitle}>KMH-Spieler</Text>
+                        <Text style={styles.mainCardSubtitle}>
+                          Verwaltung aller Daten unserer{'\n'}
+                          aktiven Spieler und Trainer.
+                        </Text>
+                        <View style={styles.mainCardFooter}>
+                          <Text style={styles.mainCardLink}>Zur Übersicht</Text>
+                          <Text style={styles.mainCardArrow}>→</Text>
+                        </View>
+                      </View>
                     </View>
-                  </View>
-                </View>
-              </DashboardCard>
+                  </DashboardCard>
 
-              {/* Right Column - Scouting & Termine */}
-              <View style={styles.rightColumn}>
-                {/* Scouting Card */}
+                  {/* Transfers Card */}
+                  <DashboardCard 
+                    id="transfers"
+                    style={styles.transferCard}
+                    onPress={() => navigation.navigate('Transfers')}
+                    hoverStyle={styles.lightCardHovered}
+                  >
+                    <View style={styles.transferHeader}>
+                      <View style={styles.transferIcon}>
+                        <Text style={styles.transferIconText}>🔄</Text>
+                      </View>
+                      <Text style={styles.transferCount}>{transferCount}</Text>
+                    </View>
+                    <View style={styles.transferFooter}>
+                      <Text style={styles.transferTitle}>Transfers</Text>
+                      <Text style={styles.transferSubtitle}>Auslaufende Verträge & mögliche Wechsel</Text>
+                    </View>
+                  </DashboardCard>
+                </View>
+
+                {/* Football Network Card - volle Breite unter KMH + Transfers (weiß) */}
                 <DashboardCard 
-                  id="scouting"
-                  style={styles.scoutingCard}
-                  onPress={() => navigation.navigate('Scouting')}
+                  id="network"
+                  style={styles.networkCardWide}
+                  onPress={() => navigation.navigate('FootballNetwork')}
                   hoverStyle={styles.lightCardHovered}
                 >
-                  <View style={styles.scoutingHeader}>
-                    <View style={styles.searchIcon}>
-                      <Text style={styles.searchIconText}>🔍</Text>
+                  <View style={styles.networkWideTop}>
+                    <View style={styles.networkWideIcon}>
+                      <Text style={styles.networkWideIconText}>💼</Text>
                     </View>
-                    <View style={{ flex: 1 }} />
-                    <Text style={styles.scoutingCount}>{scoutingCount}</Text>
-                  </View>
-                  <View style={styles.scoutingFooter}>
-                    <Text style={styles.scoutingTitle}>Scouting</Text>
-                    <Text style={styles.scoutingSubtitle}>Talente im Blick</Text>
-                  </View>
-                </DashboardCard>
-
-                {/* Termine Card - Dark */}
-                <DashboardCard 
-                  id="termine"
-                  style={styles.termineCard}
-                  onPress={() => navigation.navigate('Calendar')}
-                  hoverStyle={styles.darkCardHovered}
-                >
-                  {urgentCount > 0 && (
-                    <View style={styles.urgentBadge}>
-                      <Text style={styles.urgentBadgeText}>{urgentCount} Dringend</Text>
+                    <View style={styles.networkWideTitleContainer}>
+                      <Text style={styles.networkWideTitle}>Football Network</Text>
+                      <Text style={styles.networkWideSubtitle}>Kontakte zu Vereinen und Entscheidern</Text>
                     </View>
-                  )}
-                  <View style={styles.termineIcon}>
-                    <Text style={styles.termineIconText}>📅</Text>
                   </View>
-                  <View style={styles.termineFooter}>
-                    <Text style={styles.termineTitle}>Termine</Text>
-                    <Text style={styles.termineSubtitle}>Meetings & Fristen</Text>
-                  </View>
+                  <Text style={styles.networkWideCount}>{networkContactsCount}</Text>
                 </DashboardCard>
               </View>
 
-              {/* Transfers Card */}
+              {/* Scouting - Säule (Dark) - volle Höhe */}
               <DashboardCard 
-                id="transfers"
-                style={styles.transferCard}
-                onPress={() => navigation.navigate('Transfers')}
-                hoverStyle={styles.lightCardHovered}
+                id="scouting"
+                style={styles.scoutingCardTall}
+                onPress={() => navigation.navigate('Scouting')}
+                hoverStyle={styles.darkCardHovered}
               >
-                <View style={styles.transferHeader}>
-                  <View style={styles.transferIcon}>
-                    <Text style={styles.transferIconText}>🔄</Text>
-                  </View>
-                  <Text style={styles.transferCount}>{transferCount}</Text>
+                <Text style={styles.scoutingTallCount}>{scoutingCount}</Text>
+                <View style={styles.scoutingVerticalTextContainer}>
+                  <Text style={styles.scoutingVerticalText}>S{'\n'}C{'\n'}O{'\n'}U{'\n'}T{'\n'}I{'\n'}N{'\n'}G</Text>
                 </View>
-                <View style={styles.transferFooter}>
-                  <Text style={styles.transferTitle}>Transfers</Text>
-                  <Text style={styles.transferSubtitle}>auslaufende Verträge & mögliche Wechsel</Text>
+                <View style={styles.scoutingTallFooter}>
+                  <Text style={styles.scoutingTallSubtitle}>Talente{'\n'}im Blick</Text>
                 </View>
               </DashboardCard>
             </View>
 
-            {/* Row 2 - Bottom Cards */}
+            {/* Row 2 - Aufgaben & Spieltage */}
             <View style={styles.row}>
-              {/* Football Network */}
-              <DashboardCard 
-                id="network"
-                style={styles.bottomCard}
-                onPress={() => navigation.navigate('FootballNetwork')}
-                hoverStyle={styles.lightCardHovered}
-              >
-                <View style={styles.bottomCardContent}>
-                  <View style={styles.bottomCardIcon}>
-                    <Text style={styles.bottomCardIconText}>⚽</Text>
-                  </View>
-                  <View style={styles.bottomCardText}>
-                    <Text style={styles.bottomCardTitle}>Football Network</Text>
-                    <Text style={styles.bottomCardSubtitle}>Kontakte zu Vereinen und Entscheidern</Text>
-                  </View>
-                </View>
-              </DashboardCard>
-
-              {/* Team & Partner */}
-              <DashboardCard 
-                id="team"
-                style={styles.bottomCard}
-                onPress={() => navigation.navigate('Team')}
-                hoverStyle={styles.lightCardHovered}
-              >
-                <View style={styles.bottomCardContent}>
-                  <View style={styles.bottomCardIcon}>
-                    <Text style={styles.bottomCardIconText}>👥</Text>
-                  </View>
-                  <View style={styles.bottomCardText}>
-                    <Text style={styles.bottomCardTitle}>Team & Partner</Text>
-                    <Text style={styles.bottomCardSubtitle}>Netzwerk</Text>
-                  </View>
-                </View>
-              </DashboardCard>
-            </View>
-
-            {/* Row 3 - Aufgaben & Admin */}
-            <View style={styles.row}>
-              {/* Aufgaben */}
+              {/* Aufgaben - Dark */}
               <DashboardCard 
                 id="aufgaben"
-                style={styles.bottomCard}
+                style={styles.darkBottomCard}
                 onPress={() => navigation.navigate('Tasks')}
-                hoverStyle={styles.lightCardHovered}
+                hoverStyle={styles.darkCardHovered}
               >
-                <View style={styles.bottomCardContent}>
-                  <View style={styles.bottomCardIcon}>
-                    <Text style={styles.bottomCardIconText}>✓</Text>
+                <View style={styles.darkBottomCardContent}>
+                  <View style={styles.darkBottomCardIcon}>
+                    <Text style={styles.darkBottomCardIconText}>✓</Text>
                   </View>
-                  <View style={styles.bottomCardText}>
-                    <Text style={styles.bottomCardTitle}>Aufgaben</Text>
-                    <Text style={styles.bottomCardSubtitle}>To-Dos & Erinnerungen</Text>
+                  <View style={styles.darkBottomCardText}>
+                    <Text style={styles.darkBottomCardTitle}>Aufgaben & Erinnerungen</Text>
+                    <Text style={styles.darkBottomCardSubtitle}>Deine To-Dos & Erinnerungen</Text>
+                  </View>
+                  <View style={styles.darkBottomCardBadge}>
+                    <Text style={styles.darkBottomCardBadgeText}>{tasksAndRemindersCount}</Text>
                   </View>
                 </View>
               </DashboardCard>
 
-              {/* Admin Panel - only if admin */}
-              {profile?.role === 'admin' ? (
+              {/* Spieltage - Dark */}
+              <DashboardCard 
+                id="termine"
+                style={styles.darkBottomCard}
+                onPress={() => navigation.navigate('Calendar')}
+                hoverStyle={styles.darkCardHovered}
+              >
+                <View style={styles.darkBottomCardContent}>
+                  <View style={styles.darkBottomCardIcon}>
+                    <Text style={styles.darkBottomCardIconText}>📅</Text>
+                  </View>
+                  <View style={styles.darkBottomCardText}>
+                    <Text style={styles.darkBottomCardTitle}>Spieltage</Text>
+                    <Text style={styles.darkBottomCardSubtitle}>Lehrgänge, Spiele & Turniere</Text>
+                  </View>
+                  <View style={styles.darkBottomCardBadge}>
+                    <Text style={styles.darkBottomCardBadgeText}>{todayGamesCount}</Text>
+                  </View>
+                </View>
+              </DashboardCard>
+            </View>
+
+            {/* Row 3 - Admin (only if admin) */}
+            {profile?.role === 'admin' && (
+              <View style={styles.adminRow}>
                 <DashboardCard 
                   id="admin"
-                  style={styles.bottomCard}
+                  style={styles.adminCard}
                   onPress={() => navigation.navigate('AdminPanel')}
-                  hoverStyle={styles.lightCardHovered}
+                  hoverStyle={styles.darkCardHovered}
                 >
-                  <View style={styles.bottomCardContent}>
-                    <View style={styles.bottomCardIcon}>
-                      <Text style={styles.bottomCardIconText}>⚙️</Text>
+                  <View style={styles.darkBottomCardContent}>
+                    <View style={styles.darkBottomCardIcon}>
+                      <Text style={styles.darkBottomCardIconText}>⚙️</Text>
                     </View>
-                    <View style={styles.bottomCardText}>
-                      <Text style={styles.bottomCardTitle}>Administration</Text>
-                      <Text style={styles.bottomCardSubtitle}>Benutzer & Rechte</Text>
+                    <View style={styles.darkBottomCardText}>
+                      <Text style={styles.darkBottomCardTitle}>Administration</Text>
+                      <Text style={styles.darkBottomCardSubtitle}>Benutzer & Rechte verwalten</Text>
                     </View>
                     {pendingRequestsCount > 0 && (
-                      <View style={styles.badgeContainer}>
-                        <Text style={styles.badgeText}>{pendingRequestsCount}</Text>
+                      <View style={styles.darkBottomCardBadge}>
+                        <Text style={styles.darkBottomCardBadgeText}>{pendingRequestsCount}</Text>
                       </View>
                     )}
                   </View>
                 </DashboardCard>
-              ) : (
-                <View style={styles.bottomCardPlaceholder} />
-              )}
-            </View>
+              </View>
+            )}
 
           </View>
         </ScrollView>
@@ -510,24 +571,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 10,
     marginTop: 8,
+    backgroundColor: '#fef2f2',
     // @ts-ignore
     cursor: 'pointer',
     // @ts-ignore
     transition: 'all 0.15s ease',
   },
   logoutButtonHovered: {
-    backgroundColor: '#fff5f5',
+    backgroundColor: '#fee2e2',
   },
   logoutIcon: {
     fontSize: 18,
     marginRight: 12,
     width: 24,
     textAlign: 'center',
-    color: '#999',
+    color: '#ef4444',
   },
   logoutText: {
     fontSize: 14,
-    color: '#999',
+    color: '#ef4444',
     fontWeight: '500',
   },
 
@@ -637,6 +699,14 @@ const styles = StyleSheet.create({
     minHeight: 300,
     borderWidth: 1,
     borderColor: '#eee',
+    position: 'relative',
+  },
+  mainCardBackgroundEmoji: {
+    position: 'absolute',
+    right: 20,
+    bottom: -30,
+    fontSize: 150,
+    opacity: 0.08,
   },
   mainCardContent: {
     flex: 1,
@@ -724,6 +794,24 @@ const styles = StyleSheet.create({
     gap: 16,
   },
 
+  // Left Column (KMH + Transfers oben, Scouting unten)
+  leftColumn: {
+    flex: 1,
+    gap: 16,
+  },
+
+  // Top Row innerhalb linker Spalte
+  topRow: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+
+  // Middle Column (Transfers + Scouting)
+  middleColumn: {
+    flex: 1,
+    gap: 16,
+  },
+
   // Scouting Card
   scoutingCard: {
     flex: 1,
@@ -732,6 +820,52 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#eee',
     justifyContent: 'space-between',
+  },
+  scoutingCardWide: {
+    flex: 1,
+    backgroundColor: '#fff',
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#eee',
+    justifyContent: 'space-between',
+    minHeight: 120,
+  },
+  // Scouting Card - Tall (Säule) - Dark
+  scoutingCardTall: {
+    width: 130,
+    backgroundColor: '#1a1a1a',
+    padding: 16,
+    justifyContent: 'flex-start',
+    position: 'relative',
+  },
+  scoutingTallCount: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  scoutingVerticalTextContainer: {
+    alignSelf: 'flex-start',
+  },
+  scoutingVerticalText: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#fff',
+    lineHeight: 34,
+    letterSpacing: 4,
+  },
+  scoutingTallFooter: {
+    position: 'absolute',
+    bottom: 16,
+    left: 16,
+  },
+  scoutingTallSubtitle: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.7)',
+    lineHeight: 17,
   },
   scoutingHeader: {
     flexDirection: 'row',
@@ -766,6 +900,176 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#888',
     marginTop: 4,
+  },
+
+  // Football Network Card - Wide (unter KMH + Transfers) - Light
+  networkCardWide: {
+    flex: 1,
+    backgroundColor: '#fff',
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#eee',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    minHeight: 75,
+  },
+  networkWideTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  networkWideIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  networkWideIconText: {
+    fontSize: 18,
+  },
+  networkWideTitleContainer: {
+    justifyContent: 'flex-start',
+  },
+  networkWideCount: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  networkWideTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  networkWideSubtitle: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 4,
+  },
+
+  // Football Network Card - Dark Säule (alte Version, kann weg)
+  networkCard: {
+    width: 130,
+    backgroundColor: '#1a1a1a',
+    padding: 16,
+    justifyContent: 'space-between',
+    position: 'relative',
+  },
+  networkCount: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  networkVerticalTextContainer: {
+    alignSelf: 'flex-start',
+  },
+  networkVerticalText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fff',
+    lineHeight: 18,
+    letterSpacing: 2,
+  },
+  networkFooter: {
+    marginTop: 'auto',
+  },
+  networkSubtitle: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.6)',
+  },
+  networkIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  networkIconText: {
+    fontSize: 18,
+  },
+  networkFooter: {
+    marginTop: 'auto',
+  },
+  networkTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  networkSubtitle: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.6)',
+    marginTop: 4,
+  },
+
+  // Dark Bottom Cards (Aufgaben, Spieltage, Admin)
+  darkBottomCard: {
+    flex: 1,
+    backgroundColor: '#1a1a1a',
+    padding: 16,
+    justifyContent: 'center',
+    minHeight: 70,
+  },
+  darkBottomCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  darkBottomCardIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  darkBottomCardIconText: {
+    fontSize: 16,
+  },
+  darkBottomCardText: {
+    flex: 1,
+  },
+  darkBottomCardTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  darkBottomCardSubtitle: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.6)',
+    marginTop: 2,
+  },
+  darkBottomCardBadge: {
+    backgroundColor: '#ff6b6b',
+    borderRadius: 16,
+    minWidth: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+  },
+  darkBottomCardBadgeText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+
+  // Admin Card - Dark, full width
+  adminCard: {
+    flex: 1,
+    backgroundColor: '#1a1a1a',
+    padding: 16,
+    justifyContent: 'center',
+    minHeight: 70,
+  },
+  adminRow: {
+    flexDirection: 'row',
+    marginBottom: 16,
   },
 
   // Termine Card - Dark
@@ -828,7 +1132,7 @@ const styles = StyleSheet.create({
   transferIcon: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 8,
     backgroundColor: '#f5f5f5',
     justifyContent: 'center',
     alignItems: 'center',
@@ -845,7 +1149,7 @@ const styles = StyleSheet.create({
     marginTop: 'auto',
   },
   transferTitle: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '700',
     color: '#1a1a1a',
   },

@@ -258,6 +258,11 @@ export function ScoutingScreen({ navigation }: any) {
   // Edit game dropdowns
   const [showEditGameTypePicker, setShowEditGameTypePicker] = useState(false);
   const [showEditAgeGroupPicker, setShowEditAgeGroupPicker] = useState(false);
+  
+  // Confirm Modal State
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmModalMessage, setConfirmModalMessage] = useState('');
+  const [confirmModalCallback, setConfirmModalCallback] = useState<(() => void) | null>(null);
   const [showEditDatePicker, setShowEditDatePicker] = useState(false);
   const [editDatePart, setEditDatePart] = useState<'day' | 'month' | 'year' | null>(null);
   
@@ -628,10 +633,16 @@ export function ScoutingScreen({ navigation }: any) {
       
       message += '\nTrotzdem anlegen?';
       
-      const confirmAdd = window.confirm(message);
-      if (!confirmAdd) return;
+      setConfirmModalMessage(message);
+      setConfirmModalCallback(() => () => doAddScoutedPlayer());
+      setShowConfirmModal(true);
+      return;
     }
     
+    await doAddScoutedPlayer();
+  };
+  
+  const doAddScoutedPlayer = async () => {
     // Try to fetch agent if transfermarkt URL is provided
     let agentName = newPlayer.agent_name;
     if (newPlayer.transfermarkt_url && !agentName) {
@@ -1058,10 +1069,18 @@ export function ScoutingScreen({ navigation }: any) {
       
       message += '\nTrotzdem übernehmen?';
       
-      const confirmAdd = window.confirm(message);
-      if (!confirmAdd) return;
+      setConfirmModalMessage(message);
+      setConfirmModalCallback(() => () => doTransferToPlayers());
+      setShowConfirmModal(true);
+      return;
     }
 
+    await doTransferToPlayers();
+  };
+  
+  const doTransferToPlayers = async () => {
+    if (!selectedPlayer) return;
+    
     // Spieler in player_details-Tabelle einfügen
     // birth_date: Falls nur Jahrgang (z.B. "2005"), nicht übernehmen (null)
     let birthDate = selectedPlayer.birth_date;
@@ -3082,6 +3101,37 @@ export function ScoutingScreen({ navigation }: any) {
           </View>
         </View>
       </Modal>
+      
+      {/* Confirm Modal */}
+      <Modal visible={showConfirmModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.confirmModalContent}>
+            <Text style={styles.confirmModalTitle}>Bestätigung</Text>
+            <Text style={styles.confirmModalMessage}>{confirmModalMessage}</Text>
+            <View style={styles.confirmModalButtons}>
+              <TouchableOpacity 
+                style={styles.confirmModalCancelButton} 
+                onPress={() => {
+                  setShowConfirmModal(false);
+                  setConfirmModalCallback(null);
+                }}
+              >
+                <Text style={styles.confirmModalCancelText}>Abbrechen</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.confirmModalOkButton} 
+                onPress={() => {
+                  setShowConfirmModal(false);
+                  if (confirmModalCallback) confirmModalCallback();
+                  setConfirmModalCallback(null);
+                }}
+              >
+                <Text style={styles.confirmModalOkText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Pressable>
   );
 }
@@ -3209,6 +3259,17 @@ const styles = StyleSheet.create({
   clubDropdownText: { fontSize: 14, color: '#333' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalOverlayTop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', zIndex: 9999 },
+  
+  // Confirm Modal Styles
+  confirmModalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 450 },
+  confirmModalTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a1a', marginBottom: 16 },
+  confirmModalMessage: { fontSize: 14, color: '#475569', lineHeight: 22, whiteSpace: 'pre-line' },
+  confirmModalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 24 },
+  confirmModalCancelButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#f1f5f9' },
+  confirmModalCancelText: { fontSize: 14, color: '#64748b', fontWeight: '500' },
+  confirmModalOkButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#1a1a1a' },
+  confirmModalOkText: { fontSize: 14, color: '#fff', fontWeight: '500' },
+  
   modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 600, maxHeight: '90%', zIndex: 1 },
   modalContentLarge: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 800, maxHeight: '90%', zIndex: 1 },
   modalTitle: { fontSize: 20, fontWeight: '700', color: '#1a1a1a' },

@@ -88,6 +88,10 @@ export function TermineScreen({ navigation }: any) {
   const [playerGames, setPlayerGames] = useState<PlayerGame[]>([]);
   const [clubLogos, setClubLogos] = useState<Record<string, string>>({});
   const [gamesSearchText, setGamesSearchText] = useState('');
+  const [termineSearchText, setTermineSearchText] = useState('');
+  const [showTermineArchiv, setShowTermineArchiv] = useState(false);
+  const [termineJahrgangFilter, setTermineJahrgangFilter] = useState<string[]>([]);
+  const [showTermineJahrgangDropdown, setShowTermineJahrgangDropdown] = useState(false);
   const [selectedResponsibilities, setSelectedResponsibilities] = useState<string[]>([]);
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [showResponsibilityDropdown, setShowResponsibilityDropdown] = useState(false);
@@ -112,7 +116,56 @@ export function TermineScreen({ navigation }: any) {
   const [formJahrgang, setFormJahrgang] = useState('');
   const [formOrt, setFormOrt] = useState('');
   const [formUebernahme, setFormUebernahme] = useState('');
+  
+  // Modal Dropdown States
+  const [showDatumDropdown, setShowDatumDropdown] = useState<'day' | 'month' | 'year' | null>(null);
+  const [showDatumEndeDropdown, setShowDatumEndeDropdown] = useState<'day' | 'month' | 'year' | null>(null);
+  const [showJahrgangDropdown, setShowJahrgangDropdown] = useState(false);
+  const [showUebernahmeDropdown, setShowUebernahmeDropdown] = useState(false);
 
+  const closeAllModalDropdowns = () => {
+    setShowDatumDropdown(null);
+    setShowDatumEndeDropdown(null);
+    setShowJahrgangDropdown(false);
+    setShowUebernahmeDropdown(false);
+  };
+
+  // Datum Helper-Funktionen
+  const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
+  const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+  const FORM_YEARS = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() + i);
+
+  const parseDateToParts = (dateString: string): { day: number; month: number; year: number } | null => {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return null;
+    return { day: date.getDate(), month: date.getMonth(), year: date.getFullYear() };
+  };
+
+  const buildDateFromParts = (day: number, month: number, year: number): string => {
+    if (!day || month === undefined || month === null || !year) return '';
+    const paddedMonth = (month + 1).toString().padStart(2, '0');
+    const paddedDay = day.toString().padStart(2, '0');
+    return `${year}-${paddedMonth}-${paddedDay}`;
+  };
+
+  const updateFormDatumPart = (part: 'day' | 'month' | 'year', value: number) => {
+    const current = parseDateToParts(formDatum) || { day: 1, month: 0, year: new Date().getFullYear() };
+    if (part === 'day') current.day = value;
+    if (part === 'month') current.month = value;
+    if (part === 'year') current.year = value;
+    setFormDatum(buildDateFromParts(current.day, current.month, current.year));
+    setShowDatumDropdown(null);
+  };
+
+  const updateFormDatumEndePart = (part: 'day' | 'month' | 'year', value: number) => {
+    const current = parseDateToParts(formDatumEnde) || { day: 1, month: 0, year: new Date().getFullYear() };
+    if (part === 'day') current.day = value;
+    if (part === 'month') current.month = value;
+    if (part === 'year') current.year = value;
+    setFormDatumEnde(buildDateFromParts(current.day, current.month, current.year));
+    setShowDatumEndeDropdown(null);
+  };
   useEffect(() => { 
     fetchProfile(); 
     fetchAdvisors(); 
@@ -237,11 +290,13 @@ export function TermineScreen({ navigation }: any) {
     else { setShowEditModal(false); setSelectedTermin(null); resetForm(); fetchTermine(); }
   };
 
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
   const handleDeleteTermin = async () => {
     if (!selectedTermin) return;
     const { error } = await supabase.from('termine').delete().eq('id', selectedTermin.id);
     if (error) { alert('Fehler: ' + error.message); } 
-    else { setShowEditModal(false); setSelectedTermin(null); fetchTermine(); }
+    else { setShowDeleteConfirm(false); setShowEditModal(false); setSelectedTermin(null); fetchTermine(); }
   };
 
   const handleDFBSync = async () => {
@@ -366,6 +421,15 @@ export function TermineScreen({ navigation }: any) {
     return new Date(dateString) < now;
   };
   
+  const isTerminCurrentlyRunning = (termin: Termin): boolean => {
+    const now = new Date();
+    const startDate = new Date(termin.datum);
+    const endDate = termin.datum_ende ? new Date(termin.datum_ende) : startDate;
+    // Setze endDate auf Ende des Tages
+    endDate.setHours(23, 59, 59, 999);
+    return startDate <= now && endDate >= now;
+  };
+  
   const isTerminToday = (termin: Termin): boolean => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -379,12 +443,22 @@ export function TermineScreen({ navigation }: any) {
            (startDate <= today && endDate >= today);
   };
   
-  const getUpcomingTermineCount = (): number => termine.filter(t => new Date(t.datum) >= new Date()).length;
+  const getUpcomingTermineCount = (): number => termine.filter(t => !isTerminPast(t.datum, t.datum_ende)).length;
   const getUrgentTermineCount = (): number => { 
     const now = new Date(); 
     const in7Days = new Date(now.getTime() + 7*24*60*60*1000); 
     return termine.filter(t => { const d = new Date(t.datum); return d >= now && d <= in7Days; }).length; 
   };
+  
+  const getLocalDFBCount = (): number => termine.filter(t => 
+    !isTerminPast(t.datum, t.datum_ende) && 
+    (t.art === 'DFB-Maßnahme' || t.art === 'DFB-Spiel' || t.art === 'DFB' || t.art === 'Nationalmannschaft')
+  ).length;
+  
+  const getLocalHallenCount = (): number => termine.filter(t => 
+    !isTerminPast(t.datum, t.datum_ende) && 
+    (t.art === 'Hallenturnier' || t.art === 'Hallen')
+  ).length;
 
   const getDisplayArt = (art: string): string => {
     if (art === 'DFB-Maßnahme' || art === 'DFB-Spiel' || art === 'DFB' || art === 'Nationalmannschaft') {
@@ -668,11 +742,33 @@ export function TermineScreen({ navigation }: any) {
     return diffDays >= 0 && diffDays <= 7;
   };
 
+  // Heutige Spiele zählen
+  const getTodayGamesCount = (): number => {
+    const today = new Date().toISOString().split('T')[0];
+    return playerGames.filter(g => g.date === today).length;
+  };
+
+  // Heutige Termine zählen
+  const getTodayTermineCount = (): number => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    return termine.filter(t => {
+      const terminStart = new Date(t.datum);
+      const terminEnde = t.datum_ende ? new Date(t.datum_ende) : terminStart;
+      const terminStartDay = new Date(terminStart.getFullYear(), terminStart.getMonth(), terminStart.getDate());
+      const terminEndeDay = new Date(terminEnde.getFullYear(), terminEnde.getMonth(), terminEnde.getDate());
+      
+      return terminStartDay <= today && today <= terminEndeDay;
+    }).length;
+  };
+
   const renderDashboard = () => (
     <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
       <View style={styles.gridContainer}>
         <View style={styles.row}>
           <DashboardCard id="spiele" style={styles.mainCard} onPress={() => setViewMode('spiele')} hoverStyle={styles.mainCardHovered}>
+            <Text style={styles.todayCountTopRight}>{getTodayGamesCount()}</Text>
             <View style={styles.mainCardContent}>
               <View style={styles.mainCardLeft}>
                 <Text style={styles.mainCardTitle}>Spiele unserer Spieler</Text>
@@ -688,33 +784,19 @@ export function TermineScreen({ navigation }: any) {
                 </View>
               </View>
               <View style={styles.mainCardRight}>
-                <Text style={styles.mainCardIcon}>⚽</Text>
-                {playersWithUrl.length > 0 && (
-                  <Text style={styles.playerCountBadge}>{playersWithUrl.length} Spieler</Text>
-                )}
               </View>
             </View>
           </DashboardCard>
-          <View style={styles.rightColumn}>
-            <DashboardCard id="termine" style={styles.termineCard} onPress={() => setViewMode('termine')} hoverStyle={styles.lightCardHovered}>
-              <View style={styles.termineHeader}>
-                <View style={styles.termineIcon}><Text style={styles.termineIconText}>📋</Text></View>
-                <Text style={styles.termineCount}>{getUpcomingTermineCount()}</Text>
-              </View>
-              <View style={styles.termineFooter}>
-                <Text style={styles.termineTitle}>Weitere Termine</Text>
-                <Text style={styles.termineSubtitle}>Meetings & Lehrgänge</Text>
-              </View>
-            </DashboardCard>
-            <DashboardCard id="kalender" style={styles.kalenderCard} onPress={() => setViewMode('kalender')} hoverStyle={styles.darkCardHovered}>
-              {getUrgentTermineCount() > 0 && <View style={styles.urgentBadge}><Text style={styles.urgentBadgeText}>{getUrgentTermineCount()} diese Woche</Text></View>}
-              <View style={styles.kalenderIcon}><Text style={styles.kalenderIconText}>📅</Text></View>
-              <View style={styles.kalenderFooter}>
-                <Text style={styles.kalenderTitle}>Kalender</Text>
-                <Text style={styles.kalenderSubtitle}>Übersicht & Export</Text>
-              </View>
-            </DashboardCard>
-          </View>
+          <DashboardCard id="termine" style={styles.termineCardFull} onPress={() => setViewMode('termine')} hoverStyle={styles.lightCardHovered}>
+            <Text style={styles.todayCountTopRight}>{getTodayTermineCount()}</Text>
+            <View style={styles.termineHeader}>
+              <View style={styles.termineIcon}><Text style={styles.termineIconText}>📋</Text></View>
+            </View>
+            <View style={styles.termineFooter}>
+              <Text style={styles.termineTitle}>Weitere Termine</Text>
+              <Text style={styles.termineSubtitle}>Lehrgänge, Sichtungen und Turniere</Text>
+            </View>
+          </DashboardCard>
         </View>
       </View>
     </ScrollView>
@@ -748,13 +830,13 @@ export function TermineScreen({ navigation }: any) {
       <View style={styles.scoutingMainContent}>
         {/* Header Banner */}
         <Pressable style={styles.scoutingHeaderBanner} onPress={closeAllGameDropdowns}>
-          <TouchableOpacity style={styles.scoutingFilterButton} onPress={() => setViewMode('dashboard')}>
-            <Text style={styles.scoutingFilterButtonText}>← Zurück</Text>
+          <TouchableOpacity style={styles.backButton} onPress={() => setViewMode('dashboard')}>
+            <Text style={styles.backButtonText}>← Zurück</Text>
           </TouchableOpacity>
           <View style={styles.scoutingHeaderBannerCenter}>
             <Text style={styles.scoutingTitle}>Spiele unserer Spieler</Text>
             <Text style={styles.scoutingSubtitle}>
-              {playersWithUrl.length} Spieler mit fussball.de URL • {playerGames.length} Spiele geladen
+              {playersWithUrl.length} Spieler • {playerGames.length} Spiele geladen
             </Text>
           </View>
           <View style={styles.headerButtonsRow}>
@@ -771,7 +853,7 @@ export function TermineScreen({ navigation }: any) {
               <Text style={styles.scoutingFilterButtonText}>
                 {syncingGames 
                   ? (syncProgress ? `⏳ ${syncProgress.current}/${syncProgress.total}` : '⏳ Lädt...') 
-                  : '🔄 Spiele laden'}
+                  : 'Aktualisieren'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -807,6 +889,7 @@ export function TermineScreen({ navigation }: any) {
             <TextInput 
               style={styles.scoutingSearchInput} 
               placeholder="Spieler, Verein suchen..." 
+              placeholderTextColor="#9ca3af"
               value={gamesSearchText} 
               onChangeText={setGamesSearchText}
               onFocus={closeAllGameDropdowns}
@@ -944,10 +1027,10 @@ export function TermineScreen({ navigation }: any) {
                       <Text style={styles.scoutingEmptyIcon}>⚽</Text>
                       <Text style={styles.scoutingEmptyTitle}>Noch keine Spiele geladen</Text>
                       <Text style={styles.scoutingEmptyText}>
-                        Klicke auf "🔄 Spiele laden" um die Spielpläne{'\n'}von fussball.de zu synchronisieren.
+                        Klicke auf "Aktualisieren" um die Spielpläne{'\n'}von fussball.de zu synchronisieren.
                       </Text>
                       <TouchableOpacity style={styles.emptyStateButton} onPress={handleSyncGames}>
-                        <Text style={styles.emptyStateButtonText}>🔄 Jetzt Spiele laden</Text>
+                        <Text style={styles.emptyStateButtonText}>Jetzt aktualisieren</Text>
                       </TouchableOpacity>
                     </>
                   ) : (
@@ -1016,29 +1099,165 @@ export function TermineScreen({ navigation }: any) {
   };
 
   const renderWeitereTermine = () => {
-    const sortedTermine = getSortedTermine();
-    const dfbCount = getDFBTermineCount();
-    const hallenCount = getHallenTermineCount();
+    // Alle Termine holen
+    const allTermine = getSortedTermine();
+    
+    // Vergangene Termine für Archiv
+    const archivTermine = allTermine
+      .filter(t => isTerminPast(t.datum, t.datum_ende))
+      .filter(t => {
+        if (!termineSearchText) return true;
+        const search = termineSearchText.toLowerCase();
+        return (
+          t.titel?.toLowerCase().includes(search) ||
+          t.ort?.toLowerCase().includes(search) ||
+          t.art?.toLowerCase().includes(search) ||
+          t.jahrgang?.toLowerCase().includes(search)
+        );
+      })
+      .filter(t => {
+        if (termineJahrgangFilter.length === 0) return true;
+        return termineJahrgangFilter.includes(t.jahrgang || '');
+      });
+    
+    // Aktuelle/zukünftige Termine
+    const filteredTermine = allTermine
+      .filter(t => !isTerminPast(t.datum, t.datum_ende))
+      .filter(t => {
+        if (!termineSearchText) return true;
+        const search = termineSearchText.toLowerCase();
+        return (
+          t.titel?.toLowerCase().includes(search) ||
+          t.ort?.toLowerCase().includes(search) ||
+          t.art?.toLowerCase().includes(search) ||
+          t.jahrgang?.toLowerCase().includes(search)
+        );
+      })
+      .filter(t => {
+        if (termineJahrgangFilter.length === 0) return true;
+        return termineJahrgangFilter.includes(t.jahrgang || '');
+      });
+    
+    const dfbCount = getLocalDFBCount();
+    const hallenCount = getLocalHallenCount();
+    
+    // Verfügbare Jahrgänge aus allen Terminen
+    const availableJahrgaenge = Array.from(new Set(allTermine.map(t => t.jahrgang).filter(Boolean))) as string[];
+    
+    const displayTermine = showTermineArchiv ? archivTermine : filteredTermine;
+    
+    const getJahrgangFilterLabel = () => {
+      if (termineJahrgangFilter.length === 0) return 'Jahrgang';
+      if (termineJahrgangFilter.length === 1) return termineJahrgangFilter[0];
+      return `${termineJahrgangFilter.length} Jahrgänge`;
+    };
+
+    const toggleJahrgangFilter = (jg: string) => {
+      setTermineJahrgangFilter(prev => 
+        prev.includes(jg) ? prev.filter(j => j !== jg) : [...prev, jg]
+      );
+    };
     
     return (
       <View style={styles.scoutingMainContent}>
         <View style={styles.scoutingHeaderBanner}>
-          <TouchableOpacity style={styles.scoutingFilterButton} onPress={() => setViewMode('dashboard')}>
-            <Text style={styles.scoutingFilterButtonText}>← Zurück</Text>
+          <TouchableOpacity style={styles.backButton} onPress={() => setViewMode('dashboard')}>
+            <Text style={styles.backButtonText}>← Zurück</Text>
           </TouchableOpacity>
           <View style={styles.scoutingHeaderBannerCenter}>
             <Text style={styles.scoutingTitle}>Weitere Termine</Text>
-            <Text style={styles.scoutingSubtitle}>{dfbCount} DFB-Nationalmannschaftstermine & {hallenCount} Hallenturniere</Text>
+            <Text style={styles.scoutingSubtitle}>{dfbCount} Lehrgänge & Sichtungen • {hallenCount} Turniere</Text>
           </View>
           <View style={styles.termineHeaderButtons}>
             <TouchableOpacity onPress={() => setShowSyncModal(true)} style={styles.scoutingFilterButton}>
-              <Text style={styles.scoutingFilterButtonText}>🔄 Aktualisieren</Text>
+              <Text style={styles.scoutingFilterButtonText}>Aktualisieren</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Suchleiste mit Jahrgang-Filter, Archiv und Neuer Termin */}
+        <Pressable style={styles.scoutingToolbar} onPress={() => setShowTermineJahrgangDropdown(false)}>
+          <View style={styles.spieleSearchContainer}>
+            <Text style={styles.scoutingSearchIcon}>🔍</Text>
+            <TextInput 
+              style={styles.scoutingSearchInput} 
+              placeholder="Event, Ort, Art suchen..." 
+              placeholderTextColor="#9ca3af"
+              value={termineSearchText} 
+              onChangeText={setTermineSearchText}
+              onFocus={() => setShowTermineJahrgangDropdown(false)}
+            />
+          </View>
+          
+          <View style={styles.scoutingFilterContainer}>
+            {/* Jahrgang Filter */}
+            <View style={[styles.scoutingDropdownContainer, { zIndex: 40 }]}>
+              <TouchableOpacity 
+                style={[styles.scoutingFilterButton, termineJahrgangFilter.length > 0 && styles.scoutingFilterButtonActive]} 
+                onPress={(e) => { e.stopPropagation(); setShowTermineJahrgangDropdown(!showTermineJahrgangDropdown); }}
+              >
+                <Text style={[styles.scoutingFilterButtonText, termineJahrgangFilter.length > 0 && styles.scoutingFilterButtonTextActive]}>
+                  {getJahrgangFilterLabel()} ▼
+                </Text>
+              </TouchableOpacity>
+              {showTermineJahrgangDropdown && (
+                <Pressable style={styles.scoutingFilterDropdownMulti} onPress={(e) => e.stopPropagation()}>
+                  <View style={styles.scoutingFilterDropdownHeader}>
+                    <Text style={styles.scoutingFilterDropdownTitle}>Jahrgang wählen</Text>
+                    {termineJahrgangFilter.length > 0 && (
+                      <TouchableOpacity onPress={() => setTermineJahrgangFilter([])}>
+                        <Text style={styles.scoutingFilterClearText}>Alle löschen</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
+                    {availableJahrgaenge.length === 0 ? (
+                      <Text style={styles.scoutingNoDataText}>Keine Jahrgänge vorhanden</Text>
+                    ) : (
+                      availableJahrgaenge.sort().map(jg => {
+                        const isSelected = termineJahrgangFilter.includes(jg);
+                        const count = displayTermine.filter(t => t.jahrgang === jg).length;
+                        return (
+                          <TouchableOpacity key={jg} style={styles.scoutingFilterCheckboxItem} onPress={() => toggleJahrgangFilter(jg)}>
+                            <View style={[styles.scoutingCheckbox, isSelected && styles.scoutingCheckboxSelected]}>
+                              {isSelected && <Text style={styles.scoutingCheckmark}>✓</Text>}
+                            </View>
+                            <Text style={styles.scoutingFilterCheckboxText}>{jg}</Text>
+                            <Text style={styles.scoutingFilterCountBadge}>{count}</Text>
+                          </TouchableOpacity>
+                        );
+                      })
+                    )}
+                  </ScrollView>
+                  <TouchableOpacity style={styles.scoutingFilterDoneButton} onPress={() => setShowTermineJahrgangDropdown(false)}>
+                    <Text style={styles.scoutingFilterDoneText}>Fertig</Text>
+                  </TouchableOpacity>
+                </Pressable>
+              )}
+            </View>
+
+            {/* Anstehend / Archiv Toggle + Neuer Termin */}
+            <TouchableOpacity 
+              onPress={() => setShowTermineArchiv(false)} 
+              style={[styles.scoutingFilterButton, !showTermineArchiv && styles.scoutingFilterButtonActive]}
+            >
+              <Text style={[styles.scoutingFilterButtonText, !showTermineArchiv && styles.scoutingFilterButtonTextActive]}>
+                Anstehend ({filteredTermine.length})
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={() => setShowTermineArchiv(true)} 
+              style={[styles.scoutingFilterButton, showTermineArchiv && styles.scoutingFilterButtonActive]}
+            >
+              <Text style={[styles.scoutingFilterButtonText, showTermineArchiv && styles.scoutingFilterButtonTextActive]}>
+                Archiv ({archivTermine.length})
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={openAddModal} style={styles.scoutingFilterButton}>
               <Text style={styles.scoutingFilterButtonText}>+ Neuer Termin</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </Pressable>
 
         <View style={styles.scoutingContent}>
           <View style={styles.scoutingGamesContainer}>
@@ -1055,17 +1274,26 @@ export function TermineScreen({ navigation }: any) {
             <ScrollView>
               {loading ? (
                 <Text style={styles.loadingText}>Laden...</Text>
-              ) : sortedTermine.length === 0 ? (
+              ) : displayTermine.length === 0 ? (
                 <View style={styles.scoutingEmptyState}>
-                  <Text style={styles.scoutingEmptyText}>Keine Termine vorhanden</Text>
-                  <TouchableOpacity onPress={() => setShowSyncModal(true)} style={[styles.scoutingFilterButton, { marginTop: 16 }]}>
-                    <Text style={styles.scoutingFilterButtonText}>DFB & Hallen-Termine laden</Text>
-                  </TouchableOpacity>
+                  <Text style={styles.scoutingEmptyText}>
+                    {termineSearchText || termineJahrgangFilter.length > 0 
+                      ? 'Keine Treffer gefunden' 
+                      : showTermineArchiv 
+                        ? 'Keine vergangenen Termine' 
+                        : 'Keine Termine vorhanden'
+                    }
+                  </Text>
+                  {!termineSearchText && !showTermineArchiv && termineJahrgangFilter.length === 0 && (
+                    <TouchableOpacity onPress={() => setShowSyncModal(true)} style={[styles.scoutingFilterButton, { marginTop: 16 }]}>
+                      <Text style={styles.scoutingFilterButtonText}>DFB & Hallen-Termine laden</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               ) : (
-                sortedTermine.map((termin) => {
-                  const isPast = isTerminPast(termin.datum, termin.datum_ende);
-                  const isToday = isTerminToday(termin);
+                displayTermine.map((termin) => {
+                  const isRunning = isTerminCurrentlyRunning(termin);
+                  const isPast = showTermineArchiv;
                   const isNM = isNationalmannschaft(termin);
                   const isHT = isHallenturnier(termin);
                   const time = formatTime(termin.datum);
@@ -1075,18 +1303,18 @@ export function TermineScreen({ navigation }: any) {
                       key={termin.id} 
                       style={[
                         styles.termineTableRow, 
-                        isPast && styles.termineTableRowPast,
-                        isToday && !isPast && styles.termineTableRowToday
+                        isRunning && !isPast && styles.termineTableRowRunning,
+                        isPast && styles.termineTableRowArchiv
                       ]} 
                       onPress={() => openEditModal(termin)}
                     >
-                      <Text style={[styles.termineTableCell, styles.termineColDatum, isPast && styles.termineCellPast]}>{formatDate(termin)}</Text>
-                      <Text style={[styles.termineTableCell, styles.termineColZeit, isPast && styles.termineCellPast]}>{time || '-'}</Text>
+                      <Text style={[styles.termineTableCell, styles.termineColDatum, isPast && styles.termineCellArchiv]}>{formatDate(termin)}</Text>
+                      <Text style={[styles.termineTableCell, styles.termineColZeit, isPast && styles.termineCellArchiv]}>{time || '-'}</Text>
                       <View style={styles.termineColArt}>
                         <View style={[
                           styles.artBadge, 
                           isNM ? styles.artNationalmannschaft : isHT ? styles.artHallenturnier : styles.artSonstige,
-                          isPast && styles.artBadgePast
+                          isPast && styles.artBadgeArchiv
                         ]}>
                           <Text style={[
                             styles.artBadgeText, 
@@ -1096,10 +1324,10 @@ export function TermineScreen({ navigation }: any) {
                           </Text>
                         </View>
                       </View>
-                      <Text style={[styles.termineTableCell, styles.termineColTitel, isPast && styles.termineCellPast]} numberOfLines={1}>{termin.titel}</Text>
-                      <Text style={[styles.termineTableCell, styles.termineColJahrgang, isPast && styles.termineCellPast]}>{termin.jahrgang || '-'}</Text>
-                      <Text style={[styles.termineTableCell, styles.termineColOrt, isPast && styles.termineCellPast]} numberOfLines={1}>{termin.ort || '-'}</Text>
-                      <Text style={[styles.termineTableCell, styles.termineColUebernahme, isPast && styles.termineCellPast]}>{getAdvisorName(termin.uebernahme_advisor_id)}</Text>
+                      <Text style={[styles.termineTableCell, styles.termineColTitel, isPast && styles.termineCellArchiv]} numberOfLines={1}>{termin.titel}</Text>
+                      <Text style={[styles.termineTableCell, styles.termineColJahrgang, isPast && styles.termineCellArchiv]}>{termin.jahrgang || '-'}</Text>
+                      <Text style={[styles.termineTableCell, styles.termineColOrt, isPast && styles.termineCellArchiv]} numberOfLines={1}>{termin.ort || '-'}</Text>
+                      <Text style={[styles.termineTableCell, styles.termineColUebernahme, isPast && styles.termineCellArchiv]}>{getAdvisorName(termin.uebernahme_advisor_id)}</Text>
                     </TouchableOpacity>
                   );
                 })
@@ -1127,69 +1355,246 @@ export function TermineScreen({ navigation }: any) {
 
   const renderAddEditModal = (isEdit: boolean) => {
     const showModal = isEdit ? showEditModal : showAddModal;
+    const datumParts = parseDateToParts(formDatum);
+    const datumEndeParts = parseDateToParts(formDatumEnde);
+    
     return (
       <Modal visible={showModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <ScrollView contentContainerStyle={styles.modalScrollContent}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>{isEdit ? 'Termin bearbeiten' : 'Neuer Termin'}</Text>
-              <View style={styles.formRow}>
-                <View style={styles.formThird}>
-                  <Text style={styles.formLabel}>Datum *</Text>
-                  <TextInput style={styles.formInput} value={formDatum} onChangeText={setFormDatum} placeholder="YYYY-MM-DD" />
-                </View>
-                <View style={styles.formThird}>
-                  <Text style={styles.formLabel}>Datum bis</Text>
-                  <TextInput style={styles.formInput} value={formDatumEnde} onChangeText={setFormDatumEnde} placeholder="YYYY-MM-DD" />
-                </View>
-                <View style={styles.formThird}>
-                  <Text style={styles.formLabel}>Zeit</Text>
-                  <TextInput style={styles.formInput} value={formZeit} onChangeText={setFormZeit} placeholder="HH:MM" />
-                </View>
-              </View>
-              <Text style={styles.formLabel}>Art *</Text>
-              <View style={styles.artSelector}>
-                {TERMIN_ARTEN.map((art) => (
-                  <TouchableOpacity key={art} style={[styles.artOption, formArt === art && styles.artOptionSelected]} onPress={() => setFormArt(art)}>
-                    <Text style={[styles.artOptionText, formArt === art && styles.artOptionTextSelected]}>{art}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <Text style={styles.formLabel}>Beschreibung *</Text>
-              <TextInput style={styles.formInput} value={formTitel} onChangeText={setFormTitel} placeholder="z.B. Lehrgang, Meeting, ..." />
-              <Text style={styles.formLabel}>Jahrgang</Text>
-              <View style={styles.selectWrapper}>
-                <select style={styles.selectInput as any} value={formJahrgang} onChange={(e: any) => setFormJahrgang(e.target.value)}>
-                  <option value="">- Kein Jahrgang -</option>
-                  {JAHRGAENGE.map((jg) => (<option key={jg} value={jg}>{jg}</option>))}
-                </select>
-              </View>
-              <Text style={styles.formLabel}>Ort</Text>
-              <TextInput style={styles.formInput} value={formOrt} onChangeText={setFormOrt} placeholder="z.B. Frankfurt, DFB-Campus..." />
-              <Text style={styles.formLabel}>Übernahme durch</Text>
-              <View style={styles.selectWrapper}>
-                <select style={styles.selectInput as any} value={formUebernahme} onChange={(e: any) => setFormUebernahme(e.target.value)}>
-                  <option value="">- Keine Auswahl -</option>
-                  {advisors.map((adv) => (<option key={adv.id} value={adv.id}>{adv.first_name} {adv.last_name}</option>))}
-                </select>
-              </View>
-              <View style={styles.modalButtons}>
-                {isEdit && (
-                  <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteTermin}>
-                    <Text style={styles.deleteButtonText}>Löschen</Text>
-                  </TouchableOpacity>
+        <Pressable style={styles.modalOverlay} onPress={() => { closeAllModalDropdowns(); }}>
+          <Pressable style={styles.modalContent} onPress={() => closeAllModalDropdowns()}>
+            <Text style={styles.modalTitle}>{isEdit ? 'Termin bearbeiten' : 'Neuer Termin'}</Text>
+            
+            {/* Datum Von */}
+            <Text style={styles.formLabel}>Datum von *</Text>
+            <View style={[styles.formRow, { zIndex: 100 }]}>
+              <View style={[styles.formThird, styles.dropdownWrapper]}>
+                <TouchableOpacity 
+                  style={styles.dropdownButton} 
+                  onPress={(e) => { e.stopPropagation(); closeAllModalDropdowns(); setShowDatumDropdown(showDatumDropdown === 'day' ? null : 'day'); }}
+                >
+                  <Text style={styles.dropdownButtonText}>{datumParts?.day || 'Tag'}</Text>
+                  <Text style={styles.dropdownArrow}>▼</Text>
+                </TouchableOpacity>
+                {showDatumDropdown === 'day' && (
+                  <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                    {DAYS.map(d => (
+                      <TouchableOpacity key={d} style={styles.dropdownItem} onPress={() => updateFormDatumPart('day', d)}>
+                        <Text style={styles.dropdownItemText}>{d}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
                 )}
-                <View style={{ flex: 1 }} />
-                <TouchableOpacity style={styles.cancelButton} onPress={() => { isEdit ? setShowEditModal(false) : setShowAddModal(false); resetForm(); }}>
-                  <Text style={styles.cancelButtonText}>Abbrechen</Text>
+              </View>
+              <View style={[styles.formThird, styles.dropdownWrapper]}>
+                <TouchableOpacity 
+                  style={styles.dropdownButton} 
+                  onPress={(e) => { e.stopPropagation(); closeAllModalDropdowns(); setShowDatumDropdown(showDatumDropdown === 'month' ? null : 'month'); }}
+                >
+                  <Text style={styles.dropdownButtonText}>{datumParts ? MONTHS[datumParts.month] : 'Monat'}</Text>
+                  <Text style={styles.dropdownArrow}>▼</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.saveButton} onPress={isEdit ? handleUpdateTermin : handleSaveTermin}>
-                  <Text style={styles.saveButtonText}>Speichern</Text>
+                {showDatumDropdown === 'month' && (
+                  <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                    {MONTHS.map((m, i) => (
+                      <TouchableOpacity key={m} style={styles.dropdownItem} onPress={() => updateFormDatumPart('month', i)}>
+                        <Text style={styles.dropdownItemText}>{m}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
+              </View>
+              <View style={[styles.formThird, styles.dropdownWrapper]}>
+                <TouchableOpacity 
+                  style={styles.dropdownButton} 
+                  onPress={(e) => { e.stopPropagation(); closeAllModalDropdowns(); setShowDatumDropdown(showDatumDropdown === 'year' ? null : 'year'); }}
+                >
+                  <Text style={styles.dropdownButtonText}>{datumParts?.year || 'Jahr'}</Text>
+                  <Text style={styles.dropdownArrow}>▼</Text>
                 </TouchableOpacity>
+                {showDatumDropdown === 'year' && (
+                  <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                    {FORM_YEARS.map(y => (
+                      <TouchableOpacity key={y} style={styles.dropdownItem} onPress={() => updateFormDatumPart('year', y)}>
+                        <Text style={styles.dropdownItemText}>{y}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
               </View>
             </View>
-          </ScrollView>
-        </View>
+
+            {/* Datum Bis */}
+            <Text style={styles.formLabel}>Datum bis</Text>
+            <View style={[styles.formRow, { zIndex: 90 }]}>
+              <View style={[styles.formThird, styles.dropdownWrapper]}>
+                <TouchableOpacity 
+                  style={styles.dropdownButton} 
+                  onPress={(e) => { e.stopPropagation(); closeAllModalDropdowns(); setShowDatumEndeDropdown(showDatumEndeDropdown === 'day' ? null : 'day'); }}
+                >
+                  <Text style={styles.dropdownButtonText}>{datumEndeParts?.day || 'Tag'}</Text>
+                  <Text style={styles.dropdownArrow}>▼</Text>
+                </TouchableOpacity>
+                {showDatumEndeDropdown === 'day' && (
+                  <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                    <TouchableOpacity style={styles.dropdownItem} onPress={() => { setFormDatumEnde(''); setShowDatumEndeDropdown(null); }}>
+                      <Text style={[styles.dropdownItemText, { color: '#999' }]}>- Kein Enddatum -</Text>
+                    </TouchableOpacity>
+                    {DAYS.map(d => (
+                      <TouchableOpacity key={d} style={styles.dropdownItem} onPress={() => updateFormDatumEndePart('day', d)}>
+                        <Text style={styles.dropdownItemText}>{d}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
+              </View>
+              <View style={[styles.formThird, styles.dropdownWrapper]}>
+                <TouchableOpacity 
+                  style={styles.dropdownButton} 
+                  onPress={(e) => { e.stopPropagation(); closeAllModalDropdowns(); setShowDatumEndeDropdown(showDatumEndeDropdown === 'month' ? null : 'month'); }}
+                >
+                  <Text style={styles.dropdownButtonText}>{datumEndeParts ? MONTHS[datumEndeParts.month] : 'Monat'}</Text>
+                  <Text style={styles.dropdownArrow}>▼</Text>
+                </TouchableOpacity>
+                {showDatumEndeDropdown === 'month' && (
+                  <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                    {MONTHS.map((m, i) => (
+                      <TouchableOpacity key={m} style={styles.dropdownItem} onPress={() => updateFormDatumEndePart('month', i)}>
+                        <Text style={styles.dropdownItemText}>{m}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
+              </View>
+              <View style={[styles.formThird, styles.dropdownWrapper]}>
+                <TouchableOpacity 
+                  style={styles.dropdownButton} 
+                  onPress={(e) => { e.stopPropagation(); closeAllModalDropdowns(); setShowDatumEndeDropdown(showDatumEndeDropdown === 'year' ? null : 'year'); }}
+                >
+                  <Text style={styles.dropdownButtonText}>{datumEndeParts?.year || 'Jahr'}</Text>
+                  <Text style={styles.dropdownArrow}>▼</Text>
+                </TouchableOpacity>
+                {showDatumEndeDropdown === 'year' && (
+                  <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                    {FORM_YEARS.map(y => (
+                      <TouchableOpacity key={y} style={styles.dropdownItem} onPress={() => updateFormDatumEndePart('year', y)}>
+                        <Text style={styles.dropdownItemText}>{y}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
+              </View>
+            </View>
+
+            {/* Zeit */}
+            <Text style={styles.formLabel}>Zeit</Text>
+            <TextInput style={styles.formInput} value={formZeit} onChangeText={setFormZeit} placeholder="HH:MM" placeholderTextColor="#999" onFocus={closeAllModalDropdowns} />
+
+            {/* Art */}
+            <Text style={styles.formLabel}>Art *</Text>
+            <Pressable style={styles.artSelector} onPress={closeAllModalDropdowns}>
+              {TERMIN_ARTEN.map((art) => (
+                <TouchableOpacity key={art} style={[styles.artOption, formArt === art && styles.artOptionSelected]} onPress={() => setFormArt(art)}>
+                  <Text style={[styles.artOptionText, formArt === art && styles.artOptionTextSelected]}>{art}</Text>
+                </TouchableOpacity>
+              ))}
+            </Pressable>
+
+            {/* Beschreibung */}
+            <Text style={styles.formLabel}>Beschreibung *</Text>
+            <TextInput style={styles.formInput} value={formTitel} onChangeText={setFormTitel} placeholder="z.B. Lehrgang, Meeting, ..." placeholderTextColor="#999" onFocus={closeAllModalDropdowns} />
+
+            {/* Jahrgang Dropdown */}
+            <Text style={styles.formLabel}>Jahrgang</Text>
+            <View style={[styles.dropdownWrapper, { zIndex: 80 }]}>
+              <TouchableOpacity 
+                style={styles.dropdownButton} 
+                onPress={(e) => { e.stopPropagation(); closeAllModalDropdowns(); setShowJahrgangDropdown(!showJahrgangDropdown); }}
+              >
+                <Text style={styles.dropdownButtonText}>{formJahrgang || '- Kein Jahrgang -'}</Text>
+                <Text style={styles.dropdownArrow}>▼</Text>
+              </TouchableOpacity>
+              {showJahrgangDropdown && (
+                <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                  <TouchableOpacity style={styles.dropdownItem} onPress={() => { setFormJahrgang(''); setShowJahrgangDropdown(false); }}>
+                    <Text style={[styles.dropdownItemText, { color: '#999' }]}>- Kein Jahrgang -</Text>
+                  </TouchableOpacity>
+                  {JAHRGAENGE.map(jg => (
+                    <TouchableOpacity key={jg} style={styles.dropdownItem} onPress={() => { setFormJahrgang(jg); setShowJahrgangDropdown(false); }}>
+                      <Text style={styles.dropdownItemText}>{jg}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
+
+            {/* Ort */}
+            <Text style={styles.formLabel}>Ort</Text>
+            <TextInput style={styles.formInput} value={formOrt} onChangeText={setFormOrt} placeholder="z.B. Frankfurt, DFB-Campus..." placeholderTextColor="#999" onFocus={closeAllModalDropdowns} />
+
+            {/* Übernahme Dropdown */}
+            <Text style={styles.formLabel}>Übernahme durch</Text>
+            <View style={[styles.dropdownWrapper, { zIndex: 70 }]}>
+              <TouchableOpacity 
+                style={styles.dropdownButton} 
+                onPress={(e) => { e.stopPropagation(); closeAllModalDropdowns(); setShowUebernahmeDropdown(!showUebernahmeDropdown); }}
+              >
+                <Text style={styles.dropdownButtonText}>
+                  {formUebernahme 
+                    ? advisors.find(a => a.id === formUebernahme)?.first_name + ' ' + advisors.find(a => a.id === formUebernahme)?.last_name 
+                    : '- Keine Auswahl -'}
+                </Text>
+                <Text style={styles.dropdownArrow}>▼</Text>
+              </TouchableOpacity>
+              {showUebernahmeDropdown && (
+                <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                  <TouchableOpacity style={styles.dropdownItem} onPress={() => { setFormUebernahme(''); setShowUebernahmeDropdown(false); }}>
+                    <Text style={[styles.dropdownItemText, { color: '#999' }]}>- Keine Auswahl -</Text>
+                  </TouchableOpacity>
+                  {advisors.map(adv => (
+                    <TouchableOpacity key={adv.id} style={styles.dropdownItem} onPress={() => { setFormUebernahme(adv.id); setShowUebernahmeDropdown(false); }}>
+                      <Text style={styles.dropdownItemText}>{adv.first_name} {adv.last_name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
+
+            {/* Buttons */}
+            <View style={styles.modalButtons}>
+              {isEdit && (
+                <TouchableOpacity style={styles.deleteButton} onPress={() => setShowDeleteConfirm(true)}>
+                  <Text style={styles.deleteButtonText}>Löschen</Text>
+                </TouchableOpacity>
+              )}
+              <View style={{ flex: 1 }} />
+              <TouchableOpacity style={styles.cancelButton} onPress={() => { isEdit ? setShowEditModal(false) : setShowAddModal(false); resetForm(); closeAllModalDropdowns(); }}>
+                <Text style={styles.cancelButtonText}>Abbrechen</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.saveButton} onPress={isEdit ? handleUpdateTermin : handleSaveTermin}>
+                <Text style={styles.saveButtonText}>Speichern</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Delete Confirmation Modal */}
+            <Modal visible={showDeleteConfirm} transparent animationType="fade">
+              <View style={styles.modalOverlay}>
+                <View style={styles.deleteConfirmModal}>
+                  <Text style={styles.deleteConfirmTitle}>Termin löschen?</Text>
+                  <Text style={styles.deleteConfirmText}>Möchtest du diesen Termin wirklich löschen?</Text>
+                  <Text style={styles.deleteConfirmTermin}>{selectedTermin?.titel}</Text>
+                  <View style={styles.deleteConfirmButtons}>
+                    <TouchableOpacity style={styles.cancelButton} onPress={() => setShowDeleteConfirm(false)}>
+                      <Text style={styles.cancelButtonText}>Abbrechen</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.confirmDeleteButton} onPress={handleDeleteTermin}>
+                      <Text style={styles.confirmDeleteButtonText}>Ja, löschen</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </Modal>
+          </Pressable>
+        </Pressable>
       </Modal>
     );
   };
@@ -1279,10 +1684,14 @@ export function TermineScreen({ navigation }: any) {
       <View style={styles.mainContent}>
         {viewMode === 'dashboard' && (
           <View style={styles.header}>
-            <View>
-              <Text style={styles.headerTitle}>Termine</Text>
-              <Text style={styles.headerSubtitle}>Übersicht aller Termine</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('AdvisorDashboard')} style={styles.backButton}>
+              <Text style={styles.backButtonText}>← Zurück</Text>
+            </TouchableOpacity>
+            <View style={styles.headerCenter}>
+              <Text style={styles.headerTitle}>Spieltage</Text>
+              <Text style={styles.headerSubtitle}>Übersicht über Spieltage unserer Spieler und weitere Lehrgänge und Termine</Text>
             </View>
+            <View style={{ width: 80 }} />
           </View>
         )}
         {renderContent()}
@@ -1298,9 +1707,12 @@ export function TermineScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1, flexDirection: 'row', backgroundColor: '#f5f5f5' },
   mainContent: { flex: 1, backgroundColor: '#f5f5f5' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 32, paddingVertical: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
-  headerTitle: { fontSize: 24, fontWeight: '700', color: '#1a1a1a' },
-  headerSubtitle: { fontSize: 14, color: '#888', marginTop: 2 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  headerCenter: { flex: 1, alignItems: 'center' },
+  headerTitle: { fontSize: 28, fontWeight: '700', color: '#1a1a1a' },
+  headerSubtitle: { fontSize: 14, color: '#64748b', marginTop: 4 },
+  backButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0' },
+  backButtonText: { fontSize: 14, color: '#64748b' },
   scrollView: { flex: 1 },
   scrollContent: { padding: 24 },
   gridContainer: { maxWidth: 1000, width: '100%' },
@@ -1310,7 +1722,8 @@ const styles = StyleSheet.create({
   lightCardHovered: { backgroundColor: '#f0f0f0', transform: [{ scale: 1.01 }] },
   darkCardHovered: { backgroundColor: '#2a2a2a', transform: [{ scale: 1.02 }] },
   mainCardHovered: { backgroundColor: '#fafafa', transform: [{ scale: 1.005 }] },
-  mainCard: { flex: 2, backgroundColor: '#fff', padding: 28, minHeight: 280, borderWidth: 1, borderColor: '#eee' },
+  mainCard: { flex: 2, backgroundColor: '#fff', padding: 28, minHeight: 280, borderWidth: 1, borderColor: '#eee', position: 'relative' },
+  todayCountTopRight: { position: 'absolute', top: 20, right: 24, fontSize: 48, fontWeight: '700', color: '#1a1a1a' },
   mainCardContent: { flex: 1, flexDirection: 'row' },
   mainCardLeft: { flex: 1, justifyContent: 'space-between' },
   mainCardRight: { width: 120, alignItems: 'center', justifyContent: 'center' },
@@ -1323,6 +1736,7 @@ const styles = StyleSheet.create({
   mainCardArrow: { fontSize: 16, marginLeft: 8, color: '#1a1a1a' },
   rightColumn: { flex: 1, gap: 16 },
   termineCard: { flex: 1, backgroundColor: '#fff', padding: 20, borderWidth: 1, borderColor: '#eee', justifyContent: 'space-between' },
+  termineCardFull: { flex: 1, backgroundColor: '#fff', padding: 28, minHeight: 280, borderWidth: 1, borderColor: '#eee', borderRadius: 20, justifyContent: 'space-between', position: 'relative' },
   termineHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   termineIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#f5f5f5', justifyContent: 'center', alignItems: 'center' },
   termineIconText: { fontSize: 18 },
@@ -1368,6 +1782,16 @@ const styles = StyleSheet.create({
   formInput: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, fontSize: 15 },
   selectWrapper: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, overflow: 'hidden' },
   selectInput: { padding: 12, fontSize: 15, border: 'none', width: '100%', backgroundColor: '#fff' },
+  
+  // Dropdown Styles
+  dropdownWrapper: { position: 'relative' as any, marginBottom: 4 },
+  dropdownButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, backgroundColor: '#fff' },
+  dropdownButtonText: { fontSize: 15, color: '#333' },
+  dropdownArrow: { fontSize: 12, color: '#999' },
+  dropdownList: { position: 'absolute' as any, top: '100%', left: 0, right: 0, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, maxHeight: 200, zIndex: 1000, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8 },
+  dropdownItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+  dropdownItemText: { fontSize: 15, color: '#333' },
+  
   artSelector: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   artOption: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, backgroundColor: '#f0f0f0', borderWidth: 1, borderColor: '#ddd' },
   artOptionSelected: { backgroundColor: '#000', borderColor: '#000' },
@@ -1376,6 +1800,13 @@ const styles = StyleSheet.create({
   modalButtons: { flexDirection: 'row', marginTop: 24, gap: 8 },
   deleteButton: { backgroundColor: '#fff', borderWidth: 2, borderColor: '#ff4444', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 10 },
   deleteButtonText: { color: '#ff4444', fontWeight: '600' },
+  deleteConfirmModal: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 400, alignItems: 'center' },
+  deleteConfirmTitle: { fontSize: 20, fontWeight: 'bold', color: '#1a1a1a', marginBottom: 12 },
+  deleteConfirmText: { fontSize: 15, color: '#666', textAlign: 'center', marginBottom: 8 },
+  deleteConfirmTermin: { fontSize: 16, fontWeight: '600', color: '#1a1a1a', marginBottom: 20, textAlign: 'center' },
+  deleteConfirmButtons: { flexDirection: 'row', gap: 12 },
+  confirmDeleteButton: { backgroundColor: '#ff4444', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 10 },
+  confirmDeleteButtonText: { color: '#fff', fontWeight: '600' },
   cancelButton: { backgroundColor: '#eee', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 10 },
   cancelButtonText: { color: '#666', fontWeight: '600' },
   saveButton: { backgroundColor: '#000', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 10 },
@@ -1453,9 +1884,15 @@ const styles = StyleSheet.create({
   termineTableHeader: { flexDirection: 'row', backgroundColor: '#f8fafc', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
   termineTableHeaderText: { fontSize: 12, fontWeight: '600', color: '#64748b', textTransform: 'uppercase' as any },
   sortableHeader: { cursor: 'pointer' as any },
-  termineTableRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', alignItems: 'center' },
-  termineTableRowPast: { backgroundColor: '#fafafa' },
-  termineTableRowToday: { backgroundColor: '#f0fdf4' },
+  termineTableRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', alignItems: 'center', backgroundColor: '#fff' },
+  termineTableRowRunning: { backgroundColor: '#dcfce7' },
+  termineTableRowArchiv: { backgroundColor: '#f8fafc' },
+  termineCellArchiv: { color: '#94a3b8' },
+  artBadgeArchiv: { opacity: 0.6 },
+  termineTabButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: 'transparent' },
+  termineTabButtonActive: { backgroundColor: '#1a1a1a' },
+  termineTabButtonText: { fontSize: 14, color: '#64748b', fontWeight: '500' },
+  termineTabButtonTextActive: { color: '#fff' },
   termineTableCell: { fontSize: 14, color: '#1a1a1a' },
   termineCellPast: { color: '#94a3b8' },
   termineColDatum: { flex: 1, minWidth: 90 },
