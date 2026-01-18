@@ -181,9 +181,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
     fetchPlayers();
     fetchClubLogos();
     fetchAdvisors();
-    const unsubscribe = navigation.addListener('focus', () => { fetchPlayers(); fetchMyPlayerAccess(); });
-    return unsubscribe;
-  }, [navigation]);
+  }, []);
 
   useEffect(() => { applyFilters(); }, [searchText, players, selectedYears, selectedPositions, selectedListings, selectedResponsibilities, selectedContractYears, sortField, sortDirection]);
 

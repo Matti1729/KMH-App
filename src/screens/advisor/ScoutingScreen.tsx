@@ -33,9 +33,6 @@ interface ScoutedPlayer {
   phone?: string; additional_info?: string;
   current_status?: string; // IST-Stand Freitext
   archived?: boolean; archived_at?: string; archive_reason?: string;
-  reminder_date?: string; // Erinnerungsdatum
-  responsible_advisor_id?: string; // Zuständiger Berater
-  responsible_advisor_name?: string; // Name des zuständigen Beraters (für Anzeige)
 }
 
 // Helper to parse positions (stored as comma-separated string)
@@ -261,14 +258,6 @@ export function ScoutingScreen({ navigation }: any) {
   // Edit game dropdowns
   const [showEditGameTypePicker, setShowEditGameTypePicker] = useState(false);
   const [showEditAgeGroupPicker, setShowEditAgeGroupPicker] = useState(false);
-  
-  // Confirm Modal State
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [confirmModalMessage, setConfirmModalMessage] = useState('');
-  const [confirmModalCallback, setConfirmModalCallback] = useState<(() => void) | null>(null);
-  
-  // Restore Confirm Modal State
-  const [showRestoreConfirmModal, setShowRestoreConfirmModal] = useState(false);
   const [showEditDatePicker, setShowEditDatePicker] = useState(false);
   const [editDatePart, setEditDatePart] = useState<'day' | 'month' | 'year' | null>(null);
   
@@ -639,16 +628,10 @@ export function ScoutingScreen({ navigation }: any) {
       
       message += '\nTrotzdem anlegen?';
       
-      setConfirmModalMessage(message);
-      setConfirmModalCallback(() => () => doAddScoutedPlayer());
-      setShowConfirmModal(true);
-      return;
+      const confirmAdd = window.confirm(message);
+      if (!confirmAdd) return;
     }
     
-    await doAddScoutedPlayer();
-  };
-  
-  const doAddScoutedPlayer = async () => {
     // Try to fetch agent if transfermarkt URL is provided
     let agentName = newPlayer.agent_name;
     if (newPlayer.transfermarkt_url && !agentName) {
@@ -717,34 +700,7 @@ export function ScoutingScreen({ navigation }: any) {
       phone: editData.phone,
       additional_info: editData.additional_info,
       current_status: editData.current_status,
-      reminder_date: editData.reminder_date || null,
-      responsible_advisor_id: editData.responsible_advisor_id || null,
     };
-    
-    // Wenn Erinnerungsdatum geändert wurde, aktualisiere oder erstelle Erinnerung
-    if (editData.reminder_date !== selectedPlayer.reminder_date) {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        // Erst alle bestehenden Erinnerungen für diesen Spieler löschen
-        await supabase.from('reminders')
-          .delete()
-          .eq('source_type', 'scouting')
-          .eq('source_id', selectedPlayer.id);
-        
-        // Wenn neues Datum gesetzt, neue Erinnerung erstellen
-        if (editData.reminder_date) {
-          await supabase.from('reminders').insert({
-            user_id: user.id,
-            title: `Scouting: ${editData.first_name} ${editData.last_name}`,
-            source_type: 'scouting',
-            source_id: selectedPlayer.id,
-            player_name: `${editData.first_name} ${editData.last_name}`,
-            due_date: editData.reminder_date,
-            completed: false
-          });
-        }
-      }
-    }
     
     const { error } = await supabase.from('scouted_players').update(updatePayload).eq('id', selectedPlayer.id);
     if (error) {
@@ -1102,18 +1058,10 @@ export function ScoutingScreen({ navigation }: any) {
       
       message += '\nTrotzdem übernehmen?';
       
-      setConfirmModalMessage(message);
-      setConfirmModalCallback(() => () => doTransferToPlayers());
-      setShowConfirmModal(true);
-      return;
+      const confirmAdd = window.confirm(message);
+      if (!confirmAdd) return;
     }
 
-    await doTransferToPlayers();
-  };
-  
-  const doTransferToPlayers = async () => {
-    if (!selectedPlayer) return;
-    
     // Spieler in player_details-Tabelle einfügen
     // birth_date: Falls nur Jahrgang (z.B. "2005"), nicht übernehmen (null)
     let birthDate = selectedPlayer.birth_date;
@@ -1273,8 +1221,7 @@ export function ScoutingScreen({ navigation }: any) {
             position: player.position, club: player.club, rating: player.rating, status: player.status,
             notes: player.notes, photo_url: player.photo_url, transfermarkt_url: player.transfermarkt_url,
             agent_name: player.agent_name, phone: player.phone, additional_info: player.additional_info,
-            current_status: player.current_status, reminder_date: player.reminder_date,
-            responsible_advisor_id: player.responsible_advisor_id,
+            current_status: player.current_status,
           }); 
           setEditClubSearchText(player.club || ''); 
           setShowPlayerDetailModal(true); 
@@ -1295,30 +1242,10 @@ export function ScoutingScreen({ navigation }: any) {
             {player.rating && <View style={styles.ratingBadgeCard}><Text style={styles.ratingTextCard}>⭐ {player.rating}/10</Text></View>}
           </View>
         </View>
-        {/* IST-Stand & Erinnerung */}
-        {(player.current_status || player.reminder_date) && (
+        {/* IST-Stand */}
+        {player.current_status && (
           <View style={styles.currentStatusRow}>
-            {player.current_status && (
-              <Text style={styles.currentStatusText}>💬 {player.current_status}</Text>
-            )}
-            {player.reminder_date && (
-              (() => {
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                const reminderDate = new Date(player.reminder_date);
-                reminderDate.setHours(0, 0, 0, 0);
-                const diffTime = reminderDate.getTime() - today.getTime();
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                
-                if (diffDays < 0) {
-                  return <View style={styles.reminderBadgeCardYellow}><Text style={styles.reminderBadgeCardYellowText}>Überfällig</Text></View>;
-                } else if (diffDays === 0) {
-                  return <View style={styles.reminderBadgeCardYellow}><Text style={styles.reminderBadgeCardYellowText}>Heute</Text></View>;
-                } else {
-                  return <View style={styles.reminderBadgeCardYellow}><Text style={styles.reminderBadgeCardYellowText}>in {diffDays} Tag{diffDays > 1 ? 'en' : ''}</Text></View>;
-                }
-              })()
-            )}
+            <Text style={styles.currentStatusText}>💬 {player.current_status}</Text>
           </View>
         )}
       </TouchableOpacity>
@@ -1406,8 +1333,7 @@ export function ScoutingScreen({ navigation }: any) {
               position: player.position, club: player.club, rating: player.rating, status: player.status,
               notes: player.notes, photo_url: player.photo_url, transfermarkt_url: player.transfermarkt_url, 
               agent_name: player.agent_name, phone: player.phone, additional_info: player.additional_info,
-              current_status: player.current_status, reminder_date: player.reminder_date,
-              responsible_advisor_id: player.responsible_advisor_id }); 
+              current_status: player.current_status }); 
             setEditClubSearchText(player.club || ''); 
             setShowPlayerDetailModal(true); 
           }}>
@@ -1645,14 +1571,13 @@ export function ScoutingScreen({ navigation }: any) {
   const renderArchivView = () => (
     <View style={styles.tableContainer}>
       <View style={styles.tableHeader}>
-        <Text style={[styles.tableHeaderCell, { flex: 1.6 }]}>Name</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 0.4 }]}>Geb.</Text>
+        <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Name</Text>
+        <Text style={[styles.tableHeaderCell, { flex: 0.5 }]}>Geb.</Text>
         <Text style={[styles.tableHeaderCell, { flex: 0.8 }]}>Pos.</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 1.4 }]}>Verein</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 1.2 }]}>Berater</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 0.7 }]}>Rating</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>Archiv-Grund</Text>
+        <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>Verein</Text>
+        <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Grund</Text>
         <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Archiviert am</Text>
+        <Text style={[styles.tableHeaderCell, { flex: 1 }]}></Text>
       </View>
       <ScrollView>
         {archivedPlayers.length === 0 ? (
@@ -1661,32 +1586,19 @@ export function ScoutingScreen({ navigation }: any) {
           </View>
         ) : (
           archivedPlayers.map(player => (
-            <TouchableOpacity key={player.id} style={styles.tableRow} onPress={() => { 
-              setSelectedPlayer(player); 
-              setEditData({ first_name: player.first_name, last_name: player.last_name, birth_date: player.birth_date,
-                position: player.position, club: player.club, rating: player.rating, status: player.status,
-                notes: player.notes, photo_url: player.photo_url, transfermarkt_url: player.transfermarkt_url, 
-                agent_name: player.agent_name, phone: player.phone, additional_info: player.additional_info,
-                current_status: player.current_status, reminder_date: player.reminder_date, 
-                responsible_advisor_id: player.responsible_advisor_id }); 
-              setEditClubSearchText(player.club || ''); 
-              setShowPlayerDetailModal(true); 
-            }}>
-              <Text style={[styles.tableCell, styles.tableCellText, { flex: 1.6 }]}>{player.last_name}, {player.first_name}</Text>
-              <Text style={[styles.tableCell, { flex: 0.4 }]}>{getYearFromDate(player.birth_date)}</Text>
-              <View style={[styles.tableCell, { flex: 0.8, flexDirection: 'row', flexWrap: 'wrap', gap: 4 }]}>
-                {parsePositions(player.position).map((pos, idx) => (
-                  <View key={idx} style={styles.positionBadgeSmall}><Text style={styles.positionTextSmall}>{pos}</Text></View>
-                ))}
-              </View>
-              <Text style={[styles.tableCell, { flex: 1.4 }]} numberOfLines={1}>{player.club}</Text>
-              <Text style={[styles.tableCell, { flex: 1.2 }]} numberOfLines={1}>{player.agent_name || '-'}</Text>
-              <View style={[styles.tableCell, { flex: 0.7, flexDirection: 'row' }]}>
-                {player.rating ? <View style={styles.ratingBadgeList}><Text style={styles.ratingTextList}>⭐ {player.rating}/10</Text></View> : <Text style={styles.tableCell}>-</Text>}
-              </View>
-              <Text style={[styles.tableCell, { flex: 1.5, color: '#64748b', fontStyle: 'italic' }]} numberOfLines={1}>{player.archive_reason || '-'}</Text>
+            <View key={player.id} style={styles.tableRow}>
+              <Text style={[styles.tableCell, styles.tableCellText, { flex: 2 }]}>{player.last_name}, {player.first_name}</Text>
+              <Text style={[styles.tableCell, { flex: 0.5 }]}>{getYearFromDate(player.birth_date)}</Text>
+              <Text style={[styles.tableCell, { flex: 0.8 }]}>{player.position}</Text>
+              <Text style={[styles.tableCell, { flex: 1.5 }]}>{player.club}</Text>
+              <Text style={[styles.tableCell, { flex: 2, color: '#64748b', fontStyle: 'italic' }]}>{player.archive_reason || '-'}</Text>
               <Text style={[styles.tableCell, { flex: 1 }]}>{player.archived_at ? new Date(player.archived_at).toLocaleDateString('de-DE') : '-'}</Text>
-            </TouchableOpacity>
+              <View style={[styles.tableCell, { flex: 1 }]}>
+                <TouchableOpacity style={styles.restoreButton} onPress={() => restorePlayer(player.id)}>
+                  <Text style={styles.restoreButtonText}>Wiederherstellen</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           ))
         )}
       </ScrollView>
@@ -1697,14 +1609,8 @@ export function ScoutingScreen({ navigation }: any) {
     data: any, setData: (d: any) => void,
     clubSearch: string, setClubSearch: (t: string) => void,
     showClubDrop: boolean, setShowClubDrop: (s: boolean) => void
-  ) => {
-    return (
-    <View style={{ maxHeight: 400 }}>
-      <ScrollView 
-        showsVerticalScrollIndicator={true} 
-        keyboardShouldPersistTaps="handled" 
-        nestedScrollEnabled
-      >
+  ) => (
+    <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={true} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
       {/* Erste Säule: Grunddaten + Kontakt */}
       <View style={[styles.detailInfo, { zIndex: 9999 }]}>
         <View style={styles.formRow}>
@@ -1826,113 +1732,12 @@ export function ScoutingScreen({ navigation }: any) {
       </View>
 
       {/* Ganz unten: Fußballerische Einschätzung */}
-      <View style={[styles.detailSection, { marginBottom: 10 }]}>
+      <View style={[styles.detailSection, { marginBottom: 20 }]}>
         <Text style={styles.detailSectionTitle}>Fußballerische Einschätzung</Text>
         <TextInput style={[styles.formInput, styles.textArea]} value={data.notes || ''} onChangeText={(t) => setData({...data, notes: t})} placeholder="Fußballerische Einschätzung..." placeholderTextColor="#9ca3af" multiline />
       </View>
-      
-      {/* Erinnerung & Zuständiger Berater - am Ende damit Dropdowns nicht verdeckt werden */}
-      <View style={[styles.detailSection, { marginBottom: 20 }]}>
-        <Text style={styles.detailSectionTitle}>Zuständigkeit & Erinnerung</Text>
-        <View style={styles.formRow}>
-          <View style={[styles.formField, { zIndex: 9000 }]}>
-            <Text style={styles.formLabel}>Zuständiger Berater</Text>
-            <View style={styles.advisorPickerContainer}>
-              <TouchableOpacity 
-                style={styles.advisorPicker}
-                onPress={() => setData({...data, showAdvisorPicker: !data.showAdvisorPicker, showReminderDayPicker: false, showReminderMonthPicker: false, showReminderYearPicker: false})}
-              >
-                <Text style={data.responsible_advisor_id ? styles.advisorPickerText : styles.advisorPickerPlaceholder}>
-                  {data.responsible_advisor_id 
-                    ? advisors.find(a => a.id === data.responsible_advisor_id)?.first_name + ' ' + advisors.find(a => a.id === data.responsible_advisor_id)?.last_name
-                    : 'Berater wählen...'}
-                </Text>
-                <Text style={styles.advisorPickerArrow}>▼</Text>
-              </TouchableOpacity>
-              {data.showAdvisorPicker && (
-                <View style={styles.advisorDropdownUp}>
-                  <TouchableOpacity 
-                    style={styles.advisorDropdownItem}
-                    onPress={() => setData({...data, responsible_advisor_id: null, showAdvisorPicker: false})}
-                  >
-                    <Text style={styles.advisorDropdownText}>- Kein Berater -</Text>
-                  </TouchableOpacity>
-                  {advisors.map(advisor => (
-                    <TouchableOpacity 
-                      key={advisor.id}
-                      style={[styles.advisorDropdownItem, data.responsible_advisor_id === advisor.id && styles.advisorDropdownItemActive]}
-                      onPress={() => setData({...data, responsible_advisor_id: advisor.id, showAdvisorPicker: false})}
-                    >
-                      <Text style={styles.advisorDropdownText}>{advisor.first_name} {advisor.last_name}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-            </View>
-          </View>
-          <View style={[styles.formField, { zIndex: 8000 }]}>
-            <Text style={styles.formLabel}>Erinnerung in</Text>
-            <View style={styles.reminderDaysPickerContainer}>
-              <TouchableOpacity 
-                style={styles.reminderDaysPicker}
-                onPress={() => setData({...data, showReminderDaysPicker: !data.showReminderDaysPicker, showAdvisorPicker: false})}
-              >
-                <Text style={data.reminder_date ? styles.reminderDaysPickerText : styles.reminderDaysPickerPlaceholder}>
-                  {data.reminder_date ? (() => {
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    const reminderDate = new Date(data.reminder_date);
-                    reminderDate.setHours(0, 0, 0, 0);
-                    const diffTime = reminderDate.getTime() - today.getTime();
-                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                    if (diffDays === 0) return 'Heute';
-                    if (diffDays === 1) return '1 Tag';
-                    if (diffDays < 0) return `Überfällig (${Math.abs(diffDays)} Tage)`;
-                    return `${diffDays} Tage`;
-                  })() : 'Keine Erinnerung'}
-                </Text>
-                <Text style={styles.reminderDaysPickerArrow}>▼</Text>
-              </TouchableOpacity>
-              {data.showReminderDaysPicker && (
-                <ScrollView style={styles.reminderDaysDropdownUp}>
-                  <TouchableOpacity 
-                    style={styles.reminderDaysDropdownItem}
-                    onPress={() => setData({...data, reminder_date: null, showReminderDaysPicker: false})}
-                  >
-                    <Text style={styles.reminderDaysDropdownItemText}>Keine Erinnerung</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={styles.reminderDaysDropdownItem}
-                    onPress={() => {
-                      const today = new Date();
-                      setData({...data, reminder_date: today.toISOString().split('T')[0], showReminderDaysPicker: false});
-                    }}
-                  >
-                    <Text style={styles.reminderDaysDropdownItemText}>Heute</Text>
-                  </TouchableOpacity>
-                  {Array.from({ length: 60 }, (_, i) => i + 1).map((days) => (
-                    <TouchableOpacity 
-                      key={days}
-                      style={styles.reminderDaysDropdownItem}
-                      onPress={() => {
-                        const date = new Date();
-                        date.setDate(date.getDate() + days);
-                        setData({...data, reminder_date: date.toISOString().split('T')[0], showReminderDaysPicker: false});
-                      }}
-                    >
-                      <Text style={styles.reminderDaysDropdownItemText}>{days} Tag{days > 1 ? 'e' : ''}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              )}
-            </View>
-          </View>
-        </View>
-      </View>
     </ScrollView>
-    </View>
   );
-  };
 
   const getPositionFilterLabel = () => {
     if (selectedPositions.length === 0) return 'Position';
@@ -3077,119 +2882,73 @@ export function ScoutingScreen({ navigation }: any) {
                 <ScrollView style={{ maxHeight: 500 }} showsVerticalScrollIndicator={false}>
                   {/* Two Column Layout */}
                   <View style={styles.detailTwoColumn}>
-                    {/* Left Column */}
+                    {/* Left Column: Grunddaten */}
                     <View style={styles.detailColumnLeft}>
                       <View style={styles.detailInfo}>
-                        {/* Zeile 1: Geburtsdatum | Transfermarkt */}
-                        <View style={styles.detailRowHorizontal}>
-                          <View style={styles.detailRowVertical}>
-                            <Text style={styles.detailLabelSmall}>Geburtsdatum</Text>
-                            <Text style={styles.detailValueLarge}>{formatBirthDisplay(selectedPlayer.birth_date)}</Text>
-                          </View>
-                          <View style={styles.detailRowVertical}>
-                            <Text style={styles.detailLabelSmall}>Transfermarkt</Text>
-                            {selectedPlayer.transfermarkt_url ? (
-                              <TouchableOpacity onPress={() => openTransfermarkt(selectedPlayer.transfermarkt_url!)} style={styles.tmLinkRowDetail}>
-                                <Image source={TransfermarktLogo} style={styles.tmLogoDetail} />
-                              </TouchableOpacity>
-                            ) : (
-                              <Text style={styles.detailValueLarge}>-</Text>
-                            )}
+                        <View style={styles.detailRowVertical}>
+                          <Text style={styles.detailLabelSmall}>Geburtsdatum</Text>
+                          <Text style={styles.detailValueLarge}>{formatBirthDisplay(selectedPlayer.birth_date)}</Text>
+                        </View>
+                        <View style={styles.detailRowVertical}>
+                          <Text style={styles.detailLabelSmall}>Position</Text>
+                          <View style={styles.positionBadgesRowDetail}>
+                            {parsePositions(selectedPlayer.position).map((pos, idx) => (
+                              <View key={idx} style={styles.positionBadge}><Text style={styles.positionText}>{pos}</Text></View>
+                            ))}
                           </View>
                         </View>
-                        {/* Zeile 2: Position | Einschätzung */}
-                        <View style={[styles.detailRowHorizontal, { marginBottom: 0 }]}>
-                          <View style={styles.detailRowVertical}>
-                            <Text style={styles.detailLabelSmall}>Position</Text>
-                            <View style={styles.positionBadgesRowDetail}>
-                              {parsePositions(selectedPlayer.position).map((pos, idx) => (
-                                <View key={idx} style={styles.positionBadge}><Text style={styles.positionText}>{pos}</Text></View>
-                              ))}
-                            </View>
-                          </View>
-                          <View style={styles.detailRowVertical}>
-                            <Text style={styles.detailLabelSmall}>Einschätzung</Text>
-                            {selectedPlayer.rating ? (
-                              <View style={styles.ratingBadgeLarge}><Text style={styles.ratingTextLarge}>{selectedPlayer.rating}/10</Text></View>
-                            ) : (
-                              <Text style={styles.detailValueLarge}>-</Text>
-                            )}
-                          </View>
+                        <View style={styles.detailRowVertical}>
+                          <Text style={styles.detailLabelSmall}>Einschätzung</Text>
+                          {selectedPlayer.rating ? (
+                            <View style={styles.ratingBadgeLarge}><Text style={styles.ratingTextLarge}>⭐ {selectedPlayer.rating}/10</Text></View>
+                          ) : (
+                            <Text style={styles.detailValueLarge}>-</Text>
+                          )}
                         </View>
-                      </View>
-                      
-                      {/* Fußballerische Einschätzung - unter linkem Kästchen */}
-                      <View style={[styles.detailInfo, { marginTop: 16 }]}>
-                        <View style={[styles.detailRowVertical, { marginBottom: 0 }]}>
-                          <Text style={styles.detailLabelSmall}>Fußballerische Einschätzung</Text>
-                          <Text style={styles.detailValueLarge}>{selectedPlayer.notes || '-'}</Text>
+                        <View style={styles.detailRowVertical}>
+                          <Text style={styles.detailLabelSmall}>Kontakt</Text>
+                          <Text style={styles.detailValueLarge}>{selectedPlayer.phone || '-'}</Text>
                         </View>
                       </View>
                     </View>
 
-                    {/* Right Column */}
+                    {/* Right Column: Transfermarkt + Scout */}
                     <View style={styles.detailColumnRight}>
                       <View style={styles.detailInfo}>
-                        {/* Zeile 1: Zuständigkeit | Scout */}
-                        <View style={styles.detailRowHorizontal}>
-                          <View style={styles.detailRowVertical}>
-                            <Text style={styles.detailLabelSmall}>Zuständigkeit</Text>
-                            <Text style={styles.detailValueLarge}>
-                              {selectedPlayer.responsible_advisor_id 
-                                ? advisors.find(a => a.id === selectedPlayer.responsible_advisor_id)?.first_name + ' ' + advisors.find(a => a.id === selectedPlayer.responsible_advisor_id)?.last_name
-                                : '-'}
-                            </Text>
-                          </View>
-                          <View style={styles.detailRowVertical}>
-                            <Text style={styles.detailLabelSmall}>Scout</Text>
-                            <Text style={styles.detailValueLarge}>{selectedPlayer.scout_name || '-'}</Text>
-                          </View>
+                        <View style={styles.detailRowVertical}>
+                          <Text style={styles.detailLabelSmall}>Transfermarkt</Text>
+                          {selectedPlayer.transfermarkt_url ? (
+                            <TouchableOpacity onPress={() => openTransfermarkt(selectedPlayer.transfermarkt_url!)} style={styles.tmLinkRowDetail}>
+                              <Image source={TransfermarktLogo} style={styles.tmLogoDetail} />
+                            </TouchableOpacity>
+                          ) : (
+                            <Text style={styles.detailValueLarge}>-</Text>
+                          )}
                         </View>
-                        {/* Zeile 2: Kontakt | Weitere Infos */}
-                        <View style={[styles.detailRowHorizontal, { marginBottom: 0 }]}>
-                          <View style={styles.detailRowVertical}>
-                            <Text style={styles.detailLabelSmall}>Kontakt</Text>
-                            <Text style={styles.detailValueLarge}>{selectedPlayer.phone || '-'}</Text>
-                          </View>
-                          <View style={styles.detailRowVertical}>
-                            <Text style={styles.detailLabelSmall}>Weitere Infos</Text>
-                            <Text style={styles.detailValueLarge}>{selectedPlayer.additional_info || '-'}</Text>
-                          </View>
+                        <View style={styles.detailRowVertical}>
+                          <Text style={styles.detailLabelSmall}>Scout</Text>
+                          <Text style={styles.detailValueLarge}>{selectedPlayer.scout_name || '-'}</Text>
                         </View>
                       </View>
-                      
-                      {/* IST-Stand & Erinnerung - unter rechtem Kästchen */}
-                      <View style={[styles.detailInfo, { marginTop: 16 }]}>
-                        <View style={[styles.detailRowHorizontal, { marginBottom: 0 }]}>
-                          <View style={styles.detailRowVertical}>
-                            <Text style={styles.detailLabelSmall}>IST-Stand</Text>
-                            <Text style={styles.detailValueLarge}>{selectedPlayer.current_status || '-'}</Text>
-                          </View>
-                          <View style={styles.detailRowVertical}>
-                            <Text style={styles.detailLabelSmall}>Erinnerung</Text>
-                            {selectedPlayer.reminder_date ? (
-                              (() => {
-                                const today = new Date();
-                                today.setHours(0, 0, 0, 0);
-                                const reminderDate = new Date(selectedPlayer.reminder_date);
-                                reminderDate.setHours(0, 0, 0, 0);
-                                const diffTime = reminderDate.getTime() - today.getTime();
-                                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                                
-                                if (diffDays < 0) {
-                                  return <View style={styles.reminderBadgeYellow}><Text style={styles.reminderBadgeYellowText}>Überfällig ({Math.abs(diffDays)} Tage)</Text></View>;
-                                } else if (diffDays === 0) {
-                                  return <View style={styles.reminderBadgeYellow}><Text style={styles.reminderBadgeYellowText}>Heute</Text></View>;
-                                } else {
-                                  return <View style={styles.reminderBadgeYellow}><Text style={styles.reminderBadgeYellowText}>in {diffDays} Tag{diffDays > 1 ? 'en' : ''}</Text></View>;
-                                }
-                              })()
-                            ) : (
-                              <Text style={styles.detailValueLarge}>-</Text>
-                            )}
-                          </View>
+                      {/* Weitere Infos */}
+                      <View style={styles.detailInfoScout}>
+                        <View style={styles.detailRowVertical}>
+                          <Text style={styles.detailLabelSmall}>Weitere Infos</Text>
+                          <Text style={styles.detailValueLarge}>{selectedPlayer.additional_info || '-'}</Text>
+                        </View>
+                        <View style={[styles.detailRowVertical, { marginBottom: 0 }]}>
+                          <Text style={styles.detailLabelSmall}>IST-Stand</Text>
+                          <Text style={styles.detailValueLarge}>{selectedPlayer.current_status || '-'}</Text>
                         </View>
                       </View>
+                    </View>
+                  </View>
+
+                  {/* Fußballerische Einschätzung in eigener Säule */}
+                  <View style={[styles.detailInfo, { marginTop: 16 }]}>
+                    <View style={[styles.detailRowVertical, { marginBottom: 0 }]}>
+                      <Text style={styles.detailLabelSmall}>Fußballerische Einschätzung</Text>
+                      <Text style={styles.detailValueLarge}>{selectedPlayer.notes || '-'}</Text>
                     </View>
                   </View>
                 </ScrollView>
@@ -3201,13 +2960,6 @@ export function ScoutingScreen({ navigation }: any) {
                     <TouchableOpacity style={styles.deleteButton} onPress={() => deleteScoutedPlayer(selectedPlayer.id)}><Text style={styles.deleteButtonText}>Löschen</Text></TouchableOpacity>
                     <TouchableOpacity style={styles.cancelButton} onPress={() => { setIsEditing(false); setShowEditClubDropdown(false); }}><Text style={styles.cancelButtonText}>Abbrechen</Text></TouchableOpacity>
                     <TouchableOpacity style={styles.saveButton} onPress={updateScoutedPlayer}><Text style={styles.saveButtonText}>Speichern</Text></TouchableOpacity>
-                  </>
-                ) : selectedPlayer.archived ? (
-                  <>
-                    <TouchableOpacity style={styles.restoreButtonModal} onPress={() => setShowRestoreConfirmModal(true)}>
-                      <Text style={styles.restoreButtonModalText}>↩ Wiederherstellen</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.editButton} onPress={() => setIsEditing(true)}><Text style={styles.editButtonText}>Bearbeiten</Text></TouchableOpacity>
                   </>
                 ) : (
                   <>
@@ -3325,69 +3077,6 @@ export function ScoutingScreen({ navigation }: any) {
               </TouchableOpacity>
               <TouchableOpacity style={styles.transferConfirmButton} onPress={transferToPlayers}>
                 <Text style={styles.transferConfirmButtonText}>Übernehmen</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-      
-      {/* Confirm Modal */}
-      <Modal visible={showConfirmModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.confirmModalContent}>
-            <Text style={styles.confirmModalTitle}>Bestätigung</Text>
-            <Text style={styles.confirmModalMessage}>{confirmModalMessage}</Text>
-            <View style={styles.confirmModalButtons}>
-              <TouchableOpacity 
-                style={styles.confirmModalCancelButton} 
-                onPress={() => {
-                  setShowConfirmModal(false);
-                  setConfirmModalCallback(null);
-                }}
-              >
-                <Text style={styles.confirmModalCancelText}>Abbrechen</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.confirmModalOkButton} 
-                onPress={() => {
-                  setShowConfirmModal(false);
-                  if (confirmModalCallback) confirmModalCallback();
-                  setConfirmModalCallback(null);
-                }}
-              >
-                <Text style={styles.confirmModalOkText}>OK</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-      
-      {/* Restore Confirm Modal */}
-      <Modal visible={showRestoreConfirmModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.confirmModalContent}>
-            <Text style={styles.confirmModalTitle}>Spieler wiederherstellen?</Text>
-            <Text style={styles.confirmModalMessage}>
-              Möchtest du {selectedPlayer?.first_name} {selectedPlayer?.last_name} wieder ins Scouting übernehmen?
-            </Text>
-            <View style={styles.confirmModalButtons}>
-              <TouchableOpacity 
-                style={styles.confirmModalCancelButton} 
-                onPress={() => setShowRestoreConfirmModal(false)}
-              >
-                <Text style={styles.confirmModalCancelText}>Abbrechen</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.confirmModalOkButton} 
-                onPress={() => {
-                  if (selectedPlayer) {
-                    restorePlayer(selectedPlayer.id);
-                    setShowRestoreConfirmModal(false);
-                    setShowPlayerDetailModal(false);
-                  }
-                }}
-              >
-                <Text style={styles.confirmModalOkText}>Wiederherstellen</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -3520,17 +3209,6 @@ const styles = StyleSheet.create({
   clubDropdownText: { fontSize: 14, color: '#333' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalOverlayTop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', zIndex: 9999 },
-  
-  // Confirm Modal Styles
-  confirmModalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 450 },
-  confirmModalTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a1a', marginBottom: 16 },
-  confirmModalMessage: { fontSize: 14, color: '#475569', lineHeight: 22, whiteSpace: 'pre-line' },
-  confirmModalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 24 },
-  confirmModalCancelButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#f1f5f9' },
-  confirmModalCancelText: { fontSize: 14, color: '#64748b', fontWeight: '500' },
-  confirmModalOkButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#1a1a1a' },
-  confirmModalOkText: { fontSize: 14, color: '#fff', fontWeight: '500' },
-  
   modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 600, maxHeight: '90%', zIndex: 1 },
   modalContentLarge: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 800, maxHeight: '90%', zIndex: 1 },
   modalTitle: { fontSize: 20, fontWeight: '700', color: '#1a1a1a' },
@@ -3540,25 +3218,15 @@ const styles = StyleSheet.create({
   detailTwoColumn: { flexDirection: 'row', gap: 20 },
   detailColumnLeft: { flex: 1 },
   detailColumnRight: { flex: 1 },
-  detailRowVertical: { marginBottom: 16, flex: 1 },
-  detailRowHorizontal: { flexDirection: 'row', gap: 24 },
+  detailRowVertical: { marginBottom: 16 },
   detailLabelSmall: { fontSize: 12, color: '#64748b', marginBottom: 4 },
   detailValueLarge: { fontSize: 15, color: '#1a1a1a', fontWeight: '500' },
   positionBadgesRowDetail: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  ratingBadgeLarge: { backgroundColor: '#dcfce7', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 4, alignSelf: 'flex-start' },
-  ratingTextLarge: { fontSize: 11, fontWeight: '600', color: '#166534' },
+  ratingBadgeLarge: { backgroundColor: '#dcfce7', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, alignSelf: 'flex-start' },
+  ratingTextLarge: { fontSize: 14, fontWeight: '600', color: '#166534' },
   tmLinkRowDetail: { flexDirection: 'row', alignItems: 'center' },
   tmLogoDetail: { width: 80, height: 24, resizeMode: 'contain' },
   detailInfoScout: { backgroundColor: '#f8fafc', borderRadius: 8, padding: 12, marginTop: 12 },
-  // Erinnerungs-Badges
-  reminderBadgeOverdue: { backgroundColor: '#fef2f2', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, alignSelf: 'flex-start', borderWidth: 1, borderColor: '#fecaca' },
-  reminderBadgeToday: { backgroundColor: '#fef3c7', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, alignSelf: 'flex-start', borderWidth: 1, borderColor: '#fcd34d' },
-  reminderBadgeSoon: { backgroundColor: '#dbeafe', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, alignSelf: 'flex-start', borderWidth: 1, borderColor: '#93c5fd' },
-  reminderBadgeNormal: { backgroundColor: '#f1f5f9', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, alignSelf: 'flex-start' },
-  reminderBadgeText: { fontSize: 13, fontWeight: '600', color: '#1a1a1a' },
-  reminderBadgeTextNormal: { fontSize: 13, color: '#64748b' },
-  reminderBadgeYellow: { backgroundColor: '#fef3c7', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 4, alignSelf: 'flex-start' },
-  reminderBadgeYellowText: { fontSize: 11, fontWeight: '600', color: '#92400e' },
   formRow: { flexDirection: 'row', gap: 16, marginBottom: 16 },
   formField: { flex: 1, marginBottom: 8 },
   formLabel: { fontSize: 13, color: '#64748b', marginBottom: 6, fontWeight: '500' },
@@ -3600,24 +3268,13 @@ const styles = StyleSheet.create({
   notesText: { fontSize: 14, color: '#475569', lineHeight: 20, backgroundColor: '#f8fafc', padding: 12, borderRadius: 8 },
   editInput: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, padding: 8, fontSize: 14, backgroundColor: '#fff' },
   // IST-Stand auf Kanban-Karte
-  currentStatusRow: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#f1f5f9', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 },
-  currentStatusText: { fontSize: 12, color: '#64748b', fontStyle: 'italic', flex: 1 },
-  // Erinnerungs-Badges für Kanban-Karten
-  reminderBadgeCardOverdue: { backgroundColor: '#fef2f2', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4 },
-  reminderBadgeCardToday: { backgroundColor: '#fef3c7', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4 },
-  reminderBadgeCardSoon: { backgroundColor: '#dbeafe', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4 },
-  reminderBadgeCardNormal: { backgroundColor: '#f1f5f9', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4 },
-  reminderBadgeCardText: { fontSize: 10, fontWeight: '600', color: '#1a1a1a' },
-  reminderBadgeCardTextNormal: { fontSize: 10, color: '#64748b' },
-  reminderBadgeCardYellow: { backgroundColor: '#fef3c7', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4 },
-  reminderBadgeCardYellowText: { fontSize: 10, fontWeight: '500', color: '#92400e' },
+  currentStatusRow: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#f1f5f9' },
+  currentStatusText: { fontSize: 12, color: '#64748b', fontStyle: 'italic' },
   // Archiv
   emptyArchiv: { padding: 40, alignItems: 'center' },
   emptyArchivText: { fontSize: 14, color: '#94a3b8' },
   restoreButton: { backgroundColor: '#10b981', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6 },
   restoreButtonText: { fontSize: 12, color: '#fff', fontWeight: '600' },
-  restoreButtonModal: { backgroundColor: '#10b981', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8 },
-  restoreButtonModalText: { fontSize: 14, color: '#fff', fontWeight: '600' },
   // Entscheidungs-Modal
   decisionModalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 32, width: '90%', maxWidth: 450, alignItems: 'center' },
   decisionModalTitle: { fontSize: 22, fontWeight: '700', color: '#1a1a1a', marginBottom: 8 },
@@ -3782,101 +3439,4 @@ const styles = StyleSheet.create({
   playerEditDropdownItemActive: { backgroundColor: '#dcfce7' },
   playerEditDropdownItemText: { fontSize: 14, color: '#1a1a1a' },
   playerEditDropdownItemTextActive: { color: '#166534', fontWeight: '600' },
-  // Advisor Picker Styles
-  advisorPickerContainer: { position: 'relative', zIndex: 9000 },
-  advisorPicker: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 12, backgroundColor: '#fff' },
-  advisorPickerText: { fontSize: 14, color: '#1a1a1a' },
-  advisorPickerPlaceholder: { fontSize: 14, color: '#9ca3af' },
-  advisorPickerArrow: { fontSize: 10, color: '#9ca3af' },
-  advisorDropdown: { 
-    position: 'absolute', 
-    top: 48, 
-    left: 0, 
-    right: 0, 
-    backgroundColor: '#fff', 
-    borderWidth: 1, 
-    borderColor: '#e2e8f0', 
-    borderRadius: 8, 
-    zIndex: 99999,
-    // @ts-ignore - Web specific
-    boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-    maxHeight: 200,
-    overflow: 'scroll',
-  },
-  advisorDropdownUp: { 
-    position: 'absolute', 
-    bottom: 48, 
-    left: 0, 
-    right: 0, 
-    backgroundColor: '#fff', 
-    borderWidth: 1, 
-    borderColor: '#e2e8f0', 
-    borderRadius: 8, 
-    zIndex: 99999,
-    // @ts-ignore - Web specific
-    boxShadow: '0 -4px 20px rgba(0,0,0,0.15)',
-    maxHeight: 200,
-    overflow: 'scroll',
-  },
-  advisorDropdownItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  advisorDropdownItemActive: { backgroundColor: '#f0fdf4' },
-  advisorDropdownText: { fontSize: 14, color: '#1a1a1a' },
-  // Reminder DatePicker Styles
-  reminderPickerContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  reminderDateRow: { flexDirection: 'row', gap: 8, flex: 1 },
-  reminderDatePart: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 12, backgroundColor: '#fff' },
-  reminderDatePartText: { fontSize: 14, color: '#1a1a1a' },
-  reminderDatePartArrow: { fontSize: 10, color: '#9ca3af' },
-  reminderDropdown: { 
-    position: 'absolute', 
-    top: 48, 
-    left: 0, 
-    right: 0, 
-    backgroundColor: '#fff', 
-    borderWidth: 1, 
-    borderColor: '#e2e8f0', 
-    borderRadius: 8, 
-    zIndex: 99999,
-    // @ts-ignore - Web specific
-    boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-    maxHeight: 200,
-  },
-  reminderDropdownUp: { 
-    position: 'absolute', 
-    bottom: 48, 
-    left: 0, 
-    right: 0, 
-    backgroundColor: '#fff', 
-    borderWidth: 1, 
-    borderColor: '#e2e8f0', 
-    borderRadius: 8, 
-    zIndex: 99999,
-    // @ts-ignore - Web specific
-    boxShadow: '0 -4px 20px rgba(0,0,0,0.15)',
-    maxHeight: 200,
-  },
-  reminderDropdownItem: { padding: 10, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  reminderDropdownItemText: { fontSize: 14, color: '#1a1a1a' },
-  reminderClearButton: { width: 32, height: 32, borderRadius: 8, backgroundColor: '#fee2e2', justifyContent: 'center', alignItems: 'center' },
-  reminderClearButtonText: { fontSize: 14, color: '#ef4444' },
-  // Reminder Days Picker (Erinnerung in Tagen)
-  reminderDaysPickerContainer: { position: 'relative', zIndex: 8000 },
-  reminderDaysPicker: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 12, backgroundColor: '#fff' },
-  reminderDaysPickerText: { fontSize: 14, color: '#1a1a1a' },
-  reminderDaysPickerPlaceholder: { fontSize: 14, color: '#9ca3af' },
-  reminderDaysPickerArrow: { fontSize: 10, color: '#9ca3af' },
-  reminderDaysDropdownUp: { 
-    position: 'absolute', 
-    bottom: 48, 
-    left: 0, 
-    right: 0, 
-    backgroundColor: '#fff', 
-    borderWidth: 1, 
-    borderColor: '#e2e8f0', 
-    borderRadius: 8, 
-    zIndex: 99999,
-    maxHeight: 250,
-  },
-  reminderDaysDropdownItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  reminderDaysDropdownItemText: { fontSize: 14, color: '#1a1a1a' },
 });

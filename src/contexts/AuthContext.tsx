@@ -31,37 +31,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (userId: string, userEmail: string | undefined) => {
-    // Zuerst in advisors Tabelle schauen
-    const { data: advisorData } = await supabase
-      .from('advisors')
-      .select('id, first_name, last_name, role')
-      .eq('id', userId)
-      .single();
-    
-    if (advisorData && (advisorData.role === 'advisor' || advisorData.role === 'admin' || advisorData.role === 'berater')) {
-      // Berater gefunden - role normalisieren
-      const normalizedRole = advisorData.role === 'berater' ? 'advisor' : advisorData.role;
-      setProfile({
-        id: advisorData.id,
-        first_name: advisorData.first_name,
-        last_name: advisorData.last_name,
-        role: normalizedRole as UserRole,
-        email: userEmail || null
-      });
-      return;
-    }
+    try {
+      // Zuerst in advisors Tabelle schauen
+      const { data: advisorData, error: advisorError } = await supabase
+        .from('advisors')
+        .select('id, first_name, last_name, role')
+        .eq('id', userId)
+        .single();
+      
+      if (advisorError && advisorError.code !== 'PGRST116') {
+        console.warn('Advisor fetch error:', advisorError);
+      }
+      
+      if (advisorData && (advisorData.role === 'advisor' || advisorData.role === 'admin' || advisorData.role === 'berater')) {
+        const normalizedRole = advisorData.role === 'berater' ? 'advisor' : advisorData.role;
+        setProfile({
+          id: advisorData.id,
+          first_name: advisorData.first_name,
+          last_name: advisorData.last_name,
+          role: normalizedRole as UserRole,
+          email: userEmail || null
+        });
+        return;
+      }
 
-    // Sonst in profiles Tabelle schauen (für Spieler)
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-    
-    if (profileData) {
-      setProfile(profileData);
-    } else {
-      // Kein Profil gefunden - Standard: Spieler
+      // Sonst in profiles Tabelle schauen
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      if (profileError && profileError.code !== 'PGRST116') {
+        console.warn('Profile fetch error:', profileError);
+      }
+      
+      if (profileData) {
+        setProfile(profileData);
+      } else {
+        setProfile({
+          id: userId,
+          first_name: null,
+          last_name: null,
+          role: 'player',
+          email: userEmail || null
+        });
+      }
+    } catch (error) {
+      console.warn('fetchProfile exception:', error);
       setProfile({
         id: userId,
         first_name: null,
@@ -72,7 +89,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Session-Recovery Funktion
+  const recoverSession = async () => {
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) {
+        console.warn('getSession error:', error);
+      }
+      
+      if (session) {
+        setSession(session);
+        setUser(session.user);
+        await fetchProfile(session.user.id, session.user.email);
+      } else {
+        // Versuche Session zu refreshen
+        const { data, error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError) {
+          console.warn('refreshSession error:', refreshError);
+        }
+        if (data.session) {
+          setSession(data.session);
+          setUser(data.session.user);
+          await fetchProfile(data.session.user.id, data.session.user.email);
+        }
+      }
+    } catch (e) {
+      console.warn('recoverSession exception:', e);
+    }
+  };
+
   useEffect(() => {
+    // Initial Session laden
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -80,7 +127,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
 
+    // Auth State Changes listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state changed:', event);
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) await fetchProfile(session.user.id, session.user.email);
@@ -88,7 +137,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    // === FIX: Session-Recovery bei Tab-Wechsel (Web) ===
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        console.log('Tab wieder aktiv - Session wird geprüft...');
+        supabase.auth.startAutoRefresh();
+        await recoverSession();
+      } else {
+        supabase.auth.stopAutoRefresh();
+      }
+    };
+
+    const handleFocus = async () => {
+      console.log('Fenster hat Fokus - Session wird geprüft...');
+      supabase.auth.startAutoRefresh();
+      await recoverSession();
+    };
+
+    // Event Listeners hinzufügen (nur im Browser)
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      window.addEventListener('focus', handleFocus);
+      
+      // Auto-Refresh initial starten
+      supabase.auth.startAutoRefresh();
+    }
+
+    // Cleanup
+    return () => {
+      subscription.unsubscribe();
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        window.removeEventListener('focus', handleFocus);
+        supabase.auth.stopAutoRefresh();
+      }
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
@@ -97,7 +180,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, firstName: string, lastName: string, role: UserRole = 'player') => {
-    // 1. Supabase Auth User erstellen
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -108,7 +190,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (error) return { error };
 
-    // 2. Wenn Berater, direkt in advisors Tabelle eintragen
     if (role === 'advisor' && data.user) {
       const { error: advisorError } = await supabase
         .from('advisors')
@@ -127,7 +208,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: advisorError };
       }
 
-      // 3. WICHTIG: Profil sofort setzen, nicht auf onAuthStateChange warten
       setProfile({
         id: data.user.id,
         first_name: firstName,

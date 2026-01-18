@@ -205,9 +205,7 @@ export function TransfersScreen({ navigation }: any) {
     fetchClubLogos();
     fetchAdvisors();
     fetchSearchingClubs();
-    const unsubscribe = navigation.addListener('focus', () => { fetchPlayers(); fetchMyPlayerAccess(); fetchSearchingClubs(); });
-    return unsubscribe;
-  }, [navigation]);
+  }, []);
 
   useEffect(() => { 
     filterTransferPlayers(); 

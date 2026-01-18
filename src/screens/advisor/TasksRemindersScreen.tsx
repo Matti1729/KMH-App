@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Pressable } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 
@@ -150,15 +149,6 @@ export function TasksRemindersScreen({ navigation }: any) {
     }
   }, [currentUserId]);
 
-  // Daten neu laden wenn Screen fokussiert wird (z.B. nach Rückkehr von TransferDetail)
-  useFocusEffect(
-    useCallback(() => {
-      if (currentUserId) {
-        fetchReminders();
-      }
-    }, [currentUserId])
-  );
-
   const fetchProfile = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
@@ -266,20 +256,17 @@ export function TasksRemindersScreen({ navigation }: any) {
   };
 
   const openEditTaskModal = (task: Task) => {
-    // Hole die aktuelle Version der Task aus dem State (mit aktualisierten Subtasks)
-    const currentTask = tasks.find(t => t.id === task.id) || task;
-    
-    setEditingTask(currentTask);
-    setTaskTitle(currentTask.title);
-    setTaskDescription(currentTask.description || '');
-    setTaskDueDate(currentTask.due_date || '');
+    setEditingTask(task);
+    setTaskTitle(task.title);
+    setTaskDescription(task.description || '');
+    setTaskDueDate(task.due_date || '');
     // Parse existing date
-    const parts = parseDateToParts(currentTask.due_date || '');
+    const parts = parseDateToParts(task.due_date || '');
     setSelectedDay(parts?.day || null);
     setSelectedMonth(parts?.month ?? null);
     setSelectedYear(parts?.year || null);
-    setTaskPriority(currentTask.priority);
-    setNewSubtasks(currentTask.subtasks?.map(s => s.title) || []);
+    setTaskPriority(task.priority);
+    setNewSubtasks(task.subtasks?.map(s => s.title) || []);
     setNewSubtaskInput('');
     closeAllDatePickers();
     setShowTaskModal(true);
@@ -305,24 +292,16 @@ export function TasksRemindersScreen({ navigation }: any) {
         })
         .eq('id', editingTask.id);
 
-      // Hole aktuelle Task aus State für Subtask-Status
-      const currentTask = tasks.find(t => t.id === editingTask.id);
-      const existingSubtasks = currentTask?.subtasks || [];
-      
       // Delete old subtasks and insert new ones
       await supabase.from('subtasks').delete().eq('task_id', editingTask.id);
       
       if (newSubtasks.length > 0) {
         await supabase.from('subtasks').insert(
-          newSubtasks.map(title => {
-            // Finde existierende Subtask mit gleichem Titel um completed-Status zu erhalten
-            const existing = existingSubtasks.find(s => s.title === title);
-            return {
-              task_id: editingTask.id,
-              title,
-              completed: existing?.completed || false,
-            };
-          })
+          newSubtasks.map(title => ({
+            task_id: editingTask.id,
+            title,
+            completed: false,
+          }))
         );
       }
     } else {
@@ -373,26 +352,14 @@ export function TasksRemindersScreen({ navigation }: any) {
   };
 
   const toggleSubtaskComplete = async (subtask: Subtask) => {
-    const newCompleted = !subtask.completed;
-    
-    // Lokalen State sofort aktualisieren (ohne fetchTasks aufzurufen!)
-    setTasks(prevTasks => prevTasks.map(task => ({
-      ...task,
-      subtasks: task.subtasks?.map(s => 
-        s.id === subtask.id ? { ...s, completed: newCompleted } : s
-      )
-    })));
-    
-    // In DB speichern (ohne danach fetchTasks aufzurufen)
     await supabase
       .from('subtasks')
-      .update({ completed: newCompleted })
+      .update({ completed: !subtask.completed })
       .eq('id', subtask.id);
+    fetchTasks();
   };
 
   const toggleReminderComplete = async (reminder: Reminder) => {
-    const isCompleting = !reminder.completed;
-    
     if (reminder.id.startsWith('transfer-')) {
       // For transfer reminders, toggle locally in state
       setReminders(prev => prev.map(r => 
@@ -400,15 +367,6 @@ export function TasksRemindersScreen({ navigation }: any) {
           ? { ...r, completed: !r.completed, completed_at: !r.completed ? new Date().toISOString() : undefined }
           : r
       ));
-      
-      // Wenn abgehakt, reminder_date in searching_clubs zurücksetzen
-      if (isCompleting && reminder.source_id && reminder.club_name) {
-        await supabase
-          .from('searching_clubs')
-          .update({ reminder_date: null })
-          .eq('player_id', reminder.source_id)
-          .eq('club_name', reminder.club_name);
-      }
       return;
     }
     
@@ -419,17 +377,6 @@ export function TasksRemindersScreen({ navigation }: any) {
         completed_at: !reminder.completed ? new Date().toISOString() : null,
       })
       .eq('id', reminder.id);
-    
-    // Wenn abgehakt und source_type vorhanden, reminder_date in Quelle zurücksetzen
-    if (isCompleting && reminder.source_type && reminder.source_id) {
-      if (reminder.source_type === 'scouting') {
-        await supabase
-          .from('scouted_players')
-          .update({ reminder_date: null })
-          .eq('id', reminder.source_id);
-      }
-    }
-    
     fetchReminders();
   };
 
@@ -497,73 +444,59 @@ export function TasksRemindersScreen({ navigation }: any) {
     const completedSubtasks = task.subtasks?.filter(s => s.completed).length || 0;
     const totalSubtasks = task.subtasks?.length || 0;
 
-    const handleToggleExpand = () => {
-      if (hasSubtasks) {
-        setExpandedTaskId(isExpanded ? null : task.id);
-      } else {
-        openEditTaskModal(task);
-      }
-    };
-
     return (
-      <View key={task.id}>
-        <View style={styles.taskCard}>
-          <View style={styles.taskHeader}>
-            <TouchableOpacity 
-              style={[styles.checkbox, task.completed && styles.checkboxChecked]}
-              onPress={() => toggleTaskComplete(task)}
-            >
-              {task.completed && <Text style={styles.checkboxIcon}>✓</Text>}
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.taskContent}
-              onPress={handleToggleExpand}
-            >
-              <View style={styles.taskTitleRow}>
-                <Text style={[styles.taskTitle, task.completed && styles.taskTitleCompleted]}>{task.title}</Text>
-                {task.due_date && (
-                  <View style={styles.taskDateBadge}>
-                    <Text style={styles.taskDateBadgeText}>{formatDateShort(task.due_date)}</Text>
-                  </View>
-                )}
-              </View>
-              {task.description && (
-                <Text style={styles.taskDescriptionPreview} numberOfLines={1}>{task.description}</Text>
+      <View key={task.id} style={styles.taskCard}>
+        <View style={styles.taskHeader}>
+          <TouchableOpacity 
+            style={[styles.checkbox, task.completed && styles.checkboxChecked]}
+            onPress={() => toggleTaskComplete(task)}
+          >
+            {task.completed && <Text style={styles.checkboxIcon}>✓</Text>}
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.taskContent}
+            onPress={() => hasSubtasks ? setExpandedTaskId(isExpanded ? null : task.id) : openEditTaskModal(task)}
+          >
+            <View style={styles.taskTitleRow}>
+              <Text style={[styles.taskTitle, task.completed && styles.taskTitleCompleted]}>{task.title}</Text>
+              {task.due_date && (
+                <View style={styles.taskDateBadge}>
+                  <Text style={styles.taskDateBadgeText}>{formatDateShort(task.due_date)}</Text>
+                </View>
               )}
-            </TouchableOpacity>
-            {hasSubtasks && (
-              <View style={styles.subtaskCountBadge}>
-                <Text style={styles.subtaskCountText}>{completedSubtasks}/{totalSubtasks}</Text>
-              </View>
+            </View>
+            {task.description && (
+              <Text style={styles.taskDescriptionPreview} numberOfLines={1}>{task.description}</Text>
             )}
-            <TouchableOpacity style={styles.taskEditButton} onPress={() => openEditTaskModal(task)}>
-              <Text style={styles.taskEditIcon}>✎</Text>
-            </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
+          {hasSubtasks && (
+            <View style={styles.subtaskCountBadge}>
+              <Text style={styles.subtaskCountText}>{completedSubtasks}/{totalSubtasks}</Text>
+            </View>
+          )}
+          <TouchableOpacity style={styles.taskEditButton} onPress={() => openEditTaskModal(task)}>
+            <Text style={styles.taskEditIcon}>✎</Text>
+          </TouchableOpacity>
         </View>
         
         {isExpanded && hasSubtasks && (
-          <View style={styles.subtasksContainer}>
-            {task.subtasks
-              ?.slice()
-              .sort((a, b) => {
-                if (a.completed !== b.completed) return a.completed ? 1 : -1;
-                return 0;
-              })
-              .map(subtask => (
-              <TouchableOpacity 
-                key={subtask.id} 
-                style={styles.subtaskItemStandalone}
-                onPress={() => toggleSubtaskComplete(subtask)}
-              >
-                <View style={[styles.subtaskCheckbox, subtask.completed && styles.subtaskCheckboxChecked]}>
-                  {subtask.completed && <Text style={styles.subtaskCheckIcon}>✓</Text>}
-                </View>
-                <Text style={[styles.subtaskTitle, subtask.completed && styles.subtaskTitleCompleted]}>
-                  {subtask.title}
-                </Text>
-              </TouchableOpacity>
-            ))}
+          <View style={styles.taskExpanded}>
+            <View style={styles.subtasksList}>
+              {task.subtasks?.map(subtask => (
+                <TouchableOpacity 
+                  key={subtask.id} 
+                  style={styles.subtaskItem}
+                  onPress={() => toggleSubtaskComplete(subtask)}
+                >
+                  <View style={[styles.subtaskCheckbox, subtask.completed && styles.subtaskCheckboxChecked]}>
+                    {subtask.completed && <Text style={styles.subtaskCheckIcon}>✓</Text>}
+                  </View>
+                  <Text style={[styles.subtaskTitle, subtask.completed && styles.subtaskTitleCompleted]}>
+                    {subtask.title}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         )}
       </View>
@@ -655,6 +588,14 @@ export function TasksRemindersScreen({ navigation }: any) {
       <Sidebar navigation={navigation} activeScreen="tasks" profile={profile} />
       
       <View style={styles.mainContent}>
+        {/* Overlay zum Schließen der expanded Task */}
+        {expandedTaskId && (
+          <Pressable 
+            style={styles.closeOverlay} 
+            onPress={() => setExpandedTaskId(null)}
+          />
+        )}
+        
         {/* Header Banner - wie ScoutingScreen */}
         <View style={styles.headerBanner}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('AdvisorDashboard')}>
@@ -670,7 +611,7 @@ export function TasksRemindersScreen({ navigation }: any) {
         {/* Content - 60/40 Split */}
         <View style={styles.splitContainer}>
           {/* Left Side - Tasks */}
-          <View style={styles.leftPanel}>
+          <View style={[styles.leftPanel, expandedTaskId && { zIndex: 10 }]}>
             <View style={styles.panelHeader}>
               <Text style={styles.panelTitle}>Aufgaben</Text>
               <TouchableOpacity style={styles.addButton} onPress={openNewTaskModal}>
@@ -1121,32 +1062,15 @@ const styles = StyleSheet.create({
   // Subtasks
   subtasksList: { gap: 8 },
   subtaskItem: { flexDirection: 'row', alignItems: 'center' },
-  subtasksContainer: { 
-    marginLeft: 32, 
-    marginBottom: 12, 
-    paddingLeft: 12, 
-    borderLeftWidth: 2, 
-    borderLeftColor: '#e2e8f0',
-  },
-  subtaskItemStandalone: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-    marginVertical: 2,
-    backgroundColor: '#f8fafc',
-    borderRadius: 6,
-  },
   subtaskCheckbox: { 
-    width: 20, 
-    height: 20, 
+    width: 18, 
+    height: 18, 
     borderRadius: 4, 
-    borderWidth: 2, 
+    borderWidth: 1.5, 
     borderColor: '#cbd5e1',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
-    backgroundColor: '#fff',
   },
   subtaskCheckboxChecked: { backgroundColor: '#3b82f6', borderColor: '#3b82f6' },
   subtaskCheckIcon: { color: '#fff', fontSize: 12 },
