@@ -393,11 +393,11 @@ export async function syncPlayerGames(
   return { success: true, games };
 }
 
-// Alle gespeicherten Spiele laden (für die nächsten 8 Wochen)
+// Alle gespeicherten Spiele laden (für die nächsten 5 Wochen)
 export async function loadUpcomingGames(supabase: SupabaseClient): Promise<any[]> {
   const today = new Date();
-  const in8Weeks = new Date();
-  in8Weeks.setDate(in8Weeks.getDate() + 56); // 8 Wochen
+  const in5Weeks = new Date();
+  in5Weeks.setDate(in5Weeks.getDate() + 35); // 5 Wochen
   
   const { data, error } = await supabase
     .from('player_games')
@@ -406,7 +406,7 @@ export async function loadUpcomingGames(supabase: SupabaseClient): Promise<any[]
       player:player_details(id, first_name, last_name, club, responsibility)
     `)
     .gte('date', today.toISOString().split('T')[0])
-    .lte('date', in8Weeks.toISOString().split('T')[0])
+    .lte('date', in5Weeks.toISOString().split('T')[0])
     .order('date', { ascending: true });
   
   if (error) {

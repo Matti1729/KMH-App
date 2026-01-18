@@ -414,11 +414,19 @@ export function TermineScreen({ navigation }: any) {
   };
 
   const isTerminPast = (dateString: string, datumEnde?: string): boolean => {
-    const now = new Date();
+    // Termine sollen den ganzen Tag sichtbar bleiben (bis Mitternacht)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
     if (datumEnde) {
-      return new Date(datumEnde) < now;
+      const endDate = new Date(datumEnde);
+      endDate.setHours(23, 59, 59, 999);
+      return endDate < today;
     }
-    return new Date(dateString) < now;
+    
+    const terminDate = new Date(dateString);
+    terminDate.setHours(23, 59, 59, 999);
+    return terminDate < today;
   };
   
   const isTerminCurrentlyRunning = (termin: Termin): boolean => {
@@ -774,7 +782,7 @@ export function TermineScreen({ navigation }: any) {
                 <Text style={styles.mainCardTitle}>Spiele unserer Spieler</Text>
                 <Text style={styles.mainCardSubtitle}>
                   {playerGames.length > 0 
-                    ? `${playerGames.length} Spiele in den nächsten 8 Wochen`
+                    ? `${playerGames.length} Spiele in den nächsten 5 Wochen`
                     : 'Alle Partien deiner Mandanten\nim Überblick'
                   }
                 </Text>
