@@ -413,6 +413,18 @@ export function TermineScreen({ navigation }: any) {
     return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
   };
 
+  // Namen zu Kürzeln umwandeln (z.B. "Matti Langer" -> "ML")
+  const getInitials = (name: string): string => {
+    return name.split(' ').map(part => part.charAt(0).toUpperCase()).join('');
+  };
+
+  // Zuständigkeiten als Kürzel formatieren
+  const formatResponsibilityInitials = (responsibility: string | undefined): string => {
+    if (!responsibility) return '-';
+    const parts = responsibility.split(/,\s*|&\s*/).map(s => s.trim()).filter(s => s);
+    return parts.map(name => getInitials(name)).join(', ');
+  };
+
   const isTerminPast = (dateString: string, datumEnde?: string): boolean => {
     // Termine sollen den ganzen Tag sichtbar bleiben (bis Mitternacht)
     const today = new Date();
@@ -432,9 +444,9 @@ export function TermineScreen({ navigation }: any) {
   const isTerminCurrentlyRunning = (termin: Termin): boolean => {
     const now = new Date();
     const startDate = new Date(termin.datum);
-    const endDate = termin.datum_ende ? new Date(termin.datum_ende) : startDate;
-    // Setze endDate auf Ende des Tages
-    endDate.setHours(23, 59, 59, 999);
+    startDate.setHours(0, 0, 0, 0); // Tagesbeginn
+    const endDate = termin.datum_ende ? new Date(termin.datum_ende) : new Date(termin.datum);
+    endDate.setHours(23, 59, 59, 999); // Tagesende
     return startDate <= now && endDate >= now;
   };
   
@@ -625,7 +637,11 @@ export function TermineScreen({ navigation }: any) {
   const availableResponsibilities = useMemo(() => {
     const responsibilities = new Set<string>();
     playerGames.forEach(g => { 
-      if (g.player?.responsibility) responsibilities.add(g.player.responsibility); 
+      if (g.player?.responsibility) {
+        // Aufteilen falls mehrere Berater (getrennt durch ", " oder " & " oder ",")
+        const parts = g.player.responsibility.split(/,\s*|&\s*/).map(s => s.trim()).filter(s => s);
+        parts.forEach(part => responsibilities.add(part));
+      }
     });
     return Array.from(responsibilities).sort();
   }, [playerGames]);
@@ -658,7 +674,13 @@ export function TermineScreen({ navigation }: any) {
     }
     
     if (selectedResponsibilities.length > 0) {
-      games = games.filter(g => selectedResponsibilities.includes(g.player?.responsibility || ''));
+      games = games.filter(g => {
+        const resp = g.player?.responsibility || '';
+        // Prüfen ob einer der ausgewählten Berater im responsibility-String enthalten ist
+        return selectedResponsibilities.some(selected => 
+          resp.split(/,\s*|&\s*/).map(s => s.trim()).includes(selected)
+        );
+      });
     }
     
     if (selectedPlayers.length > 0) {
@@ -977,7 +999,11 @@ export function TermineScreen({ navigation }: any) {
                     ) : (
                       availableResponsibilities.map(resp => {
                         const isSelected = selectedResponsibilities.includes(resp);
-                        const count = playerGames.filter(g => g.player?.responsibility === resp).length;
+                        // Zähle Spiele wo dieser Berater im responsibility-String enthalten ist
+                        const count = playerGames.filter(g => {
+                          const respStr = g.player?.responsibility || '';
+                          return respStr.split(/,\s*|&\s*/).map(s => s.trim()).includes(resp);
+                        }).length;
                         return (
                           <TouchableOpacity key={resp} style={styles.scoutingFilterCheckboxItem} onPress={() => toggleResponsibility(resp)}>
                             <View style={[styles.scoutingCheckbox, isSelected && styles.scoutingCheckboxSelected]}>
@@ -1093,7 +1119,7 @@ export function TermineScreen({ navigation }: any) {
                         {(game as any).playerNames?.join(', ') || game.player_name}
                       </Text>
                       <Text style={[styles.scoutingTableCell, { flex: 1 }]} numberOfLines={1}>
-                        {(game as any).playerResponsibilities?.join(', ') || game.player?.responsibility || '-'}
+                        {(game as any).playerResponsibilities?.map((r: string) => formatResponsibilityInitials(r)).join(', ') || formatResponsibilityInitials(game.player?.responsibility)}
                       </Text>
                     </View>
                   );

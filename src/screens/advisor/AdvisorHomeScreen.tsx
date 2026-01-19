@@ -128,18 +128,23 @@ export function AdvisorHomeScreen({ navigation }: any) {
     totalCount += gamesCount || 0;
     
     // 2. Termine aus termine zählen (heute zwischen datum und datum_ende)
+    // Nur aktive Termine laden (wie im TermineScreen)
+    const oneDayAgo = new Date();
+    oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+    
     const { data: termineData } = await supabase
       .from('termine')
-      .select('*');
+      .select('*')
+      .or(`datum.gte.${oneDayAgo.toISOString()},datum_ende.gte.${now.toISOString()}`);
     
     if (termineData) {
       const todayTermineCount = termineData.filter(t => {
         const terminStart = new Date(t.datum);
-        const terminEnde = t.datum_ende ? new Date(t.datum_ende) : terminStart;
-        const terminStartDay = new Date(terminStart.getFullYear(), terminStart.getMonth(), terminStart.getDate());
-        const terminEndeDay = new Date(terminEnde.getFullYear(), terminEnde.getMonth(), terminEnde.getDate());
+        terminStart.setHours(0, 0, 0, 0);
+        const terminEnde = t.datum_ende ? new Date(t.datum_ende) : new Date(t.datum);
+        terminEnde.setHours(23, 59, 59, 999);
         
-        return terminStartDay <= today && today <= terminEndeDay;
+        return terminStart <= now && terminEnde >= now;
       }).length;
       
       totalCount += todayTermineCount;

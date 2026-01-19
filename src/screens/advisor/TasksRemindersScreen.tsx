@@ -14,6 +14,7 @@ interface Task {
   completed_at?: string;
   created_at: string;
   subtasks?: Subtask[];
+  sort_order?: number;
 }
 
 interface Subtask {
@@ -405,10 +406,19 @@ export function TasksRemindersScreen({ navigation }: any) {
   const activeTasks = tasks.filter(t => !t.completed);
   const completedTasks = tasks.filter(t => t.completed);
 
-  // Group active tasks by priority
-  const highPriorityTasks = activeTasks.filter(t => t.priority === 'high');
-  const mediumPriorityTasks = activeTasks.filter(t => t.priority === 'medium');
-  const lowPriorityTasks = activeTasks.filter(t => t.priority === 'low');
+  // Sortiere aktive Tasks: Nach Datum (mit Datum oben, ohne Datum unten)
+  const sortedActiveTasks = [...activeTasks].sort((a, b) => {
+    // Beide haben Datum -> nach Datum sortieren
+    if (a.due_date && b.due_date) {
+      return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+    }
+    // Nur a hat Datum -> a kommt zuerst
+    if (a.due_date && !b.due_date) return -1;
+    // Nur b hat Datum -> b kommt zuerst
+    if (!a.due_date && b.due_date) return 1;
+    // Beide ohne Datum -> nach created_at
+    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+  });
 
   // Filter reminders by date
   // Filter reminders: Heute = heute + überfällig, später = morgen und danach
@@ -438,14 +448,31 @@ export function TasksRemindersScreen({ navigation }: any) {
     );
   };
 
-  const renderTaskCard = (task: Task) => {
+  const renderTaskCard = (task: Task, index: number) => {
     const isExpanded = expandedTaskId === task.id;
     const hasSubtasks = task.subtasks && task.subtasks.length > 0;
     const completedSubtasks = task.subtasks?.filter(s => s.completed).length || 0;
     const totalSubtasks = task.subtasks?.length || 0;
+    
+    // Prüfen ob Datum heute oder vergangen ist
+    const isOverdueOrToday = task.due_date && !task.completed && (() => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const dueDate = new Date(task.due_date);
+      dueDate.setHours(0, 0, 0, 0);
+      return dueDate <= today;
+    })();
 
     return (
-      <View key={task.id} style={styles.taskCard}>
+      <Pressable 
+        key={task.id}
+        style={[
+          styles.taskCard, 
+          isExpanded && { zIndex: 10, position: 'relative' },
+          isOverdueOrToday && styles.taskCardOverdue
+        ]}
+        onPress={(e) => e.stopPropagation()}
+      >
         <View style={styles.taskHeader}>
           <TouchableOpacity 
             style={[styles.checkbox, task.completed && styles.checkboxChecked]}
@@ -468,12 +495,12 @@ export function TasksRemindersScreen({ navigation }: any) {
             {task.description && (
               <Text style={styles.taskDescriptionPreview} numberOfLines={1}>{task.description}</Text>
             )}
-          </TouchableOpacity>
-          {hasSubtasks && (
-            <View style={styles.subtaskCountBadge}>
-              <Text style={styles.subtaskCountText}>{completedSubtasks}/{totalSubtasks}</Text>
-            </View>
-          )}
+            </TouchableOpacity>
+            {hasSubtasks && (
+              <View style={styles.subtaskCountBadge}>
+                <Text style={styles.subtaskCountText}>{completedSubtasks}/{totalSubtasks}</Text>
+              </View>
+            )}
           <TouchableOpacity style={styles.taskEditButton} onPress={() => openEditTaskModal(task)}>
             <Text style={styles.taskEditIcon}>✎</Text>
           </TouchableOpacity>
@@ -483,10 +510,13 @@ export function TasksRemindersScreen({ navigation }: any) {
           <View style={styles.taskExpanded}>
             <View style={styles.subtasksList}>
               {task.subtasks?.map(subtask => (
-                <TouchableOpacity 
+                <Pressable 
                   key={subtask.id} 
                   style={styles.subtaskItem}
-                  onPress={() => toggleSubtaskComplete(subtask)}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    toggleSubtaskComplete(subtask);
+                  }}
                 >
                   <View style={[styles.subtaskCheckbox, subtask.completed && styles.subtaskCheckboxChecked]}>
                     {subtask.completed && <Text style={styles.subtaskCheckIcon}>✓</Text>}
@@ -494,12 +524,12 @@ export function TasksRemindersScreen({ navigation }: any) {
                   <Text style={[styles.subtaskTitle, subtask.completed && styles.subtaskTitleCompleted]}>
                     {subtask.title}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
               ))}
             </View>
           </View>
         )}
-      </View>
+      </Pressable>
     );
   };
 
@@ -587,14 +617,10 @@ export function TasksRemindersScreen({ navigation }: any) {
     <View style={styles.container}>
       <Sidebar navigation={navigation} activeScreen="tasks" profile={profile} />
       
-      <View style={styles.mainContent}>
-        {/* Overlay zum Schließen der expanded Task */}
-        {expandedTaskId && (
-          <Pressable 
-            style={styles.closeOverlay} 
-            onPress={() => setExpandedTaskId(null)}
-          />
-        )}
+      <Pressable 
+        style={styles.mainContent}
+        onPress={() => expandedTaskId && setExpandedTaskId(null)}
+      >
         
         {/* Header Banner - wie ScoutingScreen */}
         <View style={styles.headerBanner}>
@@ -619,16 +645,14 @@ export function TasksRemindersScreen({ navigation }: any) {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.panelContent} contentContainerStyle={{ gap: 16 }}>
-              {activeTasks.length === 0 ? (
+            <ScrollView style={styles.panelContent} contentContainerStyle={{ gap: 8 }}>
+              {sortedActiveTasks.length === 0 ? (
                 <View style={styles.emptyState}>
                   <Text style={styles.emptyStateText}>Keine offenen Aufgaben</Text>
                 </View>
               ) : (
-                <View style={{ gap: 16 }}>
-                  {renderPrioritySection('high', highPriorityTasks)}
-                  {renderPrioritySection('medium', mediumPriorityTasks)}
-                  {renderPrioritySection('low', lowPriorityTasks)}
+                <View style={{ gap: 8 }}>
+                  {sortedActiveTasks.map((task, index) => renderTaskCard(task, index))}
                 </View>
               )}
 
@@ -648,7 +672,7 @@ export function TasksRemindersScreen({ navigation }: any) {
                   </TouchableOpacity>
                   {showCompletedTasks && (
                     <View style={styles.completedList}>
-                      {completedTasks.map(renderTaskCard)}
+                      {completedTasks.map((task, index) => renderTaskCard(task, index))}
                     </View>
                   )}
                 </View>
@@ -704,7 +728,7 @@ export function TasksRemindersScreen({ navigation }: any) {
             </ScrollView>
           </View>
         </View>
-      </View>
+      </Pressable>
 
       {/* Task Modal */}
       <Modal visible={showTaskModal} transparent animationType="fade">
@@ -859,28 +883,6 @@ export function TasksRemindersScreen({ navigation }: any) {
                 </View>
               </View>
 
-              {/* Priority */}
-              <View style={styles.formField}>
-                <Text style={styles.formLabel}>Priorität</Text>
-                <View style={styles.prioritySelector}>
-                  {PRIORITIES.map(p => (
-                    <TouchableOpacity
-                      key={p.id}
-                      style={[
-                        styles.priorityOption,
-                        { borderColor: p.color },
-                        taskPriority === p.id && { backgroundColor: p.bgColor }
-                      ]}
-                      onPress={() => setTaskPriority(p.id as 'high' | 'medium' | 'low')}
-                    >
-                      <Text style={[styles.priorityOptionText, { color: p.color }]}>
-                        {taskPriority === p.id ? '✓ ' : ''}{p.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-
               {/* Subtasks */}
               <View style={styles.formField}>
                 <Text style={styles.formLabel}>Unteraufgaben</Text>
@@ -977,22 +979,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row', 
     justifyContent: 'space-between', 
     alignItems: 'center', 
-    padding: 16, 
+    padding: 12, 
     borderBottomWidth: 1, 
     borderBottomColor: '#e2e8f0',
     backgroundColor: '#f8fafc',
   },
-  panelTitle: { fontSize: 18, fontWeight: '600', color: '#1a1a1a' },
+  panelTitle: { fontSize: 16, fontWeight: '600', color: '#1a1a1a' },
   panelContent: { flex: 1, padding: 12 },
 
   // Add Button
   addButton: { 
     backgroundColor: '#1a1a1a', 
-    paddingVertical: 8, 
-    paddingHorizontal: 16, 
-    borderRadius: 8 
+    paddingVertical: 4, 
+    paddingHorizontal: 10, 
+    borderRadius: 6 
   },
-  addButtonText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  addButtonText: { color: '#fff', fontSize: 12, fontWeight: '600' },
 
   // Priority Section (wie Reminder Columns)
   prioritySection: { backgroundColor: '#f8fafc', borderRadius: 8, overflow: 'hidden' },
@@ -1040,6 +1042,12 @@ const styles = StyleSheet.create({
   taskDateBadgeText: { fontSize: 11, color: '#b45309', fontWeight: '600' },
   taskDescriptionPreview: { fontSize: 12, color: '#64748b', marginTop: 4 },
   taskDueDate: { fontSize: 12, color: '#64748b' },
+  
+  taskCardOverdue: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#fecaca',
+  },
+  
   subtaskCountBadge: { 
     backgroundColor: '#f1f5f9', 
     paddingVertical: 4, 
