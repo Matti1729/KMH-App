@@ -105,6 +105,9 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const [loadingCareer, setLoadingCareer] = useState(false);
   const [playerDescription, setPlayerDescription] = useState('');
   
+  // PDF iframe ref für scroll reset
+  const pdfIframeRef = useRef<HTMLIFrameElement | null>(null);
+  
   // Date Picker für Karriere
   const [showCareerDatePicker, setShowCareerDatePicker] = useState<{index: number, field: 'from_date' | 'to_date'} | null>(null);
   
@@ -486,9 +489,9 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           </div>
 
           <!-- Content -->
-          <div style="display: flex; flex: 1; padding: 16px 20px;">
+          <div style="display: flex; flex: 1; padding: 16px 20px; overflow: hidden;">
             <!-- Left Column -->
-            <div style="width: 200px; padding-right: 16px; flex-shrink: 0; display: flex; flex-direction: column;">
+            <div style="width: 200px; padding-right: 16px; flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden;">
               <!-- Spielerprofil Card -->
               <div style="background-color: #fafafa !important; border: 1px solid #e8e8e8; border-radius: 10px; padding: 12px; margin-bottom: 10px; -webkit-print-color-adjust: exact;">
                 <div style="font-size: 13px; font-weight: 700; color: #1a202c; margin-bottom: 8px;">Spielerprofil</div>
@@ -526,7 +529,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               </div>
 
               <!-- Stärken Card -->
-              <div style="background-color: #fafafa !important; border: 1px solid #e8e8e8; border-radius: 10px; padding: 12px; margin-bottom: 10px; -webkit-print-color-adjust: exact; flex-shrink: 1; overflow: hidden; max-height: 180px;">
+              <div style="background-color: #fafafa !important; border: 1px solid #e8e8e8; border-radius: 10px; padding: 12px; margin-bottom: 10px; -webkit-print-color-adjust: exact; flex-shrink: 1; overflow: hidden; min-height: 60px; max-height: 140px;">
                 <div style="font-size: 13px; font-weight: 700; color: #1a202c; margin-bottom: 8px;">Stärken</div>
                 <div style="height: 1px; background-color: #ddd !important; margin-bottom: 8px; -webkit-print-color-adjust: exact;"></div>
                 <div style="overflow: hidden;">${strengthsHtml}</div>
@@ -536,7 +539,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               <div style="flex: 1;"></div>
 
               <!-- Management Box -->
-              <div style="background-color: #1a1a1a !important; border-radius: 10px; padding: 12px; -webkit-print-color-adjust: exact;">
+              <div style="background-color: #1a1a1a !important; border-radius: 10px; padding: 12px; -webkit-print-color-adjust: exact; flex-shrink: 0;">
                 <div style="font-size: 12px; font-weight: 800; color: #fff !important; margin-bottom: 8px; letter-spacing: 0.5px;">${player.listing || 'KMH SPORTMANAGEMENT'}</div>
                 <div style="height: 1px; background-color: #333 !important; margin-bottom: 8px; -webkit-print-color-adjust: exact;"></div>
                 
@@ -2431,11 +2434,20 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               /* Vorschau - iframe für Web, WebView für Mobile */
               Platform.OS === 'web' ? (
                 <div style={{ flex: 1, backgroundColor: '#e8e8e8', overflow: 'auto', display: 'flex', justifyContent: 'center', padding: 20 }}>
-                  <div style={{ width: 595, height: 842, backgroundColor: '#fff', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', borderRadius: 2, flexShrink: 0 }}>
+                  <div style={{ width: 595, height: 842, backgroundColor: '#fff', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', borderRadius: 2, flexShrink: 0, overflow: 'hidden' }}>
                     <iframe
+                      key={`${player?.id}-${player?.strengths}-${careerEntries.length}-${playerDescription.length}`}
+                      ref={pdfIframeRef as any}
                       srcDoc={generatePdfHtml()}
                       style={{ border: 'none', width: 595, height: 842 }}
                       scrolling="no"
+                      onLoad={() => {
+                        try {
+                          pdfIframeRef.current?.contentWindow?.scrollTo(0, 0);
+                          pdfIframeRef.current?.contentDocument?.documentElement?.scrollTo(0, 0);
+                          pdfIframeRef.current?.contentDocument?.body?.scrollTo(0, 0);
+                        } catch {}
+                      }}
                     />
                   </div>
                 </div>
