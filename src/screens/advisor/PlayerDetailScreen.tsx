@@ -1,9 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, Image, Linking, Modal, Pressable } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, Image, Linking, Modal, Pressable, Platform } from 'react-native';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system';
+
+// WebView nur für Mobile importieren
+let WebView: any = null;
+if (Platform.OS !== 'web') {
+  WebView = require('react-native-webview').WebView;
+}
 
 const POSITION_SHORTS = ['TW', 'IV', 'LV', 'RV', 'DM', 'ZM', 'OM', 'LA', 'RA', 'ST'];
 const POSITION_MAP: Record<string, string> = {
@@ -76,6 +85,28 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const [showSpielplanModal, setShowSpielplanModal] = useState(false);
   const [showPositionPicker, setShowPositionPicker] = useState(false);
   const [showSecondaryPositionPicker, setShowSecondaryPositionPicker] = useState(false);
+  const [showPDFProfileModal, setShowPDFProfileModal] = useState(false);
+  const [pdfEditMode, setPdfEditMode] = useState(false);
+  const [pdfEditData, setPdfEditData] = useState<Player | null>(null);
+  
+  // Career State
+  interface CareerEntry {
+    id?: string;
+    player_id?: string;
+    club: string;
+    league: string;
+    from_date: string;
+    to_date: string;
+    stats: string;
+    is_current: boolean;
+    sort_order: number;
+  }
+  const [careerEntries, setCareerEntries] = useState<CareerEntry[]>([]);
+  const [loadingCareer, setLoadingCareer] = useState(false);
+  const [playerDescription, setPlayerDescription] = useState('');
+  
+  // Date Picker für Karriere
+  const [showCareerDatePicker, setShowCareerDatePicker] = useState<{index: number, field: 'from_date' | 'to_date'} | null>(null);
   
   // ============================================
   // SAUBERE ACCESS CONTROL - NUR advisor_access
@@ -123,6 +154,531 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       checkAccess();
     }
   }, [profile?.id, playerId]);
+
+  // Karriere laden wenn PDF Modal geöffnet wird
+  useEffect(() => {
+    if (showPDFProfileModal && player) {
+      fetchCareerEntries();
+      setPdfEditData({ ...player });
+    }
+  }, [showPDFProfileModal, player]);
+
+  const fetchCareerEntries = async () => {
+    setLoadingCareer(true);
+    const { data, error } = await supabase
+      .from('player_career')
+      .select('*')
+      .eq('player_id', playerId);
+    
+    let entries: CareerEntry[] = [];
+    
+    if (data && data.length > 0) {
+      // Konvertiere alte from_year/to_year zu from_date/to_date falls nötig
+      entries = data.map(d => ({
+        ...d,
+        from_date: d.from_date || d.from_year || '',
+        to_date: d.to_date || d.to_year || '',
+        is_current: d.is_current || false
+      }));
+    }
+    
+    // Prüfe ob aktueller Verein bereits als Karrierestation existiert
+    const hasCurrentClub = entries.some(e => e.is_current && e.club === player?.club);
+    
+    // Wenn nicht, füge aktuellen Verein als erste Station hinzu
+    if (!hasCurrentClub && player?.club) {
+      const currentClubEntry: CareerEntry = {
+        club: player.club,
+        league: player.league || '',
+        from_date: '',
+        to_date: '',
+        stats: '',
+        is_current: true,
+        sort_order: 0
+      };
+      entries = [currentClubEntry, ...entries];
+    }
+    
+    // Sortiere: is_current zuerst, dann nach from_date (neueste zuerst)
+    entries.sort((a, b) => {
+      if (a.is_current && !b.is_current) return -1;
+      if (!a.is_current && b.is_current) return 1;
+      
+      // Parse Datum - unterstützt DD.MM.YYYY und YYYY-MM-DD
+      const parseDate = (dateStr: string): Date => {
+        if (!dateStr) return new Date(0);
+        if (dateStr.includes('.')) {
+          const parts = dateStr.split('.');
+          if (parts.length === 3) {
+            return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+          }
+        }
+        if (dateStr.includes('-')) {
+          return new Date(dateStr);
+        }
+        return new Date(0);
+      };
+      
+      const dateA = parseDate(a.from_date);
+      const dateB = parseDate(b.from_date);
+      return dateB.getTime() - dateA.getTime();
+    });
+    
+    setCareerEntries(entries);
+    
+    // Lade Spieler-Beschreibung
+    const { data: playerData } = await supabase
+      .from('player_details')
+      .select('pdf_description')
+      .eq('id', playerId)
+      .single();
+    
+    if (playerData?.pdf_description) {
+      setPlayerDescription(playerData.pdf_description);
+    }
+    
+    setLoadingCareer(false);
+  };
+
+  const saveCareerEntry = async (entry: CareerEntry) => {
+    if (entry.id) {
+      // Update
+      await supabase
+        .from('player_career')
+        .update({
+          club: entry.club,
+          league: entry.league,
+          from_date: entry.from_date,
+          to_date: entry.to_date,
+          stats: entry.stats,
+          is_current: entry.is_current,
+          sort_order: entry.sort_order
+        })
+        .eq('id', entry.id);
+    } else {
+      // Insert
+      await supabase
+        .from('player_career')
+        .insert({
+          player_id: playerId,
+          club: entry.club,
+          league: entry.league,
+          from_date: entry.from_date,
+          to_date: entry.to_date,
+          stats: entry.stats,
+          is_current: entry.is_current,
+          sort_order: entry.sort_order
+        });
+    }
+  };
+
+  const deleteCareerEntry = async (id: string) => {
+    await supabase.from('player_career').delete().eq('id', id);
+    setCareerEntries(careerEntries.filter(e => e.id !== id));
+  };
+
+  const addNewCareerEntry = () => {
+    const newEntry: CareerEntry = {
+      club: '',
+      league: '',
+      from_date: '',
+      to_date: '',
+      stats: '',
+      is_current: false,
+      sort_order: careerEntries.length
+    };
+    setCareerEntries([...careerEntries, newEntry]);
+  };
+
+  const updateCareerEntry = (index: number, field: keyof CareerEntry, value: string | boolean) => {
+    const updated = [...careerEntries];
+    (updated[index] as any)[field] = value;
+    
+    // Parse Datum - unterstützt DD.MM.YYYY und YYYY-MM-DD
+    const parseDate = (dateStr: string): Date => {
+      if (!dateStr) return new Date(0);
+      if (dateStr.includes('.')) {
+        const parts = dateStr.split('.');
+        if (parts.length === 3) {
+          return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+        }
+      }
+      if (dateStr.includes('-')) {
+        return new Date(dateStr);
+      }
+      return new Date(0);
+    };
+    
+    // Sortiere: is_current zuerst, dann nach from_date (neueste zuerst)
+    updated.sort((a, b) => {
+      if (a.is_current && !b.is_current) return -1;
+      if (!a.is_current && b.is_current) return 1;
+      const dateA = parseDate(a.from_date);
+      const dateB = parseDate(b.from_date);
+      return dateB.getTime() - dateA.getTime();
+    });
+    setCareerEntries(updated);
+  };
+
+  const formatDateForDisplay = (dateStr: string): string => {
+    if (!dateStr) return '';
+    // Wenn schon im Format DD.MM.YYYY - sicherstellen dass 2-stellig
+    if (dateStr.includes('.')) {
+      const parts = dateStr.split('.');
+      if (parts.length === 3) {
+        return `${parts[0].padStart(2, '0')}.${parts[1].padStart(2, '0')}.${parts[2]}`;
+      }
+      return dateStr;
+    }
+    // Wenn im Format YYYY-MM-DD
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      return `${parts[2].padStart(2, '0')}.${parts[1].padStart(2, '0')}.${parts[0]}`;
+    }
+    return dateStr;
+  };
+
+  const savePdfChanges = async () => {
+    // Karrierestationen speichern
+    for (const entry of careerEntries) {
+      await saveCareerEntry(entry);
+    }
+    
+    // Spieler-Beschreibung speichern
+    await supabase
+      .from('player_details')
+      .update({ pdf_description: playerDescription })
+      .eq('id', playerId);
+    
+    // Daten neu laden
+    await fetchCareerEntries();
+    
+    setPdfEditMode(false);
+    Alert.alert('Erfolg', 'Karrierestationen wurden gespeichert');
+  };
+
+  const generatePdfHtml = (): string => {
+    if (!player) return '';
+
+    const formatDate = (dateStr: string): string => {
+      if (!dateStr) return '';
+      if (dateStr.includes('.')) {
+        // Bereits im Format TT.MM.JJJJ - sicherstellen dass 2-stellig
+        const parts = dateStr.split('.');
+        if (parts.length === 3) {
+          return `${parts[0].padStart(2, '0')}.${parts[1].padStart(2, '0')}.${parts[2]}`;
+        }
+        return dateStr;
+      }
+      const parts = dateStr.split('-');
+      if (parts.length === 3) return `${parts[2].padStart(2, '0')}.${parts[1].padStart(2, '0')}.${parts[0]}`;
+      return dateStr;
+    };
+
+    const formatDateWithPadding = (dateStr: string): string => {
+      if (!dateStr) return '-';
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return '-';
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}.${month}.${year}`;
+    };
+
+    const birthDateFormatted = player.birth_date ? formatDateWithPadding(player.birth_date) : '-';
+    const contractEndFormatted = player.contract_end ? formatDateWithPadding(player.contract_end) : '-';
+    const age = calculateAge(player.birth_date);
+    
+    // Berater untereinander
+    const responsibility = player.responsibility || '';
+    const advisorNames = responsibility.split(/,\s*|&\s*/).map(s => s.trim()).filter(s => s);
+    const advisorsHtml = advisorNames.length > 0 
+      ? advisorNames.map(name => `<div style="color: #fff !important; font-size: 10px;">${name}</div>`).join('')
+      : '<div style="color: #fff !important; font-size: 10px;">-</div>';
+
+    // Karrierestationen HTML
+    const careerHtml = careerEntries.map((entry, index) => {
+      let dateDisplay = '';
+      if (entry.is_current && entry.from_date) {
+        dateDisplay = `Seit ${formatDate(entry.from_date)}`;
+      } else if (!entry.is_current && entry.from_date && entry.to_date) {
+        dateDisplay = `${formatDate(entry.from_date)} - ${formatDate(entry.to_date)}`;
+      } else if (!entry.is_current && entry.from_date) {
+        dateDisplay = `Seit ${formatDate(entry.from_date)}`;
+      }
+      
+      return `
+      <div style="display: flex; margin-bottom: 14px; position: relative;">
+        ${index < careerEntries.length - 1 ? '<div style="position: absolute; left: 2px; top: 11px; height: calc(100% + 14px); width: 1px; background-color: #1a1a1a !important; -webkit-print-color-adjust: exact;"></div>' : ''}
+        <div style="width: 5px; height: 5px; border-radius: 50%; background-color: #1a1a1a !important; margin-top: 6px; margin-right: 12px; flex-shrink: 0; -webkit-print-color-adjust: exact; position: relative; z-index: 1;"></div>
+        <div style="flex: 1;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+            <div style="flex: 1;">
+              <div style="font-size: 13px; font-weight: 700; color: #1a202c; line-height: 1.2;">${entry.club}</div>
+              <div style="font-size: 9px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-top: 2px;">${(entry.league || '').toUpperCase()}</div>
+            </div>
+            ${dateDisplay ? `<div style="border: 1px solid #ddd; padding: 0px 5px; border-radius: 3px; white-space: nowrap; display: inline-flex; align-items: center; height: 16px;">
+              <span style="font-size: 9px; color: #666; font-weight: 500;">${dateDisplay}</span>
+            </div>` : ''}
+          </div>
+          ${entry.stats ? `<div style="background-color: #f7fafc !important; padding: 3px 8px; border-radius: 4px; border-left: 3px solid #e2e8f0; margin-top: 4px; -webkit-print-color-adjust: exact;"><span style="font-size: 9px; color: #4a5568;">${entry.stats}</span></div>` : ''}
+        </div>
+      </div>
+    `}).join('');
+
+    // Stärken HTML
+    const strengthsHtml = player.strengths 
+      ? player.strengths.split(',').map(s => `<span style="background-color: #fff !important; border: 1px solid #ddd; padding: 4px 8px; border-radius: 4px; font-size: 10px; color: #333; margin-right: 4px; margin-bottom: 4px; display: inline-block; -webkit-print-color-adjust: exact;">${s.trim()}</span>`).join('')
+      : '-';
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          @page { size: A4; margin: 0; }
+          html, body { 
+            margin: 0; 
+            padding: 0; 
+            width: 595px;
+            height: 842px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            -webkit-print-color-adjust: exact !important; 
+            print-color-adjust: exact !important; 
+            color-adjust: exact !important;
+            overflow: hidden;
+          }
+          * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          @media print {
+            html, body { width: 210mm; height: 297mm; }
+          }
+        </style>
+      </head>
+      <body>
+        <div style="width: 595px; height: 842px; background: #fff; display: flex; flex-direction: column; -webkit-print-color-adjust: exact;">
+          <!-- Header -->
+          <div style="position: relative; padding: 20px 24px; height: 180px; overflow: hidden; -webkit-print-color-adjust: exact;">
+            <div style="position: absolute; top: 0; left: 0; bottom: 0; width: 67%; background-color: #000000 !important; -webkit-print-color-adjust: exact;"></div>
+            <div style="position: absolute; top: 0; right: 0; bottom: 0; width: 33%; background-color: #1c1c1c !important; -webkit-print-color-adjust: exact;"></div>
+            <div style="position: absolute; top: 0; bottom: 0; left: 63%; width: 60px; background-color: #1c1c1c !important; transform: skewX(-8deg); -webkit-print-color-adjust: exact;"></div>
+            
+            <div style="position: relative; z-index: 1; display: flex; align-items: center; height: 100%;">
+              <div style="margin-right: 24px; display: flex; align-items: center;">
+                ${player.photo_url 
+                  ? `<img src="${player.photo_url}" style="width: 120px; height: 155px; object-fit: cover; border: 1px solid #333;" />`
+                  : `<div style="width: 120px; height: 155px; background-color: #333 !important; display: flex; align-items: center; justify-content: center; color: #666; -webkit-print-color-adjust: exact;">Foto</div>`
+                }
+              </div>
+              <div style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
+                <div style="font-size: 26px; font-weight: 800; color: #fff !important; letter-spacing: 2px; margin-bottom: 4px;">${(player.first_name + ' ' + player.last_name).toUpperCase()}</div>
+                <div style="font-size: 13px; color: #e2e8f0 !important; margin-bottom: 10px;">
+                  ${POSITION_MAP[player.position] || player.position}
+                  ${player.secondary_position ? `<span style="color: #888 !important;"> · ${player.secondary_position.split(',').map(p => POSITION_MAP[p.trim()] || p).join(', ')}</span>` : ''}
+                </div>
+                <div style="display: inline-flex; align-items: center; background-color: rgba(255,255,255,0.12) !important; padding: 6px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); -webkit-print-color-adjust: exact; align-self: flex-start;">
+                  <span style="color: #fff !important; font-size: 11px; font-weight: 500;">${player.club || '-'}</span>
+                  <span style="color: rgba(255,255,255,0.3) !important; font-size: 11px; margin: 0 8px;">|</span>
+                  <span style="color: #fff !important; font-size: 11px; font-weight: 500;">${player.league || '-'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Content -->
+          <div style="display: flex; flex: 1; padding: 16px 20px;">
+            <!-- Left Column -->
+            <div style="width: 200px; padding-right: 16px; flex-shrink: 0; display: flex; flex-direction: column;">
+              <!-- Spielerprofil Card -->
+              <div style="background-color: #fafafa !important; border: 1px solid #e8e8e8; border-radius: 10px; padding: 12px; margin-bottom: 10px; -webkit-print-color-adjust: exact;">
+                <div style="font-size: 13px; font-weight: 700; color: #1a202c; margin-bottom: 8px;">Spielerprofil</div>
+                <div style="height: 1px; background-color: #ddd !important; margin-bottom: 8px; -webkit-print-color-adjust: exact;"></div>
+                
+                <div style="margin-bottom: 8px;">
+                  <div style="font-size: 8px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">GEBURTSDATUM</div>
+                  <div style="font-size: 11px; color: #1a202c; font-weight: 600;">${birthDateFormatted} (${age})</div>
+                </div>
+                
+                <div style="margin-bottom: 8px;">
+                  <div style="font-size: 8px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">NATIONALITÄT</div>
+                  <div style="font-size: 11px; color: #1a202c; font-weight: 600;">${player.nationality || '-'}</div>
+                </div>
+                
+                <div style="margin-bottom: 8px;">
+                  <div style="font-size: 8px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">GRÖSSE</div>
+                  <div style="font-size: 11px; color: #1a202c; font-weight: 600;">${player.height ? `${player.height} cm` : '-'}</div>
+                </div>
+                
+                <div style="margin-bottom: 8px;">
+                  <div style="font-size: 8px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">FUSS</div>
+                  <div style="font-size: 11px; color: #1a202c; font-weight: 600;">${player.strong_foot || '-'}</div>
+                </div>
+                
+                <div style="margin-bottom: 8px;">
+                  <div style="font-size: 8px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">VERTRAG BIS</div>
+                  <div style="font-size: 11px; color: #1a202c; font-weight: 600;">${contractEndFormatted}</div>
+                </div>
+                
+                <div>
+                  <div style="font-size: 8px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">TRANSFERMARKT</div>
+                  <div style="font-size: 11px; color: ${player.transfermarkt_url ? '#3182ce' : '#1a202c'}; font-weight: 600;">${player.transfermarkt_url ? 'Zum Profil' : '-'}</div>
+                </div>
+              </div>
+
+              <!-- Stärken Card -->
+              <div style="background-color: #fafafa !important; border: 1px solid #e8e8e8; border-radius: 10px; padding: 12px; margin-bottom: 10px; -webkit-print-color-adjust: exact;">
+                <div style="font-size: 13px; font-weight: 700; color: #1a202c; margin-bottom: 8px;">Stärken</div>
+                <div style="height: 1px; background-color: #ddd !important; margin-bottom: 8px; -webkit-print-color-adjust: exact;"></div>
+                <div>${strengthsHtml}</div>
+              </div>
+
+              <!-- Spacer um Management nach unten zu drücken -->
+              <div style="flex: 1;"></div>
+
+              <!-- Management Box -->
+              <div style="background-color: #1a1a1a !important; border-radius: 10px; padding: 12px; -webkit-print-color-adjust: exact;">
+                <div style="font-size: 12px; font-weight: 800; color: #fff !important; margin-bottom: 8px; letter-spacing: 0.5px;">${player.listing || 'KMH SPORTMANAGEMENT'}</div>
+                <div style="height: 1px; background-color: #333 !important; margin-bottom: 8px; -webkit-print-color-adjust: exact;"></div>
+                
+                <div style="margin-bottom: 8px;">
+                  <div style="font-size: 8px; color: #888 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">ANSPRECHPARTNER</div>
+                  <div style="color: #fff !important; font-size: 11px; font-weight: 600;">${advisorNames.length > 0 ? advisorNames.join('<br/>') : '-'}</div>
+                </div>
+                
+                <div style="margin-bottom: 8px;">
+                  <div style="font-size: 8px; color: #888 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">E-MAIL</div>
+                  <div style="color: #fff !important; font-size: 11px; font-weight: 600;">info@kmh-sportmanagement.de</div>
+                </div>
+                
+                <div style="margin-bottom: 8px;">
+                  <div style="font-size: 8px; color: #888 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">TELEFON</div>
+                  <div style="color: #fff !important; font-size: 11px; font-weight: 600;">+49 170 1234567</div>
+                </div>
+                
+                <div>
+                  <div style="font-size: 8px; color: #888 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">ADRESSE</div>
+                  <div style="color: #fff !important; font-size: 11px; font-weight: 600;">Musterstraße 1, 12345 Berlin</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Column -->
+            <div style="flex: 1; padding-left: 16px; border-left: 1px solid #e8e8e8; min-width: 0;">
+              <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                <div style="width: 4px; height: 16px; background-color: #1a1a1a !important; margin-right: 8px; -webkit-print-color-adjust: exact;"></div>
+                <div style="font-size: 14px; font-weight: 700; color: #1a202c;">Karriereverlauf der letzten 3 Jahre</div>
+              </div>
+
+              ${careerHtml}
+
+              ${playerDescription ? `
+                <div style="margin-top: 40px;">
+                  <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                    <div style="width: 4px; height: 16px; background-color: #1a1a1a !important; margin-right: 8px; -webkit-print-color-adjust: exact;"></div>
+                    <div style="font-size: 14px; font-weight: 700; color: #1a202c;">Über den Spieler</div>
+                  </div>
+                  <div style="background-color: #f8f8f8 !important; padding: 10px; border-radius: 6px; border-left: 3px solid #1a1a1a; -webkit-print-color-adjust: exact;">
+                    <div style="font-size: 10px; color: #333; line-height: 1.5; font-style: italic;">${playerDescription}</div>
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div style="padding: 12px 20px; display: flex; justify-content: flex-end;">
+            <div style="border: 1px solid #ddd; padding: 4px 8px; border-radius: 4px;">
+              <span style="font-size: 9px; color: #666; font-weight: 500;">Stand: ${formatDateWithPadding(new Date().toISOString())}</span>
+            </div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    return html;
+  };
+
+  const generatePDF = async () => {
+    if (!player) return;
+
+    const fileName = `Expose_${player.last_name}_${player.first_name}.pdf`;
+
+    try {
+      // ✅ WEB: Server-seitige PDF via Browserless (perfekte Qualität!)
+      if (Platform.OS === 'web') {
+        // Edge Function aufrufen
+        const { data, error } = await supabase.functions.invoke('generate-pdf', {
+          body: {
+            player,
+            careerEntries,
+            playerDescription,
+          },
+        });
+
+        if (error) {
+          console.error('Edge Function Error:', error);
+          Alert.alert('Fehler', 'PDF konnte nicht erstellt werden');
+          return;
+        }
+
+        if (data?.pdf) {
+          // Base64 PDF in Blob konvertieren
+          const byteCharacters = atob(data.pdf);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: 'application/pdf' });
+
+          // Download-Link erstellen
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = data.filename || fileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        } else {
+          Alert.alert('Fehler', 'Keine PDF-Daten erhalten');
+        }
+        return;
+      }
+
+      // ✅ iOS / Android: expo-print (HTML-basiert)
+      const html = generatePdfHtml();
+      if (!html) return;
+      
+      const { uri } = await Print.printToFileAsync({ 
+        html, 
+        base64: false,
+      });
+      
+      const newUri = `${FileSystem.cacheDirectory}${fileName}`;
+      
+      await FileSystem.moveAsync({
+        from: uri,
+        to: newUri
+      });
+
+      await Sharing.shareAsync(newUri, {
+        mimeType: 'application/pdf',
+        dialogTitle: `${fileName} speichern`,
+        UTI: 'com.adobe.pdf'
+      });
+    } catch (error) {
+      console.error('PDF Error:', error);
+      Alert.alert('Fehler', 'PDF konnte nicht erstellt werden');
+    }
+  };
+
+  const updatePdfField = (field: keyof Player, value: any) => {
+    if (pdfEditData) {
+      setPdfEditData({ ...pdfEditData, [field]: value });
+    }
+  };
   
   useEffect(() => {
     if (player) {
@@ -1710,9 +2266,14 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         </Pressable>
       </ScrollView>
       <View style={styles.bottomButtons}>
-        <TouchableOpacity style={styles.transferButton} onPress={() => Alert.alert('Transfer', 'Spieler zur Transferliste hinzugefügt')}>
-          <Text style={styles.transferButtonText}>Zu Transfer hinzufügen</Text>
-        </TouchableOpacity>
+        <View style={styles.bottomButtonsLeft}>
+          <TouchableOpacity style={styles.transferButton} onPress={() => Alert.alert('Transfer', 'Spieler zur Transferliste hinzugefügt')}>
+            <Text style={styles.transferButtonText}>Zu Transfer hinzufügen</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.pdfProfileButton} onPress={() => setShowPDFProfileModal(true)}>
+            <Text style={styles.pdfProfileButtonText}>📄 PDF Profil</Text>
+          </TouchableOpacity>
+        </View>
         <View style={styles.bottomButtonsRight}>
         {editing ? (
           <>
@@ -1734,11 +2295,196 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         </View>
       </View>
       {renderDeleteModal()}
+      
+      {/* PDF Profil Modal */}
+      <Modal visible={showPDFProfileModal} animationType="fade" transparent>
+        <View style={styles.pdfModalOverlay}>
+          <View style={styles.pdfModalContainer}>
+            <View style={styles.pdfModalHeader}>
+              <Text style={styles.pdfModalTitle}>Spielerprofil PDF {pdfEditMode ? '(Bearbeiten)' : ''}</Text>
+              <TouchableOpacity onPress={() => { setShowPDFProfileModal(false); setPdfEditMode(false); }} style={styles.closeButton}>
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            
+            {pdfEditMode ? (
+              /* Bearbeitungsmodus */
+              <ScrollView style={styles.pdfModalContent}>
+                <View style={styles.pdfEditSection}>
+                  <Text style={styles.pdfEditSectionTitle}>Karriereverlauf der letzten 3 Jahre</Text>
+                  <TouchableOpacity style={styles.pdfAddCareerButton} onPress={addNewCareerEntry}>
+                    <Text style={styles.pdfAddCareerButtonText}>+ Station hinzufügen</Text>
+                  </TouchableOpacity>
+                </View>
+                
+                {careerEntries.map((entry, index) => (
+                  <View key={entry.id || index} style={styles.pdfCareerEditCard}>
+                    <View style={styles.pdfCareerEditRow}>
+                      <View style={{ flex: 2 }}>
+                        <Text style={styles.pdfCareerEditLabel}>Verein</Text>
+                        <TextInput 
+                          style={styles.pdfCareerEditInput} 
+                          value={entry.club} 
+                          onChangeText={(t) => updateCareerEntry(index, 'club', t)}
+                          placeholder="Verein"
+                        />
+                      </View>
+                      <View style={{ flex: 1, marginLeft: 6 }}>
+                        <Text style={styles.pdfCareerEditLabel}>Liga</Text>
+                        <TextInput 
+                          style={styles.pdfCareerEditInput} 
+                          value={entry.league} 
+                          onChangeText={(t) => updateCareerEntry(index, 'league', t)}
+                          placeholder="Liga"
+                        />
+                      </View>
+                    </View>
+                    
+                    <View style={[styles.pdfCareerEditRow, { marginTop: 4 }]}>
+                      {entry.is_current ? (
+                        <>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.pdfCareerEditLabel}>Seit</Text>
+                            <TextInput 
+                              style={styles.pdfCareerEditInput} 
+                              value={entry.from_date} 
+                              onChangeText={(t) => updateCareerEntry(index, 'from_date', t)}
+                              placeholder="01.07.2023"
+                            />
+                          </View>
+                          <View style={{ marginTop: 18, marginLeft: 6 }}>
+                            <TouchableOpacity 
+                              style={[styles.pdfCurrentToggle, styles.pdfCurrentToggleActive]}
+                              onPress={() => updateCareerEntry(index, 'is_current', false)}
+                            >
+                              <Text style={[styles.pdfCurrentToggleText, styles.pdfCurrentToggleTextActive]}>
+                                Aktuell
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        </>
+                      ) : (
+                        <>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.pdfCareerEditLabel}>Von</Text>
+                            <TextInput 
+                              style={styles.pdfCareerEditInput} 
+                              value={entry.from_date} 
+                              onChangeText={(t) => updateCareerEntry(index, 'from_date', t)}
+                              placeholder="01.07.2023"
+                            />
+                          </View>
+                          <View style={{ flex: 1, marginLeft: 6 }}>
+                            <Text style={styles.pdfCareerEditLabel}>Bis</Text>
+                            <TextInput 
+                              style={styles.pdfCareerEditInput} 
+                              value={entry.to_date} 
+                              onChangeText={(t) => updateCareerEntry(index, 'to_date', t)}
+                              placeholder="30.06.2024"
+                            />
+                          </View>
+                          <View style={{ marginTop: 18, marginLeft: 6 }}>
+                            <TouchableOpacity 
+                              style={styles.pdfCurrentToggle}
+                              onPress={() => updateCareerEntry(index, 'is_current', true)}
+                            >
+                              <Text style={styles.pdfCurrentToggleText}>
+                                Aktuell
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        </>
+                      )}
+                      <View style={{ flex: 1.5, marginLeft: 6 }}>
+                        <Text style={styles.pdfCareerEditLabel}>Statistik</Text>
+                        <TextInput 
+                          style={styles.pdfCareerEditInput} 
+                          value={entry.stats} 
+                          onChangeText={(t) => updateCareerEntry(index, 'stats', t)}
+                          placeholder="25 Sp | 8 T | 5 A"
+                        />
+                      </View>
+                      {entry.id && (
+                        <TouchableOpacity style={[styles.pdfCareerDeleteButton, { marginTop: 18 }]} onPress={() => deleteCareerEntry(entry.id!)}>
+                          <Text style={styles.pdfCareerDeleteButtonText}>✕</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+                ))}
+                
+                <View style={styles.pdfEditSection}>
+                  <Text style={styles.pdfEditSectionTitle}>Über den Spieler</Text>
+                </View>
+                <View style={styles.pdfCareerEditCard}>
+                  <TextInput 
+                    style={styles.pdfDescriptionEditInput} 
+                    value={playerDescription} 
+                    onChangeText={setPlayerDescription}
+                    placeholder="Beschreibung des Spielers, Stärken, Besonderheiten..."
+                    multiline
+                    numberOfLines={4}
+                  />
+                </View>
+              </ScrollView>
+            ) : (
+              /* Vorschau - iframe für Web, WebView für Mobile */
+              Platform.OS === 'web' ? (
+                <div style={{ flex: 1, backgroundColor: '#e8e8e8', overflow: 'auto', display: 'flex', justifyContent: 'center', padding: 20 }}>
+                  <div style={{ width: 595, height: 842, backgroundColor: '#fff', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', borderRadius: 2, flexShrink: 0 }}>
+                    <iframe
+                      srcDoc={generatePdfHtml()}
+                      style={{ border: 'none', width: 595, height: 842 }}
+                      scrolling="no"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <ScrollView 
+                  style={styles.pdfPreviewContainer} 
+                  contentContainerStyle={styles.pdfPreviewContent}
+                  showsVerticalScrollIndicator={true}
+                >
+                  <WebView
+                    source={{ html: generatePdfHtml() }}
+                    style={styles.pdfWebView}
+                    scalesPageToFit={true}
+                    scrollEnabled={false}
+                  />
+                </ScrollView>
+              )
+            )}
+            
+            {/* Buttons */}
+            <View style={styles.pdfButtonsContainer}>
+              {pdfEditMode ? (
+                <>
+                  <TouchableOpacity style={styles.pdfCancelButton} onPress={() => { setPdfEditMode(false); fetchCareerEntries(); }}>
+                    <Text style={styles.pdfCancelButtonText}>Abbrechen</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.pdfSaveButton} onPress={savePdfChanges}>
+                    <Text style={styles.pdfSaveButtonText}>Speichern</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <TouchableOpacity style={styles.pdfDownloadButton} onPress={generatePDF}>
+                    <Text style={styles.pdfDownloadButtonText}>Als PDF downloaden</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.pdfEditButton} onPress={() => setPdfEditMode(true)}>
+                    <Text style={styles.pdfEditButtonText}>Bearbeiten</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
+      
       </View>
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   // Modal Overlay Container
   modalOverlayContainer: { 
@@ -1913,9 +2659,12 @@ const styles = StyleSheet.create({
   smallDocName: { fontSize: 12, color: '#333', flex: 1 },
   docLink: { fontSize: 13, color: '#007bff', marginTop: 4 },
   bottomButtons: { flexDirection: 'row', padding: 16, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#e2e8f0', justifyContent: 'space-between', alignItems: 'center' },
+  bottomButtonsLeft: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   bottomButtonsRight: { flexDirection: 'row', gap: 8 },
-  transferButton: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#64748b', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 10 },
-  transferButtonText: { color: '#64748b', fontSize: 16, fontWeight: '600' },
+  transferButton: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#64748b', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 10, alignItems: 'center', justifyContent: 'center', height: 46 },
+  transferButtonText: { color: '#64748b', fontSize: 14, fontWeight: '600', textAlign: 'center' },
+  pdfProfileButton: { backgroundColor: '#1a1a1a', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 10, alignItems: 'center', justifyContent: 'center', height: 46 },
+  pdfProfileButtonText: { color: '#fff', fontSize: 14, fontWeight: '600', textAlign: 'center' },
   deleteButton: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#ef4444', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 10 },
   deleteButtonText: { color: '#ef4444', fontSize: 16, fontWeight: '600' },
   editButton: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#64748b', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 10 },
@@ -2107,5 +2856,738 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#007aff',
     textAlign: 'center',
+  },
+  
+  // PDF Modal Styles
+  pdfModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  pdfModalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    width: '95%',
+    maxWidth: 750,
+    height: '95%',
+    maxHeight: 1000,
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  pdfModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    zIndex: 10,
+  },
+  pdfModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1a202c',
+  },
+  pdfModalContent: {
+    flex: 1,
+    padding: 20,
+  },
+  pdfPreviewContainer: {
+    flex: 1,
+    backgroundColor: '#e8e8e8',
+    overflow: 'scroll',
+  },
+  pdfPreviewContent: {
+    alignItems: 'center',
+    paddingTop: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
+  pdfPreviewFrame: {
+    width: 595,
+    height: 842,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 8,
+    borderRadius: 2,
+    overflow: 'visible',
+  },
+  pdfWebView: {
+    width: 595,
+    height: 842,
+    backgroundColor: '#fff',
+  },
+  pdfEditSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  pdfEditSectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1a202c',
+  },
+  pdfCareerEditCard: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  pdfCareerEditLabel: {
+    fontSize: 11,
+    color: '#888',
+    fontWeight: '600',
+    marginBottom: 2,
+    marginTop: 6,
+  },
+  pdfPage: {
+    backgroundColor: '#fff',
+    borderRadius: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    overflow: 'hidden',
+    // A4 Seitenverhältnis
+    aspectRatio: 210 / 297,
+  },
+  pdfHeader: {
+    paddingTop: 24,
+    paddingBottom: 0,
+    paddingHorizontal: 32,
+    paddingRight: 40,
+    position: 'relative',
+    overflow: 'hidden',
+    minHeight: 200,
+  },
+  pdfHeaderGradientLeft: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    width: '67%',
+    backgroundColor: '#000000',
+  },
+  pdfHeaderGradientRight: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: '33%',
+    backgroundColor: '#1c1c1c',
+  },
+  pdfHeaderDiagonal: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: '63%',
+    width: 80,
+    backgroundColor: '#1c1c1c',
+    transform: [{ skewX: '-8deg' }],
+  },
+  pdfHeaderContent: {
+    flexDirection: 'row',
+    zIndex: 1,
+    minHeight: 200,
+  },
+  pdfPhotoContainer: {
+    marginRight: 32,
+    alignSelf: 'flex-end',
+  },
+  pdfPhoto: {
+    width: 155,
+    height: 200,
+    borderRadius: 0,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  pdfPhotoPlaceholder: {
+    width: 155,
+    height: 200,
+    backgroundColor: '#333',
+    borderRadius: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#444',
+  },
+  pdfPhotoPlaceholderText: {
+    color: '#666',
+    fontSize: 14,
+  },
+  pdfHeaderInfo: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingBottom: 0,
+    paddingTop: 0,
+  },
+  pdfPlayerName: {
+    fontSize: 44,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: 4,
+    marginBottom: 2,
+  },
+  pdfPosition: {
+    fontSize: 20,
+    color: '#e2e8f0',
+    marginBottom: 10,
+  },
+  pdfPositionSecondary: {
+    color: '#888',
+    fontSize: 18,
+  },
+  pdfBadgeContainer: {
+    flexDirection: 'row',
+  },
+  pdfBadgeCombined: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    // Glasmorphism shadow
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+  },
+  pdfBadgeText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  pdfBadgeDivider: {
+    color: 'rgba(255,255,255,0.3)',
+    fontSize: 13,
+    marginHorizontal: 10,
+  },
+  pdfContent: {
+    flexDirection: 'row',
+    padding: 24,
+    paddingTop: 16,
+  },
+  pdfLeftColumn: {
+    width: 280,
+    paddingRight: 24,
+  },
+  pdfProfileCard: {
+    backgroundColor: '#fafafa',
+    borderWidth: 1,
+    borderColor: '#e8e8e8',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 16,
+  },
+  pdfSectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1a202c',
+    marginBottom: 16,
+  },
+  pdfProfileItem: {
+    marginBottom: 14,
+  },
+  pdfProfileLabel: {
+    fontSize: 10,
+    color: '#888',
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  pdfProfileValue: {
+    fontSize: 14,
+    color: '#1a202c',
+    fontWeight: '600',
+  },
+  pdfLink: {
+    color: '#3182ce',
+    textDecorationLine: 'underline',
+  },
+  pdfStrengthsCard: {
+    backgroundColor: '#fafafa',
+    borderWidth: 1,
+    borderColor: '#e8e8e8',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 16,
+  },
+  pdfStrengthsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  pdfStrengthsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1a202c',
+  },
+  pdfStrengthsTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  pdfStrengthTag: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  pdfStrengthTagText: {
+    fontSize: 12,
+    color: '#333',
+  },
+  pdfManagementBox: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    padding: 20,
+    marginTop: 8,
+  },
+  pdfManagementCompany: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#fff',
+    marginBottom: 12,
+    letterSpacing: 0.5,
+  },
+  pdfManagementDivider: {
+    height: 1,
+    backgroundColor: '#333',
+    marginBottom: 12,
+  },
+  pdfManagementName: {
+    fontSize: 13,
+    color: '#999',
+    marginBottom: 14,
+  },
+  pdfManagementItem: {
+    marginBottom: 10,
+  },
+  pdfManagementLabel: {
+    fontSize: 10,
+    color: '#666',
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  pdfManagementValue: {
+    fontSize: 13,
+    color: '#fff',
+    fontWeight: '400',
+  },
+  pdfRightColumn: {
+    flex: 1,
+    paddingLeft: 24,
+    borderLeftWidth: 1,
+    borderLeftColor: '#e8e8e8',
+  },
+  pdfCareerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  pdfCareerHeaderLine: {
+    width: 4,
+    height: 20,
+    backgroundColor: '#1a1a1a',
+    marginRight: 10,
+    borderRadius: 0,
+  },
+  pdfCareerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1a202c',
+  },
+  pdfCareerItem: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  pdfCareerBullet: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#888',
+    marginTop: 6,
+    marginRight: 12,
+  },
+  pdfCareerContent: {
+    flex: 1,
+  },
+  pdfCareerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  pdfCareerClub: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1a202c',
+  },
+  pdfCareerLeague: {
+    fontSize: 11,
+    color: '#888',
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    marginTop: 2,
+  },
+  pdfCareerPeriodBadge: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  pdfCareerPeriodText: {
+    fontSize: 11,
+    color: '#666',
+    fontWeight: '500',
+  },
+  pdfCareerPlaceholder: {
+    backgroundColor: '#fafafa',
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#e8e8e8',
+  },
+  pdfCareerPlaceholderText: {
+    fontSize: 13,
+    color: '#999',
+    fontStyle: 'italic',
+  },
+  pdfFooter: {
+    marginTop: 30,
+    alignItems: 'flex-end',
+  },
+  pdfStandBadge: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  pdfStandText: {
+    fontSize: 11,
+    color: '#666',
+    fontWeight: '500',
+  },
+  pdfButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 16,
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#e8e8e8',
+    backgroundColor: '#fafafa',
+  },
+  pdfDownloadButton: {
+    backgroundColor: '#1a1a1a',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  pdfDownloadButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  pdfEditButton: {
+    backgroundColor: '#fff',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  pdfEditButtonText: {
+    color: '#333',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  pdfSaveButton: {
+    backgroundColor: '#22c55e',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  pdfSaveButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  pdfCancelButton: {
+    backgroundColor: '#fff',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  pdfCancelButtonText: {
+    color: '#333',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  // PDF Edit Input Styles
+  pdfEditRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 4,
+  },
+  pdfEditInputName: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '700',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+    flex: 1,
+  },
+  pdfEditInputPosition: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    color: '#e2e8f0',
+    fontSize: 16,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    marginBottom: 10,
+  },
+  pdfEditInputBadge: {
+    backgroundColor: 'transparent',
+    color: '#fff',
+    fontSize: 13,
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+    minWidth: 60,
+  },
+  pdfEditInputSmall: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    fontSize: 13,
+    color: '#333',
+  },
+  pdfEditInputMultiline: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    fontSize: 13,
+    color: '#333',
+    minHeight: 60,
+  },
+  pdfEditInputManagement: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    marginBottom: 12,
+  },
+  pdfEditInputManagementValue: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    color: '#fff',
+    fontSize: 13,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  // Career Edit Styles
+  pdfAddCareerButton: {
+    marginLeft: 'auto',
+    backgroundColor: '#22c55e',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+  pdfAddCareerButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  pdfTimelineContainer: {
+    position: 'relative',
+  },
+  pdfCareerItemWrapper: {
+    position: 'relative',
+  },
+  pdfTimelineLine: {
+    position: 'absolute',
+    left: 4,
+    top: 14,
+    bottom: -6,
+    width: 1,
+    backgroundColor: '#d0d0d0',
+  },
+  pdfCareerEditContainer: {
+    backgroundColor: '#f8f8f8',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    gap: 8,
+  },
+  pdfCareerEditRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  pdfCareerEditInput: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    fontSize: 12,
+    flex: 1,
+  },
+  pdfCareerEditInputSmall: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    fontSize: 11,
+    width: 80,
+  },
+  pdfCareerDateInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  pdfCareerDateLabel: {
+    fontSize: 11,
+    color: '#666',
+  },
+  pdfCurrentToggle: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    backgroundColor: '#fff',
+    marginLeft: 6,
+  },
+  pdfCurrentToggleActive: {
+    backgroundColor: '#22c55e',
+    borderColor: '#22c55e',
+  },
+  pdfCurrentToggleText: {
+    fontSize: 10,
+    color: '#666',
+    fontWeight: '500',
+  },
+  pdfCurrentToggleTextActive: {
+    color: '#fff',
+  },
+  pdfCareerEditDash: {
+    color: '#666',
+    fontSize: 14,
+  },
+  pdfCareerDeleteButton: {
+    backgroundColor: '#ef4444',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+    marginLeft: 6,
+  },
+  pdfCareerDeleteButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  pdfDescriptionEditInput: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    fontSize: 13,
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  pdfCareerStatsBox: {
+    backgroundColor: '#f7fafc',
+    padding: 10,
+    borderRadius: 6,
+    borderLeftWidth: 3,
+    borderLeftColor: '#e2e8f0',
+    marginTop: 8,
+  },
+  pdfCareerStats: {
+    fontSize: 13,
+    color: '#4a5568',
+  },
+  pdfDescriptionSection: {
+    marginTop: 20,
+  },
+  pdfDescriptionLabel: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  pdfDescriptionInput: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    fontSize: 13,
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  pdfDescriptionBox: {
+    backgroundColor: '#f8f8f8',
+    padding: 14,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#1a1a1a',
+  },
+  pdfDescriptionText: {
+    fontSize: 13,
+    color: '#333',
+    lineHeight: 20,
+    fontStyle: 'italic',
+  },
+  pdfPageFooter: {
+    padding: 16,
+    alignItems: 'flex-end',
   },
 });
