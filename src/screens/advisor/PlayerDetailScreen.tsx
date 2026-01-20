@@ -426,9 +426,26 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       </div>
     `}).join('');
 
-    // Stärken HTML
-    const strengthsHtml = player.strengths 
-      ? player.strengths.split(',').map(s => `<span style="background-color: #fff !important; border: 1px solid #ddd; padding: 4px 8px; border-radius: 4px; font-size: 10px; color: #333; margin-right: 4px; margin-bottom: 4px; display: inline-block; -webkit-print-color-adjust: exact;">${s.trim()}</span>`).join('')
+    // Stärken HTML - dynamische Schriftgröße basierend auf Anzahl
+    const strengthsArray = player.strengths ? player.strengths.split(',').map(s => s.trim()).filter(s => s) : [];
+    const strengthsCount = strengthsArray.length;
+
+    // Schriftgröße und Padding basierend auf Anzahl der Stärken
+    let strengthFontSize = '10px';
+    let strengthPadding = '4px 8px';
+    if (strengthsCount > 15) {
+      strengthFontSize = '7px';
+      strengthPadding = '2px 4px';
+    } else if (strengthsCount > 10) {
+      strengthFontSize = '8px';
+      strengthPadding = '3px 5px';
+    } else if (strengthsCount > 6) {
+      strengthFontSize = '9px';
+      strengthPadding = '3px 6px';
+    }
+
+    const strengthsHtml = strengthsArray.length > 0
+      ? strengthsArray.map(s => `<span style="background-color: #fff !important; border: 1px solid #ddd; padding: ${strengthPadding}; border-radius: 4px; font-size: ${strengthFontSize}; color: #333; margin-right: 3px; margin-bottom: 3px; display: inline-block; -webkit-print-color-adjust: exact;">${s}</span>`).join('')
       : '-';
 
     const html = `
@@ -486,78 +503,78 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           </div>
 
           <!-- Content -->
-          <div style="display: flex; flex: 1; padding: 16px 20px;">
+          <div style="display: flex; flex: 1; padding: 16px 20px; overflow: hidden;">
             <!-- Left Column -->
-            <div style="width: 200px; padding-right: 16px; flex-shrink: 0; display: flex; flex-direction: column;">
+            <div style="width: 200px; padding-right: 16px; flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden;">
               <!-- Spielerprofil Card -->
-              <div style="background-color: #fafafa !important; border: 1px solid #e8e8e8; border-radius: 10px; padding: 12px; margin-bottom: 10px; -webkit-print-color-adjust: exact;">
-                <div style="font-size: 13px; font-weight: 700; color: #1a202c; margin-bottom: 8px;">Spielerprofil</div>
-                <div style="height: 1px; background-color: #ddd !important; margin-bottom: 8px; -webkit-print-color-adjust: exact;"></div>
-                
-                <div style="margin-bottom: 8px;">
-                  <div style="font-size: 8px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">GEBURTSDATUM</div>
-                  <div style="font-size: 11px; color: #1a202c; font-weight: 600;">${birthDateFormatted} (${age})</div>
+              <div style="background-color: #fafafa !important; border: 1px solid #e8e8e8; border-radius: 10px; padding: 10px; margin-bottom: 8px; flex-shrink: 0; -webkit-print-color-adjust: exact;">
+                <div style="font-size: 11px; font-weight: 700; color: #1a202c; margin-bottom: 6px;">Spielerprofil</div>
+                <div style="height: 1px; background-color: #ddd !important; margin-bottom: 6px; -webkit-print-color-adjust: exact;"></div>
+
+                <div style="margin-bottom: 5px;">
+                  <div style="font-size: 7px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">GEBURTSDATUM</div>
+                  <div style="font-size: 10px; color: #1a202c; font-weight: 600;">${birthDateFormatted} (${age})</div>
                 </div>
-                
-                <div style="margin-bottom: 8px;">
-                  <div style="font-size: 8px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">NATIONALITÄT</div>
-                  <div style="font-size: 11px; color: #1a202c; font-weight: 600;">${player.nationality || '-'}</div>
+
+                <div style="margin-bottom: 5px;">
+                  <div style="font-size: 7px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">NATIONALITÄT</div>
+                  <div style="font-size: 10px; color: #1a202c; font-weight: 600;">${player.nationality || '-'}</div>
                 </div>
-                
-                <div style="margin-bottom: 8px;">
-                  <div style="font-size: 8px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">GRÖSSE</div>
-                  <div style="font-size: 11px; color: #1a202c; font-weight: 600;">${player.height ? `${player.height} cm` : '-'}</div>
+
+                <div style="margin-bottom: 5px;">
+                  <div style="font-size: 7px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">GRÖSSE</div>
+                  <div style="font-size: 10px; color: #1a202c; font-weight: 600;">${player.height ? `${player.height} cm` : '-'}</div>
                 </div>
-                
-                <div style="margin-bottom: 8px;">
-                  <div style="font-size: 8px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">FUSS</div>
-                  <div style="font-size: 11px; color: #1a202c; font-weight: 600;">${player.strong_foot || '-'}</div>
+
+                <div style="margin-bottom: 5px;">
+                  <div style="font-size: 7px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">FUSS</div>
+                  <div style="font-size: 10px; color: #1a202c; font-weight: 600;">${player.strong_foot || '-'}</div>
                 </div>
-                
-                <div style="margin-bottom: 8px;">
-                  <div style="font-size: 8px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">VERTRAG BIS</div>
-                  <div style="font-size: 11px; color: #1a202c; font-weight: 600;">${contractEndFormatted}</div>
+
+                <div style="margin-bottom: 5px;">
+                  <div style="font-size: 7px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">VERTRAG BIS</div>
+                  <div style="font-size: 10px; color: #1a202c; font-weight: 600;">${contractEndFormatted}</div>
                 </div>
-                
+
                 <div>
-                  <div style="font-size: 8px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">TRANSFERMARKT</div>
-                  <div style="font-size: 11px; color: ${player.transfermarkt_url ? '#3182ce' : '#1a202c'}; font-weight: 600;">${player.transfermarkt_url ? 'Zum Profil' : '-'}</div>
+                  <div style="font-size: 7px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">TRANSFERMARKT</div>
+                  <div style="font-size: 10px; color: ${player.transfermarkt_url ? '#3182ce' : '#1a202c'}; font-weight: 600;">${player.transfermarkt_url ? 'Zum Profil' : '-'}</div>
                 </div>
               </div>
 
               <!-- Stärken Card -->
-              <div style="background-color: #fafafa !important; border: 1px solid #e8e8e8; border-radius: 10px; padding: 12px; margin-bottom: 10px; max-height: 140px; overflow: hidden; -webkit-print-color-adjust: exact;">
-                <div style="font-size: 13px; font-weight: 700; color: #1a202c; margin-bottom: 8px;">Stärken</div>
-                <div style="height: 1px; background-color: #ddd !important; margin-bottom: 8px; -webkit-print-color-adjust: exact;"></div>
-                <div style="display: flex; flex-wrap: wrap; gap: 4px;">${strengthsHtml}</div>
+              <div style="background-color: #fafafa !important; border: 1px solid #e8e8e8; border-radius: 10px; padding: 10px; margin-bottom: 8px; flex-shrink: 1; -webkit-print-color-adjust: exact;">
+                <div style="font-size: 11px; font-weight: 700; color: #1a202c; margin-bottom: 6px;">Stärken</div>
+                <div style="height: 1px; background-color: #ddd !important; margin-bottom: 6px; -webkit-print-color-adjust: exact;"></div>
+                <div style="display: flex; flex-wrap: wrap; gap: 3px;">${strengthsHtml}</div>
               </div>
 
               <!-- Spacer um Management nach unten zu drücken -->
-              <div style="flex: 1;"></div>
+              <div style="flex: 1; min-height: 8px;"></div>
 
               <!-- Management Box -->
-              <div style="background-color: #1a1a1a !important; border-radius: 10px; padding: 12px; -webkit-print-color-adjust: exact;">
-                <div style="font-size: 12px; font-weight: 800; color: #fff !important; margin-bottom: 8px; letter-spacing: 0.5px;">${player.listing || 'KMH SPORTMANAGEMENT'}</div>
-                <div style="height: 1px; background-color: #333 !important; margin-bottom: 8px; -webkit-print-color-adjust: exact;"></div>
-                
-                <div style="margin-bottom: 8px;">
-                  <div style="font-size: 8px; color: #888 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">ANSPRECHPARTNER</div>
-                  <div style="color: #fff !important; font-size: 11px; font-weight: 600;">${advisorNames.length > 0 ? advisorNames.join('<br/>') : '-'}</div>
+              <div style="background-color: #1a1a1a !important; border-radius: 10px; padding: 10px; flex-shrink: 0; -webkit-print-color-adjust: exact;">
+                <div style="font-size: 10px; font-weight: 800; color: #fff !important; margin-bottom: 6px; letter-spacing: 0.5px;">${player.listing || 'KMH SPORTMANAGEMENT'}</div>
+                <div style="height: 1px; background-color: #333 !important; margin-bottom: 6px; -webkit-print-color-adjust: exact;"></div>
+
+                <div style="margin-bottom: 5px;">
+                  <div style="font-size: 7px; color: #888 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">ANSPRECHPARTNER</div>
+                  <div style="color: #fff !important; font-size: 9px; font-weight: 600;">${advisorNames.length > 0 ? advisorNames.join('<br/>') : '-'}</div>
                 </div>
-                
-                <div style="margin-bottom: 8px;">
-                  <div style="font-size: 8px; color: #888 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">E-MAIL</div>
-                  <div style="color: #fff !important; font-size: 11px; font-weight: 600;">info@kmh-sportmanagement.de</div>
+
+                <div style="margin-bottom: 5px;">
+                  <div style="font-size: 7px; color: #888 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">E-MAIL</div>
+                  <div style="color: #fff !important; font-size: 9px; font-weight: 600;">info@kmh-sportmanagement.de</div>
                 </div>
-                
-                <div style="margin-bottom: 8px;">
-                  <div style="font-size: 8px; color: #888 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">TELEFON</div>
-                  <div style="color: #fff !important; font-size: 11px; font-weight: 600;">+49 170 1234567</div>
+
+                <div style="margin-bottom: 5px;">
+                  <div style="font-size: 7px; color: #888 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">TELEFON</div>
+                  <div style="color: #fff !important; font-size: 9px; font-weight: 600;">+49 170 1234567</div>
                 </div>
-                
+
                 <div>
-                  <div style="font-size: 8px; color: #888 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">ADRESSE</div>
-                  <div style="color: #fff !important; font-size: 11px; font-weight: 600;">Musterstraße 1, 12345 Berlin</div>
+                  <div style="font-size: 7px; color: #888 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">ADRESSE</div>
+                  <div style="color: #fff !important; font-size: 9px; font-weight: 600;">Musterstraße 1, 12345 Berlin</div>
                 </div>
               </div>
             </div>
