@@ -324,11 +324,16 @@ serve(async (req) => {
   }
 
   try {
+    console.log("PDF Generation started");
+
     if (!BROWSERLESS_API_KEY) {
+      console.error("BROWSERLESS_API_KEY is missing!");
       throw new Error("BROWSERLESS_API_KEY not configured");
     }
+    console.log("BROWSERLESS_API_KEY is set");
 
     const { player, careerEntries, playerDescription }: RequestBody = await req.json();
+    console.log("Received player:", player?.first_name, player?.last_name);
 
     if (!player) {
       return new Response(
@@ -339,8 +344,10 @@ serve(async (req) => {
 
     // HTML generieren (exakt wie in der App-Vorschau)
     const html = generateHtml(player, careerEntries || [], playerDescription || '');
+    console.log("HTML generated, length:", html.length);
 
     // Browserless.io API aufrufen
+    console.log("Calling Browserless API...");
     const browserlessResponse = await fetch(
       `https://chrome.browserless.io/pdf?token=${BROWSERLESS_API_KEY}`,
       {
@@ -370,8 +377,9 @@ serve(async (req) => {
 
     if (!browserlessResponse.ok) {
       const errorText = await browserlessResponse.text();
-      console.error("Browserless error:", errorText);
-      throw new Error(`Browserless API error: ${browserlessResponse.status}`);
+      console.error("Browserless error status:", browserlessResponse.status);
+      console.error("Browserless error body:", errorText);
+      throw new Error(`Browserless API error: ${browserlessResponse.status} - ${errorText.substring(0, 200)}`);
     }
 
     // PDF als ArrayBuffer holen

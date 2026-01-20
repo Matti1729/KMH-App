@@ -335,10 +335,10 @@ export function PlayerDetailScreen({ route, navigation }: any) {
 
   // PDF Vorschau generieren wenn nicht im Edit-Mode
   useEffect(() => {
-    if (showPDFProfileModal && !pdfEditMode && player && careerEntries.length >= 0 && Platform.OS === 'web') {
+    if (showPDFProfileModal && !pdfEditMode && player && careerEntries.length >= 0 && Platform.OS === 'web' && !loadingPdfPreview) {
       generatePdfPreview();
     }
-  }, [showPDFProfileModal, pdfEditMode, careerEntries, playerDescription]);
+  }, [showPDFProfileModal, pdfEditMode]);
 
   const fetchCareerEntries = async () => {
     setLoadingCareer(true);
