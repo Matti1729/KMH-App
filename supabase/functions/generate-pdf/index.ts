@@ -126,8 +126,8 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
     }
 
     return `
-    <div style="display: flex; margin-bottom: 12px; position: relative;">
-      ${index < careerEntries.length - 1 ? '<div style="position: absolute; left: 3px; top: 12px; bottom: -12px; width: 1px; background-color: #d0d0d0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>' : ''}
+    <div style="display: flex; margin-bottom: 10px; position: relative;">
+      ${index < careerEntries.length - 1 ? '<div style="position: absolute; left: 3px; top: 12px; bottom: -10px; width: 1px; background-color: #d0d0d0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>' : ''}
       <div style="width: 7px; height: 7px; border-radius: 50%; background-color: #888 !important; margin-top: 5px; margin-right: 10px; flex-shrink: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
       <div style="flex: 1;">
         <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
@@ -185,19 +185,19 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
 <body>
   <div style="width: 794px; height: 1123px; max-height: 1123px; background: #fff; overflow: hidden; position: relative;">
     <!-- Header -->
-    <div style="position: relative; padding: 24px 32px 0 32px; min-height: 200px; overflow: hidden;">
+    <div style="position: relative; padding: 20px 32px; height: 210px; overflow: hidden;">
       <div style="position: absolute; top: 0; left: 0; bottom: 0; width: 67%; background-color: #000000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
       <div style="position: absolute; top: 0; right: 0; bottom: 0; width: 33%; background-color: #1c1c1c !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
       <div style="position: absolute; top: 0; bottom: 0; left: 63%; width: 80px; background-color: #1c1c1c !important; transform: skewX(-8deg); -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
-      
-      <div style="position: relative; z-index: 1; display: flex; align-items: flex-end; min-height: 200px;">
+
+      <div style="position: relative; z-index: 1; display: flex; align-items: center; height: 100%;">
         <div style="margin-right: 32px;">
-          ${player.photo_url 
+          ${player.photo_url
             ? `<img src="${player.photo_url}" style="width: 140px; height: 180px; object-fit: cover; border: 1px solid #333;" crossorigin="anonymous" />`
             : `<div style="width: 140px; height: 180px; background-color: #333 !important; display: flex; align-items: center; justify-content: center; color: #666; -webkit-print-color-adjust: exact; print-color-adjust: exact;">Foto</div>`
           }
         </div>
-        <div style="flex: 1; padding-bottom: 24px;">
+        <div style="flex: 1;">
           <div style="font-size: 36px; font-weight: 800; color: #fff !important; letter-spacing: 3px; margin-bottom: 2px;">${((player.first_name || '') + ' ' + (player.last_name || '')).toUpperCase()}</div>
           <div style="font-size: 18px; color: #e2e8f0 !important; margin-bottom: 10px;">
             ${positionFull}
@@ -213,34 +213,35 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
     </div>
 
     <!-- Content -->
-    <div style="display: flex; padding: 20px 28px;">
+    <div style="display: flex; padding: 16px 28px; max-height: 880px; overflow: hidden;">
       <!-- Left Column -->
       <div style="width: 260px; padding-right: 20px; flex-shrink: 0;">
         <!-- Spielerprofil Card -->
-        <div style="background-color: #fafafa !important; border: 1px solid #e8e8e8; border-radius: 12px; padding: 16px; margin-bottom: 14px; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
-          <div style="font-size: 15px; font-weight: 700; color: #1a202c; margin-bottom: 14px;">Spielerprofil</div>
-          
-          <div style="margin-bottom: 12px;">
+        <div style="background-color: #fafafa !important; border: 1px solid #e8e8e8; border-radius: 12px; padding: 16px; margin-bottom: 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+          <div style="font-size: 15px; font-weight: 700; color: #1a202c; margin-bottom: 10px;">Spielerprofil</div>
+          <div style="height: 1px; background-color: #ddd !important; margin-bottom: 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
+
+          <div style="margin-bottom: 10px;">
             <div style="font-size: 9px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">GEBURTSDATUM</div>
             <div style="font-size: 13px; color: #1a202c; font-weight: 600;">${birthDateFormatted} (${age})</div>
           </div>
-          
-          <div style="margin-bottom: 12px;">
+
+          <div style="margin-bottom: 10px;">
             <div style="font-size: 9px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">NATIONALITÄT</div>
             <div style="font-size: 13px; color: #1a202c; font-weight: 600;">${player.nationality || '-'}</div>
           </div>
-          
-          <div style="margin-bottom: 12px;">
+
+          <div style="margin-bottom: 10px;">
             <div style="font-size: 9px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">GRÖSSE</div>
             <div style="font-size: 13px; color: #1a202c; font-weight: 600;">${player.height ? `${player.height} cm` : '-'}</div>
           </div>
-          
-          <div style="margin-bottom: 12px;">
+
+          <div style="margin-bottom: 10px;">
             <div style="font-size: 9px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">FUSS</div>
             <div style="font-size: 13px; color: #1a202c; font-weight: 600;">${player.strong_foot || '-'}</div>
           </div>
-          
-          <div style="margin-bottom: 12px;">
+
+          <div style="margin-bottom: 10px;">
             <div style="font-size: 9px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">VERTRAG BIS</div>
             <div style="font-size: 13px; color: #1a202c; font-weight: 600;">${contractEndFormatted}</div>
           </div>
@@ -255,8 +256,9 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
         </div>
 
         <!-- Stärken Card -->
-        <div style="background-color: #fafafa !important; border: 1px solid #e8e8e8; border-radius: 12px; padding: 16px; margin-bottom: 14px; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+        <div style="background-color: #fafafa !important; border: 1px solid #e8e8e8; border-radius: 12px; padding: 16px; margin-bottom: 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
           <div style="font-size: 15px; font-weight: 700; color: #1a202c; margin-bottom: 10px;">Stärken</div>
+          <div style="height: 1px; background-color: #ddd !important; margin-bottom: 10px; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
           <div>${strengthsHtml}</div>
         </div>
 
