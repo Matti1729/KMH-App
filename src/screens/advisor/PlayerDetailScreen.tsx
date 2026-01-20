@@ -526,10 +526,10 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               </div>
 
               <!-- Stärken Card -->
-              <div style="background-color: #fafafa !important; border: 1px solid #e8e8e8; border-radius: 10px; padding: 12px; margin-bottom: 10px; -webkit-print-color-adjust: exact;">
+              <div style="background-color: #fafafa !important; border: 1px solid #e8e8e8; border-radius: 10px; padding: 12px; margin-bottom: 10px; max-height: 140px; overflow: hidden; -webkit-print-color-adjust: exact;">
                 <div style="font-size: 13px; font-weight: 700; color: #1a202c; margin-bottom: 8px;">Stärken</div>
                 <div style="height: 1px; background-color: #ddd !important; margin-bottom: 8px; -webkit-print-color-adjust: exact;"></div>
-                <div>${strengthsHtml}</div>
+                <div style="display: flex; flex-wrap: wrap; gap: 4px;">${strengthsHtml}</div>
               </div>
 
               <!-- Spacer um Management nach unten zu drücken -->
