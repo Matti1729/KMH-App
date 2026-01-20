@@ -18,6 +18,9 @@ interface CareerEntry {
   from_date: string;
   to_date: string;
   stats: string;
+  games?: string;
+  goals?: string;
+  assists?: string;
   is_current: boolean;
 }
 
@@ -99,26 +102,48 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
     ? advisorNames.map(name => `<div style="color: #fff !important; font-size: 13px;">${name}</div>`).join('')
     : '<div style="color: #fff !important; font-size: 13px;">-</div>';
 
-  const careerHtml = (careerEntries || []).map((entry, index) => `
-    <div style="display: flex; margin-bottom: 16px; position: relative;">
-      ${index < careerEntries.length - 1 ? '<div style="position: absolute; left: 3px; top: 14px; bottom: -16px; width: 1px; background-color: #d0d0d0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>' : ''}
-      <div style="width: 8px; height: 8px; border-radius: 4px; background-color: #888 !important; margin-top: 6px; margin-right: 12px; flex-shrink: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
+  const careerHtml = (careerEntries || []).map((entry, index) => {
+    // Stats aus games/goals/assists oder stats-String generieren
+    let statsDisplay = '';
+    if (entry.games || entry.goals || entry.assists) {
+      const parts = [];
+      if (entry.games) parts.push(`${entry.games} Spiele`);
+      if (entry.goals) parts.push(`${entry.goals} Tore`);
+      if (entry.assists) parts.push(`${entry.assists} Assists`);
+      statsDisplay = parts.join(' | ');
+    } else if (entry.stats) {
+      statsDisplay = entry.stats;
+    }
+
+    // Datum-Anzeige
+    let dateDisplay = '';
+    if (entry.is_current && entry.from_date) {
+      dateDisplay = `Seit ${formatDate(entry.from_date)}`;
+    } else if (entry.from_date && entry.to_date) {
+      dateDisplay = `${formatDate(entry.from_date)} - ${formatDate(entry.to_date)}`;
+    } else if (entry.from_date) {
+      dateDisplay = `Seit ${formatDate(entry.from_date)}`;
+    }
+
+    return `
+    <div style="display: flex; margin-bottom: 12px; position: relative;">
+      ${index < careerEntries.length - 1 ? '<div style="position: absolute; left: 3px; top: 12px; bottom: -12px; width: 1px; background-color: #d0d0d0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>' : ''}
+      <div style="width: 7px; height: 7px; border-radius: 50%; background-color: #888 !important; margin-top: 5px; margin-right: 10px; flex-shrink: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
       <div style="flex: 1;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-          <div>
-            <div style="font-size: 16px; font-weight: 700; color: #1a202c;">${entry.club || ''}</div>
-            <div style="font-size: 11px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-top: 2px;">${(entry.league || '').toUpperCase()}</div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+          <div style="flex: 1;">
+            <div style="font-size: 14px; font-weight: 700; color: #1a202c;">${entry.club || ''}</div>
+            <div style="font-size: 10px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-top: 1px;">${(entry.league || '').toUpperCase()}</div>
           </div>
-          <div style="border: 1px solid #ddd; padding: 4px 10px; border-radius: 8px;">
-            <span style="font-size: 11px; color: #666; font-weight: 500;">
-              ${entry.is_current ? `Seit ${formatDate(entry.from_date)}` : `${formatDate(entry.from_date)} - ${formatDate(entry.to_date)}`}
-            </span>
-          </div>
+          ${dateDisplay ? `<div style="border: 1px solid #ddd; padding: 2px 8px; border-radius: 4px; white-space: nowrap; flex-shrink: 0;">
+            <span style="font-size: 10px; color: #666; font-weight: 500;">${dateDisplay}</span>
+          </div>` : ''}
         </div>
-        ${entry.stats ? `<div style="background-color: #f7fafc !important; padding: 10px; border-radius: 6px; border-left: 3px solid #e2e8f0; margin-top: 8px; -webkit-print-color-adjust: exact; print-color-adjust: exact;"><span style="font-size: 13px; color: #4a5568;">${entry.stats}</span></div>` : ''}
+        ${statsDisplay ? `<div style="background-color: #f7fafc !important; padding: 4px 8px; border-radius: 4px; border-left: 3px solid #e2e8f0; margin-top: 4px; -webkit-print-color-adjust: exact; print-color-adjust: exact;"><span style="font-size: 11px; color: #4a5568;">${statsDisplay}</span></div>` : ''}
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 
   const strengthsHtml = player.strengths 
     ? player.strengths.split(',').map(s => `<span style="background-color: #fff !important; border: 1px solid #ddd; padding: 5px 12px; border-radius: 8px; font-size: 12px; color: #333; margin-right: 6px; margin-bottom: 6px; display: inline-block; -webkit-print-color-adjust: exact; print-color-adjust: exact;">${s.trim()}</span>`).join('')
@@ -145,18 +170,20 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
       print-color-adjust: exact !important;
       color-adjust: exact !important;
     }
-    html, body { 
-      width: 794px; 
-      min-height: 1123px;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+    html, body {
+      width: 794px;
+      height: 1123px;
+      max-height: 1123px;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: #fff;
+      overflow: hidden;
     }
     a { color: #3182ce; text-decoration: none; }
     a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
-  <div style="width: 794px; min-height: 1123px; background: #fff; overflow: hidden;">
+  <div style="width: 794px; height: 1123px; max-height: 1123px; background: #fff; overflow: hidden; position: relative;">
     <!-- Header -->
     <div style="position: relative; padding: 24px 32px 0 32px; min-height: 200px; overflow: hidden;">
       <div style="position: absolute; top: 0; left: 0; bottom: 0; width: 67%; background-color: #000000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
@@ -277,10 +304,10 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
       </div>
     </div>
 
-    <!-- Footer -->
-    <div style="padding: 16px 28px; display: flex; justify-content: flex-end;">
-      <div style="border: 1px solid #ddd; padding: 5px 10px; border-radius: 6px;">
-        <span style="font-size: 10px; color: #666; font-weight: 500;">Stand: ${new Date().toLocaleDateString('de-DE')}</span>
+    <!-- Footer - absolut positioniert -->
+    <div style="position: absolute; bottom: 12px; right: 28px;">
+      <div style="border: 1px solid #ddd; padding: 4px 8px; border-radius: 4px; background: #fff;">
+        <span style="font-size: 9px; color: #666; font-weight: 500;">Stand: ${new Date().toLocaleDateString('de-DE')}</span>
       </div>
     </div>
   </div>

@@ -2860,9 +2860,9 @@ export function PlayerDetailScreen({ route, navigation }: any) {
             ) : (
               /* Vorschau - echtes PDF für Web (100% identisch zum Download), WebView für Mobile */
               Platform.OS === 'web' ? (
-                <div style={{ flex: 1, backgroundColor: '#e8e8e8', overflow: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+                <div style={{ flex: 1, backgroundColor: '#e8e8e8', overflow: 'auto', padding: 16 }}>
                   {loadingPdfPreview ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12 }}>
                       <div style={{ width: 40, height: 40, border: '3px solid #ddd', borderTopColor: '#333', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
                       <span style={{ color: '#666', fontSize: 14 }}>PDF wird generiert...</span>
                       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
@@ -2870,10 +2870,10 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                   ) : pdfPreviewUrl ? (
                     <iframe
                       src={pdfPreviewUrl}
-                      style={{ border: 'none', width: 595, height: 842, boxShadow: '0 4px 16px rgba(0,0,0,0.2)', borderRadius: 2, backgroundColor: '#fff' }}
+                      style={{ border: 'none', width: '100%', height: 1200, boxShadow: '0 4px 16px rgba(0,0,0,0.2)', borderRadius: 4, backgroundColor: '#fff' }}
                     />
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12 }}>
                       <span style={{ color: '#666', fontSize: 14 }}>PDF-Vorschau wird geladen...</span>
                     </div>
                   )}
@@ -3308,9 +3308,9 @@ const styles = StyleSheet.create({
   pdfModalContainer: {
     backgroundColor: '#fff',
     borderRadius: 12,
-    width: '95%',
-    maxWidth: 750,
-    height: '95%',
+    width: '98%',
+    maxWidth: 900,
+    height: '98%',
     maxHeight: 1000,
     overflow: 'hidden',
     display: 'flex',
