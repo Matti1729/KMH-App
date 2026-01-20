@@ -265,6 +265,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   }
   const [careerEntries, setCareerEntries] = useState<CareerEntry[]>([]);
   const [loadingCareer, setLoadingCareer] = useState(false);
+  const [careerEntriesLoaded, setCareerEntriesLoaded] = useState(false);
   const [loadingStats, setLoadingStats] = useState(false);
   const [playerDescription, setPlayerDescription] = useState('');
   
@@ -321,6 +322,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   // Karriere laden wenn PDF Modal geöffnet wird
   useEffect(() => {
     if (showPDFProfileModal && player) {
+      setCareerEntriesLoaded(false); // Reset flag
       fetchCareerEntries();
       setPdfEditData({ ...player });
       setPdfPreviewUrl(null); // Reset preview when opening
@@ -330,15 +332,16 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         URL.revokeObjectURL(pdfPreviewUrl);
         setPdfPreviewUrl(null);
       }
+      setCareerEntriesLoaded(false); // Reset flag
     }
   }, [showPDFProfileModal, player]);
 
   // PDF Vorschau generieren wenn nicht im Edit-Mode und Karriere-Daten geladen
   useEffect(() => {
-    if (showPDFProfileModal && !pdfEditMode && player && !loadingCareer && Platform.OS === 'web' && !loadingPdfPreview) {
+    if (showPDFProfileModal && !pdfEditMode && player && careerEntriesLoaded && Platform.OS === 'web' && !loadingPdfPreview && !pdfPreviewUrl) {
       generatePdfPreview();
     }
-  }, [showPDFProfileModal, pdfEditMode, loadingCareer]);
+  }, [showPDFProfileModal, pdfEditMode, careerEntriesLoaded, pdfPreviewUrl]);
 
   const fetchCareerEntries = async () => {
     setLoadingCareer(true);
@@ -451,6 +454,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       console.error('Netzwerkfehler beim Laden der Karriere-Einträge:', err);
     } finally {
       setLoadingCareer(false);
+      setCareerEntriesLoaded(true);
     }
   };
 
