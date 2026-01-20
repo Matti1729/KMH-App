@@ -91,103 +91,114 @@ const fetchTransfermarktStats = async (transfermarktUrl: string): Promise<Transf
     }
     const playerId = playerIdMatch[1];
 
-    // Leistungsdaten-URL bauen
-    if (statsUrl.includes('/profil/')) {
-      statsUrl = statsUrl.replace('/profil/', '/leistungsdatendetails/');
-    } else if (!statsUrl.includes('/leistungsdaten')) {
-      // URL-Teile extrahieren für korrekte Formatierung
-      const nameMatch = statsUrl.match(/transfermarkt\.[a-z]+\/([^/]+)\//);
-      const playerName = nameMatch ? nameMatch[1] : 'spieler';
-      statsUrl = `https://www.transfermarkt.de/${playerName}/leistungsdatendetails/spieler/${playerId}`;
-    }
+    // Spielername aus URL extrahieren
+    const nameMatch = statsUrl.match(/transfermarkt\.[a-z]+\/([^/]+)\//);
+    const playerName = nameMatch ? nameMatch[1] : 'spieler';
+
+    // Leistungsdaten-URL bauen (normale Leistungsdaten-Seite, nicht Details)
+    statsUrl = `https://www.transfermarkt.de/${playerName}/leistungsdaten/spieler/${playerId}/plus/0?saession_id=`;
 
     console.log('Fetching Transfermarkt stats from:', statsUrl);
 
-    // CORS Proxy verwenden
-    const proxyUrl = Platform.OS === 'web'
-      ? `https://api.allorigins.win/raw?url=${encodeURIComponent(statsUrl)}`
-      : statsUrl;
+    // Mehrere CORS Proxies versuchen
+    const proxies = [
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(statsUrl)}`,
+      `https://corsproxy.io/?${encodeURIComponent(statsUrl)}`,
+    ];
 
-    const response = await fetch(proxyUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'de-DE,de;q=0.9,en;q=0.8'
+    let html = '';
+    for (const proxyUrl of proxies) {
+      try {
+        console.log('Versuche Proxy:', proxyUrl.substring(0, 50) + '...');
+        const response = await fetch(proxyUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          }
+        });
+
+        if (response.ok) {
+          html = await response.text();
+          console.log('HTML geladen, Länge:', html.length);
+          if (html.length > 1000 && !html.includes('Access Denied')) {
+            break; // Erfolg
+          }
+        }
+      } catch (e) {
+        console.log('Proxy fehlgeschlagen:', e);
       }
-    });
+    }
 
-    if (!response.ok) {
-      console.error('Transfermarkt Response nicht OK:', response.status);
+    if (!html || html.length < 1000) {
+      console.error('Konnte keine HTML-Daten laden');
       return [];
     }
 
-    const html = await response.text();
-    console.log('HTML Länge:', html.length);
+    // Debug: Prüfe ob es überhaupt Saison-Daten gibt
+    const hasSeasonData = /\d{2}\/\d{2}/.test(html);
+    console.log('HTML enthält Saison-Daten:', hasSeasonData);
+
+    if (!hasSeasonData) {
+      console.log('Keine Saison-Daten im HTML gefunden. Seite könnte blockiert sein.');
+      return [];
+    }
 
     const stats: TransfermarktSeasonStats[] = [];
 
-    // Verbesserte Regex Patterns für Transfermarkt Leistungsdaten Tabelle
-    // Suche nach Tabellenzeilen (odd/even rows oder items class)
-    const rowPatterns = [
-      /<tr[^>]*class="[^"]*(?:odd|even)[^"]*"[^>]*>([\s\S]*?)<\/tr>/gi,
-      /<tr[^>]*>([\s\S]*?)<\/tr>/gi
-    ];
+    // Suche nach Tabellenzeilen mit Saison-Daten
+    // Transfermarkt nutzt oft class="odd" oder class="even" für Tabellenzeilen
+    const rowRegex = /<tr[^>]*class="[^"]*(?:odd|even)[^"]*"[^>]*>([\s\S]*?)<\/tr>/gi;
+    let match;
+    let rowCount = 0;
 
-    let rows: string[] = [];
-    for (const pattern of rowPatterns) {
-      const matches = html.match(pattern);
-      if (matches && matches.length > 0) {
-        // Filtere nur Zeilen mit Saison-Daten (enthalten Zahlen wie "24/25")
-        rows = matches.filter(r => /\d{2}\/\d{2}/.test(r));
-        if (rows.length > 0) break;
-      }
-    }
+    while ((match = rowRegex.exec(html)) !== null && rowCount < 3) {
+      const row = match[0];
 
-    console.log('Gefundene Zeilen mit Saison-Daten:', rows.length);
-
-    // Parse nur die ersten 3 Saisons
-    for (const row of rows.slice(0, 3)) {
-      // Saison extrahieren (z.B. "24/25", "23/24")
-      const seasonMatch = row.match(/(\d{2})\/(\d{2})/);
+      // Prüfe ob diese Zeile Saison-Daten enthält
+      const seasonMatch = row.match(/>(\d{2})\/(\d{2})</);
       if (!seasonMatch) continue;
 
-      // Verein extrahieren - verschiedene Muster probieren
+      console.log('Zeile gefunden mit Saison:', seasonMatch[1] + '/' + seasonMatch[2]);
+
+      // Verein aus title-Attribut oder img alt extrahieren
       let club = '';
-      const clubPatterns = [
-        /title="([^"]+)"[^>]*>\s*<img[^>]*>/i,
-        /<img[^>]*alt="([^"]+)"[^>]*>/i,
-        /<a[^>]*title="([^"]+)"[^>]*>[^<]*<\/a>/i
-      ];
-      for (const pattern of clubPatterns) {
-        const match = row.match(pattern);
-        if (match && match[1] && !match[1].includes('Saison') && match[1].length > 2) {
-          club = match[1].trim();
-          break;
-        }
+      const clubMatch = row.match(/title="([^"]{3,})"[^>]*class="[^"]*vereinprofil/i) ||
+                        row.match(/<img[^>]*alt="([^"]{3,})"[^>]*class="[^"]*tiny/i) ||
+                        row.match(/title="([^"]+)"[^>]*>\s*<img/i);
+      if (clubMatch) {
+        club = clubMatch[1].trim();
       }
 
-      // Liga extrahieren
+      // Liga/Wettbewerb extrahieren
       let league = '';
-      const leagueMatch = row.match(/class="[^"]*hauptlink[^"]*"[^>]*title="([^"]+)"/i) ||
-                          row.match(/title="([^"]*(?:liga|bundesliga|division|league)[^"]*)"/i);
+      const leagueMatch = row.match(/title="([^"]*(?:liga|League|Division|Serie|Ligue|Primera)[^"]*)"/i);
       if (leagueMatch) {
         league = leagueMatch[1].trim();
       }
 
-      // Zahlen extrahieren (Spiele, Tore, Assists sind oft in zentrierten Zellen)
-      // Suche nach allen Zahlen in td-Zellen
-      const allNumbers: number[] = [];
-      const numberMatches = row.matchAll(/<td[^>]*>[\s]*(\d+|-)[\s]*<\/td>/gi);
-      for (const match of numberMatches) {
-        const val = match[1] === '-' ? 0 : parseInt(match[1]);
-        if (!isNaN(val)) allNumbers.push(val);
+      // Alle Zahlen aus zentrierten td-Zellen extrahieren
+      const numbers: number[] = [];
+      const numRegex = /<td[^>]*class="[^"]*zentriert[^"]*"[^>]*>\s*(\d+|-)\s*<\/td>/gi;
+      let numMatch;
+      while ((numMatch = numRegex.exec(row)) !== null) {
+        const val = numMatch[1] === '-' ? 0 : parseInt(numMatch[1]);
+        if (!isNaN(val)) numbers.push(val);
       }
 
-      // Typischerweise: Einsätze, Tore, Assists (manchmal auch Minuten, Karten etc.)
-      // Wir nehmen die ersten 3 sinnvollen Zahlen
-      const games = allNumbers[0] || 0;
-      const goals = allNumbers[1] || 0;
-      const assists = allNumbers[2] || 0;
+      // Falls keine zentrierten Zellen, suche nach beliebigen Zahlen in td
+      if (numbers.length === 0) {
+        const simpleNumRegex = /<td[^>]*>\s*(\d{1,3})\s*<\/td>/gi;
+        while ((numMatch = simpleNumRegex.exec(row)) !== null) {
+          const val = parseInt(numMatch[1]);
+          if (!isNaN(val) && val < 200) numbers.push(val); // Max 200 für Spiele
+        }
+      }
+
+      console.log('Gefundene Zahlen:', numbers);
+
+      // Typischerweise: Einsätze, Tore, Assists
+      const games = numbers[0] || 0;
+      const goals = numbers[1] || 0;
+      const assists = numbers[2] || 0;
 
       const startYear = `20${seasonMatch[1]}`;
       const endYear = `20${seasonMatch[2]}`;
@@ -502,7 +513,16 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       const stats = await fetchTransfermarktStats(player.transfermarkt_url);
 
       if (stats.length === 0) {
-        Alert.alert('Keine Daten', 'Konnte keine Statistiken von Transfermarkt laden. Bitte prüfe den Transfermarkt-Link.');
+        Alert.alert(
+          'Keine Daten gefunden',
+          'Transfermarkt-Statistiken konnten nicht geladen werden.\n\n' +
+          'Mögliche Gründe:\n' +
+          '• Transfermarkt blockiert automatische Anfragen\n' +
+          '• Der Spieler hat keine Leistungsdaten\n' +
+          '• Der Link ist ungültig\n\n' +
+          'Du kannst die Statistiken manuell in die Felder eintragen.',
+          [{ text: 'OK' }]
+        );
         setLoadingStats(false);
         return;
       }
@@ -762,7 +782,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         </style>
       </head>
       <body>
-        <div style="width: 595px; height: 842px; max-height: 842px; background: #fff; display: flex; flex-direction: column; overflow: hidden; -webkit-print-color-adjust: exact;">
+        <div style="width: 595px; height: 842px; max-height: 842px; background: #fff; display: flex; flex-direction: column; overflow: hidden; position: relative; -webkit-print-color-adjust: exact;">
           <!-- Header -->
           <div style="position: relative; padding: ${sc(18)}px ${sc(22)}px; height: ${sc(170)}px; overflow: hidden; flex-shrink: 0; -webkit-print-color-adjust: exact;">
             <div style="position: absolute; top: 0; left: 0; bottom: 0; width: 67%; background-color: #000000 !important; -webkit-print-color-adjust: exact;"></div>
@@ -832,7 +852,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               </div>
 
               <!-- Stärken Card -->
-              <div style="background-color: #fafafa !important; border: 1px solid #e8e8e8; border-radius: ${sc(8)}px; padding: ${sc(8)}px; margin-bottom: ${sc(6)}px; flex: 1; overflow: hidden; -webkit-print-color-adjust: exact;">
+              <div style="background-color: #fafafa !important; border: 1px solid #e8e8e8; border-radius: ${sc(8)}px; padding: ${sc(8)}px; margin-bottom: ${sc(6)}px; flex-shrink: 0; -webkit-print-color-adjust: exact;">
                 <div style="font-size: ${sc(11)}px; font-weight: 700; color: #1a202c; margin-bottom: ${sc(5)}px;">Stärken</div>
                 <div style="height: 1px; background-color: #ddd !important; margin-bottom: ${sc(5)}px; -webkit-print-color-adjust: exact;"></div>
                 <div style="display: flex; flex-wrap: wrap; gap: ${sc(3)}px;">${strengthsHtml}</div>
@@ -888,9 +908,9 @@ export function PlayerDetailScreen({ route, navigation }: any) {
             </div>
           </div>
 
-          <!-- Footer -->
-          <div style="padding: ${sc(10)}px ${sc(18)}px; display: flex; justify-content: flex-end;">
-            <div style="border: 1px solid #ddd; padding: ${sc(3)}px ${sc(6)}px; border-radius: 4px;">
+          <!-- Footer - Absolute positioniert um immer auf Seite 1 zu bleiben -->
+          <div style="position: absolute; bottom: ${sc(8)}px; right: ${sc(18)}px;">
+            <div style="border: 1px solid #ddd; padding: ${sc(3)}px ${sc(6)}px; border-radius: 4px; background: #fff;">
               <span style="font-size: ${sc(8)}px; color: #666; font-weight: 500;">Stand: ${formatDateWithPadding(new Date().toISOString())}</span>
             </div>
           </div>
