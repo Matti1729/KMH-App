@@ -37,6 +37,7 @@ export interface SyncResult {
   success: boolean;
   added: number;
   updated: number;
+  deleted: number;
   errors: string[];
 }
 
@@ -199,6 +200,28 @@ export async function fetchTeamNextGames(teamId: string, token: string): Promise
   }
 }
 
+// Lösche alle zukünftigen Spiele eines Spielers (vor Neu-Sync)
+export async function deletePlayerFutureGames(
+  supabase: SupabaseClient,
+  playerId: string
+): Promise<number> {
+  const today = new Date().toISOString().split('T')[0];
+
+  const { data, error } = await supabase
+    .from('player_games')
+    .delete()
+    .eq('player_id', playerId)
+    .gte('date', today)
+    .select('id');
+
+  if (error) {
+    console.error('Fehler beim Löschen zukünftiger Spiele:', error);
+    return 0;
+  }
+
+  return data?.length || 0;
+}
+
 // Alle Spieler mit fussball_de_url laden
 export async function getPlayersWithFussballDeUrl(supabase: SupabaseClient): Promise<any[]> {
   const { data, error } = await supabase
@@ -305,6 +328,7 @@ export async function syncAllPlayerGames(
     success: false,
     added: 0,
     updated: 0,
+    deleted: 0,
     errors: []
   };
   
@@ -346,13 +370,18 @@ export async function syncAllPlayerGames(
     // Spiele von API holen
     const games = await fetchTeamNextGames(teamId, token);
     console.log(`${games.length} Spiele für ${playerName} gefunden`);
-    
+
     if (games.length === 0) {
       // Kein Fehler, vielleicht einfach keine Spiele
       continue;
     }
-    
-    // Spiele speichern
+
+    // WICHTIG: Zuerst alte zukünftige Spiele löschen um Duplikate zu vermeiden
+    const deleted = await deletePlayerFutureGames(supabase, player.id);
+    result.deleted += deleted;
+    console.log(`${playerName}: ${deleted} alte Spiele gelöscht`);
+
+    // Spiele neu speichern
     const saveResult = await saveGamesToDatabase(supabase, player.id, playerName, games);
     result.added += saveResult.added;
     result.updated += saveResult.updated;
@@ -385,11 +414,13 @@ export async function syncPlayerGames(
   }
   
   const games = await fetchTeamNextGames(teamId, token);
-  
+
   if (games.length > 0) {
+    // Zuerst alte zukünftige Spiele löschen um Duplikate zu vermeiden
+    await deletePlayerFutureGames(supabase, playerId);
     await saveGamesToDatabase(supabase, playerId, playerName, games);
   }
-  
+
   return { success: true, games };
 }
 
