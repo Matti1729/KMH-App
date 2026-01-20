@@ -1061,8 +1061,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         const byteArray = new Uint8Array(byteNumbers);
         const blob = new Blob([byteArray], { type: 'application/pdf' });
 
-        // Blob URL für iframe erstellen
-        const url = URL.createObjectURL(blob);
+        // Blob URL für iframe erstellen (mit #toolbar=0 um Toolbar zu verstecken)
+        const url = URL.createObjectURL(blob) + '#toolbar=0&navpanes=0';
         setPdfPreviewUrl(url);
         console.log('PDF Vorschau URL erstellt');
       } else {
