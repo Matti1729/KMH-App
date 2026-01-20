@@ -396,38 +396,6 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       ? advisorNames.map(name => `<div style="color: #fff !important; font-size: 10px;">${name}</div>`).join('')
       : '<div style="color: #fff !important; font-size: 10px;">-</div>';
 
-    // Karrierestationen HTML - wird später mit Skalierung generiert
-    const generateCareerHtml = (scaleFn: (n: number) => number) => careerEntries.map((entry, index) => {
-      let dateDisplay = '';
-      if (entry.is_current && entry.from_date) {
-        dateDisplay = `Seit ${formatDate(entry.from_date)}`;
-      } else if (!entry.is_current && entry.from_date && entry.to_date) {
-        dateDisplay = `${formatDate(entry.from_date)} - ${formatDate(entry.to_date)}`;
-      } else if (!entry.is_current && entry.from_date) {
-        dateDisplay = `Seit ${formatDate(entry.from_date)}`;
-      }
-
-      return `
-      <div style="display: flex; margin-bottom: ${scaleFn(12)}px; position: relative;">
-        ${index < careerEntries.length - 1 ? `<div style="position: absolute; left: 2px; top: ${scaleFn(9)}px; height: calc(100% + ${scaleFn(12)}px); width: 1px; background-color: #1a1a1a !important; -webkit-print-color-adjust: exact;"></div>` : ''}
-        <div style="width: ${scaleFn(5)}px; height: ${scaleFn(5)}px; border-radius: 50%; background-color: #1a1a1a !important; margin-top: ${scaleFn(5)}px; margin-right: ${scaleFn(10)}px; flex-shrink: 0; -webkit-print-color-adjust: exact; position: relative; z-index: 1;"></div>
-        <div style="flex: 1;">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: ${scaleFn(6)}px;">
-            <div style="flex: 1;">
-              <div style="font-size: ${scaleFn(12)}px; font-weight: 700; color: #1a202c; line-height: 1.2;">${entry.club}</div>
-              <div style="font-size: ${scaleFn(8)}px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-top: ${scaleFn(2)}px;">${(entry.league || '').toUpperCase()}</div>
-            </div>
-            ${dateDisplay ? `<div style="border: 1px solid #ddd; padding: 0px ${scaleFn(4)}px; border-radius: 3px; white-space: nowrap; display: inline-flex; align-items: center; height: ${scaleFn(14)}px;">
-              <span style="font-size: ${scaleFn(8)}px; color: #666; font-weight: 500;">${dateDisplay}</span>
-            </div>` : ''}
-          </div>
-          ${entry.stats ? `<div style="background-color: #f7fafc !important; padding: ${scaleFn(2)}px ${scaleFn(6)}px; border-radius: 4px; border-left: 3px solid #e2e8f0; margin-top: ${scaleFn(3)}px; -webkit-print-color-adjust: exact;"><span style="font-size: ${scaleFn(8)}px; color: #4a5568;">${entry.stats}</span></div>` : ''}
-        </div>
-      </div>
-    `}).join('');
-
-    const careerHtml = generateCareerHtml(sc);
-
     // ========================================
     // DYNAMISCHE SKALIERUNG für gesamtes PDF
     // ========================================
@@ -451,6 +419,36 @@ export function PlayerDetailScreen({ route, navigation }: any) {
 
     // Skalierte Werte - Funktion zum Skalieren
     const sc = (base: number) => Math.round(base * scale);
+
+    // Karrierestationen HTML
+    const careerHtml = careerEntries.map((entry, index) => {
+      let dateDisplay = '';
+      if (entry.is_current && entry.from_date) {
+        dateDisplay = `Seit ${formatDate(entry.from_date)}`;
+      } else if (!entry.is_current && entry.from_date && entry.to_date) {
+        dateDisplay = `${formatDate(entry.from_date)} - ${formatDate(entry.to_date)}`;
+      } else if (!entry.is_current && entry.from_date) {
+        dateDisplay = `Seit ${formatDate(entry.from_date)}`;
+      }
+
+      return `
+      <div style="display: flex; margin-bottom: ${sc(12)}px; position: relative;">
+        ${index < careerEntries.length - 1 ? `<div style="position: absolute; left: 2px; top: ${sc(9)}px; height: calc(100% + ${sc(12)}px); width: 1px; background-color: #1a1a1a !important; -webkit-print-color-adjust: exact;"></div>` : ''}
+        <div style="width: ${sc(5)}px; height: ${sc(5)}px; border-radius: 50%; background-color: #1a1a1a !important; margin-top: ${sc(5)}px; margin-right: ${sc(10)}px; flex-shrink: 0; -webkit-print-color-adjust: exact; position: relative; z-index: 1;"></div>
+        <div style="flex: 1;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: ${sc(6)}px;">
+            <div style="flex: 1;">
+              <div style="font-size: ${sc(12)}px; font-weight: 700; color: #1a202c; line-height: 1.2;">${entry.club}</div>
+              <div style="font-size: ${sc(8)}px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-top: ${sc(2)}px;">${(entry.league || '').toUpperCase()}</div>
+            </div>
+            ${dateDisplay ? `<div style="border: 1px solid #ddd; padding: 0px ${sc(4)}px; border-radius: 3px; white-space: nowrap; display: inline-flex; align-items: center; height: ${sc(14)}px;">
+              <span style="font-size: ${sc(8)}px; color: #666; font-weight: 500;">${dateDisplay}</span>
+            </div>` : ''}
+          </div>
+          ${entry.stats ? `<div style="background-color: #f7fafc !important; padding: ${sc(2)}px ${sc(6)}px; border-radius: 4px; border-left: 3px solid #e2e8f0; margin-top: ${sc(3)}px; -webkit-print-color-adjust: exact;"><span style="font-size: ${sc(8)}px; color: #4a5568;">${entry.stats}</span></div>` : ''}
+        </div>
+      </div>
+    `}).join('');
 
     // Schriftgröße und Padding basierend auf Anzahl der Stärken UND Skalierung
     let strengthFontSize = `${sc(10)}px`;
