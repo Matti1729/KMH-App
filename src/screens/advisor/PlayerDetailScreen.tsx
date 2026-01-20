@@ -333,12 +333,12 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     }
   }, [showPDFProfileModal, player]);
 
-  // PDF Vorschau generieren wenn nicht im Edit-Mode
+  // PDF Vorschau generieren wenn nicht im Edit-Mode und Karriere-Daten geladen
   useEffect(() => {
-    if (showPDFProfileModal && !pdfEditMode && player && careerEntries.length >= 0 && Platform.OS === 'web' && !loadingPdfPreview) {
+    if (showPDFProfileModal && !pdfEditMode && player && !loadingCareer && Platform.OS === 'web' && !loadingPdfPreview) {
       generatePdfPreview();
     }
-  }, [showPDFProfileModal, pdfEditMode]);
+  }, [showPDFProfileModal, pdfEditMode, loadingCareer]);
 
   const fetchCareerEntries = async () => {
     setLoadingCareer(true);
