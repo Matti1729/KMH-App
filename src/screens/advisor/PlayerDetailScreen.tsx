@@ -406,16 +406,18 @@ export function PlayerDetailScreen({ route, navigation }: any) {
 
     // Berechne "Content-Score" - je höher, desto mehr Inhalt
     const contentScore =
-      (strengthsCount * 8) +           // Jede Stärke ~ 8 Punkte
-      (careerCount * 25) +              // Jeder Karriere-Eintrag ~ 25 Punkte
-      (descriptionLength * 0.15);       // Beschreibung ~ 0.15 pro Zeichen
+      (strengthsCount * 10) +          // Jede Stärke ~ 10 Punkte
+      (careerCount * 35) +             // Jeder Karriere-Eintrag ~ 35 Punkte
+      (descriptionLength * 0.2);       // Beschreibung ~ 0.2 pro Zeichen
 
-    // Skalierungsfaktor: 1.0 = normal, kleiner = kompakter
+    // Skalierungsfaktor: 1.0 = normal, kleiner = kompakter (AGGRESSIVER)
     let scale = 1.0;
-    if (contentScore > 250) scale = 0.7;
-    else if (contentScore > 200) scale = 0.75;
-    else if (contentScore > 150) scale = 0.85;
-    else if (contentScore > 100) scale = 0.92;
+    if (contentScore > 300) scale = 0.6;
+    else if (contentScore > 250) scale = 0.65;
+    else if (contentScore > 200) scale = 0.7;
+    else if (contentScore > 150) scale = 0.75;
+    else if (contentScore > 100) scale = 0.85;
+    else if (contentScore > 70) scale = 0.92;
 
     // Skalierte Werte - Funktion zum Skalieren
     const sc = (base: number) => Math.round(base * scale);
@@ -493,30 +495,30 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         </style>
       </head>
       <body>
-        <div style="width: 595px; height: 842px; background: #fff; display: flex; flex-direction: column; -webkit-print-color-adjust: exact;">
+        <div style="width: 595px; height: 842px; max-height: 842px; background: #fff; display: flex; flex-direction: column; overflow: hidden; -webkit-print-color-adjust: exact;">
           <!-- Header -->
-          <div style="position: relative; padding: 20px 24px; height: 180px; overflow: hidden; -webkit-print-color-adjust: exact;">
+          <div style="position: relative; padding: ${sc(18)}px ${sc(22)}px; height: ${sc(170)}px; overflow: hidden; flex-shrink: 0; -webkit-print-color-adjust: exact;">
             <div style="position: absolute; top: 0; left: 0; bottom: 0; width: 67%; background-color: #000000 !important; -webkit-print-color-adjust: exact;"></div>
             <div style="position: absolute; top: 0; right: 0; bottom: 0; width: 33%; background-color: #1c1c1c !important; -webkit-print-color-adjust: exact;"></div>
             <div style="position: absolute; top: 0; bottom: 0; left: 63%; width: 60px; background-color: #1c1c1c !important; transform: skewX(-8deg); -webkit-print-color-adjust: exact;"></div>
             
             <div style="position: relative; z-index: 1; display: flex; align-items: center; height: 100%;">
-              <div style="margin-right: 24px; display: flex; align-items: center;">
-                ${player.photo_url 
-                  ? `<img src="${player.photo_url}" style="width: 120px; height: 155px; object-fit: cover; border: 1px solid #333;" />`
-                  : `<div style="width: 120px; height: 155px; background-color: #333 !important; display: flex; align-items: center; justify-content: center; color: #666; -webkit-print-color-adjust: exact;">Foto</div>`
+              <div style="margin-right: ${sc(20)}px; display: flex; align-items: center;">
+                ${player.photo_url
+                  ? `<img src="${player.photo_url}" style="width: ${sc(110)}px; height: ${sc(140)}px; object-fit: cover; border: 1px solid #333;" />`
+                  : `<div style="width: ${sc(110)}px; height: ${sc(140)}px; background-color: #333 !important; display: flex; align-items: center; justify-content: center; color: #666; font-size: ${sc(10)}px; -webkit-print-color-adjust: exact;">Foto</div>`
                 }
               </div>
               <div style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
-                <div style="font-size: 26px; font-weight: 800; color: #fff !important; letter-spacing: 2px; margin-bottom: 4px;">${(player.first_name + ' ' + player.last_name).toUpperCase()}</div>
-                <div style="font-size: 13px; color: #e2e8f0 !important; margin-bottom: 10px;">
+                <div style="font-size: ${sc(24)}px; font-weight: 800; color: #fff !important; letter-spacing: 2px; margin-bottom: ${sc(4)}px;">${(player.first_name + ' ' + player.last_name).toUpperCase()}</div>
+                <div style="font-size: ${sc(12)}px; color: #e2e8f0 !important; margin-bottom: ${sc(8)}px;">
                   ${POSITION_MAP[player.position] || player.position}
                   ${player.secondary_position ? `<span style="color: #888 !important;"> · ${player.secondary_position.split(',').map(p => POSITION_MAP[p.trim()] || p).join(', ')}</span>` : ''}
                 </div>
-                <div style="display: inline-flex; align-items: center; background-color: rgba(255,255,255,0.12) !important; padding: 6px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); -webkit-print-color-adjust: exact; align-self: flex-start;">
-                  <span style="color: #fff !important; font-size: 11px; font-weight: 500;">${player.club || '-'}</span>
-                  <span style="color: rgba(255,255,255,0.3) !important; font-size: 11px; margin: 0 8px;">|</span>
-                  <span style="color: #fff !important; font-size: 11px; font-weight: 500;">${player.league || '-'}</span>
+                <div style="display: inline-flex; align-items: center; background-color: rgba(255,255,255,0.12) !important; padding: ${sc(5)}px ${sc(10)}px; border-radius: ${sc(5)}px; border: 1px solid rgba(255,255,255,0.2); -webkit-print-color-adjust: exact; align-self: flex-start;">
+                  <span style="color: #fff !important; font-size: ${sc(10)}px; font-weight: 500;">${player.club || '-'}</span>
+                  <span style="color: rgba(255,255,255,0.3) !important; font-size: ${sc(10)}px; margin: 0 ${sc(6)}px;">|</span>
+                  <span style="color: #fff !important; font-size: ${sc(10)}px; font-weight: 500;">${player.league || '-'}</span>
                 </div>
               </div>
             </div>
