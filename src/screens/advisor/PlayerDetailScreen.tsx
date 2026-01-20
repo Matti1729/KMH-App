@@ -1024,8 +1024,15 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         URL.revokeObjectURL(pdfPreviewUrl);
       }
 
+      console.log('Starte PDF-Vorschau Generierung...');
+
+      // Timeout Promise
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('PDF Generierung Timeout (30s)')), 30000)
+      );
+
       // Edge Function aufrufen (gleiche wie beim Download)
-      const { data, error } = await supabase.functions.invoke('generate-pdf', {
+      const fetchPromise = supabase.functions.invoke('generate-pdf', {
         body: {
           player,
           careerEntries,
@@ -1033,11 +1040,16 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         },
       });
 
+      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
+
       if (error) {
         console.error('PDF Preview Error:', error);
+        alert('Fehler bei PDF-Generierung: ' + (error.message || 'Unbekannter Fehler'));
         setLoadingPdfPreview(false);
         return;
       }
+
+      console.log('PDF Daten erhalten:', data ? 'Ja' : 'Nein');
 
       if (data?.pdf) {
         // Base64 PDF in Blob konvertieren
@@ -1052,11 +1064,17 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         // Blob URL für iframe erstellen
         const url = URL.createObjectURL(blob);
         setPdfPreviewUrl(url);
+        console.log('PDF Vorschau URL erstellt');
+      } else {
+        console.error('Keine PDF-Daten in Antwort');
+        alert('Fehler: Keine PDF-Daten erhalten');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('PDF Preview Error:', error);
+      alert('Fehler bei PDF-Generierung: ' + (error.message || 'Unbekannter Fehler'));
+    } finally {
+      setLoadingPdfPreview(false);
     }
-    setLoadingPdfPreview(false);
   };
 
   const updatePdfField = (field: keyof Player, value: any) => {
