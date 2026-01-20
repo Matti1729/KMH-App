@@ -65,6 +65,89 @@ interface Advisor {
   last_name: string;
 }
 
+// Transfermarkt Stats Interface
+interface TransfermarktSeasonStats {
+  season: string;
+  club: string;
+  league: string;
+  games: number;
+  goals: number;
+  assists: number;
+}
+
+// Funktion um Stats von Transfermarkt zu laden
+const fetchTransfermarktStats = async (transfermarktUrl: string): Promise<TransfermarktSeasonStats[]> => {
+  if (!transfermarktUrl) return [];
+
+  try {
+    // URL zur Leistungsdaten-Seite umwandeln
+    let statsUrl = transfermarktUrl;
+    if (statsUrl.includes('/profil/')) {
+      statsUrl = statsUrl.replace('/profil/', '/leistungsdaten/');
+    } else if (!statsUrl.includes('/leistungsdaten/')) {
+      // Versuche die ID zu extrahieren und URL zu bauen
+      const idMatch = statsUrl.match(/spieler\/(\d+)/);
+      if (idMatch) {
+        statsUrl = `https://www.transfermarkt.de/spieler/leistungsdaten/spieler/${idMatch[1]}`;
+      }
+    }
+
+    // CORS Proxy verwenden
+    const proxyUrl = Platform.OS === 'web'
+      ? `https://api.allorigins.win/raw?url=${encodeURIComponent(statsUrl)}`
+      : statsUrl;
+
+    const response = await fetch(proxyUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+
+    if (!response.ok) return [];
+
+    const html = await response.text();
+    const stats: TransfermarktSeasonStats[] = [];
+
+    // Regex Patterns für Transfermarkt Leistungsdaten Tabelle
+    // Suche nach Tabellenzeilen mit Saisondaten
+    const rowPattern = /<tr[^>]*class="[^"]*(?:odd|even)[^"]*"[^>]*>([\s\S]*?)<\/tr>/gi;
+    const rows = html.match(rowPattern) || [];
+
+    for (const row of rows.slice(0, 3)) { // Nur die letzten 3 Saisons
+      // Saison extrahieren (z.B. "24/25", "23/24")
+      const seasonMatch = row.match(/>(\d{2}\/\d{2})</);
+      // Verein extrahieren
+      const clubMatch = row.match(/title="([^"]+)"[^>]*>\s*<img[^>]*alt="([^"]+)"/i) ||
+                        row.match(/<td[^>]*>([^<]+(?:U\d+)?[^<]*)<\/td>/);
+      // Wettbewerb/Liga
+      const leagueMatch = row.match(/title="([^"]+)"[^>]*class="[^"]*hauptlink[^"]*"/i);
+      // Spiele, Tore, Assists - typischerweise in separaten td-Zellen
+      const numbersMatch = row.match(/<td[^>]*class="[^"]*zentriert[^"]*"[^>]*>(\d+|-)<\/td>/gi) || [];
+
+      if (seasonMatch) {
+        const numbers = numbersMatch.map(n => {
+          const num = n.match(/>(\d+|-)</);
+          return num ? (num[1] === '-' ? 0 : parseInt(num[1])) : 0;
+        });
+
+        stats.push({
+          season: `20${seasonMatch[1].split('/')[0]}/20${seasonMatch[1].split('/')[1]}`,
+          club: clubMatch ? (clubMatch[2] || clubMatch[1] || '').trim() : '',
+          league: leagueMatch ? leagueMatch[1].trim() : '',
+          games: numbers[0] || 0,
+          goals: numbers[1] || 0,
+          assists: numbers[2] || 0,
+        });
+      }
+    }
+
+    return stats;
+  } catch (error) {
+    console.error('Fehler beim Laden der Transfermarkt Stats:', error);
+    return [];
+  }
+};
+
 export function PlayerDetailScreen({ route, navigation }: any) {
   const { playerId } = route.params;
   const { profile } = useAuth();
@@ -103,6 +186,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   }
   const [careerEntries, setCareerEntries] = useState<CareerEntry[]>([]);
   const [loadingCareer, setLoadingCareer] = useState(false);
+  const [loadingStats, setLoadingStats] = useState(false);
   const [playerDescription, setPlayerDescription] = useState('');
   
   // Date Picker für Karriere
@@ -288,6 +372,70 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       sort_order: careerEntries.length
     };
     setCareerEntries([...careerEntries, newEntry]);
+  };
+
+  // Transfermarkt Stats laden und in Karriere-Einträge einfügen
+  const loadTransfermarktStats = async () => {
+    if (!player?.transfermarkt_url) {
+      Alert.alert('Fehler', 'Kein Transfermarkt-Link hinterlegt. Bitte füge zuerst einen Transfermarkt-Link zum Spieler hinzu.');
+      return;
+    }
+
+    setLoadingStats(true);
+    try {
+      const stats = await fetchTransfermarktStats(player.transfermarkt_url);
+
+      if (stats.length === 0) {
+        Alert.alert('Keine Daten', 'Konnte keine Statistiken von Transfermarkt laden. Bitte prüfe den Transfermarkt-Link.');
+        setLoadingStats(false);
+        return;
+      }
+
+      // Stats in Karriere-Einträge umwandeln
+      const newEntries: CareerEntry[] = stats.map((stat, index) => {
+        // Saison-Zeitraum berechnen (z.B. "2024/2025" -> "01.07.2024" bis "30.06.2025")
+        const seasonParts = stat.season.split('/');
+        const startYear = seasonParts[0] || '';
+        const endYear = seasonParts[1] || '';
+
+        // Aktuelles Datum prüfen um is_current zu setzen
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth() + 1;
+        const isCurrent = (parseInt(endYear) === currentYear && currentMonth <= 6) ||
+                         (parseInt(startYear) === currentYear && currentMonth >= 7);
+
+        return {
+          club: stat.club || player?.club || '',
+          league: stat.league || '',
+          from_date: `01.07.${startYear}`,
+          to_date: isCurrent ? '' : `30.06.${endYear}`,
+          stats: `${stat.games} Sp | ${stat.goals} T | ${stat.assists} A`,
+          is_current: isCurrent && index === 0,
+          sort_order: index
+        };
+      });
+
+      // Bestehende Einträge mit neuen zusammenführen (nur neue hinzufügen, keine überschreiben)
+      const existingClubSeasons = new Set(
+        careerEntries.map(e => `${e.club}_${e.from_date}`)
+      );
+
+      const entriesToAdd = newEntries.filter(
+        e => !existingClubSeasons.has(`${e.club}_${e.from_date}`)
+      );
+
+      if (entriesToAdd.length === 0) {
+        Alert.alert('Info', 'Alle gefundenen Statistiken sind bereits vorhanden.');
+      } else {
+        setCareerEntries([...careerEntries, ...entriesToAdd]);
+        Alert.alert('Erfolg', `${entriesToAdd.length} Saison-Statistik${entriesToAdd.length > 1 ? 'en' : ''} hinzugefügt. Du kannst sie jetzt bearbeiten.`);
+      }
+    } catch (error) {
+      console.error('Fehler beim Laden der Transfermarkt Stats:', error);
+      Alert.alert('Fehler', 'Konnte Statistiken nicht laden. Bitte versuche es später erneut.');
+    }
+    setLoadingStats(false);
   };
 
   const updateCareerEntry = (index: number, field: keyof CareerEntry, value: string | boolean) => {
@@ -2348,11 +2496,24 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               <ScrollView style={styles.pdfModalContent}>
                 <View style={styles.pdfEditSection}>
                   <Text style={styles.pdfEditSectionTitle}>Karriereverlauf der letzten 3 Jahre</Text>
-                  <TouchableOpacity style={styles.pdfAddCareerButton} onPress={addNewCareerEntry}>
-                    <Text style={styles.pdfAddCareerButtonText}>+ Station hinzufügen</Text>
-                  </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                    <TouchableOpacity style={styles.pdfAddCareerButton} onPress={addNewCareerEntry}>
+                      <Text style={styles.pdfAddCareerButtonText}>+ Station hinzufügen</Text>
+                    </TouchableOpacity>
+                    {player?.transfermarkt_url && (
+                      <TouchableOpacity
+                        style={[styles.pdfAddCareerButton, { backgroundColor: '#1a4d8c' }]}
+                        onPress={loadTransfermarktStats}
+                        disabled={loadingStats}
+                      >
+                        <Text style={styles.pdfAddCareerButtonText}>
+                          {loadingStats ? 'Laden...' : '📊 Stats von Transfermarkt laden'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
-                
+
                 {careerEntries.map((entry, index) => (
                   <View key={entry.id || index} style={styles.pdfCareerEditCard}>
                     <View style={styles.pdfCareerEditRow}>
