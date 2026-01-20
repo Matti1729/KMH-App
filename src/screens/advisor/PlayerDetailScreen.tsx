@@ -951,12 +951,14 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       // ✅ WEB: Server-seitige PDF via Browserless (perfekte Qualität!)
       if (Platform.OS === 'web') {
         // Edge Function aufrufen
+        const advisorPhone = profile?.phone ? `${profile?.phone_country_code || '+49'} ${profile.phone}` : '';
         const { data, error } = await supabase.functions.invoke('generate-pdf', {
           body: {
             player,
             careerEntries,
             playerDescription,
             advisorEmail: profile?.email,
+            advisorPhone,
           },
         });
 
@@ -1037,12 +1039,14 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       );
 
       // Edge Function aufrufen (gleiche wie beim Download)
+      const advisorPhone = profile?.phone ? `${profile?.phone_country_code || '+49'} ${profile.phone}` : '';
       const fetchPromise = supabase.functions.invoke('generate-pdf', {
         body: {
           player,
           careerEntries,
           playerDescription,
           advisorEmail: profile?.email,
+          advisorPhone,
         },
       });
 

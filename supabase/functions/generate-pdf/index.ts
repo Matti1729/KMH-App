@@ -48,6 +48,7 @@ interface RequestBody {
   careerEntries: CareerEntry[];
   playerDescription: string;
   advisorEmail?: string;
+  advisorPhone?: string;
 }
 
 const POSITION_MAP: Record<string, string> = {
@@ -92,7 +93,7 @@ function formatDateDE(dateStr: string): string {
   }
 }
 
-function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescription: string, advisorEmail?: string): string {
+function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescription: string, advisorEmail?: string, advisorPhone?: string): string {
   const birthDateFormatted = formatDateDE(player.birth_date);
   const contractEndFormatted = formatDateDE(player.contract_end);
   const age = calculateAge(player.birth_date);
@@ -111,6 +112,9 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
 
   // E-Mail: Berater-E-Mail oder Fallback
   const email = advisorEmail || (isKMH ? 'info@kmh-sportmanagement.de' : 'info@pm-sportmanagement.de');
+
+  // Telefon: Berater-Telefon oder leer
+  const phone = advisorPhone || '';
 
   const careerHtml = (careerEntries || []).map((entry, index) => {
     // Stats aus games/goals/assists oder stats-String generieren
@@ -287,6 +291,11 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
             <div style="color: #fff !important; font-size: 12px;">${email}</div>
           </div>
 
+          ${phone ? `<div style="margin-bottom: 8px;">
+            <div style="font-size: 9px; color: #666 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">TELEFON</div>
+            <div style="color: #fff !important; font-size: 12px;">${phone}</div>
+          </div>` : ''}
+
           <div>
             <div style="font-size: 9px; color: #666 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">ADRESSE</div>
             <div style="color: #fff !important; font-size: 12px;">${address}</div>
@@ -337,7 +346,7 @@ serve(async (req) => {
     }
     console.log("BROWSERLESS_API_KEY is set");
 
-    const { player, careerEntries, playerDescription, advisorEmail }: RequestBody = await req.json();
+    const { player, careerEntries, playerDescription, advisorEmail, advisorPhone }: RequestBody = await req.json();
     console.log("Received player:", player?.first_name, player?.last_name);
 
     if (!player) {
@@ -348,7 +357,7 @@ serve(async (req) => {
     }
 
     // HTML generieren (exakt wie in der App-Vorschau)
-    const html = generateHtml(player, careerEntries || [], playerDescription || '', advisorEmail);
+    const html = generateHtml(player, careerEntries || [], playerDescription || '', advisorEmail, advisorPhone);
     console.log("HTML generated, length:", html.length);
 
     // Browserless.io API aufrufen

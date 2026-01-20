@@ -10,6 +10,8 @@ interface Profile {
   first_name: string | null;
   last_name: string | null;
   email: string | null;
+  phone: string | null;
+  phone_country_code: string | null;
 }
 
 interface AuthContextType {
@@ -35,14 +37,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Zuerst in advisors Tabelle schauen
       const { data: advisorData, error: advisorError } = await supabase
         .from('advisors')
-        .select('id, first_name, last_name, role')
+        .select('id, first_name, last_name, role, phone, phone_country_code')
         .eq('id', userId)
         .single();
-      
+
       if (advisorError && advisorError.code !== 'PGRST116') {
         console.warn('Advisor fetch error:', advisorError);
       }
-      
+
       if (advisorData && (advisorData.role === 'advisor' || advisorData.role === 'admin' || advisorData.role === 'berater')) {
         const normalizedRole = advisorData.role === 'berater' ? 'advisor' : advisorData.role;
         setProfile({
@@ -50,7 +52,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           first_name: advisorData.first_name,
           last_name: advisorData.last_name,
           role: normalizedRole as UserRole,
-          email: userEmail || null
+          email: userEmail || null,
+          phone: advisorData.phone || null,
+          phone_country_code: advisorData.phone_country_code || null
         });
         return;
       }
@@ -67,14 +71,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
       if (profileData) {
-        setProfile(profileData);
+        setProfile({
+          ...profileData,
+          phone: profileData.phone || null,
+          phone_country_code: profileData.phone_country_code || null
+        });
       } else {
         setProfile({
           id: userId,
           first_name: null,
           last_name: null,
           role: 'player',
-          email: userEmail || null
+          email: userEmail || null,
+          phone: null,
+          phone_country_code: null
         });
       }
     } catch (error) {
@@ -84,7 +94,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         first_name: null,
         last_name: null,
         role: 'player',
-        email: userEmail || null
+        email: userEmail || null,
+        phone: null,
+        phone_country_code: null
       });
     }
   };
