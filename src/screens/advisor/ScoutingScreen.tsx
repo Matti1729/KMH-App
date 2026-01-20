@@ -495,23 +495,29 @@ export function ScoutingScreen({ navigation }: any) {
 
   const fetchScoutedPlayers = async () => {
     setLoading(true);
-    
-    // Erst Migration durchführen
-    await migrateOldStatus();
-    
-    const { data, error } = await supabase.from('scouted_players').select('*').order('created_at', { ascending: false });
-    if (!error && data) {
-      const scoutIds = [...new Set(data.map(p => p.scout_id).filter(Boolean))];
-      if (scoutIds.length > 0) {
-        const { data: scouts } = await supabase.from('advisors').select('id, first_name, last_name').in('id', scoutIds);
-        const scoutMap: Record<string, string> = {};
-        scouts?.forEach(s => scoutMap[s.id] = `${s.first_name} ${s.last_name}`);
-        setScoutedPlayers(data.map(p => ({ ...p, scout_name: scoutMap[p.scout_id] || 'Unbekannt' })));
-      } else {
-        setScoutedPlayers(data);
+    try {
+      // Erst Migration durchführen
+      await migrateOldStatus();
+
+      const { data, error } = await supabase.from('scouted_players').select('*').order('created_at', { ascending: false });
+      if (!error && data) {
+        const scoutIds = [...new Set(data.map(p => p.scout_id).filter(Boolean))];
+        if (scoutIds.length > 0) {
+          const { data: scouts } = await supabase.from('advisors').select('id, first_name, last_name').in('id', scoutIds);
+          const scoutMap: Record<string, string> = {};
+          scouts?.forEach(s => scoutMap[s.id] = `${s.first_name} ${s.last_name}`);
+          setScoutedPlayers(data.map(p => ({ ...p, scout_name: scoutMap[p.scout_id] || 'Unbekannt' })));
+        } else {
+          setScoutedPlayers(data);
+        }
+      } else if (error) {
+        console.error('Fehler beim Laden der Scouting-Spieler:', error);
       }
+    } catch (err) {
+      console.error('Netzwerkfehler beim Laden der Scouting-Spieler:', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const fetchScoutingGames = async () => {

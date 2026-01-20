@@ -418,9 +418,15 @@ export function PlayerOverviewScreen({ navigation }: any) {
 
   const fetchPlayers = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from('player_details').select('id, first_name, last_name, birth_date, position, club, league, contract_end, listing, responsibility, future_club').order('last_name', { ascending: true });
-    if (!error) setPlayers(data || []);
-    setLoading(false);
+    try {
+      const { data, error } = await supabase.from('player_details').select('id, first_name, last_name, birth_date, position, club, league, contract_end, listing, responsibility, future_club').order('last_name', { ascending: true });
+      if (!error) setPlayers(data || []);
+      else console.error('Fehler beim Laden der Spieler:', error);
+    } catch (err) {
+      console.error('Netzwerkfehler beim Laden der Spieler:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleAddPlayer = async () => {

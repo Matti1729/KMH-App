@@ -315,108 +315,116 @@ export function PlayerDetailScreen({ route, navigation }: any) {
 
   const fetchCareerEntries = async () => {
     setLoadingCareer(true);
-    const { data, error } = await supabase
-      .from('player_career')
-      .select('*')
-      .eq('player_id', playerId);
-    
-    let entries: CareerEntry[] = [];
-    
-    if (data && data.length > 0) {
-      // Konvertiere alte from_year/to_year zu from_date/to_date falls nötig
-      // Parse stats string in separate fields (Format: "25 Sp | 8 T | 5 A" oder "25|8|5")
-      entries = data.map(d => {
-        let games = '', goals = '', assists = '';
-        if (d.stats) {
-          // Versuche Format "X Sp | Y T | Z A" zu parsen
-          const spMatch = d.stats.match(/(\d+)\s*Sp/i);
-          const tMatch = d.stats.match(/(\d+)\s*T(?!\w)/i);
-          const aMatch = d.stats.match(/(\d+)\s*A/i);
-          if (spMatch) games = spMatch[1];
-          if (tMatch) goals = tMatch[1];
-          if (aMatch) assists = aMatch[1];
+    try {
+      const { data, error } = await supabase
+        .from('player_career')
+        .select('*')
+        .eq('player_id', playerId);
 
-          // Falls nicht gefunden, versuche Format "X|Y|Z"
-          if (!games && !goals && !assists) {
-            const parts = d.stats.split('|').map((s: string) => s.trim());
-            if (parts.length >= 3) {
-              games = parts[0];
-              goals = parts[1];
-              assists = parts[2];
+      if (error) {
+        console.error('Fehler beim Laden der Karriere-Einträge:', error);
+      }
+
+      let entries: CareerEntry[] = [];
+
+      if (data && data.length > 0) {
+        // Konvertiere alte from_year/to_year zu from_date/to_date falls nötig
+        // Parse stats string in separate fields (Format: "25 Sp | 8 T | 5 A" oder "25|8|5")
+        entries = data.map(d => {
+          let games = '', goals = '', assists = '';
+          if (d.stats) {
+            // Versuche Format "X Sp | Y T | Z A" zu parsen
+            const spMatch = d.stats.match(/(\d+)\s*Sp/i);
+            const tMatch = d.stats.match(/(\d+)\s*T(?!\w)/i);
+            const aMatch = d.stats.match(/(\d+)\s*A/i);
+            if (spMatch) games = spMatch[1];
+            if (tMatch) goals = tMatch[1];
+            if (aMatch) assists = aMatch[1];
+
+            // Falls nicht gefunden, versuche Format "X|Y|Z"
+            if (!games && !goals && !assists) {
+              const parts = d.stats.split('|').map((s: string) => s.trim());
+              if (parts.length >= 3) {
+                games = parts[0];
+                goals = parts[1];
+                assists = parts[2];
+              }
             }
           }
-        }
-        return {
-          ...d,
-          from_date: d.from_date || d.from_year || '',
-          to_date: d.to_date || d.to_year || '',
-          is_current: d.is_current || false,
-          games,
-          goals,
-          assists
+          return {
+            ...d,
+            from_date: d.from_date || d.from_year || '',
+            to_date: d.to_date || d.to_year || '',
+            is_current: d.is_current || false,
+            games,
+            goals,
+            assists
+          };
+        });
+      }
+
+      // Prüfe ob aktueller Verein bereits als Karrierestation existiert
+      const hasCurrentClub = entries.some(e => e.is_current && e.club === player?.club);
+
+      // Wenn nicht, füge aktuellen Verein als erste Station hinzu
+      if (!hasCurrentClub && player?.club) {
+        const currentClubEntry: CareerEntry = {
+          club: player.club,
+          league: player.league || '',
+          from_date: '',
+          to_date: '',
+          stats: '',
+          games: '',
+          goals: '',
+          assists: '',
+          is_current: true,
+          sort_order: 0
         };
-      });
-    }
-    
-    // Prüfe ob aktueller Verein bereits als Karrierestation existiert
-    const hasCurrentClub = entries.some(e => e.is_current && e.club === player?.club);
-    
-    // Wenn nicht, füge aktuellen Verein als erste Station hinzu
-    if (!hasCurrentClub && player?.club) {
-      const currentClubEntry: CareerEntry = {
-        club: player.club,
-        league: player.league || '',
-        from_date: '',
-        to_date: '',
-        stats: '',
-        games: '',
-        goals: '',
-        assists: '',
-        is_current: true,
-        sort_order: 0
-      };
-      entries = [currentClubEntry, ...entries];
-    }
-    
-    // Sortiere: is_current zuerst, dann nach from_date (neueste zuerst)
-    entries.sort((a, b) => {
-      if (a.is_current && !b.is_current) return -1;
-      if (!a.is_current && b.is_current) return 1;
-      
-      // Parse Datum - unterstützt DD.MM.YYYY und YYYY-MM-DD
-      const parseDate = (dateStr: string): Date => {
-        if (!dateStr) return new Date(0);
-        if (dateStr.includes('.')) {
-          const parts = dateStr.split('.');
-          if (parts.length === 3) {
-            return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+        entries = [currentClubEntry, ...entries];
+      }
+
+      // Sortiere: is_current zuerst, dann nach from_date (neueste zuerst)
+      entries.sort((a, b) => {
+        if (a.is_current && !b.is_current) return -1;
+        if (!a.is_current && b.is_current) return 1;
+
+        // Parse Datum - unterstützt DD.MM.YYYY und YYYY-MM-DD
+        const parseDate = (dateStr: string): Date => {
+          if (!dateStr) return new Date(0);
+          if (dateStr.includes('.')) {
+            const parts = dateStr.split('.');
+            if (parts.length === 3) {
+              return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+            }
           }
-        }
-        if (dateStr.includes('-')) {
-          return new Date(dateStr);
-        }
-        return new Date(0);
-      };
-      
-      const dateA = parseDate(a.from_date);
-      const dateB = parseDate(b.from_date);
-      return dateB.getTime() - dateA.getTime();
-    });
-    
-    setCareerEntries(entries);
-    
-    // Lade Spieler-Beschreibung
-    const { data: playerData } = await supabase
-      .from('player_details')
-      .select('pdf_description')
-      .eq('id', playerId)
-      .single();
-    
-    if (playerData?.pdf_description) {
-      setPlayerDescription(playerData.pdf_description);
+          if (dateStr.includes('-')) {
+            return new Date(dateStr);
+          }
+          return new Date(0);
+        };
+
+        const dateA = parseDate(a.from_date);
+        const dateB = parseDate(b.from_date);
+        return dateB.getTime() - dateA.getTime();
+      });
+
+      setCareerEntries(entries);
+
+      // Lade Spieler-Beschreibung
+      const { data: playerData } = await supabase
+        .from('player_details')
+        .select('pdf_description')
+        .eq('id', playerId)
+        .single();
+
+      if (playerData?.pdf_description) {
+        setPlayerDescription(playerData.pdf_description);
+      }
+    } catch (err) {
+      console.error('Netzwerkfehler beim Laden der Karriere-Einträge:', err);
+    } finally {
+      setLoadingCareer(false);
     }
-    
-    setLoadingCareer(false);
   };
 
   const saveCareerEntry = async (entry: CareerEntry) => {
@@ -1159,10 +1167,21 @@ export function PlayerDetailScreen({ route, navigation }: any) {
 
   const fetchPlayer = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from('player_details').select('*').eq('id', playerId).single();
-    if (error) { Alert.alert('Fehler', 'Spieler konnte nicht geladen werden'); }
-    else { setPlayer(data); setEditData(data); }
-    setLoading(false);
+    try {
+      const { data, error } = await supabase.from('player_details').select('*').eq('id', playerId).single();
+      if (error) {
+        console.error('Fehler beim Laden des Spielers:', error);
+        Alert.alert('Fehler', 'Spieler konnte nicht geladen werden');
+      } else {
+        setPlayer(data);
+        setEditData(data);
+      }
+    } catch (err) {
+      console.error('Netzwerkfehler beim Laden des Spielers:', err);
+      Alert.alert('Netzwerkfehler', 'Verbindung zu Supabase fehlgeschlagen. Bitte versuche es erneut.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatDate = (dateString: string) => {

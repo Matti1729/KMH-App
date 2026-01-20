@@ -181,11 +181,15 @@ export function TermineScreen({ navigation }: any) {
   };
 
   const fetchPlayerGames = async () => {
-    const games = await loadUpcomingGames(supabase);
-    setPlayerGames(games.map(g => ({
-      ...g,
-      player_name: g.player ? `${g.player.first_name} ${g.player.last_name}` : g.player_name || '-'
-    })));
+    try {
+      const games = await loadUpcomingGames(supabase);
+      setPlayerGames(games.map(g => ({
+        ...g,
+        player_name: g.player ? `${g.player.first_name} ${g.player.last_name}` : g.player_name || '-'
+      })));
+    } catch (err) {
+      console.error('Fehler beim Laden der Spieler-Spiele:', err);
+    }
   };
 
   const fetchClubLogos = async () => {
@@ -226,18 +230,24 @@ export function TermineScreen({ navigation }: any) {
 
   const fetchTermine = async () => {
     setLoading(true);
-    const now = new Date();
-    const oneDayAgo = new Date(); 
-    oneDayAgo.setDate(oneDayAgo.getDate() - 1);
-    
-    const { data, error } = await supabase
-      .from('termine')
-      .select('*')
-      .or(`datum.gte.${oneDayAgo.toISOString()},datum_ende.gte.${now.toISOString()}`)
-      .order('datum', { ascending: true });
-    
-    if (!error && data) setTermine(data);
-    setLoading(false);
+    try {
+      const now = new Date();
+      const oneDayAgo = new Date();
+      oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+
+      const { data, error } = await supabase
+        .from('termine')
+        .select('*')
+        .or(`datum.gte.${oneDayAgo.toISOString()},datum_ende.gte.${now.toISOString()}`)
+        .order('datum', { ascending: true });
+
+      if (!error && data) setTermine(data);
+      else if (error) console.error('Fehler beim Laden der Termine:', error);
+    } catch (err) {
+      console.error('Netzwerkfehler beim Laden der Termine:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getAdvisorName = (advisorId: string): string => {
