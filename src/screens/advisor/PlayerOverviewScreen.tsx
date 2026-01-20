@@ -186,21 +186,29 @@ export function PlayerOverviewScreen({ navigation }: any) {
   useEffect(() => { applyFilters(); }, [searchText, players, selectedYears, selectedPositions, selectedListings, selectedResponsibilities, selectedContractYears, sortField, sortDirection]);
 
   const fetchAdvisors = async () => {
-    const { data } = await supabase.from('advisors').select('id, first_name, last_name').order('last_name');
-    if (data) setAdvisors(data);
+    try {
+      const { data } = await supabase.from('advisors').select('id, first_name, last_name').order('last_name');
+      if (data) setAdvisors(data);
+    } catch (err) {
+      console.error('Fehler beim Laden der Berater:', err);
+    }
   };
 
   const fetchCurrentUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      setCurrentUserId(user.id);
-      const { data: advisor } = await supabase.from('advisors').select('role, first_name, last_name').eq('id', user.id).single();
-      if (advisor) {
-        setUserRole(advisor.role || 'berater');
-        setCurrentUserName(`${advisor.first_name || ''} ${advisor.last_name || ''}`.trim());
-        setProfile({ id: user.id, ...advisor });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+        const { data: advisor } = await supabase.from('advisors').select('role, first_name, last_name').eq('id', user.id).single();
+        if (advisor) {
+          setUserRole(advisor.role || 'berater');
+          setCurrentUserName(`${advisor.first_name || ''} ${advisor.last_name || ''}`.trim());
+          setProfile({ id: user.id, ...advisor });
+        }
+        fetchMyPlayerAccess(user.id);
       }
-      fetchMyPlayerAccess(user.id);
+    } catch (err) {
+      console.error('Fehler beim Laden des Benutzers:', err);
     }
   };
 
@@ -210,39 +218,48 @@ export function PlayerOverviewScreen({ navigation }: any) {
       setAccessLoaded(true);
       return;
     }
-    
-    // 1. Hole IDs aus advisor_access
-    const { data: accessData } = await supabase
-      .from('advisor_access')
-      .select('player_id')
-      .eq('advisor_id', uid);
-    
-    // 2. Hole IDs aus access_requests (approved)
-    const { data: requestData } = await supabase
-      .from('access_requests')
-      .select('player_id')
-      .eq('requester_id', uid)
-      .eq('status', 'approved');
-    
-    // 3. Kombiniere beide Listen (ohne Duplikate)
-    const accessIds = accessData?.map(d => d.player_id) || [];
-    const requestIds = requestData?.map(d => d.player_id) || [];
-    const allIds = [...new Set([...accessIds, ...requestIds])];
-    
-    setMyPlayerIds(allIds);
-    setAccessLoaded(true);
+
+    try {
+      // 1. Hole IDs aus advisor_access
+      const { data: accessData } = await supabase
+        .from('advisor_access')
+        .select('player_id')
+        .eq('advisor_id', uid);
+
+      // 2. Hole IDs aus access_requests (approved)
+      const { data: requestData } = await supabase
+        .from('access_requests')
+        .select('player_id')
+        .eq('requester_id', uid)
+        .eq('status', 'approved');
+
+      // 3. Kombiniere beide Listen (ohne Duplikate)
+      const accessIds = accessData?.map(d => d.player_id) || [];
+      const requestIds = requestData?.map(d => d.player_id) || [];
+      const allIds = [...new Set([...accessIds, ...requestIds])];
+
+      setMyPlayerIds(allIds);
+    } catch (err) {
+      console.error('Fehler beim Laden der Spieler-Zugriffsrechte:', err);
+    } finally {
+      setAccessLoaded(true);
+    }
   };
 
   const fetchClubLogos = async () => {
-    const { data, error } = await supabase.from('club_logos').select('club_name, logo_url');
-    if (!error && data) {
-      const logoMap: Record<string, string> = {};
-      data.forEach((item: ClubLogo) => {
-        logoMap[item.club_name] = item.logo_url;
-        const simplified = item.club_name.replace(' II', '').replace(' U23', '').replace(' U21', '').replace(' U19', '');
-        if (simplified !== item.club_name) logoMap[simplified] = item.logo_url;
-      });
-      setClubLogos(logoMap);
+    try {
+      const { data, error } = await supabase.from('club_logos').select('club_name, logo_url');
+      if (!error && data) {
+        const logoMap: Record<string, string> = {};
+        data.forEach((item: ClubLogo) => {
+          logoMap[item.club_name] = item.logo_url;
+          const simplified = item.club_name.replace(' II', '').replace(' U23', '').replace(' U21', '').replace(' U19', '');
+          if (simplified !== item.club_name) logoMap[simplified] = item.logo_url;
+        });
+        setClubLogos(logoMap);
+      }
+    } catch (err) {
+      console.error('Fehler beim Laden der Club-Logos:', err);
     }
   };
 
