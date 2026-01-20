@@ -245,7 +245,9 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const [showPDFProfileModal, setShowPDFProfileModal] = useState(false);
   const [pdfEditMode, setPdfEditMode] = useState(false);
   const [pdfEditData, setPdfEditData] = useState<Player | null>(null);
-  
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [loadingPdfPreview, setLoadingPdfPreview] = useState(false);
+
   // Career State
   interface CareerEntry {
     id?: string;
@@ -321,8 +323,22 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     if (showPDFProfileModal && player) {
       fetchCareerEntries();
       setPdfEditData({ ...player });
+      setPdfPreviewUrl(null); // Reset preview when opening
+    } else if (!showPDFProfileModal) {
+      // Cleanup blob URL when modal closes
+      if (pdfPreviewUrl) {
+        URL.revokeObjectURL(pdfPreviewUrl);
+        setPdfPreviewUrl(null);
+      }
     }
   }, [showPDFProfileModal, player]);
+
+  // PDF Vorschau generieren wenn nicht im Edit-Mode
+  useEffect(() => {
+    if (showPDFProfileModal && !pdfEditMode && player && careerEntries.length >= 0 && Platform.OS === 'web') {
+      generatePdfPreview();
+    }
+  }, [showPDFProfileModal, pdfEditMode, careerEntries, playerDescription]);
 
   const fetchCareerEntries = async () => {
     setLoadingCareer(true);
@@ -995,6 +1011,52 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       console.error('PDF Error:', error);
       Alert.alert('Fehler', 'PDF konnte nicht erstellt werden');
     }
+  };
+
+  // PDF Vorschau generieren (echtes PDF für 100% identische Darstellung)
+  const generatePdfPreview = async () => {
+    if (!player || Platform.OS !== 'web') return;
+
+    setLoadingPdfPreview(true);
+    try {
+      // Alte Preview URL aufräumen
+      if (pdfPreviewUrl) {
+        URL.revokeObjectURL(pdfPreviewUrl);
+      }
+
+      // Edge Function aufrufen (gleiche wie beim Download)
+      const { data, error } = await supabase.functions.invoke('generate-pdf', {
+        body: {
+          player,
+          careerEntries,
+          playerDescription,
+        },
+      });
+
+      if (error) {
+        console.error('PDF Preview Error:', error);
+        setLoadingPdfPreview(false);
+        return;
+      }
+
+      if (data?.pdf) {
+        // Base64 PDF in Blob konvertieren
+        const byteCharacters = atob(data.pdf);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/pdf' });
+
+        // Blob URL für iframe erstellen
+        const url = URL.createObjectURL(blob);
+        setPdfPreviewUrl(url);
+      }
+    } catch (error) {
+      console.error('PDF Preview Error:', error);
+    }
+    setLoadingPdfPreview(false);
   };
 
   const updatePdfField = (field: keyof Player, value: any) => {
@@ -2796,16 +2858,25 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 </View>
               </ScrollView>
             ) : (
-              /* Vorschau - iframe für Web, WebView für Mobile */
+              /* Vorschau - echtes PDF für Web (100% identisch zum Download), WebView für Mobile */
               Platform.OS === 'web' ? (
-                <div style={{ flex: 1, backgroundColor: '#e8e8e8', overflow: 'auto', display: 'flex', justifyContent: 'center', padding: 20 }}>
-                  <div style={{ width: 595, height: 842, backgroundColor: '#fff', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', borderRadius: 2, flexShrink: 0 }}>
+                <div style={{ flex: 1, backgroundColor: '#e8e8e8', overflow: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+                  {loadingPdfPreview ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                      <div style={{ width: 40, height: 40, border: '3px solid #ddd', borderTopColor: '#333', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                      <span style={{ color: '#666', fontSize: 14 }}>PDF wird generiert...</span>
+                      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                    </div>
+                  ) : pdfPreviewUrl ? (
                     <iframe
-                      srcDoc={generatePdfHtml()}
-                      style={{ border: 'none', width: 595, height: 842 }}
-                      scrolling="no"
+                      src={pdfPreviewUrl}
+                      style={{ border: 'none', width: 595, height: 842, boxShadow: '0 4px 16px rgba(0,0,0,0.2)', borderRadius: 2, backgroundColor: '#fff' }}
                     />
-                  </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                      <span style={{ color: '#666', fontSize: 14 }}>PDF-Vorschau wird geladen...</span>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <ScrollView 
