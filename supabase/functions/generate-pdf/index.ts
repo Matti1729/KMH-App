@@ -47,6 +47,7 @@ interface RequestBody {
   player: Player;
   careerEntries: CareerEntry[];
   playerDescription: string;
+  advisorEmail?: string;
 }
 
 const POSITION_MAP: Record<string, string> = {
@@ -91,16 +92,25 @@ function formatDateDE(dateStr: string): string {
   }
 }
 
-function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescription: string): string {
+function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescription: string, advisorEmail?: string): string {
   const birthDateFormatted = formatDateDE(player.birth_date);
   const contractEndFormatted = formatDateDE(player.contract_end);
   const age = calculateAge(player.birth_date);
-  
+
   const responsibility = player.responsibility || '';
   const advisorNames = responsibility.split(/,\s*|&\s*/).map(s => s.trim()).filter(s => s);
-  const advisorsHtml = advisorNames.length > 0 
+  const advisorsHtml = advisorNames.length > 0
     ? advisorNames.map(name => `<div style="color: #fff !important; font-size: 13px;">${name}</div>`).join('')
     : '<div style="color: #fff !important; font-size: 13px;">-</div>';
+
+  // Adresse basierend auf Listung
+  const isKMH = !player.listing || player.listing.toLowerCase().includes('karl') || player.listing.toLowerCase().includes('kmh');
+  const address = isKMH
+    ? 'Klaußnerweg 6, 82061 Neuried'
+    : 'Hermann-Müller-Straße 22, 04416 Markkleeberg';
+
+  // E-Mail: Berater-E-Mail oder Fallback
+  const email = advisorEmail || (isKMH ? 'info@kmh-sportmanagement.de' : 'info@pm-sportmanagement.de');
 
   const careerHtml = (careerEntries || []).map((entry, index) => {
     // Stats aus games/goals/assists oder stats-String generieren
@@ -264,27 +274,22 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
 
         <!-- Management Box -->
         <div style="background-color: #1a1a1a !important; border-radius: 12px; padding: 16px; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
-          <div style="font-size: 14px; font-weight: 800; color: #fff !important; margin-bottom: 10px; letter-spacing: 0.5px;">${player.listing || 'KMH SPORTMANAGEMENT'}</div>
+          <div style="font-size: 14px; font-weight: 800; color: #fff !important; margin-bottom: 10px; letter-spacing: 0.5px;">${player.listing || 'Karl Herzog Sportmanagement'}</div>
           <div style="height: 1px; background-color: #333 !important; margin-bottom: 10px; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
-          
+
           <div style="margin-bottom: 8px;">
             <div style="font-size: 9px; color: #666 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">ANSPRECHPARTNER</div>
             ${advisorsHtml}
           </div>
-          
+
           <div style="margin-bottom: 8px;">
             <div style="font-size: 9px; color: #666 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">E-MAIL</div>
-            <div style="color: #fff !important; font-size: 12px;">info@kmh-sportmanagement.de</div>
+            <div style="color: #fff !important; font-size: 12px;">${email}</div>
           </div>
-          
-          <div style="margin-bottom: 8px;">
-            <div style="font-size: 9px; color: #666 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">TELEFON</div>
-            <div style="color: #fff !important; font-size: 12px;">+49 170 1234567</div>
-          </div>
-          
+
           <div>
             <div style="font-size: 9px; color: #666 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">ADRESSE</div>
-            <div style="color: #fff !important; font-size: 12px;">Musterstraße 1, 12345 Berlin</div>
+            <div style="color: #fff !important; font-size: 12px;">${address}</div>
           </div>
         </div>
       </div>
@@ -332,7 +337,7 @@ serve(async (req) => {
     }
     console.log("BROWSERLESS_API_KEY is set");
 
-    const { player, careerEntries, playerDescription }: RequestBody = await req.json();
+    const { player, careerEntries, playerDescription, advisorEmail }: RequestBody = await req.json();
     console.log("Received player:", player?.first_name, player?.last_name);
 
     if (!player) {
@@ -343,7 +348,7 @@ serve(async (req) => {
     }
 
     // HTML generieren (exakt wie in der App-Vorschau)
-    const html = generateHtml(player, careerEntries || [], playerDescription || '');
+    const html = generateHtml(player, careerEntries || [], playerDescription || '', advisorEmail);
     console.log("HTML generated, length:", html.length);
 
     // Browserless.io API aufrufen

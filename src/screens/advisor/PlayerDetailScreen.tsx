@@ -956,6 +956,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
             player,
             careerEntries,
             playerDescription,
+            advisorEmail: profile?.email,
           },
         });
 
@@ -1041,6 +1042,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           player,
           careerEntries,
           playerDescription,
+          advisorEmail: profile?.email,
         },
       });
 
