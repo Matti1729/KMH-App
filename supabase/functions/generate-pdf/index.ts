@@ -133,7 +133,7 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
         <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
           <div style="flex: 1;">
             <div style="font-size: 14px; font-weight: 700; color: #1a202c;">${entry.club || ''}</div>
-            <div style="font-size: 10px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-top: 1px;">${(entry.league || '').toUpperCase()}</div>
+            <div style="font-size: 10px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-top: 4px;">${(entry.league || '').toUpperCase()}</div>
           </div>
           ${dateDisplay ? `<div style="border: 1px solid #ddd; padding: 2px 8px; border-radius: 4px; white-space: nowrap; flex-shrink: 0;">
             <span style="font-size: 10px; color: #666; font-weight: 500;">${dateDisplay}</span>
@@ -293,7 +293,7 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
       <div style="flex: 1; padding-left: 20px; border-left: 1px solid #e8e8e8; min-width: 0;">
         <div style="display: flex; align-items: center; margin-bottom: 16px;">
           <div style="width: 4px; height: 18px; background-color: #1a1a1a !important; margin-right: 10px; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
-          <div style="font-size: 16px; font-weight: 700; color: #1a202c;">Karriereverlauf der letzten 3 Jahre</div>
+          <div style="font-size: 16px; font-weight: 700; color: #1a202c;">Karriereverlauf der letzten Jahre</div>
         </div>
 
         ${careerHtml}
