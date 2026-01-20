@@ -82,15 +82,26 @@ const fetchTransfermarktStats = async (transfermarktUrl: string): Promise<Transf
   try {
     // URL zur Leistungsdaten-Seite umwandeln
     let statsUrl = transfermarktUrl;
-    if (statsUrl.includes('/profil/')) {
-      statsUrl = statsUrl.replace('/profil/', '/leistungsdaten/');
-    } else if (!statsUrl.includes('/leistungsdaten/')) {
-      // Versuche die ID zu extrahieren und URL zu bauen
-      const idMatch = statsUrl.match(/spieler\/(\d+)/);
-      if (idMatch) {
-        statsUrl = `https://www.transfermarkt.de/spieler/leistungsdaten/spieler/${idMatch[1]}`;
-      }
+
+    // Spieler-ID aus URL extrahieren
+    const playerIdMatch = statsUrl.match(/spieler\/(\d+)/);
+    if (!playerIdMatch) {
+      console.error('Keine Spieler-ID in URL gefunden:', statsUrl);
+      return [];
     }
+    const playerId = playerIdMatch[1];
+
+    // Leistungsdaten-URL bauen
+    if (statsUrl.includes('/profil/')) {
+      statsUrl = statsUrl.replace('/profil/', '/leistungsdatendetails/');
+    } else if (!statsUrl.includes('/leistungsdaten')) {
+      // URL-Teile extrahieren für korrekte Formatierung
+      const nameMatch = statsUrl.match(/transfermarkt\.[a-z]+\/([^/]+)\//);
+      const playerName = nameMatch ? nameMatch[1] : 'spieler';
+      statsUrl = `https://www.transfermarkt.de/${playerName}/leistungsdatendetails/spieler/${playerId}`;
+    }
+
+    console.log('Fetching Transfermarkt stats from:', statsUrl);
 
     // CORS Proxy verwenden
     const proxyUrl = Platform.OS === 'web'
@@ -99,46 +110,98 @@ const fetchTransfermarktStats = async (transfermarktUrl: string): Promise<Transf
 
     const response = await fetch(proxyUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'de-DE,de;q=0.9,en;q=0.8'
       }
     });
 
-    if (!response.ok) return [];
+    if (!response.ok) {
+      console.error('Transfermarkt Response nicht OK:', response.status);
+      return [];
+    }
 
     const html = await response.text();
+    console.log('HTML Länge:', html.length);
+
     const stats: TransfermarktSeasonStats[] = [];
 
-    // Regex Patterns für Transfermarkt Leistungsdaten Tabelle
-    // Suche nach Tabellenzeilen mit Saisondaten
-    const rowPattern = /<tr[^>]*class="[^"]*(?:odd|even)[^"]*"[^>]*>([\s\S]*?)<\/tr>/gi;
-    const rows = html.match(rowPattern) || [];
+    // Verbesserte Regex Patterns für Transfermarkt Leistungsdaten Tabelle
+    // Suche nach Tabellenzeilen (odd/even rows oder items class)
+    const rowPatterns = [
+      /<tr[^>]*class="[^"]*(?:odd|even)[^"]*"[^>]*>([\s\S]*?)<\/tr>/gi,
+      /<tr[^>]*>([\s\S]*?)<\/tr>/gi
+    ];
 
-    for (const row of rows.slice(0, 3)) { // Nur die letzten 3 Saisons
-      // Saison extrahieren (z.B. "24/25", "23/24")
-      const seasonMatch = row.match(/>(\d{2}\/\d{2})</);
-      // Verein extrahieren
-      const clubMatch = row.match(/title="([^"]+)"[^>]*>\s*<img[^>]*alt="([^"]+)"/i) ||
-                        row.match(/<td[^>]*>([^<]+(?:U\d+)?[^<]*)<\/td>/);
-      // Wettbewerb/Liga
-      const leagueMatch = row.match(/title="([^"]+)"[^>]*class="[^"]*hauptlink[^"]*"/i);
-      // Spiele, Tore, Assists - typischerweise in separaten td-Zellen
-      const numbersMatch = row.match(/<td[^>]*class="[^"]*zentriert[^"]*"[^>]*>(\d+|-)<\/td>/gi) || [];
-
-      if (seasonMatch) {
-        const numbers = numbersMatch.map(n => {
-          const num = n.match(/>(\d+|-)</);
-          return num ? (num[1] === '-' ? 0 : parseInt(num[1])) : 0;
-        });
-
-        stats.push({
-          season: `20${seasonMatch[1].split('/')[0]}/20${seasonMatch[1].split('/')[1]}`,
-          club: clubMatch ? (clubMatch[2] || clubMatch[1] || '').trim() : '',
-          league: leagueMatch ? leagueMatch[1].trim() : '',
-          games: numbers[0] || 0,
-          goals: numbers[1] || 0,
-          assists: numbers[2] || 0,
-        });
+    let rows: string[] = [];
+    for (const pattern of rowPatterns) {
+      const matches = html.match(pattern);
+      if (matches && matches.length > 0) {
+        // Filtere nur Zeilen mit Saison-Daten (enthalten Zahlen wie "24/25")
+        rows = matches.filter(r => /\d{2}\/\d{2}/.test(r));
+        if (rows.length > 0) break;
       }
+    }
+
+    console.log('Gefundene Zeilen mit Saison-Daten:', rows.length);
+
+    // Parse nur die ersten 3 Saisons
+    for (const row of rows.slice(0, 3)) {
+      // Saison extrahieren (z.B. "24/25", "23/24")
+      const seasonMatch = row.match(/(\d{2})\/(\d{2})/);
+      if (!seasonMatch) continue;
+
+      // Verein extrahieren - verschiedene Muster probieren
+      let club = '';
+      const clubPatterns = [
+        /title="([^"]+)"[^>]*>\s*<img[^>]*>/i,
+        /<img[^>]*alt="([^"]+)"[^>]*>/i,
+        /<a[^>]*title="([^"]+)"[^>]*>[^<]*<\/a>/i
+      ];
+      for (const pattern of clubPatterns) {
+        const match = row.match(pattern);
+        if (match && match[1] && !match[1].includes('Saison') && match[1].length > 2) {
+          club = match[1].trim();
+          break;
+        }
+      }
+
+      // Liga extrahieren
+      let league = '';
+      const leagueMatch = row.match(/class="[^"]*hauptlink[^"]*"[^>]*title="([^"]+)"/i) ||
+                          row.match(/title="([^"]*(?:liga|bundesliga|division|league)[^"]*)"/i);
+      if (leagueMatch) {
+        league = leagueMatch[1].trim();
+      }
+
+      // Zahlen extrahieren (Spiele, Tore, Assists sind oft in zentrierten Zellen)
+      // Suche nach allen Zahlen in td-Zellen
+      const allNumbers: number[] = [];
+      const numberMatches = row.matchAll(/<td[^>]*>[\s]*(\d+|-)[\s]*<\/td>/gi);
+      for (const match of numberMatches) {
+        const val = match[1] === '-' ? 0 : parseInt(match[1]);
+        if (!isNaN(val)) allNumbers.push(val);
+      }
+
+      // Typischerweise: Einsätze, Tore, Assists (manchmal auch Minuten, Karten etc.)
+      // Wir nehmen die ersten 3 sinnvollen Zahlen
+      const games = allNumbers[0] || 0;
+      const goals = allNumbers[1] || 0;
+      const assists = allNumbers[2] || 0;
+
+      const startYear = `20${seasonMatch[1]}`;
+      const endYear = `20${seasonMatch[2]}`;
+
+      stats.push({
+        season: `${startYear}/${endYear}`,
+        club: club,
+        league: league,
+        games: games,
+        goals: goals,
+        assists: assists,
+      });
+
+      console.log('Parsed season:', { season: `${startYear}/${endYear}`, club, league, games, goals, assists });
     }
 
     return stats;
@@ -181,6 +244,9 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     from_date: string;
     to_date: string;
     stats: string;
+    games?: string;
+    goals?: string;
+    assists?: string;
     is_current: boolean;
     sort_order: number;
   }
@@ -258,12 +324,38 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     
     if (data && data.length > 0) {
       // Konvertiere alte from_year/to_year zu from_date/to_date falls nötig
-      entries = data.map(d => ({
-        ...d,
-        from_date: d.from_date || d.from_year || '',
-        to_date: d.to_date || d.to_year || '',
-        is_current: d.is_current || false
-      }));
+      // Parse stats string in separate fields (Format: "25 Sp | 8 T | 5 A" oder "25|8|5")
+      entries = data.map(d => {
+        let games = '', goals = '', assists = '';
+        if (d.stats) {
+          // Versuche Format "X Sp | Y T | Z A" zu parsen
+          const spMatch = d.stats.match(/(\d+)\s*Sp/i);
+          const tMatch = d.stats.match(/(\d+)\s*T(?!\w)/i);
+          const aMatch = d.stats.match(/(\d+)\s*A/i);
+          if (spMatch) games = spMatch[1];
+          if (tMatch) goals = tMatch[1];
+          if (aMatch) assists = aMatch[1];
+
+          // Falls nicht gefunden, versuche Format "X|Y|Z"
+          if (!games && !goals && !assists) {
+            const parts = d.stats.split('|').map((s: string) => s.trim());
+            if (parts.length >= 3) {
+              games = parts[0];
+              goals = parts[1];
+              assists = parts[2];
+            }
+          }
+        }
+        return {
+          ...d,
+          from_date: d.from_date || d.from_year || '',
+          to_date: d.to_date || d.to_year || '',
+          is_current: d.is_current || false,
+          games,
+          goals,
+          assists
+        };
+      });
     }
     
     // Prüfe ob aktueller Verein bereits als Karrierestation existiert
@@ -277,6 +369,9 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         from_date: '',
         to_date: '',
         stats: '',
+        games: '',
+        goals: '',
+        assists: '',
         is_current: true,
         sort_order: 0
       };
@@ -325,6 +420,16 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   };
 
   const saveCareerEntry = async (entry: CareerEntry) => {
+    // Kombiniere games/goals/assists zu stats string falls vorhanden
+    let statsString = entry.stats || '';
+    if (entry.games || entry.goals || entry.assists) {
+      const parts = [];
+      if (entry.games) parts.push(`${entry.games} Sp`);
+      if (entry.goals) parts.push(`${entry.goals} T`);
+      if (entry.assists) parts.push(`${entry.assists} A`);
+      statsString = parts.join(' | ');
+    }
+
     if (entry.id) {
       // Update
       await supabase
@@ -334,7 +439,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           league: entry.league,
           from_date: entry.from_date,
           to_date: entry.to_date,
-          stats: entry.stats,
+          stats: statsString,
           is_current: entry.is_current,
           sort_order: entry.sort_order
         })
@@ -349,7 +454,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           league: entry.league,
           from_date: entry.from_date,
           to_date: entry.to_date,
-          stats: entry.stats,
+          stats: statsString,
           is_current: entry.is_current,
           sort_order: entry.sort_order
         });
@@ -368,6 +473,9 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       from_date: '',
       to_date: '',
       stats: '',
+      games: '',
+      goals: '',
+      assists: '',
       is_current: false,
       sort_order: careerEntries.length
     };
@@ -410,7 +518,10 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           league: stat.league || '',
           from_date: `01.07.${startYear}`,
           to_date: isCurrent ? '' : `30.06.${endYear}`,
-          stats: `${stat.games} Sp | ${stat.goals} T | ${stat.assists} A`,
+          stats: '',
+          games: String(stat.games || 0),
+          goals: String(stat.goals || 0),
+          assists: String(stat.assists || 0),
           is_current: isCurrent && index === 0,
           sort_order: index
         };
@@ -595,7 +706,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               <span style="font-size: ${sc(8)}px; color: #666; font-weight: 500;">${dateDisplay}</span>
             </div>` : ''}
           </div>
-          ${entry.stats ? `<div style="background-color: #f7fafc !important; padding: ${sc(2)}px ${sc(6)}px; border-radius: 4px; border-left: 3px solid #e2e8f0; margin-top: ${sc(3)}px; -webkit-print-color-adjust: exact;"><span style="font-size: ${sc(8)}px; color: #4a5568;">${entry.stats}</span></div>` : ''}
+          ${(entry.games || entry.goals || entry.assists) ? `<div style="background-color: #f7fafc !important; padding: ${sc(2)}px ${sc(6)}px; border-radius: 4px; border-left: 3px solid #e2e8f0; margin-top: ${sc(3)}px; -webkit-print-color-adjust: exact;"><span style="font-size: ${sc(8)}px; color: #4a5568;">${[entry.games ? `${entry.games} Spiele` : '', entry.goals ? `${entry.goals} Tore` : '', entry.assists ? `${entry.assists} Assists` : ''].filter(Boolean).join(' | ')}</span></div>` : (entry.stats ? `<div style="background-color: #f7fafc !important; padding: ${sc(2)}px ${sc(6)}px; border-radius: 4px; border-left: 3px solid #e2e8f0; margin-top: ${sc(3)}px; -webkit-print-color-adjust: exact;"><span style="font-size: ${sc(8)}px; color: #4a5568;">${entry.stats}</span></div>` : '')}
         </div>
       </div>
     `}).join('');
@@ -2592,13 +2703,34 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                           </View>
                         </>
                       )}
-                      <View style={{ flex: 1.5, marginLeft: 6 }}>
-                        <Text style={styles.pdfCareerEditLabel}>Statistik</Text>
-                        <TextInput 
-                          style={styles.pdfCareerEditInput} 
-                          value={entry.stats} 
-                          onChangeText={(t) => updateCareerEntry(index, 'stats', t)}
-                          placeholder="25 Sp | 8 T | 5 A"
+                      <View style={{ flex: 0.6, marginLeft: 6 }}>
+                        <Text style={styles.pdfCareerEditLabel}>Spiele</Text>
+                        <TextInput
+                          style={styles.pdfCareerEditInput}
+                          value={entry.games || ''}
+                          onChangeText={(t) => updateCareerEntry(index, 'games', t.replace(/[^0-9]/g, ''))}
+                          placeholder="0"
+                          keyboardType="numeric"
+                        />
+                      </View>
+                      <View style={{ flex: 0.6, marginLeft: 6 }}>
+                        <Text style={styles.pdfCareerEditLabel}>Tore</Text>
+                        <TextInput
+                          style={styles.pdfCareerEditInput}
+                          value={entry.goals || ''}
+                          onChangeText={(t) => updateCareerEntry(index, 'goals', t.replace(/[^0-9]/g, ''))}
+                          placeholder="0"
+                          keyboardType="numeric"
+                        />
+                      </View>
+                      <View style={{ flex: 0.6, marginLeft: 6 }}>
+                        <Text style={styles.pdfCareerEditLabel}>Assists</Text>
+                        <TextInput
+                          style={styles.pdfCareerEditInput}
+                          value={entry.assists || ''}
+                          onChangeText={(t) => updateCareerEntry(index, 'assists', t.replace(/[^0-9]/g, ''))}
+                          placeholder="0"
+                          keyboardType="numeric"
                         />
                       </View>
                       {entry.id && (
