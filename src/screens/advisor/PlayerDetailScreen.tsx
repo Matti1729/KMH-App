@@ -396,8 +396,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       ? advisorNames.map(name => `<div style="color: #fff !important; font-size: 10px;">${name}</div>`).join('')
       : '<div style="color: #fff !important; font-size: 10px;">-</div>';
 
-    // Karrierestationen HTML
-    const careerHtml = careerEntries.map((entry, index) => {
+    // Karrierestationen HTML - wird später mit Skalierung generiert
+    const generateCareerHtml = (scaleFn: (n: number) => number) => careerEntries.map((entry, index) => {
       let dateDisplay = '';
       if (entry.is_current && entry.from_date) {
         dateDisplay = `Seit ${formatDate(entry.from_date)}`;
@@ -406,46 +406,68 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       } else if (!entry.is_current && entry.from_date) {
         dateDisplay = `Seit ${formatDate(entry.from_date)}`;
       }
-      
+
       return `
-      <div style="display: flex; margin-bottom: 14px; position: relative;">
-        ${index < careerEntries.length - 1 ? '<div style="position: absolute; left: 2px; top: 11px; height: calc(100% + 14px); width: 1px; background-color: #1a1a1a !important; -webkit-print-color-adjust: exact;"></div>' : ''}
-        <div style="width: 5px; height: 5px; border-radius: 50%; background-color: #1a1a1a !important; margin-top: 6px; margin-right: 12px; flex-shrink: 0; -webkit-print-color-adjust: exact; position: relative; z-index: 1;"></div>
+      <div style="display: flex; margin-bottom: ${scaleFn(12)}px; position: relative;">
+        ${index < careerEntries.length - 1 ? `<div style="position: absolute; left: 2px; top: ${scaleFn(9)}px; height: calc(100% + ${scaleFn(12)}px); width: 1px; background-color: #1a1a1a !important; -webkit-print-color-adjust: exact;"></div>` : ''}
+        <div style="width: ${scaleFn(5)}px; height: ${scaleFn(5)}px; border-radius: 50%; background-color: #1a1a1a !important; margin-top: ${scaleFn(5)}px; margin-right: ${scaleFn(10)}px; flex-shrink: 0; -webkit-print-color-adjust: exact; position: relative; z-index: 1;"></div>
         <div style="flex: 1;">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: ${scaleFn(6)}px;">
             <div style="flex: 1;">
-              <div style="font-size: 13px; font-weight: 700; color: #1a202c; line-height: 1.2;">${entry.club}</div>
-              <div style="font-size: 9px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-top: 2px;">${(entry.league || '').toUpperCase()}</div>
+              <div style="font-size: ${scaleFn(12)}px; font-weight: 700; color: #1a202c; line-height: 1.2;">${entry.club}</div>
+              <div style="font-size: ${scaleFn(8)}px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-top: ${scaleFn(2)}px;">${(entry.league || '').toUpperCase()}</div>
             </div>
-            ${dateDisplay ? `<div style="border: 1px solid #ddd; padding: 0px 5px; border-radius: 3px; white-space: nowrap; display: inline-flex; align-items: center; height: 16px;">
-              <span style="font-size: 9px; color: #666; font-weight: 500;">${dateDisplay}</span>
+            ${dateDisplay ? `<div style="border: 1px solid #ddd; padding: 0px ${scaleFn(4)}px; border-radius: 3px; white-space: nowrap; display: inline-flex; align-items: center; height: ${scaleFn(14)}px;">
+              <span style="font-size: ${scaleFn(8)}px; color: #666; font-weight: 500;">${dateDisplay}</span>
             </div>` : ''}
           </div>
-          ${entry.stats ? `<div style="background-color: #f7fafc !important; padding: 3px 8px; border-radius: 4px; border-left: 3px solid #e2e8f0; margin-top: 4px; -webkit-print-color-adjust: exact;"><span style="font-size: 9px; color: #4a5568;">${entry.stats}</span></div>` : ''}
+          ${entry.stats ? `<div style="background-color: #f7fafc !important; padding: ${scaleFn(2)}px ${scaleFn(6)}px; border-radius: 4px; border-left: 3px solid #e2e8f0; margin-top: ${scaleFn(3)}px; -webkit-print-color-adjust: exact;"><span style="font-size: ${scaleFn(8)}px; color: #4a5568;">${entry.stats}</span></div>` : ''}
         </div>
       </div>
     `}).join('');
 
-    // Stärken HTML - dynamische Schriftgröße basierend auf Anzahl
+    const careerHtml = generateCareerHtml(sc);
+
+    // ========================================
+    // DYNAMISCHE SKALIERUNG für gesamtes PDF
+    // ========================================
     const strengthsArray = player.strengths ? player.strengths.split(',').map(s => s.trim()).filter(s => s) : [];
     const strengthsCount = strengthsArray.length;
+    const careerCount = careerEntries.length;
+    const descriptionLength = playerDescription?.length || 0;
 
-    // Schriftgröße und Padding basierend auf Anzahl der Stärken
-    let strengthFontSize = '10px';
-    let strengthPadding = '4px 8px';
+    // Berechne "Content-Score" - je höher, desto mehr Inhalt
+    const contentScore =
+      (strengthsCount * 8) +           // Jede Stärke ~ 8 Punkte
+      (careerCount * 25) +              // Jeder Karriere-Eintrag ~ 25 Punkte
+      (descriptionLength * 0.15);       // Beschreibung ~ 0.15 pro Zeichen
+
+    // Skalierungsfaktor: 1.0 = normal, kleiner = kompakter
+    let scale = 1.0;
+    if (contentScore > 250) scale = 0.7;
+    else if (contentScore > 200) scale = 0.75;
+    else if (contentScore > 150) scale = 0.85;
+    else if (contentScore > 100) scale = 0.92;
+
+    // Skalierte Werte - Funktion zum Skalieren
+    const sc = (base: number) => Math.round(base * scale);
+
+    // Schriftgröße und Padding basierend auf Anzahl der Stärken UND Skalierung
+    let strengthFontSize = `${sc(10)}px`;
+    let strengthPadding = `${sc(4)}px ${sc(8)}px`;
     if (strengthsCount > 15) {
-      strengthFontSize = '7px';
-      strengthPadding = '2px 4px';
+      strengthFontSize = `${sc(7)}px`;
+      strengthPadding = `${sc(2)}px ${sc(4)}px`;
     } else if (strengthsCount > 10) {
-      strengthFontSize = '8px';
-      strengthPadding = '3px 5px';
+      strengthFontSize = `${sc(8)}px`;
+      strengthPadding = `${sc(3)}px ${sc(5)}px`;
     } else if (strengthsCount > 6) {
-      strengthFontSize = '9px';
-      strengthPadding = '3px 6px';
+      strengthFontSize = `${sc(9)}px`;
+      strengthPadding = `${sc(3)}px ${sc(6)}px`;
     }
 
     const strengthsHtml = strengthsArray.length > 0
-      ? strengthsArray.map(s => `<span style="background-color: #fff !important; border: 1px solid #ddd; padding: ${strengthPadding}; border-radius: 4px; font-size: ${strengthFontSize}; color: #333; margin-right: 3px; margin-bottom: 3px; display: inline-block; -webkit-print-color-adjust: exact;">${s}</span>`).join('')
+      ? strengthsArray.map(str => `<span style="background-color: #fff !important; border: 1px solid #ddd; padding: ${strengthPadding}; border-radius: 4px; font-size: ${strengthFontSize}; color: #333; margin-right: ${sc(3)}px; margin-bottom: ${sc(3)}px; display: inline-block; -webkit-print-color-adjust: exact;">${str}</span>`).join('')
       : '-';
 
     const html = `
@@ -503,99 +525,96 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           </div>
 
           <!-- Content -->
-          <div style="display: flex; flex: 1; padding: 16px 20px; overflow: hidden;">
+          <div style="display: flex; flex: 1; padding: ${sc(14)}px ${sc(18)}px; overflow: hidden;">
             <!-- Left Column -->
-            <div style="width: 200px; padding-right: 16px; flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden;">
+            <div style="width: ${sc(200)}px; padding-right: ${sc(14)}px; flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden;">
               <!-- Spielerprofil Card -->
-              <div style="background-color: #fafafa !important; border: 1px solid #e8e8e8; border-radius: 10px; padding: 10px; margin-bottom: 8px; flex-shrink: 0; -webkit-print-color-adjust: exact;">
-                <div style="font-size: 11px; font-weight: 700; color: #1a202c; margin-bottom: 6px;">Spielerprofil</div>
-                <div style="height: 1px; background-color: #ddd !important; margin-bottom: 6px; -webkit-print-color-adjust: exact;"></div>
+              <div style="background-color: #fafafa !important; border: 1px solid #e8e8e8; border-radius: ${sc(8)}px; padding: ${sc(8)}px; margin-bottom: ${sc(6)}px; flex-shrink: 0; -webkit-print-color-adjust: exact;">
+                <div style="font-size: ${sc(11)}px; font-weight: 700; color: #1a202c; margin-bottom: ${sc(5)}px;">Spielerprofil</div>
+                <div style="height: 1px; background-color: #ddd !important; margin-bottom: ${sc(5)}px; -webkit-print-color-adjust: exact;"></div>
 
-                <div style="margin-bottom: 5px;">
-                  <div style="font-size: 7px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">GEBURTSDATUM</div>
-                  <div style="font-size: 10px; color: #1a202c; font-weight: 600;">${birthDateFormatted} (${age})</div>
+                <div style="margin-bottom: ${sc(4)}px;">
+                  <div style="font-size: ${sc(7)}px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">GEBURTSDATUM</div>
+                  <div style="font-size: ${sc(9)}px; color: #1a202c; font-weight: 600;">${birthDateFormatted} (${age})</div>
                 </div>
 
-                <div style="margin-bottom: 5px;">
-                  <div style="font-size: 7px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">NATIONALITÄT</div>
-                  <div style="font-size: 10px; color: #1a202c; font-weight: 600;">${player.nationality || '-'}</div>
+                <div style="margin-bottom: ${sc(4)}px;">
+                  <div style="font-size: ${sc(7)}px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">NATIONALITÄT</div>
+                  <div style="font-size: ${sc(9)}px; color: #1a202c; font-weight: 600;">${player.nationality || '-'}</div>
                 </div>
 
-                <div style="margin-bottom: 5px;">
-                  <div style="font-size: 7px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">GRÖSSE</div>
-                  <div style="font-size: 10px; color: #1a202c; font-weight: 600;">${player.height ? `${player.height} cm` : '-'}</div>
+                <div style="margin-bottom: ${sc(4)}px;">
+                  <div style="font-size: ${sc(7)}px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">GRÖSSE</div>
+                  <div style="font-size: ${sc(9)}px; color: #1a202c; font-weight: 600;">${player.height ? `${player.height} cm` : '-'}</div>
                 </div>
 
-                <div style="margin-bottom: 5px;">
-                  <div style="font-size: 7px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">FUSS</div>
-                  <div style="font-size: 10px; color: #1a202c; font-weight: 600;">${player.strong_foot || '-'}</div>
+                <div style="margin-bottom: ${sc(4)}px;">
+                  <div style="font-size: ${sc(7)}px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">FUSS</div>
+                  <div style="font-size: ${sc(9)}px; color: #1a202c; font-weight: 600;">${player.strong_foot || '-'}</div>
                 </div>
 
-                <div style="margin-bottom: 5px;">
-                  <div style="font-size: 7px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">VERTRAG BIS</div>
-                  <div style="font-size: 10px; color: #1a202c; font-weight: 600;">${contractEndFormatted}</div>
+                <div style="margin-bottom: ${sc(4)}px;">
+                  <div style="font-size: ${sc(7)}px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">VERTRAG BIS</div>
+                  <div style="font-size: ${sc(9)}px; color: #1a202c; font-weight: 600;">${contractEndFormatted}</div>
                 </div>
 
                 <div>
-                  <div style="font-size: 7px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">TRANSFERMARKT</div>
-                  <div style="font-size: 10px; color: ${player.transfermarkt_url ? '#3182ce' : '#1a202c'}; font-weight: 600;">${player.transfermarkt_url ? 'Zum Profil' : '-'}</div>
+                  <div style="font-size: ${sc(7)}px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">TRANSFERMARKT</div>
+                  <div style="font-size: ${sc(9)}px; color: ${player.transfermarkt_url ? '#3182ce' : '#1a202c'}; font-weight: 600;">${player.transfermarkt_url ? 'Zum Profil' : '-'}</div>
                 </div>
               </div>
 
               <!-- Stärken Card -->
-              <div style="background-color: #fafafa !important; border: 1px solid #e8e8e8; border-radius: 10px; padding: 10px; margin-bottom: 8px; flex-shrink: 1; -webkit-print-color-adjust: exact;">
-                <div style="font-size: 11px; font-weight: 700; color: #1a202c; margin-bottom: 6px;">Stärken</div>
-                <div style="height: 1px; background-color: #ddd !important; margin-bottom: 6px; -webkit-print-color-adjust: exact;"></div>
-                <div style="display: flex; flex-wrap: wrap; gap: 3px;">${strengthsHtml}</div>
+              <div style="background-color: #fafafa !important; border: 1px solid #e8e8e8; border-radius: ${sc(8)}px; padding: ${sc(8)}px; margin-bottom: ${sc(6)}px; flex: 1; overflow: hidden; -webkit-print-color-adjust: exact;">
+                <div style="font-size: ${sc(11)}px; font-weight: 700; color: #1a202c; margin-bottom: ${sc(5)}px;">Stärken</div>
+                <div style="height: 1px; background-color: #ddd !important; margin-bottom: ${sc(5)}px; -webkit-print-color-adjust: exact;"></div>
+                <div style="display: flex; flex-wrap: wrap; gap: ${sc(3)}px;">${strengthsHtml}</div>
               </div>
 
-              <!-- Spacer um Management nach unten zu drücken -->
-              <div style="flex: 1; min-height: 8px;"></div>
-
               <!-- Management Box -->
-              <div style="background-color: #1a1a1a !important; border-radius: 10px; padding: 10px; flex-shrink: 0; -webkit-print-color-adjust: exact;">
-                <div style="font-size: 10px; font-weight: 800; color: #fff !important; margin-bottom: 6px; letter-spacing: 0.5px;">${player.listing || 'KMH SPORTMANAGEMENT'}</div>
-                <div style="height: 1px; background-color: #333 !important; margin-bottom: 6px; -webkit-print-color-adjust: exact;"></div>
+              <div style="background-color: #1a1a1a !important; border-radius: ${sc(8)}px; padding: ${sc(8)}px; flex-shrink: 0; -webkit-print-color-adjust: exact;">
+                <div style="font-size: ${sc(9)}px; font-weight: 800; color: #fff !important; margin-bottom: ${sc(5)}px; letter-spacing: 0.5px;">${player.listing || 'KMH SPORTMANAGEMENT'}</div>
+                <div style="height: 1px; background-color: #333 !important; margin-bottom: ${sc(5)}px; -webkit-print-color-adjust: exact;"></div>
 
-                <div style="margin-bottom: 5px;">
-                  <div style="font-size: 7px; color: #888 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">ANSPRECHPARTNER</div>
-                  <div style="color: #fff !important; font-size: 9px; font-weight: 600;">${advisorNames.length > 0 ? advisorNames.join('<br/>') : '-'}</div>
+                <div style="margin-bottom: ${sc(4)}px;">
+                  <div style="font-size: ${sc(6)}px; color: #888 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">ANSPRECHPARTNER</div>
+                  <div style="color: #fff !important; font-size: ${sc(8)}px; font-weight: 600;">${advisorNames.length > 0 ? advisorNames.join('<br/>') : '-'}</div>
                 </div>
 
-                <div style="margin-bottom: 5px;">
-                  <div style="font-size: 7px; color: #888 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">E-MAIL</div>
-                  <div style="color: #fff !important; font-size: 9px; font-weight: 600;">info@kmh-sportmanagement.de</div>
+                <div style="margin-bottom: ${sc(4)}px;">
+                  <div style="font-size: ${sc(6)}px; color: #888 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">E-MAIL</div>
+                  <div style="color: #fff !important; font-size: ${sc(8)}px; font-weight: 600;">info@kmh-sportmanagement.de</div>
                 </div>
 
-                <div style="margin-bottom: 5px;">
-                  <div style="font-size: 7px; color: #888 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">TELEFON</div>
-                  <div style="color: #fff !important; font-size: 9px; font-weight: 600;">+49 170 1234567</div>
+                <div style="margin-bottom: ${sc(4)}px;">
+                  <div style="font-size: ${sc(6)}px; color: #888 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">TELEFON</div>
+                  <div style="color: #fff !important; font-size: ${sc(8)}px; font-weight: 600;">+49 170 1234567</div>
                 </div>
 
                 <div>
-                  <div style="font-size: 7px; color: #888 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">ADRESSE</div>
-                  <div style="color: #fff !important; font-size: 9px; font-weight: 600;">Musterstraße 1, 12345 Berlin</div>
+                  <div style="font-size: ${sc(6)}px; color: #888 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">ADRESSE</div>
+                  <div style="color: #fff !important; font-size: ${sc(8)}px; font-weight: 600;">Musterstraße 1, 12345 Berlin</div>
                 </div>
               </div>
             </div>
 
             <!-- Right Column -->
-            <div style="flex: 1; padding-left: 16px; border-left: 1px solid #e8e8e8; min-width: 0;">
-              <div style="display: flex; align-items: center; margin-bottom: 12px;">
-                <div style="width: 4px; height: 16px; background-color: #1a1a1a !important; margin-right: 8px; -webkit-print-color-adjust: exact;"></div>
-                <div style="font-size: 14px; font-weight: 700; color: #1a202c;">Karriereverlauf der letzten 3 Jahre</div>
+            <div style="flex: 1; padding-left: ${sc(14)}px; border-left: 1px solid #e8e8e8; min-width: 0; overflow: hidden;">
+              <div style="display: flex; align-items: center; margin-bottom: ${sc(10)}px;">
+                <div style="width: ${sc(4)}px; height: ${sc(14)}px; background-color: #1a1a1a !important; margin-right: ${sc(6)}px; -webkit-print-color-adjust: exact;"></div>
+                <div style="font-size: ${sc(13)}px; font-weight: 700; color: #1a202c;">Karriereverlauf der letzten 3 Jahre</div>
               </div>
 
               ${careerHtml}
 
               ${playerDescription ? `
-                <div style="margin-top: 40px;">
-                  <div style="display: flex; align-items: center; margin-bottom: 10px;">
-                    <div style="width: 4px; height: 16px; background-color: #1a1a1a !important; margin-right: 8px; -webkit-print-color-adjust: exact;"></div>
-                    <div style="font-size: 14px; font-weight: 700; color: #1a202c;">Über den Spieler</div>
+                <div style="margin-top: ${sc(20)}px;">
+                  <div style="display: flex; align-items: center; margin-bottom: ${sc(8)}px;">
+                    <div style="width: ${sc(4)}px; height: ${sc(14)}px; background-color: #1a1a1a !important; margin-right: ${sc(6)}px; -webkit-print-color-adjust: exact;"></div>
+                    <div style="font-size: ${sc(13)}px; font-weight: 700; color: #1a202c;">Über den Spieler</div>
                   </div>
-                  <div style="background-color: #f8f8f8 !important; padding: 10px; border-radius: 6px; border-left: 3px solid #1a1a1a; -webkit-print-color-adjust: exact;">
-                    <div style="font-size: 10px; color: #333; line-height: 1.5; font-style: italic;">${playerDescription}</div>
+                  <div style="background-color: #f8f8f8 !important; padding: ${sc(8)}px; border-radius: ${sc(5)}px; border-left: 3px solid #1a1a1a; -webkit-print-color-adjust: exact;">
+                    <div style="font-size: ${sc(9)}px; color: #333; line-height: 1.4; font-style: italic;">${playerDescription}</div>
                   </div>
                 </div>
               ` : ''}
@@ -603,9 +622,9 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           </div>
 
           <!-- Footer -->
-          <div style="padding: 12px 20px; display: flex; justify-content: flex-end;">
-            <div style="border: 1px solid #ddd; padding: 4px 8px; border-radius: 4px;">
-              <span style="font-size: 9px; color: #666; font-weight: 500;">Stand: ${formatDateWithPadding(new Date().toISOString())}</span>
+          <div style="padding: ${sc(10)}px ${sc(18)}px; display: flex; justify-content: flex-end;">
+            <div style="border: 1px solid #ddd; padding: ${sc(3)}px ${sc(6)}px; border-radius: 4px;">
+              <span style="font-size: ${sc(8)}px; color: #666; font-weight: 500;">Stand: ${formatDateWithPadding(new Date().toISOString())}</span>
             </div>
           </div>
         </div>
