@@ -151,9 +151,10 @@ Regeln für den Text:
 4. Bei großen Spielern (über 185cm) erwähne die Körpergröße als Vorteil
 5. Erwähne bemerkenswerte Statistiken wenn vorhanden
 6. Integriere die Stärken natürlich in den Text
-7. Bei Nationalmannschaftserfahrung erwähne dies
-8. Schreibe professionell aber nicht übertrieben
-9. Nur den reinen Text ausgeben, keine Anführungszeichen oder Formatierung
+7. WICHTIG: Erwähne Nationalmannschaft NUR wenn oben explizit "Hat bereits Nationalmannschaftserfahrung" steht. Wenn nicht angegeben, NIEMALS erwähnen!
+8. WICHTIG: Erfinde KEINE Informationen! Verwende NUR die oben angegebenen Fakten.
+9. Schreibe professionell aber nicht übertrieben
+10. Nur den reinen Text ausgeben, keine Anführungszeichen oder Formatierung
 
 Beispielstil:
 "Elias ist ein hochveranlagter, deutscher Innenverteidiger, der mit erst 19 Jahren bereits über 25 Einsätze in der 3. Liga vorweisen kann. Mit seiner Körpergröße von 1,93 m bringt er eine ausgeprägte körperliche Präsenz mit, die ihn im Luftduell und in der Zweikampfführung zu einem unangenehmen Gegenspieler macht. Neben seiner Robustheit überzeugt er durch seine Spieleröffnung, sein gutes Stellungsspiel und seine Führungsqualitäten."`;
