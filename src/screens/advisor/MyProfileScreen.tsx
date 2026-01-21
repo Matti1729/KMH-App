@@ -51,8 +51,7 @@ export function MyProfileScreen({ navigation }: any) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  const [showEmailChange, setShowEmailChange] = useState(false);
-  const [newEmail, setNewEmail] = useState('');
+  const [originalEmail, setOriginalEmail] = useState('');
 
   useEffect(() => {
     fetchProfile();
@@ -69,6 +68,7 @@ export function MyProfileScreen({ navigation }: any) {
     }
     
     setEmail(user.email || '');
+    setOriginalEmail(user.email || '');
     
     const { data, error } = await supabase
       .from('advisors')
@@ -137,10 +137,23 @@ export function MyProfileScreen({ navigation }: any) {
 
   const handleSave = async () => {
     if (!profile) return;
-    
+
     setSaving(true);
-    console.log('Saving profile...', { firstName, lastName, birthDate, phone, phoneCode, photoUrl });
-    
+    console.log('Saving profile...', { firstName, lastName, birthDate, phone, phoneCode, photoUrl, email });
+
+    // Check if email changed
+    const emailChanged = email !== originalEmail;
+
+    if (emailChanged) {
+      // Update email in Supabase Auth (requires confirmation)
+      const { error: authError } = await supabase.auth.updateUser({ email: email });
+      if (authError) {
+        setSaving(false);
+        Alert.alert('Fehler', authError.message);
+        return;
+      }
+    }
+
     const { data, error } = await supabase
       .from('advisors')
       .update({
@@ -154,15 +167,19 @@ export function MyProfileScreen({ navigation }: any) {
       })
       .eq('id', profile.id)
       .select();
-    
+
     setSaving(false);
-    
+
     if (error) {
       console.log('Save error:', error);
       Alert.alert('Fehler', error.message);
     } else {
       console.log('Save success:', data);
-      Alert.alert('Erfolg', 'Profil wurde gespeichert');
+      if (emailChanged) {
+        Alert.alert('Erfolg', 'Profil gespeichert. Bitte bestätige die neue E-Mail-Adresse über den Link in der Bestätigungsmail.');
+      } else {
+        Alert.alert('Erfolg', 'Profil wurde gespeichert');
+      }
       setEditing(false);
       fetchProfile();
     }
@@ -228,41 +245,6 @@ export function MyProfileScreen({ navigation }: any) {
       Alert.alert('Erfolg', 'Eine E-Mail zum Zurücksetzen des Passworts wurde gesendet');
       setShowPasswordChange(false);
     }
-  };
-
-  const handleEmailChange = async () => {
-    if (!newEmail || !newEmail.includes('@')) {
-      Alert.alert('Fehler', 'Bitte gib eine gültige E-Mail-Adresse ein');
-      return;
-    }
-
-    if (newEmail === email) {
-      Alert.alert('Fehler', 'Die neue E-Mail ist identisch mit der aktuellen');
-      return;
-    }
-
-    // Update email in Supabase Auth (this sends a confirmation email)
-    const { error: authError } = await supabase.auth.updateUser({ email: newEmail });
-
-    if (authError) {
-      Alert.alert('Fehler', authError.message);
-      return;
-    }
-
-    // Also update email in advisors table
-    if (profile) {
-      await supabase
-        .from('advisors')
-        .update({ email: newEmail })
-        .eq('id', profile.id);
-    }
-
-    Alert.alert(
-      'Bestätigung erforderlich',
-      'Eine Bestätigungs-E-Mail wurde an deine neue Adresse gesendet. Bitte bestätige die Änderung über den Link in der E-Mail.'
-    );
-    setShowEmailChange(false);
-    setNewEmail('');
   };
 
   const handleLogout = async () => {
@@ -432,37 +414,17 @@ export function MyProfileScreen({ navigation }: any) {
 
           <View style={styles.infoRow}>
             <Text style={styles.label}>E-Mail</Text>
-            {showEmailChange ? (
-              <View style={{ flex: 1 }}>
-                <input
-                  type="email"
-                  style={{ padding: 12, fontSize: 15, borderRadius: 8, border: '1px solid #ddd', width: '100%', boxSizing: 'border-box', marginBottom: 8 }}
-                  placeholder="Neue E-Mail-Adresse"
-                  value={newEmail}
-                  onChange={(e: any) => setNewEmail(e.target.value)}
-                />
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <TouchableOpacity
-                    style={{ backgroundColor: '#eee', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 6 }}
-                    onPress={() => { setShowEmailChange(false); setNewEmail(''); }}
-                  >
-                    <Text style={{ color: '#333' }}>Abbrechen</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={{ backgroundColor: '#1a1a1a', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 6 }}
-                    onPress={handleEmailChange}
-                  >
-                    <Text style={{ color: '#fff' }}>Speichern</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+            {editing ? (
+              <TextInput
+                style={styles.input}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="E-Mail-Adresse"
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
             ) : (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <Text style={styles.value}>{email}</Text>
-                <TouchableOpacity onPress={() => setShowEmailChange(true)}>
-                  <Text style={{ color: '#007AFF', fontSize: 14 }}>Ändern</Text>
-                </TouchableOpacity>
-              </View>
+              <Text style={styles.value}>{email}</Text>
             )}
           </View>
 
@@ -509,40 +471,6 @@ export function MyProfileScreen({ navigation }: any) {
               </TouchableOpacity>
             )}
           </View>
-        </View>
-
-        {/* Zuständigkeiten Card */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Meine Zuständigkeiten</Text>
-          
-          {myPlayers.length === 0 ? (
-            <Text style={styles.emptyText}>Keine Spieler zugewiesen</Text>
-          ) : (
-            myPlayers.map((access) => (
-              <View key={access.id} style={styles.playerItem}>
-                <Text style={styles.playerName}>{access.player_name}</Text>
-                <View style={[styles.accessBadge, access.access_type === 'owner' ? styles.accessOwner : styles.accessViewer]}>
-                  <Text style={styles.accessBadgeText}>
-                    {access.access_type === 'owner' ? 'Hauptzuständig' : 'Lesezugriff'}
-                  </Text>
-                </View>
-              </View>
-            ))
-          )}
-
-          {pendingRequests.length > 0 && (
-            <>
-              <Text style={styles.subTitle}>Ausstehende Anfragen</Text>
-              {pendingRequests.map((access) => (
-                <View key={access.id} style={styles.playerItem}>
-                  <Text style={styles.playerName}>{access.player_name}</Text>
-                  <View style={styles.accessPending}>
-                    <Text style={styles.accessPendingText}>Ausstehend</Text>
-                  </View>
-                </View>
-              ))}
-            </>
-          )}
         </View>
 
         {/* Logout Button */}
