@@ -159,8 +159,8 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
   `;
   }).join('');
 
-  const strengthsHtml = player.strengths 
-    ? player.strengths.split(',').map(s => `<span style="background-color: #fff !important; border: 1px solid #ddd; padding: 5px 12px; border-radius: 8px; font-size: 12px; color: #333; margin-right: 6px; margin-bottom: 6px; display: inline-block; -webkit-print-color-adjust: exact; print-color-adjust: exact;">${s.trim()}</span>`).join('')
+  const strengthsHtml = player.strengths
+    ? player.strengths.split(';').map(s => `<span style="background-color: #fff !important; border: 1px solid #ddd; padding: 5px 12px; border-radius: 8px; font-size: 12px; color: #333; margin-right: 6px; margin-bottom: 6px; display: inline-block; -webkit-print-color-adjust: exact; print-color-adjust: exact;">${s.trim()}</span>`).join('')
     : '-';
 
   const positionFull = POSITION_MAP[player.position] || player.position || '';
