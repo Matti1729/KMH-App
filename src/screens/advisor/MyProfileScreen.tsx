@@ -415,13 +415,12 @@ export function MyProfileScreen({ navigation }: any) {
           <View style={styles.infoRow}>
             <Text style={styles.label}>E-Mail</Text>
             {editing ? (
-              <TextInput
-                style={styles.input}
+              <input
+                type="email"
+                style={{ padding: 12, fontSize: 15, borderRadius: 8, border: '1px solid #ddd', width: '100%', boxSizing: 'border-box' } as any}
                 value={email}
-                onChangeText={setEmail}
+                onChange={(e: any) => setEmail(e.target.value)}
                 placeholder="E-Mail-Adresse"
-                keyboardType="email-address"
-                autoCapitalize="none"
               />
             ) : (
               <Text style={styles.value}>{email}</Text>
@@ -473,10 +472,6 @@ export function MyProfileScreen({ navigation }: any) {
           </View>
         </View>
 
-        {/* Logout Button */}
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutButtonText}>Abmelden</Text>
-        </TouchableOpacity>
       </ScrollView>
 
       {/* Bottom Buttons */}
