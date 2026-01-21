@@ -140,9 +140,9 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
     }
 
     return `
-    <div style="display: flex; margin-bottom: 10px; position: relative;">
-      ${index < careerEntries.length - 1 ? '<div style="position: absolute; left: 3px; top: 12px; bottom: -10px; width: 1px; background-color: #d0d0d0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>' : ''}
-      <div style="width: 7px; height: 7px; border-radius: 50%; background-color: #888 !important; margin-top: 5px; margin-right: 10px; flex-shrink: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
+    <div style="display: flex; margin-bottom: 18px; position: relative;">
+      ${index < careerEntries.length - 1 ? '<div style="position: absolute; left: 3px; top: 10px; bottom: -14px; width: 1px; background-color: #c0c0c0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>' : ''}
+      <div style="width: 7px; height: 7px; border-radius: 50%; background-color: #888 !important; margin-top: 4px; margin-right: 10px; flex-shrink: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
       <div style="flex: 1;">
         <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
           <div style="flex: 1;">

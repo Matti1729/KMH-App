@@ -272,7 +272,10 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   // PDF Ansprechpartner Reihenfolge
   const [pdfAdvisors, setPdfAdvisors] = useState<string[]>([]);
   const [firstAdvisorPhone, setFirstAdvisorPhone] = useState<string>('');
-  
+
+  // AI Text Generation
+  const [generatingDescription, setGeneratingDescription] = useState(false);
+
   // Date Picker für Karriere
   const [showCareerDatePicker, setShowCareerDatePicker] = useState<{index: number, field: 'from_date' | 'to_date'} | null>(null);
   
@@ -1015,6 +1018,56 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     `;
 
     return html;
+  };
+
+  // AI Text Generation für Spielerbeschreibung
+  const generateAIDescription = async () => {
+    if (!player) return;
+
+    setGeneratingDescription(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-description', {
+        body: {
+          player: {
+            first_name: player.first_name,
+            last_name: player.last_name,
+            position: player.position,
+            secondary_position: player.secondary_position,
+            nationality: player.nationality,
+            birth_date: player.birth_date,
+            height: player.height,
+            strengths: player.strengths,
+            club: player.club,
+            league: player.league,
+          },
+          careerEntries: careerEntries.map(e => ({
+            club: e.club,
+            league: e.league,
+            from_date: e.from_date,
+            to_date: e.to_date,
+            games: e.games,
+            goals: e.goals,
+            assists: e.assists,
+            is_current: e.is_current,
+          })),
+        },
+      });
+
+      if (error) {
+        console.error('AI Generation Error:', error);
+        Alert.alert('Fehler', 'Text konnte nicht generiert werden');
+        return;
+      }
+
+      if (data?.description) {
+        setPlayerDescription(data.description);
+      }
+    } catch (e) {
+      console.error('AI Generation Exception:', e);
+      Alert.alert('Fehler', 'Text konnte nicht generiert werden');
+    } finally {
+      setGeneratingDescription(false);
+    }
   };
 
   const generatePDF = async () => {
@@ -2940,46 +2993,48 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                   </View>
                 ))}
                 
-                {/* Ansprechpartner Reihenfolge */}
+                {/* Ansprechpartner Reihenfolge - kompakt */}
                 {pdfAdvisors.length > 1 && (
-                  <>
-                    <View style={styles.pdfEditSection}>
-                      <Text style={styles.pdfEditSectionTitle}>Ansprechpartner Reihenfolge</Text>
-                      <Text style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
-                        Der oberste Berater wird mit Telefonnummer im PDF angezeigt
-                      </Text>
-                    </View>
-                    <View style={styles.pdfCareerEditCard}>
+                  <View style={{ backgroundColor: '#f5f5f5', borderRadius: 8, padding: 10, marginBottom: 12 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#666', marginBottom: 6 }}>Ansprechpartner (oberster = Telefon im PDF)</Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                       {pdfAdvisors.map((advisor, index) => (
-                        <View key={index} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: index < pdfAdvisors.length - 1 ? 1 : 0, borderBottomColor: '#eee' }}>
-                          <Text style={{ flex: 1, fontSize: 14, fontWeight: index === 0 ? '600' : '400' }}>
-                            {index === 0 ? '👤 ' : ''}{advisor}
-                            {index === 0 && firstAdvisorPhone ? ` (${firstAdvisorPhone})` : ''}
+                        <View key={index} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: index === 0 ? '#1a1a1a' : '#fff', borderRadius: 6, paddingVertical: 4, paddingHorizontal: 8, borderWidth: 1, borderColor: '#ddd' }}>
+                          <Text style={{ fontSize: 13, color: index === 0 ? '#fff' : '#333', marginRight: 6 }}>
+                            {advisor}
                           </Text>
-                          <View style={{ flexDirection: 'row', gap: 4 }}>
-                            <TouchableOpacity
-                              style={{ padding: 8, opacity: index === 0 ? 0.3 : 1 }}
-                              onPress={() => moveAdvisorUp(index)}
-                              disabled={index === 0}
-                            >
-                              <Text style={{ fontSize: 16 }}>↑</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              style={{ padding: 8, opacity: index === pdfAdvisors.length - 1 ? 0.3 : 1 }}
-                              onPress={() => moveAdvisorDown(index)}
-                              disabled={index === pdfAdvisors.length - 1}
-                            >
-                              <Text style={{ fontSize: 16 }}>↓</Text>
-                            </TouchableOpacity>
-                          </View>
+                          <TouchableOpacity onPress={() => moveAdvisorUp(index)} disabled={index === 0} style={{ opacity: index === 0 ? 0.3 : 1, padding: 2 }}>
+                            <Text style={{ fontSize: 12, color: index === 0 ? '#fff' : '#333' }}>↑</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={() => moveAdvisorDown(index)} disabled={index === pdfAdvisors.length - 1} style={{ opacity: index === pdfAdvisors.length - 1 ? 0.3 : 1, padding: 2 }}>
+                            <Text style={{ fontSize: 12, color: index === 0 ? '#fff' : '#333' }}>↓</Text>
+                          </TouchableOpacity>
                         </View>
                       ))}
                     </View>
-                  </>
+                  </View>
                 )}
 
                 <View style={styles.pdfEditSection}>
-                  <Text style={styles.pdfEditSectionTitle}>Über den Spieler</Text>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={styles.pdfEditSectionTitle}>Über den Spieler</Text>
+                    <TouchableOpacity
+                      onPress={generateAIDescription}
+                      disabled={generatingDescription}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        backgroundColor: generatingDescription ? '#ccc' : '#1a1a1a',
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                        borderRadius: 6,
+                      }}
+                    >
+                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>
+                        {generatingDescription ? 'Generiere...' : 'AI Text generieren'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
                 <View style={styles.pdfCareerEditCard}>
                   <TextInput
