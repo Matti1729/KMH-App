@@ -51,7 +51,7 @@ const TransfermarktIcon = require('../../../assets/transfermarkt-logo.png');
 const ArbeitsamtIcon = require('../../../assets/arbeitsamt.png');
 
 interface Player {
-  id: string; advisor_id: string | null; first_name: string; last_name: string; nationality: string; birth_date: string; club: string; league: string; position: string; contract_end: string; photo_url: string; strong_foot: string; height: number; secondary_position: string; salary_month: string; point_bonus: string; appearance_bonus: string; contract_option: string; contract_scope: string; fixed_fee: string; contract_notes: string; u23_player: boolean; provision: string; transfer_commission: string; mandate_until: string; responsibility: string; listing: string; phone: string; phone_country_code: string; email: string; education: string; training: string; instagram: string; linkedin: string; tiktok: string; transfermarkt_url: string; interests: string; father_name: string; father_phone: string; father_phone_country_code: string; father_job: string; mother_name: string; mother_phone: string; mother_phone_country_code: string; mother_job: string; siblings: string; other_notes: string; injuries: string; street: string; postal_code: string; city: string; internat: boolean; future_club: string; future_contract_end: string; contract_documents: any[]; provision_documents: any[]; transfer_commission_documents: any[]; fussball_de_url: string; strengths: string; potentials: string;
+  id: string; advisor_id: string | null; first_name: string; last_name: string; nationality: string; birth_date: string; club: string; league: string; position: string; contract_end: string; photo_url: string; strong_foot: string; height: number; secondary_position: string; salary_month: string; point_bonus: string; appearance_bonus: string; contract_option: string; contract_scope: string; fixed_fee: string; contract_notes: string; u23_player: boolean; provision: string; transfer_commission: string; mandate_until: string; responsibility: string; listing: string; phone: string; phone_country_code: string; email: string; education: string; training: string; instagram: string; linkedin: string; tiktok: string; transfermarkt_url: string; interests: string; father_name: string; father_phone: string; father_phone_country_code: string; father_job: string; mother_name: string; mother_phone: string; mother_phone_country_code: string; mother_job: string; siblings: string; other_notes: string; injuries: string; street: string; postal_code: string; city: string; internat: boolean; future_club: string; future_contract_end: string; contract_documents: any[]; provision_documents: any[]; transfer_commission_documents: any[]; fussball_de_url: string; strengths: string; potentials: string; in_transfer_list: boolean;
 }
 
 interface ClubLogo {
@@ -1098,6 +1098,39 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       Alert.alert('Fehler', e?.message || 'Text konnte nicht generiert werden');
     } finally {
       setGeneratingDescription(false);
+    }
+  };
+
+  // Toggle Transfer List
+  const toggleTransferList = async () => {
+    if (!player) return;
+
+    const newValue = !player.in_transfer_list;
+    const { error } = await supabase
+      .from('player_details')
+      .update({ in_transfer_list: newValue })
+      .eq('id', player.id);
+
+    if (error) {
+      console.error('Transfer list update error:', error);
+      if (Platform.OS === 'web') {
+        window.alert('Fehler: Konnte Transfer-Status nicht ändern. ' + error.message);
+      } else {
+        Alert.alert('Fehler', 'Konnte Transfer-Status nicht ändern');
+      }
+      return;
+    }
+
+    setPlayer({ ...player, in_transfer_list: newValue });
+
+    const message = newValue
+      ? `${player.first_name} ${player.last_name} wurde zur Transferliste hinzugefügt`
+      : `${player.first_name} ${player.last_name} wurde von der Transferliste entfernt`;
+
+    if (Platform.OS === 'web') {
+      window.alert(message);
+    } else {
+      Alert.alert(newValue ? 'Hinzugefügt' : 'Entfernt', message);
     }
   };
 
@@ -2857,8 +2890,13 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       </ScrollView>
       <View style={styles.bottomButtons}>
         <View style={styles.bottomButtonsLeft}>
-          <TouchableOpacity style={styles.transferButton} onPress={() => Alert.alert('Transfer', 'Spieler zur Transferliste hinzugefügt')}>
-            <Text style={styles.transferButtonText}>Zu Transfer hinzufügen</Text>
+          <TouchableOpacity
+            style={[styles.transferButton, player?.in_transfer_list && { backgroundColor: '#dc3545' }]}
+            onPress={toggleTransferList}
+          >
+            <Text style={styles.transferButtonText}>
+              {player?.in_transfer_list ? 'Von Transfer entfernen' : 'Zu Transfer hinzufügen'}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.pdfProfileButton} onPress={() => setShowPDFProfileModal(true)}>
             <Text style={styles.pdfProfileButtonText}>📄 PDF Profil</Text>
