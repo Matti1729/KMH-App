@@ -209,9 +209,9 @@ export function TransferDetailScreen({ route, navigation }: any) {
     // Parse YYYY-MM-DD direkt ohne Timezone-Probleme
     const parts = dateString.split('-');
     if (parts.length === 3) {
-      const day = parseInt(parts[2], 10);
-      const month = parseInt(parts[1], 10);
-      const year = parseInt(parts[0], 10);
+      const day = parts[2].padStart(2, '0');
+      const month = parts[1].padStart(2, '0');
+      const year = parts[0];
       return `${day}.${month}.${year}`;
     }
     return '-';

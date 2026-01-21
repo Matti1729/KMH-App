@@ -80,14 +80,23 @@ function formatDate(dateStr: string): string {
   if (!dateStr) return '';
   if (dateStr.includes('.')) return dateStr;
   const parts = dateStr.split('-');
-  if (parts.length === 3) return `${parts[2]}.${parts[1]}.${parts[0]}`;
+  if (parts.length === 3) {
+    const day = parts[2].padStart(2, '0');
+    const month = parts[1].padStart(2, '0');
+    const year = parts[0];
+    return `${day}.${month}.${year}`;
+  }
   return dateStr;
 }
 
 function formatDateDE(dateStr: string): string {
   if (!dateStr) return '-';
   try {
-    return new Date(dateStr).toLocaleDateString('de-DE');
+    const date = new Date(dateStr);
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}.${month}.${year}`;
   } catch {
     return '-';
   }

@@ -90,7 +90,10 @@ const formatBirthDisplay = (dateStr: string): string => {
   if (dateStr.length === 4) return `Jg. ${dateStr}`;
   try {
     const date = new Date(dateStr);
-    return date.toLocaleDateString('de-DE');
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}.${month}.${year}`;
   } catch {
     return dateStr;
   }
