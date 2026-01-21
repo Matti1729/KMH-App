@@ -1811,11 +1811,11 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       return (
         <View style={styles.infoRow}>
           <Text style={styles.label}>Spielplan (fussball.de)</Text>
-          <TextInput 
-            style={styles.input} 
-            value={editData?.fussball_de_url || ''} 
-            onChangeText={(text) => updateField('fussball_de_url', text)} 
-            placeholder="z.B. https://www.fussball.de/mannschaft/..." 
+          <TextInput
+            style={styles.input}
+            value={editData?.fussball_de_url || ''}
+            onChangeText={(text) => updateField('fussball_de_url', text)}
+            placeholder="z.B. https://www.fussball.de/mannschaft/..."
             placeholderTextColor="#999"
           />
           <Text style={styles.spielplanHint}>
@@ -1833,12 +1833,12 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         </View>
       );
     }
-    
+
     return (
       <View style={styles.infoRow}>
         <Text style={styles.label}>Spielplan</Text>
-        <TouchableOpacity 
-          style={styles.spielplanButton} 
+        <TouchableOpacity
+          style={styles.spielplanButton}
           onPress={openSpielplan}
         >
           <Text style={styles.spielplanButtonText}>

@@ -55,6 +55,7 @@ interface PlayerGame {
     last_name: string;
     club: string;
     responsibility: string;
+    league: string;
   };
 }
 
@@ -569,16 +570,104 @@ export function TermineScreen({ navigation }: any) {
 
   const getSelectedGamesCount = () => playerGames.filter(g => g.selected).length;
 
+  // Hilfsfunktion: Teamnamen bereinigen
+  const cleanTeamName = (name: string, isHerren: boolean = false): string => {
+    if (!name) return '';
+
+    // Prüfen ob 2. Mannschaft (II, 2 am Ende)
+    const isSecondTeam = /\s+(II|2)$/i.test(name);
+
+    let cleaned = name
+      // RasenBallsport / RasenBall zu RB
+      .replace(/RasenBallsport/gi, 'RB')
+      .replace(/RasenBall/gi, 'RB')
+      // U-Klassen entfernen (U15, U17, U19, etc.)
+      .replace(/\s*U[\s-]?\d{2}\b/gi, '')
+      // Mannschaftsnummern am Ende entfernen (II, III, IV, 2, 3, 4)
+      .replace(/\s+(II|III|IV|V|2|3|4|5)$/i, '')
+      .trim();
+
+    // Großbuchstaben-Wörter korrigieren (DYNAMO → Dynamo, aber nicht FC, SV, VfL, RB etc.)
+    cleaned = cleaned.replace(/\b([A-ZÄÖÜ]{4,})\b/g, (match) => {
+      // Behalte kurze Abkürzungen groß
+      if (match.length <= 3) return match;
+      // Wandle lange Wörter in Title Case um
+      return match.charAt(0) + match.slice(1).toLowerCase();
+    });
+
+    // Bei Herren 2. Mannschaften als U23 kennzeichnen
+    if (isHerren && isSecondTeam) {
+      cleaned += ' U23';
+    }
+
+    return cleaned;
+  };
+
+  // Hilfsfunktion: Spieltitel für Kalender formatieren
+  const formatGameTitle = (game: PlayerGame): string => {
+    const gameLeague = (game.league || '').toLowerCase();
+
+    // Mannschaft aus Spielerprofil-Liga (playerLeague) extrahieren
+    const playerLeague = (game as any).playerLeague || game.player?.league || '';
+    const ageMatch = playerLeague.match(/\bU[\s-]?(\d{2})\b/i);
+    const ageCategory = ageMatch ? 'U' + ageMatch[1] : '';
+    const isJugend = !!ageCategory;
+    const isHerren = !isJugend;
+
+    const homeTeam = cleanTeamName(game.home_team || '', isHerren);
+    const awayTeam = cleanTeamName(game.away_team || '', isHerren);
+    const teams = `${homeTeam} - ${awayTeam}`;
+
+    // Spielart bestimmen
+    const isPokal = gameLeague.includes('pokal') || gameLeague.includes('cup');
+    const isFreundschaft = gameLeague.includes('freundschaft') || gameLeague.includes('friendly') || gameLeague.includes('testspiel');
+
+    // Liga-Name für Herren aus Spielerprofil extrahieren
+    let leagueShort = '';
+    if (!isJugend && playerLeague) {
+      const pl = playerLeague.toLowerCase();
+      if (pl.includes('1. bundesliga') || pl.includes('1.bundesliga') || (pl.includes('bundesliga') && !pl.includes('2.') && !pl.includes('2 '))) {
+        leagueShort = '1.Liga';
+      } else if (pl.includes('2. bundesliga') || pl.includes('2.bundesliga')) {
+        leagueShort = '2.Liga';
+      } else if (pl.includes('3. liga') || pl.includes('3.liga')) {
+        leagueShort = '3.Liga';
+      } else if (pl.includes('regionalliga')) {
+        leagueShort = 'RL';
+      } else if (pl.includes('oberliga')) {
+        leagueShort = 'OL';
+      }
+    }
+
+    // Titel formatieren nach neuem Schema
+    if (isPokal && isJugend) {
+      return `Pokal ${ageCategory} ${teams}`;
+    } else if (isPokal) {
+      return `Pokal ${teams}`;
+    } else if (isFreundschaft && isJugend) {
+      return `FS ${ageCategory} ${teams}`;
+    } else if (isFreundschaft) {
+      return `FS ${teams}`;
+    } else if (isJugend) {
+      return `${ageCategory} ${teams}`;
+    } else if (leagueShort) {
+      return `${leagueShort} ${teams}`;
+    }
+
+    // Standard: nur Teams
+    return teams;
+  };
+
   const exportSelectedToCalendar = () => {
     const selectedGames = playerGames.filter(g => g.selected);
     if (selectedGames.length === 0) {
       Alert.alert('Hinweis', 'Bitte wähle mindestens ein Spiel aus.');
       return;
     }
-    
+
     // ICS Datei erstellen
     let icsContent = `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//KMH-App//Spielplan//DE\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\n`;
-    
+
     selectedGames.forEach(game => {
       const dateStr = game.date.replace(/-/g, '');
       // Zeit formatieren: HH:MM -> HHMMSS
@@ -587,18 +676,21 @@ export function TermineScreen({ navigation }: any) {
         const timeParts = game.time.split(':');
         timeStr = timeParts[0].padStart(2, '0') + (timeParts[1] || '00').padStart(2, '0') + '00';
       }
-      
+
       // Ende: 2 Stunden nach Start
       const startHour = parseInt(timeStr.substring(0, 2));
       const endHour = (startHour + 2) % 24;
       const endTimeStr = endHour.toString().padStart(2, '0') + timeStr.substring(2);
-      
+
       // Spielernamen für Description
       const playerNames = (game as any).playerNames?.join(', ') || game.player_name || '';
-      
-      icsContent += `BEGIN:VEVENT\r\nDTSTART:${dateStr}T${timeStr}\r\nDTEND:${dateStr}T${endTimeStr}\r\nSUMMARY:${game.home_team} vs ${game.away_team}\r\nDESCRIPTION:Spieler: ${playerNames}\r\nLOCATION:${game.location || ''}\r\nEND:VEVENT\r\n`;
+
+      // Formatierten Titel verwenden
+      const gameTitle = formatGameTitle(game);
+
+      icsContent += `BEGIN:VEVENT\r\nDTSTART:${dateStr}T${timeStr}\r\nDTEND:${dateStr}T${endTimeStr}\r\nSUMMARY:${gameTitle}\r\nDESCRIPTION:Spieler: ${playerNames}\r\nLOCATION:${game.location || ''}\r\nEND:VEVENT\r\n`;
     });
-    
+
     icsContent += 'END:VCALENDAR';
     
     // Download
@@ -697,12 +789,19 @@ export function TermineScreen({ navigation }: any) {
       games = games.filter(g => selectedPlayers.includes(g.player_id));
     }
     
-    // Duplikate zusammenführen: gleiche Spiele (Datum + Teams) mit mehreren Spielern
-    const gameMap = new Map<string, PlayerGame & { playerNames: string[], playerResponsibilities: string[] }>();
-    
+    // Duplikate zusammenführen: gleiche Spiele (Datum + Zeit + Teams) mit mehreren Spielern
+    const gameMap = new Map<string, PlayerGame & { playerNames: string[], playerResponsibilities: string[], playerLeague: string }>();
+
+    // Hilfsfunktion: Teamnamen normalisieren (U17/U19 etc. entfernen für Vergleich)
+    const normalizeTeam = (name: string) => (name || '').replace(/\s*U[\s-]?\d{2}\s*/gi, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+
     games.forEach(game => {
-      const key = `${game.date}_${game.home_team}_${game.away_team}`;
-      
+      const homeNorm = normalizeTeam(game.home_team);
+      const awayNorm = normalizeTeam(game.away_team);
+      // Sortiere Teams alphabetisch für konsistenten Key (A vs B = B vs A)
+      const teams = [homeNorm, awayNorm].sort().join('_');
+      const key = `${game.date}_${game.time || ''}_${teams}`;
+
       if (gameMap.has(key)) {
         const existing = gameMap.get(key)!;
         if (!existing.playerNames.includes(game.player_name)) {
@@ -716,7 +815,8 @@ export function TermineScreen({ navigation }: any) {
         gameMap.set(key, {
           ...game,
           playerNames: [game.player_name],
-          playerResponsibilities: game.player?.responsibility ? [game.player.responsibility] : []
+          playerResponsibilities: game.player?.responsibility ? [game.player.responsibility] : [],
+          playerLeague: game.player?.league || ''
         });
       }
     });
@@ -1049,8 +1149,9 @@ export function TermineScreen({ navigation }: any) {
               </TouchableOpacity>
               <Text style={[styles.scoutingTableHeaderCell, { flex: 0.8 }]}>Datum</Text>
               <Text style={[styles.scoutingTableHeaderCell, { flex: 0.5 }]}>Zeit</Text>
+              <Text style={[styles.scoutingTableHeaderCell, { flex: 0.6 }]}>Mannschaft</Text>
               <Text style={[styles.scoutingTableHeaderCell, { flex: 2 }]}>Spiel</Text>
-              <Text style={[styles.scoutingTableHeaderCell, { flex: 1 }]}>Art</Text>
+              <Text style={[styles.scoutingTableHeaderCell, { flex: 0.8 }]}>Art</Text>
               <Text style={[styles.scoutingTableHeaderCell, { flex: 1 }]}>Spieler</Text>
               <Text style={[styles.scoutingTableHeaderCell, { flex: 1 }]}>Zuständigkeit</Text>
             </View>
@@ -1119,10 +1220,27 @@ export function TermineScreen({ navigation }: any) {
                       <Text style={[styles.scoutingTableCell, { flex: 0.5 }]}>
                         {game.time || '-'}
                       </Text>
-                      <Text style={[styles.scoutingTableCell, { flex: 2 }]} numberOfLines={1}>
-                        {game.home_team} vs {game.away_team}
+                      <Text style={[styles.scoutingTableCell, { flex: 0.6 }]} numberOfLines={1}>
+                        {(() => {
+                          // Altersklasse aus Spielerprofil-Liga extrahieren (z.B. "U17 Bundesliga")
+                          const playerLeague = (game as any).playerLeague || game.player?.league || '';
+
+                          // U-Mannschaft aus Spielerprofil-Liga extrahieren
+                          const ageMatch = playerLeague.match(/\bU[\s-]?(\d{2})\b/i);
+                          if (ageMatch) return 'U' + ageMatch[1];
+
+                          // Keine U-Mannschaft gefunden = Herren
+                          return 'Herren';
+                        })()}
                       </Text>
-                      <Text style={[styles.scoutingTableCell, { flex: 1 }]} numberOfLines={1}>
+                      <Text style={[styles.scoutingTableCell, { flex: 2 }]} numberOfLines={1}>
+                        {(() => {
+                          const pl = (game as any).playerLeague || game.player?.league || '';
+                          const isHerren = !pl.match(/\bU[\s-]?\d{2}\b/i);
+                          return `${cleanTeamName(game.home_team, isHerren)} - ${cleanTeamName(game.away_team, isHerren)}`;
+                        })()}
+                      </Text>
+                      <Text style={[styles.scoutingTableCell, { flex: 0.8 }]} numberOfLines={1}>
                         {getGameArt(game.league)}
                       </Text>
                       <Text style={[styles.scoutingTableCell, { flex: 1, fontWeight: '600' }]} numberOfLines={2}>

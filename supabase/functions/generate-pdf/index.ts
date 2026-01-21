@@ -121,8 +121,8 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
   // E-Mail: Immer basierend auf Listung (KMH oder PM)
   const email = isKMH ? 'office@kmhsport.com' : 'info@pm-sportmanagement.com';
 
-  // Telefon: Berater-Telefon oder leer
-  const phone = advisorPhone || '';
+  // Telefon: Feste Nummern basierend auf Listung
+  const phone = isKMH ? '089 72458696' : '+49 176 70809677';
 
   const careerHtml = (careerEntries || []).map((entry, index) => {
     // Stats aus games/goals/assists oder stats-String generieren
@@ -212,12 +212,11 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
       <div style="position: absolute; top: 0; bottom: 0; left: 63%; width: 80px; background-color: #1c1c1c !important; transform: skewX(-8deg); -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
 
       <div style="position: relative; z-index: 1; display: flex; align-items: center; height: 100%;">
+        ${player.photo_url ? `
         <div style="margin-right: 32px;">
-          ${player.photo_url
-            ? `<img src="${player.photo_url}" style="width: 140px; height: 180px; object-fit: cover; border: 1px solid #333;" crossorigin="anonymous" />`
-            : `<div style="width: 140px; height: 180px; background-color: #333 !important; display: flex; align-items: center; justify-content: center; color: #666; -webkit-print-color-adjust: exact; print-color-adjust: exact;">Foto</div>`
-          }
+          <img src="${player.photo_url}" style="width: 140px; height: 180px; object-fit: cover; border: 1px solid #333;" crossorigin="anonymous" />
         </div>
+        ` : `<div style="width: 140px; margin-right: 32px;"></div>`}
         <div style="flex: 1;">
           <div style="font-size: 36px; font-weight: 800; color: #fff !important; letter-spacing: 3px; margin-bottom: 2px;">${((player.first_name || '') + ' ' + (player.last_name || '')).toUpperCase()}</div>
           <div style="font-size: 18px; color: #e2e8f0 !important; margin-bottom: 10px;">
@@ -289,11 +288,6 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
           <div style="height: 1px; background-color: #333 !important; margin-bottom: 10px; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
 
           <div style="margin-bottom: 8px;">
-            <div style="font-size: 9px; color: #666 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">ANSPRECHPARTNER</div>
-            ${advisorsHtml}
-          </div>
-
-          <div style="margin-bottom: 8px;">
             <div style="font-size: 9px; color: #666 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">E-MAIL</div>
             <div style="color: #fff !important; font-size: 12px;">${email}</div>
           </div>
@@ -303,11 +297,17 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
             <div style="color: #fff !important; font-size: 12px;">${phone || '-'}</div>
           </div>
 
-          <div>
+          <div${isKMH ? '' : ' style="margin-bottom: 8px;"'}>
             <div style="font-size: 9px; color: #666 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">ADRESSE</div>
             <div style="color: #fff !important; font-size: 12px;">${addressStreet}</div>
             <div style="color: #fff !important; font-size: 12px;">${addressCity}</div>
           </div>
+          ${!isKMH ? `
+          <div>
+            <div style="font-size: 9px; color: #666 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">KOOPERATIONSAGENTUR</div>
+            <div style="color: #fff !important; font-size: 12px;">Karl Herzog Sportmanagement</div>
+          </div>
+          ` : ''}
         </div>
       </div>
 
@@ -329,10 +329,15 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
     </div>
 
     <!-- Footer - absolut positioniert -->
-    <div style="position: absolute; bottom: 12px; right: 28px;">
+    <div style="position: absolute; bottom: 55px; right: 28px;">
       <div style="border: 1px solid #ddd; padding: 4px 8px; border-radius: 4px; background: #fff;">
         <span style="font-size: 9px; color: #666; font-weight: 500;">Stand: ${new Date().toLocaleDateString('de-DE')}</span>
       </div>
+    </div>
+
+    <!-- FIFA License Badge -->
+    <div style="position: absolute; bottom: 15px; left: 0; right: 0; background-color: #1a1a1a !important; padding: 6px 0; display: flex; justify-content: center; align-items: center; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+      <span style="color: #fff !important; font-size: 10px; font-weight: 600; letter-spacing: 8px; text-transform: uppercase; padding-left: 8px;">OFFICIAL LICENSED FIFA AGENTS</span>
     </div>
   </div>
 </body>

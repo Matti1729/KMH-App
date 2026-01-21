@@ -171,27 +171,42 @@ export async function fetchTeamNextGames(teamId: string, token: string): Promise
     }
     
     // API Response in unser Format umwandeln
-    const games: ApiGame[] = result.data.map((game: any) => {
-      // Datum konvertieren
-      const rawDate = game.date || game.datum || '';
-      const isoDate = convertGermanDateToISO(rawDate);
-      
-      console.log('Datum Konvertierung:', rawDate, '->', isoDate);
-      
-      return {
-        id: game.id || `${isoDate}_${game.homeTeam || game.home}_${game.awayTeam || game.away}`.replace(/\s/g, '_'),
-        date: isoDate,
-        time: game.time || game.uhrzeit || '',
-        homeTeam: game.homeTeam || game.heimmannschaft || game.home || '',
-        awayTeam: game.awayTeam || game.gastmannschaft || game.away || '',
-        homeTeamLogo: game.homeLogo || game.homeTeamLogo || game.heimLogo || null,
-        awayTeamLogo: game.awayLogo || game.awayTeamLogo || game.gastLogo || null,
-        location: game.location || game.ort || game.spielort || '',
-        league: game.competition || game.league || game.liga || game.wettbewerb || '',
-        matchday: game.matchday || game.spieltag || '',
-        result: game.result || game.ergebnis || null
-      };
-    }).filter((game: ApiGame) => game.date); // Nur Spiele mit gültigem Datum
+    const games: ApiGame[] = result.data
+      .filter((game: any) => {
+        // Abgesetzte/abgesagte Spiele ausfiltern - prüfe mehrere Felder
+        const status = (game.status || '').toLowerCase();
+        const info = (game.info || '').toLowerCase();
+        const result = (game.result || game.ergebnis || '').toLowerCase();
+        const combined = status + ' ' + info + ' ' + result;
+
+        if (combined.includes('absetzung') || combined.includes('abgesetzt') || combined.includes('abgesagt') ||
+            combined.includes('cancelled') || combined.includes('postponed') || combined.includes('verlegt')) {
+          console.log('Spiel gefiltert (abgesetzt):', game.homeTeam || game.home, 'vs', game.awayTeam || game.away, '| Status:', status, '| Info:', info);
+          return false;
+        }
+        return true;
+      })
+      .map((game: any) => {
+        // Datum konvertieren
+        const rawDate = game.date || game.datum || '';
+        const isoDate = convertGermanDateToISO(rawDate);
+
+        console.log('Datum Konvertierung:', rawDate, '->', isoDate);
+
+        return {
+          id: game.id || `${isoDate}_${game.homeTeam || game.home}_${game.awayTeam || game.away}`.replace(/\s/g, '_'),
+          date: isoDate,
+          time: game.time || game.uhrzeit || '',
+          homeTeam: game.homeTeam || game.heimmannschaft || game.home || '',
+          awayTeam: game.awayTeam || game.gastmannschaft || game.away || '',
+          homeTeamLogo: game.homeLogo || game.homeTeamLogo || game.heimLogo || null,
+          awayTeamLogo: game.awayLogo || game.awayTeamLogo || game.gastLogo || null,
+          location: game.location || game.ort || game.spielort || '',
+          league: game.competition || game.league || game.liga || game.wettbewerb || '',
+          matchday: game.matchday || game.spieltag || '',
+          result: game.result || game.ergebnis || null
+        };
+      }).filter((game: ApiGame) => game.date); // Nur Spiele mit gültigem Datum
     
     return games;
   } catch (err) {
@@ -426,18 +441,22 @@ export async function syncPlayerGames(
 
 // Alle gespeicherten Spiele laden (für die nächsten 5 Wochen)
 export async function loadUpcomingGames(supabase: SupabaseClient): Promise<any[]> {
+  // Lokales Datum verwenden (nicht UTC) damit heutige Spiele den ganzen Tag angezeigt werden
   const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
   const in5Weeks = new Date();
   in5Weeks.setDate(in5Weeks.getDate() + 35); // 5 Wochen
-  
+  const in5WeeksStr = `${in5Weeks.getFullYear()}-${String(in5Weeks.getMonth() + 1).padStart(2, '0')}-${String(in5Weeks.getDate()).padStart(2, '0')}`;
+
   const { data, error } = await supabase
     .from('player_games')
     .select(`
       *,
-      player:player_details(id, first_name, last_name, club, responsibility)
+      player:player_details(id, first_name, last_name, club, responsibility, league)
     `)
-    .gte('date', today.toISOString().split('T')[0])
-    .lte('date', in5Weeks.toISOString().split('T')[0])
+    .gte('date', todayStr)
+    .lte('date', in5WeeksStr)
     .order('date', { ascending: true });
   
   if (error) {
