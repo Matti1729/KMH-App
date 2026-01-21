@@ -110,15 +110,18 @@ serve(async (req: Request) => {
         }
       }
 
-      // Prüfe auf Nationalmannschaft
-      if (entry.club?.toLowerCase().includes('nationalmannschaft') ||
-          entry.club?.toLowerCase().includes('national') ||
-          entry.league?.toLowerCase().includes('u21') ||
-          entry.league?.toLowerCase().includes('u20') ||
-          entry.league?.toLowerCase().includes('u19') ||
-          entry.league?.toLowerCase().includes('u18') ||
-          entry.league?.toLowerCase().includes('u17') ||
-          entry.league?.toLowerCase().includes('nationalmannschaft')) {
+      // Prüfe auf Nationalmannschaft (nur echte Nationalteams, nicht Jugendligen)
+      const clubLower = entry.club?.toLowerCase() || '';
+      const leagueLower = entry.league?.toLowerCase() || '';
+      if (clubLower.includes('nationalmannschaft') ||
+          clubLower.includes('dfb') ||
+          clubLower.includes('deutschland u') ||
+          clubLower.includes('germany u') ||
+          clubLower.includes('österreich u') ||
+          clubLower.includes('austria u') ||
+          clubLower.includes('schweiz u') ||
+          leagueLower.includes('nationalmannschaft') ||
+          leagueLower.includes('länderspiel')) {
         hasNationalTeam = true;
       }
     }
