@@ -803,7 +803,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     // ========================================
     // DYNAMISCHE SKALIERUNG für gesamtes PDF
     // ========================================
-    const strengthsArray = player.strengths ? player.strengths.split(',').map(s => s.trim()).filter(s => s) : [];
+    const strengthsArray = player.strengths ? player.strengths.split(';').map(s => s.trim()).filter(s => s) : [];
     const strengthsCount = strengthsArray.length;
     const careerCount = careerEntries.length;
     const descriptionLength = playerDescription?.length || 0;
@@ -2466,7 +2466,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           style={[styles.input, styles.smallTextArea]} 
           value={editData?.strengths || ''} 
           onChangeText={(text) => updateField('strengths', text)} 
-          placeholder="z.B. gutes 1v1, Kopfballstark, Schnelligkeit" 
+          placeholder="z.B. gutes 1v1; Kopfballstark; Schnelligkeit" 
           placeholderTextColor="#999"
           multiline
         />
