@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Pressable } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 
@@ -183,6 +184,13 @@ export function PlayerOverviewScreen({ navigation }: any) {
     fetchClubLogos();
     fetchAdvisors();
   }, []);
+
+  // Refresh data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchPlayers();
+    }, [])
+  );
 
   useEffect(() => { applyFilters(); }, [searchText, players, selectedYears, selectedPositions, selectedListings, selectedResponsibilities, selectedContractYears, sortField, sortDirection]);
 
