@@ -145,7 +145,7 @@ Spielerdaten:
 ${totalGames > 0 ? `- Karriere-Statistiken: ${totalGames} Spiele, ${totalGoals} Tore, ${totalAssists} Vorlagen` : ''}
 ${topLeague ? `- Höchste Liga: ${topLeague}` : ''}
 ${hasNationalTeam ? '- Hat bereits Nationalmannschaftserfahrung' : ''}
-${bulletPoints ? `\nZusätzliche Hinweise vom Berater (bitte in den Text einbauen):\n${bulletPoints}` : ''}
+${bulletPoints ? `\nWICHTIG - Zusätzliche Hinweise vom Berater (ALLE müssen eingebaut werden!):\n${bulletPoints}` : ''}
 
 Regeln für den Text:
 1. Beginne mit dem VORNAMEN (nur Vorname, nicht der volle Name!) und charakteristischen Adjektiven (z.B. "${player.first_name} ist ein hochveranlagter, deutscher Innenverteidiger")
@@ -154,11 +154,11 @@ Regeln für den Text:
 4. Bei großen Spielern (über 185cm) erwähne die Körpergröße als Vorteil
 5. Erwähne bemerkenswerte Statistiken wenn vorhanden
 6. Integriere die Stärken natürlich in den Text
-7. WICHTIG: Erwähne Nationalmannschaft NUR wenn oben explizit "Hat bereits Nationalmannschaftserfahrung" steht. Wenn nicht angegeben, NIEMALS erwähnen!
-8. WICHTIG: Erfinde KEINE Informationen! Verwende NUR die oben angegebenen Fakten.
+7. WICHTIG: Erwähne Nationalmannschaft NUR wenn in den Hinweisen vom Berater explizit erwähnt oder oben "Hat bereits Nationalmannschaftserfahrung" steht!
+8. WICHTIG: Erfinde KEINE Informationen! Verwende NUR die oben angegebenen Fakten und die Hinweise vom Berater.
 9. Schreibe professionell aber nicht übertrieben
 10. Nur den reinen Text ausgeben, keine Anführungszeichen oder Formatierung
-11. Wenn zusätzliche Hinweise vom Berater angegeben sind, baue diese natürlich in den Text ein
+11. SEHR WICHTIG: Wenn zusätzliche Hinweise vom Berater angegeben sind, müssen ALLE Punkte im Text erwähnt werden! Kein Punkt darf fehlen. Formuliere sie natürlich um.
 
 Beispielstil:
 "Elias ist ein hochveranlagter, deutscher Innenverteidiger, der mit erst 19 Jahren bereits über 25 Einsätze in der 3. Liga vorweisen kann. Mit seiner Körpergröße von 1,93 m bringt er eine ausgeprägte körperliche Präsenz mit, die ihn im Luftduell und in der Zweikampfführung zu einem unangenehmen Gegenspieler macht. Neben seiner Robustheit überzeugt er durch seine Spieleröffnung, sein gutes Stellungsspiel und seine Führungsqualitäten."`;
