@@ -38,8 +38,9 @@ export function FootballNetworkScreen({ navigation }: any) {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [vereinSearch, setVereinSearch] = useState('');
   const [ligaSearch, setLigaSearch] = useState('');
+  const [profile, setProfile] = useState<{ first_name?: string; last_name?: string; role?: string } | null>(null);
 
-  useEffect(() => { fetchContacts(); fetchClubs(); }, []);
+  useEffect(() => { fetchContacts(); fetchClubs(); fetchProfile(); }, []);
 
   const fetchContacts = async () => {
     const { data } = await supabase.from('football_network_contacts').select('*').order('nachname', { ascending: true });
@@ -54,6 +55,14 @@ export function FootballNetworkScreen({ navigation }: any) {
       data.forEach(item => { logoMap[item.club_name] = item.logo_url; names.push(item.club_name); });
       setClubLogos(logoMap);
       setClubs(names.sort());
+    }
+  };
+
+  const fetchProfile = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data } = await supabase.from('advisors').select('first_name, last_name, role').eq('id', user.id).single();
+      if (data) setProfile(data);
     }
   };
 
@@ -122,7 +131,7 @@ export function FootballNetworkScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <Sidebar activeScreen="network" navigation={navigation} />
+      <Sidebar navigation={navigation} activeScreen="network" profile={profile} />
       <TouchableOpacity style={styles.mainContent} activeOpacity={1} onPress={closeAllDropdowns}>
         <View style={styles.headerBanner}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('AdvisorDashboard')}><Text style={styles.backButtonText}>← Zurück</Text></TouchableOpacity>

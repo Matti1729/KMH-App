@@ -188,6 +188,7 @@ export function ScoutingScreen({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserName, setCurrentUserName] = useState<string>('');
+  const [profile, setProfile] = useState<{ first_name?: string; last_name?: string; role?: string } | null>(null);
 
   const [searchText, setSearchText] = useState('');
   const [selectedPositions, setSelectedPositions] = useState<string[]>([]);
@@ -454,8 +455,11 @@ export function ScoutingScreen({ navigation }: any) {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       setCurrentUserId(user.id);
-      const { data: advisor } = await supabase.from('advisors').select('first_name, last_name').eq('id', user.id).single();
-      if (advisor) setCurrentUserName(`${advisor.first_name} ${advisor.last_name}`);
+      const { data: advisor } = await supabase.from('advisors').select('first_name, last_name, role').eq('id', user.id).single();
+      if (advisor) {
+        setCurrentUserName(`${advisor.first_name} ${advisor.last_name}`);
+        setProfile({ first_name: advisor.first_name, last_name: advisor.last_name, role: advisor.role });
+      }
     }
   };
 
@@ -1791,7 +1795,7 @@ export function ScoutingScreen({ navigation }: any) {
 
   return (
     <Pressable style={styles.container} onPress={closeAllDropdowns}>
-      <Sidebar activeScreen="scouting" navigation={navigation} />
+      <Sidebar navigation={navigation} activeScreen="scouting" profile={profile} />
       <View style={styles.mainContent}>
         {/* Header Banner - weiß mit Titel mittig */}
         <View style={styles.headerBanner}>
