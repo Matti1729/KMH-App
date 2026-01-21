@@ -360,13 +360,14 @@ serve(async (req) => {
     const html = generateHtml(player, careerEntries || [], playerDescription || '', advisorEmail, advisorPhone);
     console.log("HTML generated, length:", html.length);
 
-    // Browserless.io API aufrufen
-    console.log("Calling Browserless API...");
+    // Browserless.io API aufrufen (v2)
+    console.log("Calling Browserless API with token:", BROWSERLESS_API_KEY?.substring(0, 8) + "...");
     const browserlessResponse = await fetch(
-      `https://chrome.browserless.io/pdf?token=${BROWSERLESS_API_KEY}`,
+      `https://production-sfo.browserless.io/pdf?token=${BROWSERLESS_API_KEY}`,
       {
         method: "POST",
         headers: {
+          "Cache-Control": "no-cache",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
