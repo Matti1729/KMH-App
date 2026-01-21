@@ -646,10 +646,10 @@ export function TermineScreen({ navigation }: any) {
   // Filter Logic
   const availableResponsibilities = useMemo(() => {
     const responsibilities = new Set<string>();
-    playerGames.forEach(g => { 
+    playerGames.forEach(g => {
       if (g.player?.responsibility) {
         // Aufteilen falls mehrere Berater (getrennt durch ", " oder " & " oder ",")
-        const parts = g.player.responsibility.split(/,\s*|&\s*/).map(s => s.trim()).filter(s => s);
+        const parts = g.player.responsibility.split(/,\s*|&\s*/).map(s => s.trim().replace(/\s+/g, ' ')).filter(s => s);
         parts.forEach(part => responsibilities.add(part));
       }
     });
