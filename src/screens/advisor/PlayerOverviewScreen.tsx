@@ -407,7 +407,14 @@ export function PlayerOverviewScreen({ navigation }: any) {
       filtered = filtered.filter(player => player.listing && selectedListings.includes(player.listing));
     }
     if (selectedResponsibilities.length > 0) {
-      filtered = filtered.filter(player => player.responsibility && selectedResponsibilities.some(resp => player.responsibility.includes(resp)));
+      filtered = filtered.filter(player => {
+        if (!player.responsibility) return false;
+        return selectedResponsibilities.some(resp => {
+          // Prüfe auf vollen Namen ODER nur Nachnamen
+          const lastName = resp.split(' ').pop() || resp;
+          return player.responsibility.includes(resp) || player.responsibility.includes(lastName);
+        });
+      });
     }
     if (selectedContractYears.length > 0) {
       filtered = filtered.filter(player => player.contract_end && selectedContractYears.includes(new Date(player.contract_end).getFullYear().toString()));
@@ -709,8 +716,9 @@ export function PlayerOverviewScreen({ navigation }: any) {
                   <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
                     {advisors.map(advisor => {
                       const name = `${advisor.first_name} ${advisor.last_name}`.trim();
+                      const lastName = advisor.last_name || '';
                       const isSelected = selectedResponsibilities.includes(name);
-                      const count = players.filter(p => p.responsibility?.includes(name)).length;
+                      const count = players.filter(p => p.responsibility?.includes(name) || p.responsibility?.includes(lastName)).length;
                       return (
                         <TouchableOpacity key={advisor.id} style={styles.filterCheckboxItem} onPress={() => toggleResponsibility(name)}>
                           <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
