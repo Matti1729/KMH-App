@@ -306,6 +306,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const toggleTransferList = async () => {
     if (!player) return;
 
+    console.log('Toggle transfer list for player:', player.id, 'Current value:', player.in_transfer_list);
+
     const newValue = !player.in_transfer_list;
     const { error } = await supabase
       .from('player_details')
@@ -313,17 +315,27 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       .eq('id', player.id);
 
     if (error) {
-      Alert.alert('Fehler', 'Konnte Transfer-Status nicht ändern');
+      console.error('Transfer list update error:', error);
+      if (Platform.OS === 'web') {
+        window.alert('Fehler: Konnte Transfer-Status nicht ändern. ' + error.message);
+      } else {
+        Alert.alert('Fehler', 'Konnte Transfer-Status nicht ändern');
+      }
       return;
     }
 
+    console.log('Transfer list updated successfully to:', newValue);
     setPlayer({ ...player, in_transfer_list: newValue });
-    Alert.alert(
-      newValue ? 'Hinzugefügt' : 'Entfernt',
-      newValue
-        ? `${player.first_name} ${player.last_name} wurde zur Transferliste hinzugefügt`
-        : `${player.first_name} ${player.last_name} wurde von der Transferliste entfernt`
-    );
+
+    const message = newValue
+      ? `${player.first_name} ${player.last_name} wurde zur Transferliste hinzugefügt`
+      : `${player.first_name} ${player.last_name} wurde von der Transferliste entfernt`;
+
+    if (Platform.OS === 'web') {
+      window.alert(message);
+    } else {
+      Alert.alert(newValue ? 'Hinzugefügt' : 'Entfernt', message);
+    }
   };
 
   const saveCareerEntry = async (entry: CareerEntry) => {

@@ -3,13 +3,14 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal,
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 
-const POSITIONS = ['Torwart', 'Innenverteidiger', 'Linker Verteidiger', 'Rechter Verteidiger', 'Defensives Mittelfeld', 'Offensives Mittelfeld', 'Linke Außenbahn', 'Rechte Außenbahn', 'Stürmer'];
+const POSITIONS = ['Torwart', 'Innenverteidiger', 'Linker Verteidiger', 'Rechter Verteidiger', 'Defensives Mittelfeld', 'Zentrales Mittelfeld', 'Offensives Mittelfeld', 'Linke Außenbahn', 'Rechte Außenbahn', 'Stürmer'];
 const POSITION_SHORT: Record<string, string> = {
   'Torwart': 'TW',
   'Innenverteidiger': 'IV',
   'Linker Verteidiger': 'LV',
   'Rechter Verteidiger': 'RV',
   'Defensives Mittelfeld': 'DM',
+  'Zentrales Mittelfeld': 'ZM',
   'Offensives Mittelfeld': 'OM',
   'Linke Außenbahn': 'LA',
   'Rechte Außenbahn': 'RA',
