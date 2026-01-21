@@ -1104,7 +1104,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
             careerEntries,
             playerDescription,
             advisorEmail: profile?.email,
-            advisorPhone: firstAdvisorPhone || (profile?.phone ? `${profile?.phone_country_code || '+49'} ${profile.phone}` : ''),
+            advisorPhone: firstAdvisorPhone,
           },
         });
 
@@ -1196,7 +1196,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           careerEntries,
           playerDescription,
           advisorEmail: profile?.email,
-          advisorPhone: firstAdvisorPhone || (profile?.phone ? `${profile?.phone_country_code || '+49'} ${profile.phone}` : ''),
+          advisorPhone: firstAdvisorPhone,
         },
       });
 
@@ -3053,24 +3053,22 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 )}
 
                 <View style={styles.pdfEditSection}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={styles.pdfEditSectionTitle}>Über den Spieler</Text>
-                    <TouchableOpacity
-                      onPress={generateAIDescription}
-                      disabled={generatingDescription}
-                      style={{
-                        marginLeft: 'auto',
-                        backgroundColor: generatingDescription ? '#999' : '#1a1a1a',
-                        paddingVertical: 6,
-                        paddingHorizontal: 12,
-                        borderRadius: 6,
-                      }}
-                    >
-                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>
-                        {generatingDescription ? 'Generiere...' : 'AI Text generieren'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
+                  <Text style={styles.pdfEditSectionTitle}>Über den Spieler</Text>
+                  <TouchableOpacity
+                    onPress={generateAIDescription}
+                    disabled={generatingDescription}
+                    style={{
+                      marginLeft: 'auto',
+                      backgroundColor: generatingDescription ? '#999' : '#1a1a1a',
+                      paddingVertical: 6,
+                      paddingHorizontal: 12,
+                      borderRadius: 6,
+                    }}
+                  >
+                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>
+                      {generatingDescription ? 'Generiere...' : 'AI Text generieren'}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
                 <View style={styles.pdfCareerEditCard}>
                   <TextInput
