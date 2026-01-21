@@ -276,6 +276,9 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   // AI Text Generation
   const [generatingDescription, setGeneratingDescription] = useState(false);
 
+  // Erste Berater E-Mail
+  const [firstAdvisorEmail, setFirstAdvisorEmail] = useState<string>('');
+
   // Date Picker für Karriere
   const [showCareerDatePicker, setShowCareerDatePicker] = useState<{index: number, field: 'from_date' | 'to_date'} | null>(null);
   
@@ -342,9 +345,10 @@ export function PlayerDetailScreen({ route, navigation }: any) {
 
       // Telefon des ersten Beraters laden
       if (advisors.length > 0) {
-        fetchFirstAdvisorPhone(advisors[0]);
+        fetchFirstAdvisorData(advisors[0]);
       } else {
         setFirstAdvisorPhone('');
+        setFirstAdvisorEmail('');
       }
     } else if (!showPDFProfileModal) {
       // Cleanup blob URL when modal closes
@@ -355,6 +359,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       setCareerEntriesLoaded(false); // Reset flag
       setPdfAdvisors([]);
       setFirstAdvisorPhone('');
+      setFirstAdvisorEmail('');
     }
   }, [showPDFProfileModal, player]);
 
@@ -370,13 +375,14 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     }
   }, [showPDFProfileModal, pdfEditMode, careerEntriesLoaded]);
 
-  // Telefonnummer des ersten Beraters laden
-  const fetchFirstAdvisorPhone = async (advisorName: string) => {
+  // Telefonnummer und E-Mail des ersten Beraters laden
+  const fetchFirstAdvisorData = async (advisorName: string) => {
     try {
       // Suche nach Vor- und Nachname
       const nameParts = advisorName.trim().split(/\s+/);
       if (nameParts.length < 2) {
         setFirstAdvisorPhone('');
+        setFirstAdvisorEmail('');
         return;
       }
 
@@ -385,20 +391,27 @@ export function PlayerDetailScreen({ route, navigation }: any) {
 
       const { data, error } = await supabase
         .from('advisors')
-        .select('phone, phone_country_code')
+        .select('phone, phone_country_code, email')
         .ilike('first_name', firstName)
         .ilike('last_name', lastName)
         .single();
 
-      if (!error && data?.phone) {
-        const phone = `${data.phone_country_code || '+49'} ${data.phone}`;
-        setFirstAdvisorPhone(phone);
+      if (!error && data) {
+        if (data.phone) {
+          const phone = `${data.phone_country_code || '+49'} ${data.phone}`;
+          setFirstAdvisorPhone(phone);
+        } else {
+          setFirstAdvisorPhone('');
+        }
+        setFirstAdvisorEmail(data.email || '');
       } else {
         setFirstAdvisorPhone('');
+        setFirstAdvisorEmail('');
       }
     } catch (err) {
-      console.error('Fehler beim Laden der Berater-Telefonnummer:', err);
+      console.error('Fehler beim Laden der Berater-Daten:', err);
       setFirstAdvisorPhone('');
+      setFirstAdvisorEmail('');
     }
   };
 
@@ -410,7 +423,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     setPdfAdvisors(newAdvisors);
     // Telefon des neuen ersten Beraters laden
     if (index === 1) {
-      fetchFirstAdvisorPhone(newAdvisors[0]);
+      fetchFirstAdvisorData(newAdvisors[0]);
     }
   };
 
@@ -422,7 +435,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     setPdfAdvisors(newAdvisors);
     // Telefon des neuen ersten Beraters laden
     if (index === 0) {
-      fetchFirstAdvisorPhone(newAdvisors[0]);
+      fetchFirstAdvisorData(newAdvisors[0]);
     }
   };
 
@@ -1103,7 +1116,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
             player: playerWithOrderedAdvisors,
             careerEntries,
             playerDescription,
-            advisorEmail: profile?.email,
+            advisorEmail: firstAdvisorEmail,
             advisorPhone: firstAdvisorPhone,
           },
         });
@@ -1195,7 +1208,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           player: playerWithOrderedAdvisors,
           careerEntries,
           playerDescription,
-          advisorEmail: profile?.email,
+          advisorEmail: firstAdvisorEmail,
           advisorPhone: firstAdvisorPhone,
         },
       });
@@ -3022,7 +3035,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                             newAdvisors.splice(index, 1);
                             newAdvisors.unshift(advisor);
                             setPdfAdvisors(newAdvisors);
-                            fetchFirstAdvisorPhone(advisor);
+                            fetchFirstAdvisorData(advisor);
                           }}
                           style={{
                             flexDirection: 'row',
