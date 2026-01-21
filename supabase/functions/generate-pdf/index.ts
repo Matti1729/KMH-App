@@ -119,8 +119,8 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
     ? 'Klaußnerweg 6, 82061 Neuried'
     : 'Hermann-Müller-Straße 22, 04416 Markkleeberg';
 
-  // E-Mail: Berater-E-Mail oder Fallback
-  const email = advisorEmail || (isKMH ? 'office@kmhsport.com' : 'info@pm-sportmanagement.com');
+  // E-Mail: Immer basierend auf Listung (KMH oder PM)
+  const email = isKMH ? 'office@kmhsport.com' : 'info@pm-sportmanagement.com';
 
   // Telefon: Berater-Telefon oder leer
   const phone = advisorPhone || '';
