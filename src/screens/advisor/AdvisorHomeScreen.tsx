@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Pressable } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Pressable, Modal, TextInput, Platform } from 'react-native';
 import { supabase } from '../../config/supabase';
 
 interface AdvisorProfile {
@@ -23,6 +23,12 @@ export function AdvisorHomeScreen({ navigation }: any) {
   const [todayGamesCount, setTodayGamesCount] = useState(0);
   const [tasksAndRemindersCount, setTasksAndRemindersCount] = useState(0);
   const [networkContactsCount, setNetworkContactsCount] = useState(0);
+
+  // Feedback State
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackType, setFeedbackType] = useState<'bug' | 'feature' | 'other'>('bug');
+  const [feedbackText, setFeedbackText] = useState('');
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
 
   useEffect(() => {
     fetchProfile();
@@ -196,6 +202,45 @@ export function AdvisorHomeScreen({ navigation }: any) {
     navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
   };
 
+  const submitFeedback = async () => {
+    if (!feedbackText.trim()) {
+      if (Platform.OS === 'web') {
+        window.alert('Bitte beschreibe das Problem oder den Vorschlag.');
+      }
+      return;
+    }
+
+    setSubmittingFeedback(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase.from('feedback').insert({
+        user_id: user?.id,
+        user_name: profile ? `${profile.first_name} ${profile.last_name}` : 'Unbekannt',
+        type: feedbackType,
+        description: feedbackText.trim(),
+        screen: 'dashboard',
+        status: 'open',
+        created_at: new Date().toISOString(),
+      });
+
+      if (error) throw error;
+
+      if (Platform.OS === 'web') {
+        window.alert('Danke für dein Feedback! Es wurde an den Admin gesendet.');
+      }
+      setFeedbackText('');
+      setFeedbackType('bug');
+      setShowFeedbackModal(false);
+    } catch (err: any) {
+      console.error('Feedback error:', err);
+      if (Platform.OS === 'web') {
+        window.alert('Fehler beim Senden: ' + err.message);
+      }
+    } finally {
+      setSubmittingFeedback(false);
+    }
+  };
+
   // Sidebar Navigation - alle Bereiche
   const navItems = [
     { id: 'players', label: 'KMH-Spieler', icon: '👤', screen: 'PlayerOverview' },
@@ -285,6 +330,20 @@ export function AdvisorHomeScreen({ navigation }: any) {
           </Pressable>
         )}
 
+        {/* Feedback Button */}
+        <Pressable
+          onHoverIn={() => setHoveredNav('feedback')}
+          onHoverOut={() => setHoveredNav(null)}
+          onPress={() => setShowFeedbackModal(true)}
+          style={[
+            styles.feedbackButton,
+            hoveredNav === 'feedback' && styles.feedbackButtonHovered
+          ]}
+        >
+          <Text style={styles.feedbackIcon}>💬</Text>
+          <Text style={styles.feedbackText}>Feedback / Bug</Text>
+        </Pressable>
+
         {/* Logout */}
         <Pressable
           onHoverIn={() => setHoveredNav('logout')}
@@ -299,6 +358,75 @@ export function AdvisorHomeScreen({ navigation }: any) {
           <Text style={styles.logoutText}>Logout</Text>
         </Pressable>
       </View>
+
+      {/* Feedback Modal */}
+      <Modal visible={showFeedbackModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Feedback / Bug melden</Text>
+
+            {/* Type Selection */}
+            <View style={styles.typeContainer}>
+              {[
+                { id: 'bug', label: '🐛 Bug/Fehler' },
+                { id: 'feature', label: '💡 Verbesserung' },
+                { id: 'other', label: '📝 Sonstiges' },
+              ].map((type) => (
+                <TouchableOpacity
+                  key={type.id}
+                  style={[
+                    styles.typeButton,
+                    feedbackType === type.id && styles.typeButtonActive,
+                  ]}
+                  onPress={() => setFeedbackType(type.id as any)}
+                >
+                  <Text style={[
+                    styles.typeButtonText,
+                    feedbackType === type.id && styles.typeButtonTextActive,
+                  ]}>{type.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Description */}
+            <Text style={styles.inputLabel}>Beschreibung</Text>
+            <TextInput
+              style={styles.textArea}
+              value={feedbackText}
+              onChangeText={setFeedbackText}
+              placeholder="Beschreibe das Problem oder deinen Vorschlag möglichst genau..."
+              multiline
+              numberOfLines={5}
+            />
+
+            <Text style={styles.hintText}>
+              Aktueller Bereich: Dashboard
+            </Text>
+
+            {/* Buttons */}
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => {
+                  setShowFeedbackModal(false);
+                  setFeedbackText('');
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Abbrechen</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.submitButton, submittingFeedback && { opacity: 0.6 }]}
+                onPress={submitFeedback}
+                disabled={submittingFeedback}
+              >
+                <Text style={styles.submitButtonText}>
+                  {submittingFeedback ? 'Sende...' : 'Absenden'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Main Content */}
       <View style={styles.mainContent}>
@@ -599,6 +727,123 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#ef4444',
     fontWeight: '500',
+  },
+  feedbackButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    marginTop: 8,
+    backgroundColor: '#f0f9ff',
+  },
+  feedbackButtonHovered: {
+    backgroundColor: '#e0f2fe',
+  },
+  feedbackIcon: {
+    fontSize: 18,
+    marginRight: 12,
+    width: 24,
+    textAlign: 'center',
+  },
+  feedbackText: {
+    fontSize: 14,
+    color: '#0284c7',
+    fontWeight: '500',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    width: 450,
+    maxWidth: '90%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1a1a1a',
+    marginBottom: 20,
+  },
+  typeContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  typeButton: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    alignItems: 'center',
+  },
+  typeButtonActive: {
+    backgroundColor: '#1a1a1a',
+    borderColor: '#1a1a1a',
+  },
+  typeButtonText: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
+  },
+  typeButtonTextActive: {
+    color: '#fff',
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  textArea: {
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    minHeight: 120,
+    textAlignVertical: 'top',
+    marginBottom: 12,
+  },
+  hintText: {
+    fontSize: 12,
+    color: '#9ca3af',
+    marginBottom: 16,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+  },
+  cancelButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  cancelButtonText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  submitButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    backgroundColor: '#1a1a1a',
+  },
+  submitButtonText: {
+    fontSize: 14,
+    color: '#fff',
+    fontWeight: '600',
   },
 
   // Main Content
