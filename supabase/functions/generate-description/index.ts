@@ -72,11 +72,20 @@ serve(async (req: Request) => {
   }
 
   try {
+    console.log("generate-description called");
+
     if (!ANTHROPIC_API_KEY) {
-      throw new Error("ANTHROPIC_API_KEY nicht konfiguriert");
+      console.error("ANTHROPIC_API_KEY is missing!");
+      return new Response(
+        JSON.stringify({ error: "ANTHROPIC_API_KEY nicht konfiguriert. Bitte in Supabase Edge Function Secrets hinzufügen." }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
+    console.log("API Key found, length:", ANTHROPIC_API_KEY.length);
+
     const { player, careerEntries = [] }: RequestBody = await req.json();
+    console.log("Player data received:", player?.first_name, player?.last_name);
 
     const age = calculateAge(player.birth_date);
     const positionFull = POSITION_MAP[player.position] || player.position;
@@ -167,12 +176,23 @@ Beispielstil:
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Claude API Fehler:", errorText);
-      throw new Error(`Claude API Fehler: ${response.status}`);
+      console.error("Claude API Fehler:", response.status, errorText);
+      return new Response(
+        JSON.stringify({ error: `Claude API Fehler: ${response.status} - ${errorText}` }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const data = await response.json();
+    console.log("Claude API response received");
     const generatedText = data.content?.[0]?.text || "";
+
+    if (!generatedText) {
+      return new Response(
+        JSON.stringify({ error: "Keine Beschreibung von Claude erhalten" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     return new Response(
       JSON.stringify({ description: generatedText.trim() }),
@@ -186,9 +206,9 @@ Beispielstil:
   } catch (error) {
     console.error("Fehler:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: `Fehler: ${error.message}` }),
       {
-        status: 500,
+        status: 200,
         headers: {
           ...corsHeaders,
           "Content-Type": "application/json",

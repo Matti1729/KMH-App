@@ -360,10 +360,15 @@ export function PlayerDetailScreen({ route, navigation }: any) {
 
   // PDF Vorschau generieren wenn nicht im Edit-Mode und Karriere-Daten geladen
   useEffect(() => {
-    if (showPDFProfileModal && !pdfEditMode && player && careerEntriesLoaded && Platform.OS === 'web' && !loadingPdfPreview && !pdfPreviewUrl) {
+    if (showPDFProfileModal && !pdfEditMode && player && careerEntriesLoaded && Platform.OS === 'web' && !loadingPdfPreview) {
+      // Immer neu generieren wenn Edit-Mode verlassen wird
+      if (pdfPreviewUrl) {
+        URL.revokeObjectURL(pdfPreviewUrl);
+        setPdfPreviewUrl(null);
+      }
       generatePdfPreview();
     }
-  }, [showPDFProfileModal, pdfEditMode, careerEntriesLoaded, pdfPreviewUrl]);
+  }, [showPDFProfileModal, pdfEditMode, careerEntriesLoaded]);
 
   // Telefonnummer des ersten Beraters laden
   const fetchFirstAdvisorPhone = async (advisorName: string) => {
@@ -3053,9 +3058,15 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                     <TouchableOpacity
                       onPress={generateAIDescription}
                       disabled={generatingDescription}
-                      style={styles.pdfAddCareerButton}
+                      style={{
+                        marginLeft: 'auto',
+                        backgroundColor: generatingDescription ? '#999' : '#1a1a1a',
+                        paddingVertical: 6,
+                        paddingHorizontal: 12,
+                        borderRadius: 6,
+                      }}
                     >
-                      <Text style={styles.pdfAddCareerButtonText}>
+                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>
                         {generatingDescription ? 'Generiere...' : 'AI Text generieren'}
                       </Text>
                     </TouchableOpacity>
