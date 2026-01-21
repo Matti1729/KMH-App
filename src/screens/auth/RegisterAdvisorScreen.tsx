@@ -65,21 +65,21 @@ export function RegisterAdvisorScreen({ navigation }: any) {
 
         <TextInput
           style={styles.input}
-          placeholder="Vorname"
+          placeholder="Vorname" placeholderTextColor="#999"
           value={firstName}
           onChangeText={setFirstName}
         />
 
         <TextInput
           style={styles.input}
-          placeholder="Nachname"
+          placeholder="Nachname" placeholderTextColor="#999"
           value={lastName}
           onChangeText={setLastName}
         />
 
         <TextInput
           style={styles.input}
-          placeholder="E-Mail"
+          placeholder="E-Mail" placeholderTextColor="#999"
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
@@ -89,7 +89,7 @@ export function RegisterAdvisorScreen({ navigation }: any) {
         <View style={styles.passwordContainer}>
           <TextInput
             style={styles.passwordInput}
-            placeholder="Passwort (min. 6 Zeichen)"
+            placeholder="Passwort (min. 6 Zeichen)" placeholderTextColor="#999"
             value={password}
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
@@ -107,7 +107,7 @@ export function RegisterAdvisorScreen({ navigation }: any) {
         <View style={styles.passwordContainer}>
           <TextInput
             style={styles.passwordInput}
-            placeholder="Passwort wiederholen"
+            placeholder="Passwort wiederholen" placeholderTextColor="#999"
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             secureTextEntry={!showPassword}

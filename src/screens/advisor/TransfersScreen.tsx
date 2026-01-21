@@ -897,7 +897,7 @@ export function TransfersScreen({ navigation }: any) {
                     value={formClubSearch} 
                     onChangeText={(t) => { setFormClubSearch(t); setShowFormClubDropdown(true); }}
                     onFocus={() => setShowFormClubDropdown(true)}
-                    placeholder="Verein suchen oder eingeben..."
+                    placeholder="Verein suchen oder eingeben..." placeholderTextColor="#999"
                     placeholderTextColor="#9ca3af"
                   />
                   {showFormClubDropdown && formClubSearch.length > 0 && (
@@ -926,7 +926,7 @@ export function TransfersScreen({ navigation }: any) {
                   style={styles.formInput} 
                   value={newClub.league || ''} 
                   onChangeText={(t) => setNewClub({...newClub, league: t})} 
-                  placeholder="z.B. Bundesliga, 2. Liga"
+                  placeholder="z.B. Bundesliga, 2. Liga" placeholderTextColor="#999"
                   placeholderTextColor="#9ca3af"
                   onFocus={() => setShowFormClubDropdown(false)}
                 />
@@ -956,7 +956,7 @@ export function TransfersScreen({ navigation }: any) {
                   style={styles.formInput} 
                   value={newClub.year_range || ''} 
                   onChangeText={(t) => setNewClub({...newClub, year_range: t})} 
-                  placeholder="z.B. 2005-2007"
+                  placeholder="z.B. 2005-2007" placeholderTextColor="#999"
                   placeholderTextColor="#9ca3af"
                   onFocus={() => setShowFormClubDropdown(false)}
                 />
@@ -968,7 +968,7 @@ export function TransfersScreen({ navigation }: any) {
                   style={styles.formInput} 
                   value={newClub.contact_person || ''} 
                   onChangeText={(t) => setNewClub({...newClub, contact_person: t})} 
-                  placeholder="Name des Kontakts"
+                  placeholder="Name des Kontakts" placeholderTextColor="#999"
                   placeholderTextColor="#9ca3af"
                   onFocus={() => setShowFormClubDropdown(false)}
                 />
@@ -980,7 +980,7 @@ export function TransfersScreen({ navigation }: any) {
                   style={[styles.formInput, { minHeight: 80 }]} 
                   value={newClub.notes || ''} 
                   onChangeText={(t) => setNewClub({...newClub, notes: t})} 
-                  placeholder="Weitere Informationen..."
+                  placeholder="Weitere Informationen..." placeholderTextColor="#999"
                   placeholderTextColor="#9ca3af"
                   multiline
                   onFocus={() => setShowFormClubDropdown(false)}

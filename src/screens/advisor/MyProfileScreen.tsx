@@ -325,7 +325,7 @@ export function MyProfileScreen({ navigation }: any) {
             <input
               type="text"
               style={{ marginTop: 12, padding: 10, fontSize: 14, borderRadius: 8, border: '1px solid #ddd', width: 250, textAlign: 'center' }}
-              placeholder="Foto-URL"
+              placeholder="Foto-URL" placeholderTextColor="#999"
               value={photoUrl}
               onChange={(e) => setPhotoUrl(e.target.value)}
             />
@@ -344,7 +344,7 @@ export function MyProfileScreen({ navigation }: any) {
                 style={{ padding: 12, fontSize: 15, borderRadius: 8, border: '1px solid #ddd', width: '100%', boxSizing: 'border-box' }}
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
-                placeholder="Vorname"
+                placeholder="Vorname" placeholderTextColor="#999"
               />
             ) : (
               <Text style={styles.value}>{firstName || '-'}</Text>
@@ -359,7 +359,7 @@ export function MyProfileScreen({ navigation }: any) {
                 style={{ padding: 12, fontSize: 15, borderRadius: 8, border: '1px solid #ddd', width: '100%', boxSizing: 'border-box' }}
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
-                placeholder="Nachname"
+                placeholder="Nachname" placeholderTextColor="#999"
               />
             ) : (
               <Text style={styles.value}>{lastName || '-'}</Text>
@@ -398,7 +398,7 @@ export function MyProfileScreen({ navigation }: any) {
                   style={{ padding: 12, fontSize: 15, borderRadius: 8, border: '1px solid #ddd', flex: 1 }}
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="Telefonnummer"
+                  placeholder="Telefonnummer" placeholderTextColor="#999"
                 />
               </div>
             ) : (
@@ -428,7 +428,7 @@ export function MyProfileScreen({ navigation }: any) {
                 style={{ padding: 12, fontSize: 15, borderRadius: 8, border: '1px solid #ddd', width: '100%', boxSizing: 'border-box' } as any}
                 value={email}
                 onChange={(e: any) => setEmail(e.target.value)}
-                placeholder="E-Mail-Adresse"
+                placeholder="E-Mail-Adresse" placeholderTextColor="#999"
               />
             ) : (
               <Text style={styles.value}>{email}</Text>
@@ -442,21 +442,21 @@ export function MyProfileScreen({ navigation }: any) {
                 <input
                   type="password"
                   style={{ padding: 12, fontSize: 15, borderRadius: 8, border: '1px solid #ddd', width: '100%', boxSizing: 'border-box', marginBottom: 8 }}
-                  placeholder="Aktuelles Passwort"
+                  placeholder="Aktuelles Passwort" placeholderTextColor="#999"
                   value={oldPassword}
                   onChange={(e) => setOldPassword(e.target.value)}
                 />
                 <input
                   type="password"
                   style={{ padding: 12, fontSize: 15, borderRadius: 8, border: '1px solid #ddd', width: '100%', boxSizing: 'border-box', marginBottom: 8 }}
-                  placeholder="Neues Passwort"
+                  placeholder="Neues Passwort" placeholderTextColor="#999"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                 />
                 <input
                   type="password"
                   style={{ padding: 12, fontSize: 15, borderRadius: 8, border: '1px solid #ddd', width: '100%', boxSizing: 'border-box' }}
-                  placeholder="Neues Passwort bestätigen"
+                  placeholder="Neues Passwort bestätigen" placeholderTextColor="#999"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                 />

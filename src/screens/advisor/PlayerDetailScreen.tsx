@@ -2954,7 +2954,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                           style={styles.pdfCareerEditInput} 
                           value={entry.club} 
                           onChangeText={(t) => updateCareerEntry(index, 'club', t)}
-                          placeholder="Verein"
+                          placeholder="Verein" placeholderTextColor="#999"
                         />
                       </View>
                       <View style={{ flex: 1, marginLeft: 6 }}>
@@ -2963,7 +2963,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                           style={styles.pdfCareerEditInput} 
                           value={entry.league} 
                           onChangeText={(t) => updateCareerEntry(index, 'league', t)}
-                          placeholder="Liga"
+                          placeholder="Liga" placeholderTextColor="#999"
                         />
                       </View>
                     </View>
@@ -2977,7 +2977,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                               style={styles.pdfCareerEditInput} 
                               value={entry.from_date} 
                               onChangeText={(t) => updateCareerEntry(index, 'from_date', t)}
-                              placeholder="01.07.2023"
+                              placeholder="01.07.2023" placeholderTextColor="#999"
                             />
                           </View>
                           <View style={{ marginTop: 18, marginLeft: 6 }}>
@@ -2999,7 +2999,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                               style={styles.pdfCareerEditInput} 
                               value={entry.from_date} 
                               onChangeText={(t) => updateCareerEntry(index, 'from_date', t)}
-                              placeholder="01.07.2023"
+                              placeholder="01.07.2023" placeholderTextColor="#999"
                             />
                           </View>
                           <View style={{ flex: 1, marginLeft: 6 }}>
@@ -3008,7 +3008,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                               style={styles.pdfCareerEditInput} 
                               value={entry.to_date} 
                               onChangeText={(t) => updateCareerEntry(index, 'to_date', t)}
-                              placeholder="30.06.2024"
+                              placeholder="30.06.2024" placeholderTextColor="#999"
                             />
                           </View>
                           <View style={{ marginTop: 18, marginLeft: 6 }}>
@@ -3029,7 +3029,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                           style={styles.pdfCareerEditInput}
                           value={entry.games || ''}
                           onChangeText={(t) => updateCareerEntry(index, 'games', t.replace(/[^0-9]/g, ''))}
-                          placeholder="0"
+                          placeholder="0" placeholderTextColor="#999"
                           keyboardType="numeric"
                         />
                       </View>
@@ -3039,7 +3039,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                           style={styles.pdfCareerEditInput}
                           value={entry.goals || ''}
                           onChangeText={(t) => updateCareerEntry(index, 'goals', t.replace(/[^0-9]/g, ''))}
-                          placeholder="0"
+                          placeholder="0" placeholderTextColor="#999"
                           keyboardType="numeric"
                         />
                       </View>
@@ -3049,7 +3049,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                           style={styles.pdfCareerEditInput}
                           value={entry.assists || ''}
                           onChangeText={(t) => updateCareerEntry(index, 'assists', t.replace(/[^0-9]/g, ''))}
-                          placeholder="0"
+                          placeholder="0" placeholderTextColor="#999"
                           keyboardType="numeric"
                         />
                       </View>
@@ -3126,7 +3126,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                     }}
                     value={aiBulletPoints}
                     onChangeText={setAiBulletPoints}
-                    placeholder="z.B. schnell am Ball, Führungsspieler, war verletzt - jetzt fit, technisch stark..."
+                    placeholder="z.B. schnell am Ball, Führungsspieler, war verletzt - jetzt fit, technisch stark..." placeholderTextColor="#999"
                     multiline
                     numberOfLines={3}
                   />
@@ -3166,7 +3166,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                     }}
                     value={playerDescription}
                     onChangeText={setPlayerDescription}
-                    placeholder="Hier erscheint der generierte Text oder schreibe selbst..."
+                    placeholder="Hier erscheint der generierte Text oder schreibe selbst..." placeholderTextColor="#999"
                     multiline
                     numberOfLines={6}
                   />

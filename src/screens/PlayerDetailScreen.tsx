@@ -2429,7 +2429,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                           style={styles.pdfCareerEditInput} 
                           value={entry.club} 
                           onChangeText={(t) => updateCareerEntry(index, 'club', t)}
-                          placeholder="Verein"
+                          placeholder="Verein" placeholderTextColor="#999"
                         />
                       </View>
                       <View style={{ flex: 1, marginLeft: 6 }}>
@@ -2438,7 +2438,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                           style={styles.pdfCareerEditInput} 
                           value={entry.league} 
                           onChangeText={(t) => updateCareerEntry(index, 'league', t)}
-                          placeholder="Liga"
+                          placeholder="Liga" placeholderTextColor="#999"
                         />
                       </View>
                     </View>
@@ -2452,7 +2452,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                               style={styles.pdfCareerEditInput} 
                               value={entry.from_date} 
                               onChangeText={(t) => updateCareerEntry(index, 'from_date', t)}
-                              placeholder="01.07.2023"
+                              placeholder="01.07.2023" placeholderTextColor="#999"
                             />
                           </View>
                           <View style={{ marginTop: 18, marginLeft: 6 }}>
@@ -2474,7 +2474,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                               style={styles.pdfCareerEditInput} 
                               value={entry.from_date} 
                               onChangeText={(t) => updateCareerEntry(index, 'from_date', t)}
-                              placeholder="01.07.2023"
+                              placeholder="01.07.2023" placeholderTextColor="#999"
                             />
                           </View>
                           <View style={{ flex: 1, marginLeft: 6 }}>
@@ -2483,7 +2483,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                               style={styles.pdfCareerEditInput} 
                               value={entry.to_date} 
                               onChangeText={(t) => updateCareerEntry(index, 'to_date', t)}
-                              placeholder="30.06.2024"
+                              placeholder="30.06.2024" placeholderTextColor="#999"
                             />
                           </View>
                           <View style={{ marginTop: 18, marginLeft: 6 }}>
@@ -2504,7 +2504,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                           style={styles.pdfCareerEditInput} 
                           value={entry.stats} 
                           onChangeText={(t) => updateCareerEntry(index, 'stats', t)}
-                          placeholder="25 Sp | 8 T | 5 A"
+                          placeholder="25 Sp | 8 T | 5 A" placeholderTextColor="#999"
                         />
                       </View>
                       {entry.id && (
@@ -2536,7 +2536,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                     }}
                     value={aiBulletPoints}
                     onChangeText={setAiBulletPoints}
-                    placeholder="z.B. schnell am Ball, Führungsspieler, technisch stark..."
+                    placeholder="z.B. schnell am Ball, Führungsspieler, technisch stark..." placeholderTextColor="#999"
                     multiline
                     numberOfLines={3}
                   />
@@ -2576,7 +2576,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                     }}
                     value={playerDescription}
                     onChangeText={setPlayerDescription}
-                    placeholder="Hier erscheint der generierte Text oder schreibe selbst..."
+                    placeholder="Hier erscheint der generierte Text oder schreibe selbst..." placeholderTextColor="#999"
                     multiline
                     numberOfLines={6}
                   />

@@ -1204,7 +1204,7 @@ export function ScoutingScreen({ navigation }: any) {
           onChangeText={(t) => { setSearchTxt(t); onSelect(t); setShowDrop(t.length > 0 && getFilteredClubs(t).length > 0); }} 
           onFocus={() => { if (searchTxt.length > 0 && getFilteredClubs(searchTxt).length > 0) setShowDrop(true); }}
           onBlur={() => setTimeout(() => setShowDrop(false), 200)}
-          placeholder="Verein suchen..."
+          placeholder="Verein suchen..." placeholderTextColor="#999"
           placeholderTextColor="#9ca3af"
         />
         {showDrop && list.length > 0 && (
@@ -1655,7 +1655,7 @@ export function ScoutingScreen({ navigation }: any) {
               style={styles.formInput} 
               value={data.phone || ''} 
               onChangeText={(t) => setData({...data, phone: t})} 
-              placeholder="Telefonnummer..."
+              placeholder="Telefonnummer..." placeholderTextColor="#999"
               placeholderTextColor="#9ca3af"
               keyboardType="phone-pad"
             />
@@ -1666,7 +1666,7 @@ export function ScoutingScreen({ navigation }: any) {
               style={styles.formInput} 
               value={data.current_status || ''} 
               onChangeText={(t) => setData({...data, current_status: t})} 
-              placeholder="z.B. Termin am 15.01."
+              placeholder="z.B. Termin am 15.01." placeholderTextColor="#999"
               placeholderTextColor="#9ca3af"
             />
           </View>
@@ -1728,7 +1728,7 @@ export function ScoutingScreen({ navigation }: any) {
               style={[styles.formInput, { flex: 1 }]} 
               value={data.transfermarkt_url || ''} 
               onChangeText={(t) => setData({...data, transfermarkt_url: t})} 
-              placeholder="https://www.transfermarkt.de/spieler/profil/..."
+              placeholder="https://www.transfermarkt.de/spieler/profil/..." placeholderTextColor="#999"
               placeholderTextColor="#9ca3af"
             />
             {data.transfermarkt_url && (
@@ -2206,7 +2206,7 @@ export function ScoutingScreen({ navigation }: any) {
                       style={[styles.formInput, { margin: 8, marginBottom: 0 }]}
                       value={newGame.game_type}
                       onChangeText={(t) => setNewGame({ ...newGame, game_type: t })}
-                      placeholder="Eigene Art eingeben..."
+                      placeholder="Eigene Art eingeben..." placeholderTextColor="#999"
                       placeholderTextColor="#9ca3af"
                       onFocus={(e) => e.stopPropagation?.()}
                     />
@@ -2335,7 +2335,7 @@ export function ScoutingScreen({ navigation }: any) {
                       style={styles.gameDetailTitleInput} 
                       value={editGameData.description || ''} 
                       onChangeText={(t) => setEditGameData({...editGameData, description: t})}
-                      placeholder="Beschreibung"
+                      placeholder="Beschreibung" placeholderTextColor="#999"
                     />
                   ) : (
                     <Text style={styles.gameDetailTitle}>{selectedGame.description || 'Scouting-Termin'}</Text>
@@ -2434,7 +2434,7 @@ export function ScoutingScreen({ navigation }: any) {
                                   style={[styles.formInput, { margin: 4, fontSize: 12 }]}
                                   value={editGameData.game_type || ''}
                                   onChangeText={(t) => setEditGameData({ ...editGameData, game_type: t })}
-                                  placeholder="Eigene Art..."
+                                  placeholder="Eigene Art..." placeholderTextColor="#999"
                                   placeholderTextColor="#9ca3af"
                                 />
                                 <ScrollView style={{ maxHeight: 120 }} nestedScrollEnabled>
@@ -2519,7 +2519,7 @@ export function ScoutingScreen({ navigation }: any) {
                       style={styles.addTeamInputNew}
                       value={newTeamName}
                       onChangeText={setNewTeamName}
-                      placeholder="Neue Mannschaft..."
+                      placeholder="Neue Mannschaft..." placeholderTextColor="#999"
                       placeholderTextColor="#9ca3af"
                       onSubmitEditing={addTeam}
                     />
@@ -2565,7 +2565,7 @@ export function ScoutingScreen({ navigation }: any) {
                           style={[styles.addPlayerInputNew, { width: 40 }]}
                           value={newGamePlayer.number}
                           onChangeText={(t) => setNewGamePlayer({...newGamePlayer, number: t})}
-                          placeholder="Nr."
+                          placeholder="Nr." placeholderTextColor="#999"
                           placeholderTextColor="#9ca3af"
                           onSubmitEditing={addGamePlayer}
                         />
@@ -2597,7 +2597,7 @@ export function ScoutingScreen({ navigation }: any) {
                           style={[styles.addPlayerInputNew, { width: 100 }]}
                           value={newGamePlayer.last_name}
                           onChangeText={(t) => setNewGamePlayer({...newGamePlayer, last_name: t})}
-                          placeholder="Nachname"
+                          placeholder="Nachname" placeholderTextColor="#999"
                           placeholderTextColor="#9ca3af"
                           onSubmitEditing={addGamePlayer}
                         />
@@ -2605,7 +2605,7 @@ export function ScoutingScreen({ navigation }: any) {
                           style={[styles.addPlayerInputNew, { width: 80 }]}
                           value={newGamePlayer.first_name}
                           onChangeText={(t) => setNewGamePlayer({...newGamePlayer, first_name: t})}
-                          placeholder="Vorname"
+                          placeholder="Vorname" placeholderTextColor="#999"
                           placeholderTextColor="#9ca3af"
                           onSubmitEditing={addGamePlayer}
                         />
@@ -2613,7 +2613,7 @@ export function ScoutingScreen({ navigation }: any) {
                           style={[styles.addPlayerInputNew, { width: 75 }]}
                           value={newGamePlayer.birth_year}
                           onChangeText={(t) => setNewGamePlayer({...newGamePlayer, birth_year: t})}
-                          placeholder="Jahrgang"
+                          placeholder="Jahrgang" placeholderTextColor="#999"
                           placeholderTextColor="#9ca3af"
                           onSubmitEditing={addGamePlayer}
                         />
@@ -2752,7 +2752,7 @@ export function ScoutingScreen({ navigation }: any) {
                         style={styles.playerEditInput}
                         value={selectedGamePlayer.number || ''}
                         onChangeText={(t) => updateSelectedGamePlayer('number', t)}
-                        placeholder="-"
+                        placeholder="-" placeholderTextColor="#999"
                         placeholderTextColor="#9ca3af"
                       />
                     </View>
@@ -2789,7 +2789,7 @@ export function ScoutingScreen({ navigation }: any) {
                         style={styles.playerEditInput}
                         value={selectedGamePlayer.last_name || ''}
                         onChangeText={(t) => updateSelectedGamePlayer('last_name', t)}
-                        placeholder="Nachname"
+                        placeholder="Nachname" placeholderTextColor="#999"
                         placeholderTextColor="#9ca3af"
                       />
                     </View>
@@ -2799,7 +2799,7 @@ export function ScoutingScreen({ navigation }: any) {
                         style={styles.playerEditInput}
                         value={selectedGamePlayer.first_name || ''}
                         onChangeText={(t) => updateSelectedGamePlayer('first_name', t)}
-                        placeholder="Vorname"
+                        placeholder="Vorname" placeholderTextColor="#999"
                         placeholderTextColor="#9ca3af"
                       />
                     </View>
@@ -2811,7 +2811,7 @@ export function ScoutingScreen({ navigation }: any) {
                         style={styles.playerEditInput}
                         value={selectedGamePlayer.birth_year || ''}
                         onChangeText={(t) => updateSelectedGamePlayer('birth_year', t)}
-                        placeholder="2008"
+                        placeholder="2008" placeholderTextColor="#999"
                         placeholderTextColor="#9ca3af"
                       />
                     </View>
@@ -2851,7 +2851,7 @@ export function ScoutingScreen({ navigation }: any) {
                       style={[styles.playerEditInput, styles.textArea, { minHeight: 100 }]}
                       value={editingPlayerNotes}
                       onChangeText={setEditingPlayerNotes}
-                      placeholder="Notizen zum Spieler..."
+                      placeholder="Notizen zum Spieler..." placeholderTextColor="#999"
                       placeholderTextColor="#9ca3af"
                       multiline
                     />
@@ -3029,7 +3029,7 @@ export function ScoutingScreen({ navigation }: any) {
                 style={[styles.formInput, styles.textArea]} 
                 value={archiveReason} 
                 onChangeText={setArchiveReason} 
-                placeholder="z.B. Kein Interesse, Spieler hat abgesagt, andere Agentur gewählt..."
+                placeholder="z.B. Kein Interesse, Spieler hat abgesagt, andere Agentur gewählt..." placeholderTextColor="#999"
                 placeholderTextColor="#9ca3af"
                 multiline
               />

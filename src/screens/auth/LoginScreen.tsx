@@ -88,7 +88,7 @@ export function LoginScreen({ navigation }: any) {
 
         <TextInput
           style={styles.input}
-          placeholder="E-Mail"
+          placeholder="E-Mail" placeholderTextColor="#999"
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
@@ -97,7 +97,7 @@ export function LoginScreen({ navigation }: any) {
 
         <TextInput
           style={styles.input}
-          placeholder="Passwort"
+          placeholder="Passwort" placeholderTextColor="#999"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -127,7 +127,7 @@ export function LoginScreen({ navigation }: any) {
             <Text style={styles.modalSubtitle}>Bitte Einladungscode eingeben</Text>
             <TextInput
               style={[styles.modalInput, codeError && styles.modalInputError]}
-              placeholder="Einladungscode"
+              placeholder="Einladungscode" placeholderTextColor="#999"
               value={advisorCode}
               onChangeText={(text) => { setAdvisorCode(text); setCodeError(null); }}
               autoCapitalize="none"

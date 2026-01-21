@@ -209,7 +209,7 @@ export function Sidebar({ navigation, activeScreen, profile }: SidebarProps) {
               style={styles.textArea}
               value={feedbackText}
               onChangeText={setFeedbackText}
-              placeholder="Beschreibe das Problem oder deinen Vorschlag möglichst genau..."
+              placeholder="Beschreibe das Problem oder deinen Vorschlag möglichst genau..." placeholderTextColor="#999"
               multiline
               numberOfLines={5}
             />

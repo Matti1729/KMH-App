@@ -39,21 +39,21 @@ export function RegisterScreen({ navigation }: any) {
 
         <TextInput
           style={styles.input}
-          placeholder="Vorname"
+          placeholder="Vorname" placeholderTextColor="#999"
           value={firstName}
           onChangeText={setFirstName}
         />
 
         <TextInput
           style={styles.input}
-          placeholder="Nachname"
+          placeholder="Nachname" placeholderTextColor="#999"
           value={lastName}
           onChangeText={setLastName}
         />
 
         <TextInput
           style={styles.input}
-          placeholder="E-Mail"
+          placeholder="E-Mail" placeholderTextColor="#999"
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
@@ -62,7 +62,7 @@ export function RegisterScreen({ navigation }: any) {
 
         <TextInput
           style={styles.input}
-          placeholder="Passwort"
+          placeholder="Passwort" placeholderTextColor="#999"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
