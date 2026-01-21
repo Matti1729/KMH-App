@@ -140,9 +140,9 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
     }
 
     return `
-    <div style="display: flex; margin-bottom: 18px; position: relative;">
-      ${index < careerEntries.length - 1 ? '<div style="position: absolute; left: 3px; top: 10px; bottom: -14px; width: 1px; background-color: #c0c0c0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>' : ''}
-      <div style="width: 7px; height: 7px; border-radius: 50%; background-color: #888 !important; margin-top: 4px; margin-right: 10px; flex-shrink: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
+    <div style="display: flex; margin-bottom: 20px; position: relative;">
+      ${index < careerEntries.length - 1 ? '<div style="position: absolute; left: 3px; top: 8px; bottom: -16px; width: 1px; background-color: #c0c0c0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>' : ''}
+      <div style="width: 7px; height: 7px; border-radius: 50%; background-color: #888 !important; margin-top: 5px; margin-right: 10px; flex-shrink: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
       <div style="flex: 1;">
         <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
           <div style="flex: 1;">
@@ -313,7 +313,7 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
         ${careerHtml}
 
         ${playerDescription ? `
-          <div style="margin-top: 16px; background-color: #f8f8f8 !important; padding: 12px; border-radius: 8px; border-left: 3px solid #1a1a1a; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+          <div style="margin-top: 40px; background-color: #f8f8f8 !important; padding: 12px; border-radius: 8px; border-left: 3px solid #1a1a1a; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
             <div style="font-size: 12px; color: #333; line-height: 18px; font-style: italic;">${playerDescription}</div>
           </div>
         ` : ''}
