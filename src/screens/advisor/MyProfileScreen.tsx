@@ -138,6 +138,12 @@ export function MyProfileScreen({ navigation }: any) {
   const handleSave = async () => {
     if (!profile) return;
 
+    // Validate required email
+    if (!email || !email.includes('@')) {
+      Alert.alert('Fehler', 'Bitte gib eine gültige E-Mail-Adresse ein');
+      return;
+    }
+
     setSaving(true);
     console.log('Saving profile...', { firstName, lastName, birthDate, phone, phoneCode, photoUrl, email });
 
@@ -187,6 +193,7 @@ export function MyProfileScreen({ navigation }: any) {
 
   const handleCancel = () => {
     setEditing(false);
+    // Restore all original values
     if (profile) {
       setFirstName(profile.first_name || '');
       setLastName(profile.last_name || '');
@@ -195,6 +202,7 @@ export function MyProfileScreen({ navigation }: any) {
       setPhoneCode(profile.phone_country_code || '+49');
       setPhotoUrl(profile.photo_url || '');
     }
+    setEmail(originalEmail);
   };
 
   const handlePasswordChange = async () => {
