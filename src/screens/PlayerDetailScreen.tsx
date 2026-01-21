@@ -104,7 +104,9 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const [careerEntries, setCareerEntries] = useState<CareerEntry[]>([]);
   const [loadingCareer, setLoadingCareer] = useState(false);
   const [playerDescription, setPlayerDescription] = useState('');
-  
+  const [aiBulletPoints, setAiBulletPoints] = useState('');
+  const [generatingDescription, setGeneratingDescription] = useState(false);
+
   // PDF iframe ref für scroll reset
   const pdfIframeRef = useRef<HTMLIFrameElement | null>(null);
   
@@ -241,6 +243,63 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     }
     
     setLoadingCareer(false);
+  };
+
+  // AI Text Generation für Spielerbeschreibung
+  const generateAIDescription = async () => {
+    if (!player) return;
+
+    setGeneratingDescription(true);
+    console.log('AI Generation - bulletPoints:', aiBulletPoints);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-description', {
+        body: {
+          player: {
+            first_name: player.first_name,
+            last_name: player.last_name,
+            position: player.position,
+            secondary_position: player.secondary_position,
+            nationality: player.nationality,
+            birth_date: player.birth_date,
+            height: player.height,
+            strengths: player.strengths,
+            club: player.club,
+            league: player.league,
+          },
+          careerEntries: careerEntries.map(e => ({
+            club: e.club,
+            league: e.league,
+            from_date: e.from_date,
+            to_date: e.to_date,
+            is_current: e.is_current,
+          })),
+          bulletPoints: aiBulletPoints || '',
+        },
+      });
+
+      console.log('AI Generation Response:', { data, error });
+
+      if (error) {
+        console.error('AI Generation Error:', error);
+        Alert.alert('Fehler', error.message || 'Text konnte nicht generiert werden');
+        return;
+      }
+
+      if (data?.error) {
+        console.error('AI Generation Data Error:', data.error);
+        Alert.alert('Fehler', data.error || 'Text konnte nicht generiert werden');
+        return;
+      }
+
+      if (data?.description) {
+        setPlayerDescription(data.description);
+      }
+    } catch (err) {
+      console.error('AI Generation Exception:', err);
+      Alert.alert('Fehler', 'Text konnte nicht generiert werden');
+    } finally {
+      setGeneratingDescription(false);
+    }
   };
 
   const saveCareerEntry = async (entry: CareerEntry) => {
@@ -2416,17 +2475,69 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                   </View>
                 ))}
                 
-                <View style={styles.pdfEditSection}>
-                  <Text style={styles.pdfEditSectionTitle}>Über den Spieler</Text>
-                </View>
-                <View style={styles.pdfCareerEditCard}>
-                  <TextInput 
-                    style={styles.pdfDescriptionEditInput} 
-                    value={playerDescription} 
-                    onChangeText={setPlayerDescription}
-                    placeholder="Beschreibung des Spielers, Stärken, Besonderheiten..."
+                <Text style={[styles.pdfEditSectionTitle, { marginTop: 16, marginBottom: 8 }]}>Über den Spieler</Text>
+
+                {/* Feld 1: Stichpunkte eingeben */}
+                <View style={{ backgroundColor: '#f5f5f5', borderRadius: 8, padding: 12, marginBottom: 12 }}>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#333', marginBottom: 6 }}>
+                    Stichpunkte für AI (optional)
+                  </Text>
+                  <TextInput
+                    style={{
+                      backgroundColor: '#fff',
+                      borderWidth: 1,
+                      borderColor: '#ddd',
+                      borderRadius: 6,
+                      padding: 10,
+                      fontSize: 14,
+                      minHeight: 80,
+                      textAlignVertical: 'top',
+                    }}
+                    value={aiBulletPoints}
+                    onChangeText={setAiBulletPoints}
+                    placeholder="z.B. schnell am Ball, Führungsspieler, technisch stark..."
                     multiline
-                    numberOfLines={4}
+                    numberOfLines={3}
+                  />
+                  <TouchableOpacity
+                    onPress={generateAIDescription}
+                    disabled={generatingDescription}
+                    style={{
+                      backgroundColor: generatingDescription ? '#999' : '#1a1a1a',
+                      paddingVertical: 10,
+                      paddingHorizontal: 16,
+                      borderRadius: 6,
+                      marginTop: 10,
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>
+                      {generatingDescription ? 'Generiere...' : 'AI Text generieren'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Feld 2: Generierter Text (bearbeitbar) */}
+                <View style={{ backgroundColor: '#fff', borderRadius: 8, padding: 12, borderWidth: 1, borderColor: '#ddd' }}>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#333', marginBottom: 6 }}>
+                    Spielerbeschreibung (bearbeitbar)
+                  </Text>
+                  <TextInput
+                    style={{
+                      backgroundColor: '#fafafa',
+                      borderWidth: 1,
+                      borderColor: '#e0e0e0',
+                      borderRadius: 6,
+                      padding: 10,
+                      fontSize: 14,
+                      minHeight: 120,
+                      textAlignVertical: 'top',
+                    }}
+                    value={playerDescription}
+                    onChangeText={setPlayerDescription}
+                    placeholder="Hier erscheint der generierte Text oder schreibe selbst..."
+                    multiline
+                    numberOfLines={6}
                   />
                 </View>
               </ScrollView>

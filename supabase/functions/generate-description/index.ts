@@ -38,6 +38,7 @@ interface PlayerData {
 interface RequestBody {
   player: PlayerData;
   careerEntries?: CareerEntry[];
+  bulletPoints?: string;
 }
 
 function calculateAge(birthDate: string): number {
@@ -84,8 +85,9 @@ serve(async (req: Request) => {
 
     console.log("API Key found, length:", ANTHROPIC_API_KEY.length);
 
-    const { player, careerEntries = [] }: RequestBody = await req.json();
+    const { player, careerEntries = [], bulletPoints = '' }: RequestBody = await req.json();
     console.log("Player data received:", player?.first_name, player?.last_name);
+    console.log("Bullet points received:", bulletPoints);
 
     const age = calculateAge(player.birth_date);
     const positionFull = POSITION_MAP[player.position] || player.position;
@@ -143,6 +145,7 @@ Spielerdaten:
 ${totalGames > 0 ? `- Karriere-Statistiken: ${totalGames} Spiele, ${totalGoals} Tore, ${totalAssists} Vorlagen` : ''}
 ${topLeague ? `- Höchste Liga: ${topLeague}` : ''}
 ${hasNationalTeam ? '- Hat bereits Nationalmannschaftserfahrung' : ''}
+${bulletPoints ? `\nZusätzliche Hinweise vom Berater (bitte in den Text einbauen):\n${bulletPoints}` : ''}
 
 Regeln für den Text:
 1. Beginne mit dem VORNAMEN (nur Vorname, nicht der volle Name!) und charakteristischen Adjektiven (z.B. "${player.first_name} ist ein hochveranlagter, deutscher Innenverteidiger")
@@ -155,6 +158,7 @@ Regeln für den Text:
 8. WICHTIG: Erfinde KEINE Informationen! Verwende NUR die oben angegebenen Fakten.
 9. Schreibe professionell aber nicht übertrieben
 10. Nur den reinen Text ausgeben, keine Anführungszeichen oder Formatierung
+11. Wenn zusätzliche Hinweise vom Berater angegeben sind, baue diese natürlich in den Text ein
 
 Beispielstil:
 "Elias ist ein hochveranlagter, deutscher Innenverteidiger, der mit erst 19 Jahren bereits über 25 Einsätze in der 3. Liga vorweisen kann. Mit seiner Körpergröße von 1,93 m bringt er eine ausgeprägte körperliche Präsenz mit, die ihn im Luftduell und in der Zweikampfführung zu einem unangenehmen Gegenspieler macht. Neben seiner Robustheit überzeugt er durch seine Spieleröffnung, sein gutes Stellungsspiel und seine Führungsqualitäten."`;

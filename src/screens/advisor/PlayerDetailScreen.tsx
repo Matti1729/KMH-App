@@ -275,6 +275,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
 
   // AI Text Generation
   const [generatingDescription, setGeneratingDescription] = useState(false);
+  const [aiBulletPoints, setAiBulletPoints] = useState('');
 
   // Erste Berater E-Mail
   const [firstAdvisorEmail, setFirstAdvisorEmail] = useState<string>('');
@@ -1043,6 +1044,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     if (!player) return;
 
     setGeneratingDescription(true);
+    console.log('AI Generation - bulletPoints:', aiBulletPoints);
     try {
       const { data, error } = await supabase.functions.invoke('generate-description', {
         body: {
@@ -1068,6 +1070,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
             assists: e.assists,
             is_current: e.is_current,
           })),
+          bulletPoints: aiBulletPoints || '',
         },
       });
 
@@ -3065,32 +3068,69 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                   </View>
                 )}
 
-                <View style={styles.pdfEditSection}>
-                  <Text style={styles.pdfEditSectionTitle}>Über den Spieler</Text>
+                <Text style={[styles.pdfEditSectionTitle, { marginTop: 16, marginBottom: 8 }]}>Über den Spieler</Text>
+
+                {/* Feld 1: Stichpunkte eingeben */}
+                <View style={{ backgroundColor: '#f5f5f5', borderRadius: 8, padding: 12, marginBottom: 12 }}>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#333', marginBottom: 6 }}>
+                    Stichpunkte für AI (optional)
+                  </Text>
+                  <TextInput
+                    style={{
+                      backgroundColor: '#fff',
+                      borderWidth: 1,
+                      borderColor: '#ddd',
+                      borderRadius: 6,
+                      padding: 10,
+                      fontSize: 14,
+                      minHeight: 80,
+                      textAlignVertical: 'top',
+                    }}
+                    value={aiBulletPoints}
+                    onChangeText={setAiBulletPoints}
+                    placeholder="z.B. schnell am Ball, Führungsspieler, war verletzt - jetzt fit, technisch stark..."
+                    multiline
+                    numberOfLines={3}
+                  />
                   <TouchableOpacity
                     onPress={generateAIDescription}
                     disabled={generatingDescription}
                     style={{
-                      marginLeft: 'auto',
                       backgroundColor: generatingDescription ? '#999' : '#1a1a1a',
-                      paddingVertical: 6,
-                      paddingHorizontal: 12,
+                      paddingVertical: 10,
+                      paddingHorizontal: 16,
                       borderRadius: 6,
+                      marginTop: 10,
+                      alignItems: 'center',
                     }}
                   >
-                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>
+                    <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>
                       {generatingDescription ? 'Generiere...' : 'AI Text generieren'}
                     </Text>
                   </TouchableOpacity>
                 </View>
-                <View style={styles.pdfCareerEditCard}>
+
+                {/* Feld 2: Generierter Text (bearbeitbar) */}
+                <View style={{ backgroundColor: '#fff', borderRadius: 8, padding: 12, borderWidth: 1, borderColor: '#ddd' }}>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#333', marginBottom: 6 }}>
+                    Spielerbeschreibung (bearbeitbar)
+                  </Text>
                   <TextInput
-                    style={styles.pdfDescriptionEditInput}
+                    style={{
+                      backgroundColor: '#fafafa',
+                      borderWidth: 1,
+                      borderColor: '#e0e0e0',
+                      borderRadius: 6,
+                      padding: 10,
+                      fontSize: 14,
+                      minHeight: 120,
+                      textAlignVertical: 'top',
+                    }}
                     value={playerDescription}
                     onChangeText={setPlayerDescription}
-                    placeholder="Beschreibung des Spielers, Stärken, Besonderheiten..."
+                    placeholder="Hier erscheint der generierte Text oder schreibe selbst..."
                     multiline
-                    numberOfLines={4}
+                    numberOfLines={6}
                   />
                 </View>
               </ScrollView>
