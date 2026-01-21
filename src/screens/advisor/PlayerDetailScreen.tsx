@@ -268,6 +268,10 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const [careerEntriesLoaded, setCareerEntriesLoaded] = useState(false);
   const [loadingStats, setLoadingStats] = useState(false);
   const [playerDescription, setPlayerDescription] = useState('');
+
+  // PDF Ansprechpartner Reihenfolge
+  const [pdfAdvisors, setPdfAdvisors] = useState<string[]>([]);
+  const [firstAdvisorPhone, setFirstAdvisorPhone] = useState<string>('');
   
   // Date Picker für Karriere
   const [showCareerDatePicker, setShowCareerDatePicker] = useState<{index: number, field: 'from_date' | 'to_date'} | null>(null);
@@ -326,6 +330,19 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       fetchCareerEntries();
       setPdfEditData({ ...player });
       setPdfPreviewUrl(null); // Reset preview when opening
+
+      // Ansprechpartner initialisieren
+      const advisors = player.responsibility
+        ? player.responsibility.split(/,\s*|&\s*/).map(s => s.trim()).filter(s => s)
+        : [];
+      setPdfAdvisors(advisors);
+
+      // Telefon des ersten Beraters laden
+      if (advisors.length > 0) {
+        fetchFirstAdvisorPhone(advisors[0]);
+      } else {
+        setFirstAdvisorPhone('');
+      }
     } else if (!showPDFProfileModal) {
       // Cleanup blob URL when modal closes
       if (pdfPreviewUrl) {
@@ -333,6 +350,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         setPdfPreviewUrl(null);
       }
       setCareerEntriesLoaded(false); // Reset flag
+      setPdfAdvisors([]);
+      setFirstAdvisorPhone('');
     }
   }, [showPDFProfileModal, player]);
 
@@ -342,6 +361,62 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       generatePdfPreview();
     }
   }, [showPDFProfileModal, pdfEditMode, careerEntriesLoaded, pdfPreviewUrl]);
+
+  // Telefonnummer des ersten Beraters laden
+  const fetchFirstAdvisorPhone = async (advisorName: string) => {
+    try {
+      // Suche nach Vor- und Nachname
+      const nameParts = advisorName.trim().split(/\s+/);
+      if (nameParts.length < 2) {
+        setFirstAdvisorPhone('');
+        return;
+      }
+
+      const firstName = nameParts[0];
+      const lastName = nameParts.slice(1).join(' ');
+
+      const { data, error } = await supabase
+        .from('advisors')
+        .select('phone, phone_country_code')
+        .ilike('first_name', firstName)
+        .ilike('last_name', lastName)
+        .single();
+
+      if (!error && data?.phone) {
+        const phone = `${data.phone_country_code || '+49'} ${data.phone}`;
+        setFirstAdvisorPhone(phone);
+      } else {
+        setFirstAdvisorPhone('');
+      }
+    } catch (err) {
+      console.error('Fehler beim Laden der Berater-Telefonnummer:', err);
+      setFirstAdvisorPhone('');
+    }
+  };
+
+  // Berater nach oben verschieben
+  const moveAdvisorUp = (index: number) => {
+    if (index <= 0) return;
+    const newAdvisors = [...pdfAdvisors];
+    [newAdvisors[index - 1], newAdvisors[index]] = [newAdvisors[index], newAdvisors[index - 1]];
+    setPdfAdvisors(newAdvisors);
+    // Telefon des neuen ersten Beraters laden
+    if (index === 1) {
+      fetchFirstAdvisorPhone(newAdvisors[0]);
+    }
+  };
+
+  // Berater nach unten verschieben
+  const moveAdvisorDown = (index: number) => {
+    if (index >= pdfAdvisors.length - 1) return;
+    const newAdvisors = [...pdfAdvisors];
+    [newAdvisors[index], newAdvisors[index + 1]] = [newAdvisors[index + 1], newAdvisors[index]];
+    setPdfAdvisors(newAdvisors);
+    // Telefon des neuen ersten Beraters laden
+    if (index === 0) {
+      fetchFirstAdvisorPhone(newAdvisors[0]);
+    }
+  };
 
   const fetchCareerEntries = async () => {
     setLoadingCareer(true);
@@ -950,15 +1025,18 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     try {
       // ✅ WEB: Server-seitige PDF via Browserless (perfekte Qualität!)
       if (Platform.OS === 'web') {
-        // Edge Function aufrufen
-        const advisorPhone = profile?.phone ? `${profile?.phone_country_code || '+49'} ${profile.phone}` : '';
+        // Edge Function aufrufen mit geordneten Beratern
+        const playerWithOrderedAdvisors = {
+          ...player,
+          responsibility: pdfAdvisors.length > 0 ? pdfAdvisors.join(', ') : player.responsibility
+        };
         const { data, error } = await supabase.functions.invoke('generate-pdf', {
           body: {
-            player,
+            player: playerWithOrderedAdvisors,
             careerEntries,
             playerDescription,
             advisorEmail: profile?.email,
-            advisorPhone,
+            advisorPhone: firstAdvisorPhone || (profile?.phone ? `${profile?.phone_country_code || '+49'} ${profile.phone}` : ''),
           },
         });
 
@@ -1039,14 +1117,18 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       );
 
       // Edge Function aufrufen (gleiche wie beim Download)
-      const advisorPhone = profile?.phone ? `${profile?.phone_country_code || '+49'} ${profile.phone}` : '';
+      // Verwende die geordneten Berater und die Telefonnummer des ersten Beraters
+      const playerWithOrderedAdvisors = {
+        ...player,
+        responsibility: pdfAdvisors.length > 0 ? pdfAdvisors.join(', ') : player.responsibility
+      };
       const fetchPromise = supabase.functions.invoke('generate-pdf', {
         body: {
-          player,
+          player: playerWithOrderedAdvisors,
           careerEntries,
           playerDescription,
           advisorEmail: profile?.email,
-          advisorPhone,
+          advisorPhone: firstAdvisorPhone || (profile?.phone ? `${profile?.phone_country_code || '+49'} ${profile.phone}` : ''),
         },
       });
 
@@ -2871,13 +2953,51 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                   </View>
                 ))}
                 
+                {/* Ansprechpartner Reihenfolge */}
+                {pdfAdvisors.length > 1 && (
+                  <>
+                    <View style={styles.pdfEditSection}>
+                      <Text style={styles.pdfEditSectionTitle}>Ansprechpartner Reihenfolge</Text>
+                      <Text style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
+                        Der oberste Berater wird mit Telefonnummer im PDF angezeigt
+                      </Text>
+                    </View>
+                    <View style={styles.pdfCareerEditCard}>
+                      {pdfAdvisors.map((advisor, index) => (
+                        <View key={index} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: index < pdfAdvisors.length - 1 ? 1 : 0, borderBottomColor: '#eee' }}>
+                          <Text style={{ flex: 1, fontSize: 14, fontWeight: index === 0 ? '600' : '400' }}>
+                            {index === 0 ? '👤 ' : ''}{advisor}
+                            {index === 0 && firstAdvisorPhone ? ` (${firstAdvisorPhone})` : ''}
+                          </Text>
+                          <View style={{ flexDirection: 'row', gap: 4 }}>
+                            <TouchableOpacity
+                              style={{ padding: 8, opacity: index === 0 ? 0.3 : 1 }}
+                              onPress={() => moveAdvisorUp(index)}
+                              disabled={index === 0}
+                            >
+                              <Text style={{ fontSize: 16 }}>↑</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={{ padding: 8, opacity: index === pdfAdvisors.length - 1 ? 0.3 : 1 }}
+                              onPress={() => moveAdvisorDown(index)}
+                              disabled={index === pdfAdvisors.length - 1}
+                            >
+                              <Text style={{ fontSize: 16 }}>↓</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  </>
+                )}
+
                 <View style={styles.pdfEditSection}>
                   <Text style={styles.pdfEditSectionTitle}>Über den Spieler</Text>
                 </View>
                 <View style={styles.pdfCareerEditCard}>
-                  <TextInput 
-                    style={styles.pdfDescriptionEditInput} 
-                    value={playerDescription} 
+                  <TextInput
+                    style={styles.pdfDescriptionEditInput}
+                    value={playerDescription}
                     onChangeText={setPlayerDescription}
                     placeholder="Beschreibung des Spielers, Stärken, Besonderheiten..."
                     multiline
