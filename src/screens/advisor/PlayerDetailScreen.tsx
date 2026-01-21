@@ -2817,23 +2817,10 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               /* Bearbeitungsmodus */
               <ScrollView style={styles.pdfModalContent}>
                 <View style={styles.pdfEditSection}>
-                  <Text style={styles.pdfEditSectionTitle}>Karriereverlauf der letzten 3 Jahre</Text>
-                  <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-                    <TouchableOpacity style={styles.pdfAddCareerButton} onPress={addNewCareerEntry}>
-                      <Text style={styles.pdfAddCareerButtonText}>+ Station hinzufügen</Text>
-                    </TouchableOpacity>
-                    {player?.transfermarkt_url && (
-                      <TouchableOpacity
-                        style={[styles.pdfAddCareerButton, { backgroundColor: '#1a4d8c' }]}
-                        onPress={loadTransfermarktStats}
-                        disabled={loadingStats}
-                      >
-                        <Text style={styles.pdfAddCareerButtonText}>
-                          {loadingStats ? 'Laden...' : '📊 Stats von Transfermarkt laden'}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
+                  <Text style={styles.pdfEditSectionTitle}>Karriereverlauf der letzten Jahre</Text>
+                  <TouchableOpacity style={styles.pdfAddCareerButton} onPress={addNewCareerEntry}>
+                    <Text style={styles.pdfAddCareerButtonText}>+ Station hinzufügen</Text>
+                  </TouchableOpacity>
                 </View>
 
                 {careerEntries.map((entry, index) => (
