@@ -142,17 +142,18 @@ ${topLeague ? `- Höchste Liga: ${topLeague}` : ''}
 ${hasNationalTeam ? '- Hat bereits Nationalmannschaftserfahrung' : ''}
 
 Regeln für den Text:
-1. Beginne mit dem Vornamen und charakteristischen Adjektiven (z.B. "Elias ist ein hochveranlagter, deutscher Innenverteidiger")
-2. Bei jungen Spielern (unter 23) erwähne das Alter als positiv ("mit erst X Jahren")
-3. Bei großen Spielern (über 185cm) erwähne die Körpergröße als Vorteil
-4. Erwähne bemerkenswerte Statistiken wenn vorhanden
-5. Integriere die Stärken natürlich in den Text
-6. Bei Nationalmannschaftserfahrung erwähne dies
-7. Schreibe professionell aber nicht übertrieben
-8. Nur den reinen Text ausgeben, keine Anführungszeichen oder Formatierung
+1. Beginne mit dem VORNAMEN (nur Vorname, nicht der volle Name!) und charakteristischen Adjektiven (z.B. "${player.first_name} ist ein hochveranlagter, deutscher Innenverteidiger")
+2. Verwende im gesamten Text NUR den Vornamen, NIEMALS den Nachnamen
+3. Bei jungen Spielern (unter 23) erwähne das Alter als positiv ("mit erst X Jahren")
+4. Bei großen Spielern (über 185cm) erwähne die Körpergröße als Vorteil
+5. Erwähne bemerkenswerte Statistiken wenn vorhanden
+6. Integriere die Stärken natürlich in den Text
+7. Bei Nationalmannschaftserfahrung erwähne dies
+8. Schreibe professionell aber nicht übertrieben
+9. Nur den reinen Text ausgeben, keine Anführungszeichen oder Formatierung
 
 Beispielstil:
-"Elias Decker ist ein hochveranlagter, deutscher Innenverteidiger, der mit erst 19 Jahren bereits über 25 Einsätze in der 3. Liga vorweisen kann. Mit seiner Körpergröße von 1,93 m bringt er eine ausgeprägte körperliche Präsenz mit, die ihn im Luftduell und in der Zweikampfführung zu einem unangenehmen Gegenspieler macht. Neben seiner Robustheit überzeugt er durch seine Spieleröffnung, sein gutes Stellungsspiel und seine Führungsqualitäten."`;
+"Elias ist ein hochveranlagter, deutscher Innenverteidiger, der mit erst 19 Jahren bereits über 25 Einsätze in der 3. Liga vorweisen kann. Mit seiner Körpergröße von 1,93 m bringt er eine ausgeprägte körperliche Präsenz mit, die ihn im Luftduell und in der Zweikampfführung zu einem unangenehmen Gegenspieler macht. Neben seiner Robustheit überzeugt er durch seine Spieleröffnung, sein gutes Stellungsspiel und seine Führungsqualitäten."`;
 
     // Rufe Claude API auf
     const response = await fetch("https://api.anthropic.com/v1/messages", {
