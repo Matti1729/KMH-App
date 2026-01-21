@@ -291,10 +291,10 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
             <div style="color: #fff !important; font-size: 12px;">${email}</div>
           </div>
 
-          ${phone ? `<div style="margin-bottom: 8px;">
+          <div style="margin-bottom: 8px;">
             <div style="font-size: 9px; color: #666 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">TELEFON</div>
-            <div style="color: #fff !important; font-size: 12px;">${phone}</div>
-          </div>` : ''}
+            <div style="color: #fff !important; font-size: 12px;">${phone || '-'}</div>
+          </div>
 
           <div>
             <div style="font-size: 9px; color: #666 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">ADRESSE</div>

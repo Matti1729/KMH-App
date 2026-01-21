@@ -1053,18 +1053,28 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         },
       });
 
+      console.log('AI Generation Response:', { data, error });
+
       if (error) {
         console.error('AI Generation Error:', error);
-        Alert.alert('Fehler', 'Text konnte nicht generiert werden');
+        Alert.alert('Fehler', error.message || 'Text konnte nicht generiert werden');
+        return;
+      }
+
+      if (data?.error) {
+        console.error('AI Generation Data Error:', data.error);
+        Alert.alert('Fehler', data.error || 'Text konnte nicht generiert werden');
         return;
       }
 
       if (data?.description) {
         setPlayerDescription(data.description);
+      } else {
+        Alert.alert('Fehler', 'Keine Beschreibung erhalten');
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('AI Generation Exception:', e);
-      Alert.alert('Fehler', 'Text konnte nicht generiert werden');
+      Alert.alert('Fehler', e?.message || 'Text konnte nicht generiert werden');
     } finally {
       setGeneratingDescription(false);
     }
@@ -2993,23 +3003,45 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                   </View>
                 ))}
                 
-                {/* Ansprechpartner Reihenfolge - kompakt */}
+                {/* Ansprechpartner Dropdown */}
                 {pdfAdvisors.length > 1 && (
-                  <View style={{ backgroundColor: '#f5f5f5', borderRadius: 8, padding: 10, marginBottom: 12 }}>
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#666', marginBottom: 6 }}>Ansprechpartner (oberster = Telefon im PDF)</Text>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  <View style={{ backgroundColor: '#f5f5f5', borderRadius: 8, padding: 12, marginBottom: 12 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#666', marginBottom: 8 }}>Telefon im PDF von:</Text>
+                    <View style={{ backgroundColor: '#fff', borderRadius: 6, borderWidth: 1, borderColor: '#ddd' }}>
                       {pdfAdvisors.map((advisor, index) => (
-                        <View key={index} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: index === 0 ? '#1a1a1a' : '#fff', borderRadius: 6, paddingVertical: 4, paddingHorizontal: 8, borderWidth: 1, borderColor: '#ddd' }}>
-                          <Text style={{ fontSize: 13, color: index === 0 ? '#fff' : '#333', marginRight: 6 }}>
-                            {advisor}
-                          </Text>
-                          <TouchableOpacity onPress={() => moveAdvisorUp(index)} disabled={index === 0} style={{ opacity: index === 0 ? 0.3 : 1, padding: 2 }}>
-                            <Text style={{ fontSize: 12, color: index === 0 ? '#fff' : '#333' }}>↑</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity onPress={() => moveAdvisorDown(index)} disabled={index === pdfAdvisors.length - 1} style={{ opacity: index === pdfAdvisors.length - 1 ? 0.3 : 1, padding: 2 }}>
-                            <Text style={{ fontSize: 12, color: index === 0 ? '#fff' : '#333' }}>↓</Text>
-                          </TouchableOpacity>
-                        </View>
+                        <TouchableOpacity
+                          key={index}
+                          onPress={() => {
+                            // Setze diesen Berater an erste Stelle
+                            const newAdvisors = [...pdfAdvisors];
+                            newAdvisors.splice(index, 1);
+                            newAdvisors.unshift(advisor);
+                            setPdfAdvisors(newAdvisors);
+                            fetchFirstAdvisorPhone(advisor);
+                          }}
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            padding: 10,
+                            borderBottomWidth: index < pdfAdvisors.length - 1 ? 1 : 0,
+                            borderBottomColor: '#eee',
+                            backgroundColor: index === 0 ? '#f0f0f0' : '#fff',
+                          }}
+                        >
+                          <View style={{
+                            width: 18,
+                            height: 18,
+                            borderRadius: 9,
+                            borderWidth: 2,
+                            borderColor: index === 0 ? '#1a1a1a' : '#ccc',
+                            marginRight: 10,
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                          }}>
+                            {index === 0 && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#1a1a1a' }} />}
+                          </View>
+                          <Text style={{ fontSize: 14, color: '#333' }}>{advisor}</Text>
+                        </TouchableOpacity>
                       ))}
                     </View>
                   </View>
@@ -3021,16 +3053,9 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                     <TouchableOpacity
                       onPress={generateAIDescription}
                       disabled={generatingDescription}
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        backgroundColor: generatingDescription ? '#ccc' : '#1a1a1a',
-                        paddingHorizontal: 12,
-                        paddingVertical: 6,
-                        borderRadius: 6,
-                      }}
+                      style={styles.pdfAddCareerButton}
                     >
-                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>
+                      <Text style={styles.pdfAddCareerButtonText}>
                         {generatingDescription ? 'Generiere...' : 'AI Text generieren'}
                       </Text>
                     </TouchableOpacity>
