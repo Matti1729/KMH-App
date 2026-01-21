@@ -120,7 +120,7 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
     : 'Hermann-Müller-Straße 22, 04416 Markkleeberg';
 
   // E-Mail: Berater-E-Mail oder Fallback
-  const email = advisorEmail || (isKMH ? 'info@kmh-sportmanagement.de' : 'info@pm-sportmanagement.de');
+  const email = advisorEmail || (isKMH ? 'info@kmh-sportmanagement.de' : 'info@pm-sportmanagement.com');
 
   // Telefon: Berater-Telefon oder leer
   const phone = advisorPhone || '';
