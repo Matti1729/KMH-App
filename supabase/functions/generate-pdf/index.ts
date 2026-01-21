@@ -115,9 +115,8 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
 
   // Adresse basierend auf Listung
   const isKMH = !player.listing || player.listing.toLowerCase().includes('karl') || player.listing.toLowerCase().includes('kmh');
-  const address = isKMH
-    ? 'Klaußnerweg 6, 82061 Neuried'
-    : 'Hermann-Müller-Straße 22, 04416 Markkleeberg';
+  const addressStreet = isKMH ? 'Klaußnerweg 6' : 'Hermann-Müller-Straße 22';
+  const addressCity = isKMH ? '82061 Neuried' : '04416 Markkleeberg';
 
   // E-Mail: Immer basierend auf Listung (KMH oder PM)
   const email = isKMH ? 'office@kmhsport.com' : 'info@pm-sportmanagement.com';
@@ -306,7 +305,8 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
 
           <div>
             <div style="font-size: 9px; color: #666 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">ADRESSE</div>
-            <div style="color: #fff !important; font-size: 12px;">${address}</div>
+            <div style="color: #fff !important; font-size: 12px;">${addressStreet}</div>
+            <div style="color: #fff !important; font-size: 12px;">${addressCity}</div>
           </div>
         </div>
       </div>
