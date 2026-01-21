@@ -3,6 +3,24 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 
+// Hilfsfunktion: Datum in mitteleuropäischer Zeit (Europe/Berlin) als ISO-String
+function getGermanDateString(offsetDays: number = 0): string {
+  const now = new Date();
+  now.setDate(now.getDate() + offsetDays);
+  // Verwende Intl.DateTimeFormat für zuverlässige Zeitzone
+  const formatter = new Intl.DateTimeFormat('de-DE', {
+    timeZone: 'Europe/Berlin',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  const parts = formatter.formatToParts(now);
+  const year = parts.find(p => p.type === 'year')?.value;
+  const month = parts.find(p => p.type === 'month')?.value;
+  const day = parts.find(p => p.type === 'day')?.value;
+  return `${year}-${month}-${day}`;
+}
+
 // Supabase Edge Function Proxy URL (ersetzt localhost Proxy)
 const SUPABASE_PROXY_URL = 'https://ozggtruvnwozhwjbznsm.supabase.co/functions/v1/proxy';
 
@@ -220,7 +238,8 @@ export async function deletePlayerFutureGames(
   supabase: SupabaseClient,
   playerId: string
 ): Promise<number> {
-  const today = new Date().toISOString().split('T')[0];
+  // Mitteleuropäische Zeit (Europe/Berlin) verwenden
+  const today = getGermanDateString(0);
 
   const { data, error } = await supabase
     .from('player_games')
@@ -441,13 +460,9 @@ export async function syncPlayerGames(
 
 // Alle gespeicherten Spiele laden (für die nächsten 5 Wochen)
 export async function loadUpcomingGames(supabase: SupabaseClient): Promise<any[]> {
-  // Lokales Datum verwenden (nicht UTC) damit heutige Spiele den ganzen Tag angezeigt werden
-  const today = new Date();
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-
-  const in5Weeks = new Date();
-  in5Weeks.setDate(in5Weeks.getDate() + 35); // 5 Wochen
-  const in5WeeksStr = `${in5Weeks.getFullYear()}-${String(in5Weeks.getMonth() + 1).padStart(2, '0')}-${String(in5Weeks.getDate()).padStart(2, '0')}`;
+  // Mitteleuropäische Zeit (Europe/Berlin) verwenden
+  const todayStr = getGermanDateString(0);
+  const in5WeeksStr = getGermanDateString(35);
 
   const { data, error } = await supabase
     .from('player_games')
@@ -469,13 +484,13 @@ export async function loadUpcomingGames(supabase: SupabaseClient): Promise<any[]
 
 // Lösche alte Spiele (älter als 1 Tag)
 export async function cleanupOldGames(supabase: SupabaseClient): Promise<number> {
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  
+  // Mitteleuropäische Zeit (Europe/Berlin) verwenden
+  const yesterdayStr = getGermanDateString(-1);
+
   const { data, error } = await supabase
     .from('player_games')
     .delete()
-    .lt('date', yesterday.toISOString().split('T')[0])
+    .lt('date', yesterdayStr)
     .select('id');
   
   if (error) {

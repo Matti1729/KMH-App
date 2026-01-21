@@ -869,13 +869,29 @@ export function TermineScreen({ navigation }: any) {
     return `${weekday}, ${day}.${month}.`;
   };
 
+  // Hilfsfunktion: Heutiges Datum in mitteleuropäischer Zeit
+  const getGermanTodayString = (): string => {
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('de-DE', {
+      timeZone: 'Europe/Berlin',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    const parts = formatter.formatToParts(now);
+    const year = parts.find(p => p.type === 'year')?.value;
+    const month = parts.find(p => p.type === 'month')?.value;
+    const day = parts.find(p => p.type === 'day')?.value;
+    return `${year}-${month}-${day}`;
+  };
+
   const isGameToday = (dateStr: string): boolean => {
-    const today = new Date().toISOString().split('T')[0];
-    return dateStr === today;
+    return dateStr === getGermanTodayString();
   };
 
   const isGameThisWeek = (dateStr: string): boolean => {
-    const today = new Date();
+    const todayStr = getGermanTodayString();
+    const today = new Date(todayStr);
     const gameDate = new Date(dateStr);
     const diffTime = gameDate.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -884,7 +900,7 @@ export function TermineScreen({ navigation }: any) {
 
   // Heutige Spiele zählen
   const getTodayGamesCount = (): number => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getGermanTodayString();
     return playerGames.filter(g => g.date === today).length;
   };
 
