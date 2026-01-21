@@ -9,8 +9,11 @@ interface AdvisorProfile {
   role: string;
 }
 
+const WEEKDAYS_DE = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+
 export function AdvisorHomeScreen({ navigation }: any) {
   const [profile, setProfile] = useState<AdvisorProfile | null>(null);
+  const currentWeekday = WEEKDAYS_DE[new Date().getDay()];
   const [playerCount, setPlayerCount] = useState(0);
   const [scoutingCount, setScoutingCount] = useState(0);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
@@ -303,7 +306,7 @@ export function AdvisorHomeScreen({ navigation }: any) {
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>
-              Hallo {profile?.first_name || 'User'}
+              Einen schönen {currentWeekday}, {profile?.first_name || 'User'}.
             </Text>
             <Text style={styles.subGreeting}>Willkommen im Karl M. Herzog Sportmanagement!</Text>
           </View>
