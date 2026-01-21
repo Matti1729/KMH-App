@@ -1001,7 +1001,9 @@ export function ScoutingScreen({ navigation }: any) {
     return matchesSearch && matchesPosition && matchesYear && matchesRating;
   });
 
-  const getPlayersByStatus = (status: string) => filteredPlayers.filter(p => p.status === status);
+  const getPlayersByStatus = (status: string) => filteredPlayers
+    .filter(p => p.status === status)
+    .sort((a, b) => (a.last_name || '').localeCompare(b.last_name || '', 'de'));
 
   // Archivieren
   const archivePlayer = async () => {
@@ -1236,7 +1238,7 @@ export function ScoutingScreen({ navigation }: any) {
         <View style={styles.cardHeader}>
           {getClubLogo(player.club) && <Image source={{ uri: getClubLogo(player.club)! }} style={styles.clubLogoCard} />}
           <View style={styles.cardInfo}>
-            <Text style={styles.playerName}>{player.first_name} {player.last_name}</Text>
+            <Text style={styles.playerName}>{player.last_name}, {player.first_name}</Text>
             <Text style={styles.playerYear}>Jg. {getYearFromDate(player.birth_date)}</Text>
           </View>
           <View style={styles.cardRight}>
