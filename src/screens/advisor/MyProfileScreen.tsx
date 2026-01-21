@@ -51,6 +51,9 @@ export function MyProfileScreen({ navigation }: any) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
+  const [showEmailChange, setShowEmailChange] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+
   useEffect(() => {
     fetchProfile();
     fetchMyPlayers();
@@ -147,6 +150,7 @@ export function MyProfileScreen({ navigation }: any) {
         phone: phone || null,
         phone_country_code: phoneCode,
         photo_url: photoUrl || null,
+        email: email,
       })
       .eq('id', profile.id)
       .select();
@@ -224,6 +228,41 @@ export function MyProfileScreen({ navigation }: any) {
       Alert.alert('Erfolg', 'Eine E-Mail zum Zurücksetzen des Passworts wurde gesendet');
       setShowPasswordChange(false);
     }
+  };
+
+  const handleEmailChange = async () => {
+    if (!newEmail || !newEmail.includes('@')) {
+      Alert.alert('Fehler', 'Bitte gib eine gültige E-Mail-Adresse ein');
+      return;
+    }
+
+    if (newEmail === email) {
+      Alert.alert('Fehler', 'Die neue E-Mail ist identisch mit der aktuellen');
+      return;
+    }
+
+    // Update email in Supabase Auth (this sends a confirmation email)
+    const { error: authError } = await supabase.auth.updateUser({ email: newEmail });
+
+    if (authError) {
+      Alert.alert('Fehler', authError.message);
+      return;
+    }
+
+    // Also update email in advisors table
+    if (profile) {
+      await supabase
+        .from('advisors')
+        .update({ email: newEmail })
+        .eq('id', profile.id);
+    }
+
+    Alert.alert(
+      'Bestätigung erforderlich',
+      'Eine Bestätigungs-E-Mail wurde an deine neue Adresse gesendet. Bitte bestätige die Änderung über den Link in der E-Mail.'
+    );
+    setShowEmailChange(false);
+    setNewEmail('');
   };
 
   const handleLogout = async () => {
@@ -393,7 +432,38 @@ export function MyProfileScreen({ navigation }: any) {
 
           <View style={styles.infoRow}>
             <Text style={styles.label}>E-Mail</Text>
-            <Text style={styles.value}>{email}</Text>
+            {showEmailChange ? (
+              <View style={{ flex: 1 }}>
+                <input
+                  type="email"
+                  style={{ padding: 12, fontSize: 15, borderRadius: 8, border: '1px solid #ddd', width: '100%', boxSizing: 'border-box', marginBottom: 8 }}
+                  placeholder="Neue E-Mail-Adresse"
+                  value={newEmail}
+                  onChange={(e: any) => setNewEmail(e.target.value)}
+                />
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity
+                    style={{ backgroundColor: '#eee', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 6 }}
+                    onPress={() => { setShowEmailChange(false); setNewEmail(''); }}
+                  >
+                    <Text style={{ color: '#333' }}>Abbrechen</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={{ backgroundColor: '#1a1a1a', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 6 }}
+                    onPress={handleEmailChange}
+                  >
+                    <Text style={{ color: '#fff' }}>Speichern</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <Text style={styles.value}>{email}</Text>
+                <TouchableOpacity onPress={() => setShowEmailChange(true)}>
+                  <Text style={{ color: '#007AFF', fontSize: 14 }}>Ändern</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
 
           <View style={styles.infoRow}>
