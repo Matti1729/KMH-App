@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Platform, Linking, Pressable } from 'react-native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 import { useIsMobile } from '../../hooks/useIsMobile';
+import { useAuth } from '../../contexts/AuthContext';
 
 const POSITIONS = ['TW', 'IV', 'LV', 'RV', 'DM', 'ZM', 'OM', 'LA', 'RA', 'ST'];
 
@@ -183,6 +184,8 @@ const fetchAgentFromTransfermarkt = async (transfermarktUrl: string): Promise<st
 
 export function ScoutingScreen({ navigation }: any) {
   const isMobile = useIsMobile();
+  const { session, loading: authLoading } = useAuth();
+  const dataLoadedRef = useRef(false);
   const [activeTab, setActiveTab] = useState<ActiveTab>('spieler');
   const [viewMode, setViewMode] = useState<ViewMode>('kanban');
   const [scoutedPlayers, setScoutedPlayers] = useState<ScoutedPlayer[]>([]);
@@ -397,9 +400,15 @@ export function ScoutingScreen({ navigation }: any) {
     return Array.from(years).sort((a, b) => b.localeCompare(a));
   }, [allGamePlayers]);
 
+  // Daten nur laden wenn Auth bereit ist
   useEffect(() => {
+    if (authLoading) return;
+    if (!session) return;
+    if (dataLoadedRef.current) return;
+
+    dataLoadedRef.current = true;
     fetchCurrentUser(); fetchScoutedPlayers(); fetchScoutingGames(); fetchAdvisors(); fetchClubLogos();
-  }, []);
+  }, [authLoading, session]);
 
   useEffect(() => {
     if (Platform.OS !== 'web') return;

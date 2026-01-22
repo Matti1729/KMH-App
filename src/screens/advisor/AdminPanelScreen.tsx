@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../config/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface AccessRequest {
   id: string;
@@ -33,15 +34,23 @@ interface Feedback {
 }
 
 export function AdminPanelScreen({ navigation }: any) {
+  const { session, loading: authLoading } = useAuth();
+  const dataLoadedRef = useRef(false);
   const [pendingRequests, setPendingRequests] = useState<AccessRequest[]>([]);
   const [advisors, setAdvisors] = useState<Advisor[]>([]);
   const [feedbackList, setFeedbackList] = useState<Feedback[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'requests' | 'advisors' | 'feedback'>('requests');
 
+  // Daten nur laden wenn Auth bereit ist
   useEffect(() => {
+    if (authLoading) return;
+    if (!session) return;
+    if (dataLoadedRef.current) return;
+
+    dataLoadedRef.current = true;
     fetchData();
-  }, []);
+  }, [authLoading, session]);
 
   const fetchData = async () => {
     setLoading(true);

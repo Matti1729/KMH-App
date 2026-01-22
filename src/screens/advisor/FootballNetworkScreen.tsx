@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image } from 'react-native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 import { useIsMobile } from '../../hooks/useIsMobile';
+import { useAuth } from '../../contexts/AuthContext';
 
 const LEAGUES = ['1. Bundesliga', '2. Bundesliga', '3. Liga', 'Regionalliga Nordost', 'Regionalliga Südwest', 'Regionalliga West', 'Regionalliga Nord', 'Regionalliga Bayern', 'Oberliga'];
 const BEREICHE = ['Herren', 'Nachwuchs'];
@@ -24,6 +25,8 @@ interface Contact {
 
 export function FootballNetworkScreen({ navigation }: any) {
   const isMobile = useIsMobile();
+  const { session, loading: authLoading } = useAuth();
+  const dataLoadedRef = useRef(false);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [clubs, setClubs] = useState<string[]>([]);
   const [clubLogos, setClubLogos] = useState<Record<string, string>>({});
@@ -42,7 +45,15 @@ export function FootballNetworkScreen({ navigation }: any) {
   const [ligaSearch, setLigaSearch] = useState('');
   const [profile, setProfile] = useState<{ first_name?: string; last_name?: string; role?: string } | null>(null);
 
-  useEffect(() => { fetchContacts(); fetchClubs(); fetchProfile(); }, []);
+  // Daten nur laden wenn Auth bereit ist
+  useEffect(() => {
+    if (authLoading) return;
+    if (!session) return;
+    if (dataLoadedRef.current) return;
+
+    dataLoadedRef.current = true;
+    fetchContacts(); fetchClubs(); fetchProfile();
+  }, [authLoading, session]);
 
   const fetchContacts = async () => {
     const { data } = await supabase.from('football_network_contacts').select('*').order('nachname', { ascending: true });

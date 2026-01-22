@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Pressable } from 'react-native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 import { useIsMobile } from '../../hooks/useIsMobile';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface AdvisorProfile {
   first_name: string;
@@ -15,6 +16,7 @@ const WEEKDAYS_DE = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 
 
 export function AdvisorHomeScreen({ navigation }: any) {
   const isMobile = useIsMobile();
+  const { session, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState<AdvisorProfile | null>(null);
   const currentWeekday = WEEKDAYS_DE[new Date().getDay()];
   const [playerCount, setPlayerCount] = useState(0);
@@ -25,8 +27,15 @@ export function AdvisorHomeScreen({ navigation }: any) {
   const [todayGamesCount, setTodayGamesCount] = useState(0);
   const [tasksAndRemindersCount, setTasksAndRemindersCount] = useState(0);
   const [networkContactsCount, setNetworkContactsCount] = useState(0);
+  const dataLoadedRef = useRef(false);
 
+  // Daten nur laden wenn Auth bereit ist
   useEffect(() => {
+    if (authLoading) return;
+    if (!session) return;
+    if (dataLoadedRef.current) return;
+
+    dataLoadedRef.current = true;
     fetchProfile();
     fetchPlayerCount();
     fetchScoutingCount();
@@ -35,7 +44,7 @@ export function AdvisorHomeScreen({ navigation }: any) {
     fetchTodayGamesCount();
     fetchTasksAndRemindersCount();
     fetchNetworkContactsCount();
-  }, []);
+  }, [authLoading, session]);
 
   const fetchProfile = async () => {
     const { data: { user } } = await supabase.auth.getUser();

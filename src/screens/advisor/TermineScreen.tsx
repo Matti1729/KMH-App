@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Pressable, ActivityIndicator, Image, Alert } from 'react-native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 import { useIsMobile } from '../../hooks/useIsMobile';
+import { useAuth } from '../../contexts/AuthContext';
 import { getRelevantTermine, convertToDbFormat, getLastUpdateDisplay, getDFBTermineCount, getHallenTermineCount } from '../../services/dfbTermine';
 import { 
   syncAllPlayerGames, 
@@ -74,6 +75,8 @@ const JAHRGAENGE = ['U13', 'U14', 'U15', 'U16', 'U17', 'U18', 'U19', 'U20', 'U21
 
 export function TermineScreen({ navigation }: any) {
   const isMobile = useIsMobile();
+  const { session, loading: authLoading } = useAuth();
+  const dataLoadedRef = useRef(false);
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
   const [profile, setProfile] = useState<Advisor | null>(null);
   const [termine, setTermine] = useState<Termin[]>([]);
@@ -169,14 +172,20 @@ export function TermineScreen({ navigation }: any) {
     setFormDatumEnde(buildDateFromParts(current.day, current.month, current.year));
     setShowDatumEndeDropdown(null);
   };
-  useEffect(() => { 
-    fetchProfile(); 
-    fetchAdvisors(); 
-    fetchTermine(); 
-    fetchClubLogos(); 
+  // Daten nur laden wenn Auth bereit ist
+  useEffect(() => {
+    if (authLoading) return;
+    if (!session) return;
+    if (dataLoadedRef.current) return;
+
+    dataLoadedRef.current = true;
+    fetchProfile();
+    fetchAdvisors();
+    fetchTermine();
+    fetchClubLogos();
     fetchPlayersWithUrl();
     fetchPlayerGames();
-  }, []);
+  }, [authLoading, session]);
 
   const fetchPlayersWithUrl = async () => {
     const players = await getPlayersWithFussballDeUrl(supabase);

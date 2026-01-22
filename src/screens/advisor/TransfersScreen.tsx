@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Image, Pressable, Modal } from 'react-native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 import { useIsMobile } from '../../hooks/useIsMobile';
+import { useAuth } from '../../contexts/AuthContext';
 
 const POSITIONS = ['Torwart', 'Innenverteidiger', 'Linker Verteidiger', 'Rechter Verteidiger', 'Defensives Mittelfeld', 'Offensives Mittelfeld', 'Linke Außenbahn', 'Rechte Außenbahn', 'Stürmer'];
 const POSITION_SHORT: Record<string, string> = {
@@ -64,6 +65,8 @@ interface SearchingClub {
 
 export function TransfersScreen({ navigation }: any) {
   const isMobile = useIsMobile();
+  const { session, loading: authLoading } = useAuth();
+  const dataLoadedRef = useRef(false);
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
   const [transferPlayers, setTransferPlayers] = useState<Player[]>([]);
   const [filteredPlayers, setFilteredPlayers] = useState<Player[]>([]);
@@ -201,13 +204,19 @@ export function TransfersScreen({ navigation }: any) {
     setShowClubYearDropdown(false);
   };
 
+  // Daten nur laden wenn Auth bereit ist
   useEffect(() => {
+    if (authLoading) return;
+    if (!session) return;
+    if (dataLoadedRef.current) return;
+
+    dataLoadedRef.current = true;
     fetchCurrentUser();
     fetchPlayers();
     fetchClubLogos();
     fetchAdvisors();
     fetchSearchingClubs();
-  }, []);
+  }, [authLoading, session]);
 
   useEffect(() => { 
     filterTransferPlayers(); 
