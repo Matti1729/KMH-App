@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
     color: '#1a1a1a',
   },
   navContainer: {
-    gap: 4,
+    // gap removed for mobile compatibility
   },
   navItem: {
     flexDirection: 'row',
@@ -368,6 +368,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 12,
     borderRadius: 10,
+    marginBottom: 4,
     // @ts-ignore
     cursor: 'pointer',
     // @ts-ignore
@@ -541,12 +542,10 @@ const styles = StyleSheet.create({
   },
   typeContainer: {
     flexDirection: 'row',
-    gap: 8,
     marginBottom: 16,
   },
   typeContainerMobile: {
     flexDirection: 'column',
-    gap: 8,
   },
   typeButton: {
     flex: 1,
@@ -556,6 +555,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e5e7eb',
     alignItems: 'center',
+    marginRight: 8,
+    marginBottom: 8,
   },
   typeButtonActive: {
     backgroundColor: '#1a1a1a',
@@ -593,7 +594,6 @@ const styles = StyleSheet.create({
   modalButtons: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 12,
   },
   cancelButton: {
     paddingVertical: 10,
@@ -601,6 +601,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#e5e7eb',
+    marginRight: 12,
   },
   cancelButtonText: {
     fontSize: 14,

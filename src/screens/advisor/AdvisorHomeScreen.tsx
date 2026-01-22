@@ -472,7 +472,7 @@ export function AdvisorHomeScreen({ navigation }: any) {
               <View style={styles.row}>
                 <DashboardCard
                   id="aufgaben"
-                  style={styles.darkBottomCard}
+                  style={[styles.darkBottomCard, { marginRight: 16 }]}
                   onPress={() => navigation.navigate('Tasks')}
                   hoverStyle={styles.darkCardHovered}
                 >
@@ -617,7 +617,7 @@ const styles = StyleSheet.create({
 
   // Mobile Cards
   mobileCardsContainer: {
-    gap: 12,
+    // gap not supported in older mobile browsers
   },
   mobileCard: {
     backgroundColor: '#fff',
@@ -625,11 +625,13 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: '#eee',
+    marginBottom: 12,
   },
   mobileCardDark: {
     backgroundColor: '#1a1a1a',
     borderRadius: 16,
     padding: 16,
+    marginBottom: 12,
   },
   mobileCardContent: {
     flexDirection: 'row',
@@ -696,7 +698,6 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-    gap: 16,
     marginBottom: 16,
   },
   rowMobile: {
@@ -745,6 +746,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#eee',
     position: 'relative',
+    marginRight: 16,
   },
   mainCardBackgroundEmoji: {
     position: 'absolute',
@@ -836,19 +838,18 @@ const styles = StyleSheet.create({
   // Right Column
   rightColumn: {
     flex: 1,
-    gap: 16,
   },
 
   // Left Column (KMH + Transfers oben, Scouting unten)
   leftColumn: {
     flex: 1,
-    gap: 16,
+    marginRight: 16,
   },
 
   // Top Row innerhalb linker Spalte
   topRow: {
     flexDirection: 'row',
-    gap: 16,
+    marginBottom: 16,
   },
   topRowMobile: {
     flexDirection: 'column',
@@ -857,7 +858,6 @@ const styles = StyleSheet.create({
   // Middle Column (Transfers + Scouting)
   middleColumn: {
     flex: 1,
-    gap: 16,
   },
 
   // Scouting Card
