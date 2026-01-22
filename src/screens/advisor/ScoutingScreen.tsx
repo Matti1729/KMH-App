@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Platform, Linking, Pressable } from 'react-native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 const POSITIONS = ['TW', 'IV', 'LV', 'RV', 'DM', 'ZM', 'OM', 'LA', 'RA', 'ST'];
 
@@ -181,6 +182,7 @@ const fetchAgentFromTransfermarkt = async (transfermarktUrl: string): Promise<st
 };
 
 export function ScoutingScreen({ navigation }: any) {
+  const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState<ActiveTab>('spieler');
   const [viewMode, setViewMode] = useState<ViewMode>('kanban');
   const [scoutedPlayers, setScoutedPlayers] = useState<ScoutedPlayer[]>([]);
@@ -1797,7 +1799,7 @@ export function ScoutingScreen({ navigation }: any) {
   };
 
   return (
-    <Pressable style={styles.container} onPress={closeAllDropdowns}>
+    <Pressable style={[styles.container, isMobile && styles.containerMobile]} onPress={closeAllDropdowns}>
       <Sidebar navigation={navigation} activeScreen="scouting" profile={profile} />
       <View style={styles.mainContent}>
         {/* Header Banner - weiß mit Titel mittig */}
@@ -3103,6 +3105,7 @@ export function ScoutingScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, flexDirection: 'row', backgroundColor: '#f8fafc' },
+  containerMobile: { flexDirection: 'column' },
   mainContent: { flex: 1 },
   
   // Header Banner - weiß mit Titel mittig

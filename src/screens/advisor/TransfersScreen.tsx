@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Image, Pressable, Modal } from 'react-native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 const POSITIONS = ['Torwart', 'Innenverteidiger', 'Linker Verteidiger', 'Rechter Verteidiger', 'Defensives Mittelfeld', 'Offensives Mittelfeld', 'Linke Außenbahn', 'Rechte Außenbahn', 'Stürmer'];
 const POSITION_SHORT: Record<string, string> = {
@@ -62,6 +63,7 @@ interface SearchingClub {
 }
 
 export function TransfersScreen({ navigation }: any) {
+  const isMobile = useIsMobile();
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
   const [transferPlayers, setTransferPlayers] = useState<Player[]>([]);
   const [filteredPlayers, setFilteredPlayers] = useState<Player[]>([]);
@@ -680,7 +682,7 @@ export function TransfersScreen({ navigation }: any) {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isMobile && styles.containerMobile]}>
       {/* Sidebar */}
       <Sidebar navigation={navigation} activeScreen="transfers" profile={profile} />
 
@@ -1211,6 +1213,7 @@ export function TransfersScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, flexDirection: 'row', backgroundColor: '#f8fafc' },
+  containerMobile: { flexDirection: 'column' },
   mainContent: { flex: 1, backgroundColor: '#f8fafc' },
   
   // Header Banner

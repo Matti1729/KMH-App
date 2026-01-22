@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Pressable } from 'react-native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 interface Task {
   id: string;
@@ -104,6 +105,7 @@ const isInTwoDays = (dateStr: string): boolean => {
 };
 
 export function TasksRemindersScreen({ navigation }: any) {
+  const isMobile = useIsMobile();
   const [profile, setProfile] = useState<any>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
@@ -614,7 +616,7 @@ export function TasksRemindersScreen({ navigation }: any) {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isMobile && styles.containerMobile]}>
       <Sidebar navigation={navigation} activeScreen="tasks" profile={profile} />
       
       <Pressable 
@@ -935,6 +937,7 @@ export function TasksRemindersScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, flexDirection: 'row', backgroundColor: '#f8fafc' },
+  containerMobile: { flexDirection: 'column' },
   mainContent: { flex: 1, backgroundColor: '#f8fafc', position: 'relative', display: 'flex', flexDirection: 'column' },
   closeOverlay: { 
     position: 'absolute', 

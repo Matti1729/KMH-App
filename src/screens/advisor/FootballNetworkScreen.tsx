@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image } from 'react-native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 const LEAGUES = ['1. Bundesliga', '2. Bundesliga', '3. Liga', 'Regionalliga Nordost', 'Regionalliga Südwest', 'Regionalliga West', 'Regionalliga Nord', 'Regionalliga Bayern', 'Oberliga'];
 const BEREICHE = ['Herren', 'Nachwuchs'];
@@ -22,6 +23,7 @@ interface Contact {
 }
 
 export function FootballNetworkScreen({ navigation }: any) {
+  const isMobile = useIsMobile();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [clubs, setClubs] = useState<string[]>([]);
   const [clubLogos, setClubLogos] = useState<Record<string, string>>({});
@@ -130,7 +132,7 @@ export function FootballNetworkScreen({ navigation }: any) {
   const formatName = (c: Contact) => c.nachname && c.vorname ? `${c.nachname}, ${c.vorname}` : c.nachname || c.vorname || '-';
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isMobile && styles.containerMobile]}>
       <Sidebar navigation={navigation} activeScreen="network" profile={profile} />
       <TouchableOpacity style={styles.mainContent} activeOpacity={1} onPress={closeAllDropdowns}>
         <View style={styles.headerBanner}>
@@ -350,6 +352,7 @@ export function FootballNetworkScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, flexDirection: 'row', backgroundColor: '#f8fafc' },
+  containerMobile: { flexDirection: 'column' },
   mainContent: { flex: 1, backgroundColor: '#f8fafc' },
   headerBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16, paddingHorizontal: 24, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
   headerBannerCenter: { alignItems: 'center' },

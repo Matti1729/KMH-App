@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal,
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 const POSITIONS = ['Torwart', 'Innenverteidiger', 'Linker Verteidiger', 'Rechter Verteidiger', 'Defensives Mittelfeld', 'Zentrales Mittelfeld', 'Offensives Mittelfeld', 'Linke Außenbahn', 'Rechte Außenbahn', 'Stürmer'];
 const POSITION_SHORT: Record<string, string> = {
@@ -51,6 +52,7 @@ type SortField = 'name' | 'birth_date' | 'position' | 'club' | 'league' | 'contr
 type SortDirection = 'asc' | 'desc';
 
 export function PlayerOverviewScreen({ navigation }: any) {
+  const isMobile = useIsMobile();
   const [players, setPlayers] = useState<Player[]>([]);
   const [filteredPlayers, setFilteredPlayers] = useState<Player[]>([]);
   const [advisors, setAdvisors] = useState<Advisor[]>([]);
@@ -585,8 +587,8 @@ export function PlayerOverviewScreen({ navigation }: any) {
   };
 
   return (
-    <View style={styles.container}>
-      {/* Sidebar */}
+    <View style={[styles.container, isMobile && styles.containerMobile]}>
+      {/* Sidebar / Mobile Header */}
       <Sidebar navigation={navigation} activeScreen="players" profile={profile} />
 
       {/* Main Content */}
@@ -847,6 +849,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, flexDirection: 'row', backgroundColor: '#f8fafc' },
+  containerMobile: { flexDirection: 'column' },
   mainContent: { flex: 1, backgroundColor: '#f8fafc' },
   
   // Header Banner - weiß mit Titel mittig

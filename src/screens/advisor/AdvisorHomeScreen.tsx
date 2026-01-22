@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Pressable } from 'react-native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 interface AdvisorProfile {
   first_name: string;
@@ -13,6 +14,7 @@ interface AdvisorProfile {
 const WEEKDAYS_DE = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
 
 export function AdvisorHomeScreen({ navigation }: any) {
+  const isMobile = useIsMobile();
   const [profile, setProfile] = useState<AdvisorProfile | null>(null);
   const currentWeekday = WEEKDAYS_DE[new Date().getDay()];
   const [playerCount, setPlayerCount] = useState(0);
@@ -219,7 +221,7 @@ export function AdvisorHomeScreen({ navigation }: any) {
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isMobile && styles.containerMobile]}>
       {/* Sidebar - gemeinsame Komponente */}
       <Sidebar navigation={navigation} activeScreen="dashboard" profile={profile} />
 
@@ -424,6 +426,9 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     backgroundColor: '#f5f5f5',
+  },
+  containerMobile: {
+    flexDirection: 'column',
   },
 
   // Main Content

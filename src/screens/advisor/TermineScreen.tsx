@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Pressable, ActivityIndicator, Image, Alert } from 'react-native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import { getRelevantTermine, convertToDbFormat, getLastUpdateDisplay, getDFBTermineCount, getHallenTermineCount } from '../../services/dfbTermine';
 import { 
   syncAllPlayerGames, 
@@ -72,6 +73,7 @@ const TERMIN_ARTEN = ['Nationalmannschaft', 'Hallenturnier', 'Sonstiges'];
 const JAHRGAENGE = ['U13', 'U14', 'U15', 'U16', 'U17', 'U18', 'U19', 'U20', 'U21', 'U23', 'Herren', 'Sonstige'];
 
 export function TermineScreen({ navigation }: any) {
+  const isMobile = useIsMobile();
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
   const [profile, setProfile] = useState<Advisor | null>(null);
   const [termine, setTermine] = useState<Termin[]>([]);
@@ -1857,7 +1859,7 @@ export function TermineScreen({ navigation }: any) {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isMobile && styles.containerMobile]}>
       <Sidebar navigation={navigation} activeScreen="termine" profile={profile} />
       <View style={styles.mainContent}>
         {viewMode === 'dashboard' && (
@@ -1884,6 +1886,7 @@ export function TermineScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, flexDirection: 'row', backgroundColor: '#f5f5f5' },
+  containerMobile: { flexDirection: 'column' },
   mainContent: { flex: 1, backgroundColor: '#f5f5f5' },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
   headerCenter: { flex: 1, alignItems: 'center' },

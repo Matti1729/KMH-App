@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Modal, TextInput, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Modal, TextInput, TouchableOpacity, Platform, useWindowDimensions } from 'react-native';
 import { supabase } from '../config/supabase';
 import { CommonActions } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
@@ -15,13 +15,19 @@ interface SidebarProps {
   } | null;
 }
 
+// Breakpoint für Mobile
+const MOBILE_BREAKPOINT = 768;
+
 export function Sidebar({ navigation, activeScreen, profile }: SidebarProps) {
   const [hoveredNav, setHoveredNav] = useState<string | null>(null);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedbackType, setFeedbackType] = useState<'bug' | 'feature' | 'other'>('bug');
   const [feedbackText, setFeedbackText] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user } = useAuth();
+  const { width } = useWindowDimensions();
+  const isMobile = width < MOBILE_BREAKPOINT;
 
   const submitFeedback = async () => {
     if (!feedbackText.trim()) {
@@ -72,11 +78,16 @@ export function Sidebar({ navigation, activeScreen, profile }: SidebarProps) {
   };
 
   const goToDashboard = () => {
+    setMobileMenuOpen(false);
     navigation.navigate('AdvisorDashboard');
   };
 
   const handleNavigation = (screen: string, id: string) => {
-    if (activeScreen === id) return;
+    if (activeScreen === id) {
+      setMobileMenuOpen(false);
+      return;
+    }
+    setMobileMenuOpen(false);
     navigation.navigate(screen);
   };
 
@@ -90,8 +101,13 @@ export function Sidebar({ navigation, activeScreen, profile }: SidebarProps) {
     { id: 'aufgaben', label: 'Aufgaben & Erinnerungen', icon: '✓', screen: 'Tasks' },
   ];
 
-  return (
-    <View style={styles.sidebar}>
+  // Aktuellen Screen-Namen finden
+  const currentScreenLabel = navItems.find(item => item.id === activeScreen)?.label ||
+    (activeScreen === 'admin' ? 'Administration' : 'Dashboard');
+
+  // Sidebar-Inhalt (wird sowohl für Desktop als auch Mobile verwendet)
+  const SidebarContent = () => (
+    <>
       {/* Logo - klickbar zum Dashboard */}
       <Pressable onPress={goToDashboard} style={styles.logoContainer}>
         <View style={styles.logoBox}>
@@ -131,7 +147,10 @@ export function Sidebar({ navigation, activeScreen, profile }: SidebarProps) {
         <Pressable
           onHoverIn={() => setHoveredNav('admin')}
           onHoverOut={() => setHoveredNav(null)}
-          onPress={() => navigation.navigate('AdminPanel')}
+          onPress={() => {
+            setMobileMenuOpen(false);
+            navigation.navigate('AdminPanel');
+          }}
           style={[
             styles.navItem,
             activeScreen === 'admin' && styles.navItemActive,
@@ -173,80 +192,138 @@ export function Sidebar({ navigation, activeScreen, profile }: SidebarProps) {
         <Text style={styles.logoutIcon}>↪</Text>
         <Text style={styles.logoutText}>Logout</Text>
       </Pressable>
+    </>
+  );
 
-      {/* Feedback Modal */}
-      <Modal visible={showFeedbackModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Feedback / Bug melden</Text>
+  // Feedback Modal
+  const FeedbackModal = () => (
+    <Modal visible={showFeedbackModal} transparent animationType="fade">
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalContent, isMobile && styles.modalContentMobile]}>
+          <Text style={styles.modalTitle}>Feedback / Bug melden</Text>
 
-            {/* Type Selection */}
-            <View style={styles.typeContainer}>
-              {[
-                { id: 'bug', label: '🐛 Bug/Fehler' },
-                { id: 'feature', label: '💡 Verbesserung' },
-                { id: 'other', label: '📝 Sonstiges' },
-              ].map((type) => (
-                <TouchableOpacity
-                  key={type.id}
-                  style={[
-                    styles.typeButton,
-                    feedbackType === type.id && styles.typeButtonActive,
-                  ]}
-                  onPress={() => setFeedbackType(type.id as any)}
-                >
-                  <Text style={[
-                    styles.typeButtonText,
-                    feedbackType === type.id && styles.typeButtonTextActive,
-                  ]}>{type.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Description */}
-            <Text style={styles.inputLabel}>Beschreibung</Text>
-            <TextInput
-              style={styles.textArea}
-              value={feedbackText}
-              onChangeText={setFeedbackText}
-              placeholder="Beschreibe das Problem oder deinen Vorschlag möglichst genau..." placeholderTextColor="#999"
-              multiline
-              numberOfLines={5}
-            />
-
-            <Text style={styles.hintText}>
-              Aktueller Bereich: {activeScreen}
-            </Text>
-
-            {/* Buttons */}
-            <View style={styles.modalButtons}>
+          {/* Type Selection */}
+          <View style={[styles.typeContainer, isMobile && styles.typeContainerMobile]}>
+            {[
+              { id: 'bug', label: '🐛 Bug' },
+              { id: 'feature', label: '💡 Idee' },
+              { id: 'other', label: '📝 Sonstiges' },
+            ].map((type) => (
               <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => {
-                  setShowFeedbackModal(false);
-                  setFeedbackText('');
-                }}
+                key={type.id}
+                style={[
+                  styles.typeButton,
+                  feedbackType === type.id && styles.typeButtonActive,
+                ]}
+                onPress={() => setFeedbackType(type.id as any)}
               >
-                <Text style={styles.cancelButtonText}>Abbrechen</Text>
+                <Text style={[
+                  styles.typeButtonText,
+                  feedbackType === type.id && styles.typeButtonTextActive,
+                ]}>{type.label}</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.submitButton, submitting && { opacity: 0.6 }]}
-                onPress={submitFeedback}
-                disabled={submitting}
-              >
-                <Text style={styles.submitButtonText}>
-                  {submitting ? 'Sende...' : 'Absenden'}
-                </Text>
-              </TouchableOpacity>
-            </View>
+            ))}
+          </View>
+
+          {/* Description */}
+          <Text style={styles.inputLabel}>Beschreibung</Text>
+          <TextInput
+            style={styles.textArea}
+            value={feedbackText}
+            onChangeText={setFeedbackText}
+            placeholder="Beschreibe das Problem oder deinen Vorschlag..."
+            placeholderTextColor="#999"
+            multiline
+            numberOfLines={5}
+          />
+
+          <Text style={styles.hintText}>
+            Aktueller Bereich: {activeScreen}
+          </Text>
+
+          {/* Buttons */}
+          <View style={styles.modalButtons}>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => {
+                setShowFeedbackModal(false);
+                setFeedbackText('');
+              }}
+            >
+              <Text style={styles.cancelButtonText}>Abbrechen</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.submitButton, submitting && { opacity: 0.6 }]}
+              onPress={submitFeedback}
+              disabled={submitting}
+            >
+              <Text style={styles.submitButtonText}>
+                {submitting ? 'Sende...' : 'Absenden'}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
-      </Modal>
+      </View>
+    </Modal>
+  );
+
+  // Mobile: Header mit Hamburger-Menü
+  if (isMobile) {
+    return (
+      <>
+        {/* Mobile Header */}
+        <View style={styles.mobileHeader}>
+          <Pressable
+            onPress={() => setMobileMenuOpen(true)}
+            style={styles.hamburgerButton}
+          >
+            <Text style={styles.hamburgerIcon}>☰</Text>
+          </Pressable>
+          <Text style={styles.mobileTitle}>{currentScreenLabel}</Text>
+          <View style={styles.hamburgerButton} /> {/* Spacer für Zentrierung */}
+        </View>
+
+        {/* Mobile Menu Overlay */}
+        <Modal
+          visible={mobileMenuOpen}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setMobileMenuOpen(false)}
+        >
+          <View style={styles.mobileMenuOverlay}>
+            <Pressable
+              style={styles.mobileMenuBackdrop}
+              onPress={() => setMobileMenuOpen(false)}
+            />
+            <View style={styles.mobileMenuContent}>
+              {/* Close Button */}
+              <Pressable
+                style={styles.closeButton}
+                onPress={() => setMobileMenuOpen(false)}
+              >
+                <Text style={styles.closeButtonText}>✕</Text>
+              </Pressable>
+              <SidebarContent />
+            </View>
+          </View>
+        </Modal>
+
+        <FeedbackModal />
+      </>
+    );
+  }
+
+  // Desktop: Normale Sidebar
+  return (
+    <View style={styles.sidebar}>
+      <SidebarContent />
+      <FeedbackModal />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // Desktop Sidebar
   sidebar: {
     width: 240,
     backgroundColor: '#fff',
@@ -372,6 +449,73 @@ const styles = StyleSheet.create({
     color: '#0284c7',
     fontWeight: '500',
   },
+
+  // Mobile Header
+  mobileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  hamburgerButton: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  hamburgerIcon: {
+    fontSize: 24,
+    color: '#1a1a1a',
+  },
+  mobileTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#1a1a1a',
+  },
+
+  // Mobile Menu
+  mobileMenuOverlay: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  mobileMenuBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  mobileMenuContent: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 280,
+    backgroundColor: '#fff',
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    // @ts-ignore
+    boxShadow: '2px 0 10px rgba(0,0,0,0.1)',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 18,
+    backgroundColor: '#f5f5f5',
+    zIndex: 1,
+  },
+  closeButtonText: {
+    fontSize: 18,
+    color: '#666',
+  },
+
+  // Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -385,6 +529,10 @@ const styles = StyleSheet.create({
     width: 450,
     maxWidth: '90%',
   },
+  modalContentMobile: {
+    width: '95%',
+    padding: 20,
+  },
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
@@ -395,6 +543,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     marginBottom: 16,
+  },
+  typeContainerMobile: {
+    flexDirection: 'column',
+    gap: 8,
   },
   typeButton: {
     flex: 1,
