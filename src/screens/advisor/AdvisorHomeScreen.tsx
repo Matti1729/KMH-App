@@ -252,15 +252,15 @@ export function AdvisorHomeScreen({ navigation }: any) {
         </View>
 
         {/* Dashboard Content */}
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollContent, isMobile && styles.scrollContentMobile]}>
           <View style={styles.gridContainer}>
-            
+
             {/* Row 1 - KMH-Spieler + Transfers + Football Network links, Scouting rechts als Säule */}
-            <View style={styles.row}>
+            <View style={[styles.row, isMobile && styles.rowMobile]}>
               {/* Linke Spalte - KMH-Spieler, Transfers, Football Network */}
               <View style={styles.leftColumn}>
                 {/* Obere Zeile - KMH-Spieler + Transfers */}
-                <View style={styles.topRow}>
+                <View style={[styles.topRow, isMobile && styles.topRowMobile]}>
                   {/* KMH-Spieler - Large Card */}
                   <DashboardCard 
                     id="players"
@@ -326,9 +326,9 @@ export function AdvisorHomeScreen({ navigation }: any) {
               </View>
 
               {/* Scouting - Säule (Dark) - volle Höhe */}
-              <DashboardCard 
+              <DashboardCard
                 id="scouting"
-                style={styles.scoutingCardTall}
+                style={[styles.scoutingCardTall, isMobile && styles.scoutingCardTallMobile]}
                 onPress={() => navigation.navigate('Scouting')}
                 hoverStyle={styles.darkCardHovered}
               >
@@ -343,7 +343,7 @@ export function AdvisorHomeScreen({ navigation }: any) {
             </View>
 
             {/* Row 2 - Aufgaben & Spieltage */}
-            <View style={styles.row}>
+            <View style={[styles.row, isMobile && styles.rowMobile]}>
               {/* Aufgaben - Dark */}
               <DashboardCard 
                 id="aufgaben"
@@ -486,6 +486,9 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 24,
   },
+  scrollContentMobile: {
+    padding: 16,
+  },
   gridContainer: {
     maxWidth: 1000,
     width: '100%',
@@ -494,6 +497,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 16,
     marginBottom: 16,
+  },
+  rowMobile: {
+    flexDirection: 'column',
   },
 
   // Card base styles
@@ -643,6 +649,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 16,
   },
+  topRowMobile: {
+    flexDirection: 'column',
+  },
 
   // Middle Column (Transfers + Scouting)
   middleColumn: {
@@ -675,6 +684,10 @@ const styles = StyleSheet.create({
     padding: 16,
     justifyContent: 'flex-start',
     position: 'relative',
+  },
+  scoutingCardTallMobile: {
+    width: '100%',
+    minHeight: 120,
   },
   scoutingTallCount: {
     position: 'absolute',
@@ -831,18 +844,10 @@ const styles = StyleSheet.create({
   networkIconText: {
     fontSize: 18,
   },
-  networkFooter: {
-    marginTop: 'auto',
-  },
   networkTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: '#fff',
-  },
-  networkSubtitle: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.6)',
-    marginTop: 4,
   },
 
   // Dark Bottom Cards (Aufgaben, Spieltage, Admin)
