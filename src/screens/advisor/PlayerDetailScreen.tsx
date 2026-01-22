@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, Image, Linking, Modal, Pressable, Platform, useWindowDimensions } from 'react-native';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, Image, Linking, Modal, Pressable, Platform, useWindowDimensions, RefreshControl } from 'react-native';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import * as DocumentPicker from 'expo-document-picker';
@@ -229,6 +229,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const isMobile = width < 768;
   const [player, setPlayer] = useState<Player | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<Player | null>(null);
   const [selectedPositions, setSelectedPositions] = useState<string[]>([]);
@@ -1495,6 +1496,12 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     }
   };
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchPlayer();
+    setRefreshing(false);
+  }, [playerId]);
+
   const formatDate = (dateString: string) => {
     if (!dateString) return '-';
     const date = new Date(dateString);
@@ -2715,6 +2722,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         <ScrollView
           style={[styles.content, isMobile && styles.contentMobile]}
           onScrollBeginDrag={() => closeAllDropdowns()}
+          refreshControl={isMobile ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} /> : undefined}
         >
         <Pressable onPress={() => closeAllDropdowns()}>
         {/* Redesigned Top Section */}

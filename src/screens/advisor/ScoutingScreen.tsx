@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Platform, Linking, Pressable } from 'react-native';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Platform, Linking, Pressable, RefreshControl } from 'react-native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 import { useIsMobile } from '../../hooks/useIsMobile';
@@ -194,6 +194,7 @@ export function ScoutingScreen({ navigation }: any) {
   const [clubLogos, setClubLogos] = useState<Record<string, string>>({});
   const [clubNames, setClubNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserName, setCurrentUserName] = useState<string>('');
   const [profile, setProfile] = useState<{ first_name?: string; last_name?: string; role?: string } | null>(null);
@@ -537,6 +538,13 @@ export function ScoutingScreen({ navigation }: any) {
       setLoading(false);
     }
   };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchScoutedPlayers();
+    await fetchScoutingGames();
+    setRefreshing(false);
+  }, []);
 
   const fetchScoutingGames = async () => {
     const { data, error } = await supabase.from('scouting_games').select('*').order('date', { ascending: true });
@@ -2051,7 +2059,10 @@ export function ScoutingScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.content}>
+        <ScrollView
+          style={styles.content}
+          refreshControl={isMobile ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} /> : undefined}
+        >
           {activeTab === 'spieler' ? (
             viewMode === 'kanban' ? (
               <View style={styles.kanbanContainer}>
@@ -2063,7 +2074,7 @@ export function ScoutingScreen({ navigation }: any) {
               renderArchivView()
             )
           ) : renderGamesTab()}
-        </View>
+        </ScrollView>
       </View>
 
       {/* Add Player Modal */}

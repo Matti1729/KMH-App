@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Pressable } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Pressable, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../config/supabase';
@@ -85,7 +85,8 @@ export function PlayerOverviewScreen({ navigation }: any) {
   const [selectedResponsibilities, setSelectedResponsibilities] = useState<string[]>([]);
   const [selectedContractYears, setSelectedContractYears] = useState<string[]>([]);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
-  
+  const [refreshing, setRefreshing] = useState(false);
+
   // Separate Dropdown States wie in Scouting
   const [showYearDropdown, setShowYearDropdown] = useState(false);
   const [showPositionDropdown, setShowPositionDropdown] = useState(false);
@@ -542,6 +543,12 @@ export function PlayerOverviewScreen({ navigation }: any) {
     }
   };
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchPlayers();
+    setRefreshing(false);
+  }, []);
+
   const formatDate = (dateString: string) => {
     if (!dateString) return '-';
     const date = new Date(dateString);
@@ -753,7 +760,11 @@ export function PlayerOverviewScreen({ navigation }: any) {
           </View>
 
           {/* Player Cards */}
-          <ScrollView style={styles.mobileCardList} contentContainerStyle={styles.mobileCardListContent}>
+          <ScrollView
+            style={styles.mobileCardList}
+            contentContainerStyle={styles.mobileCardListContent}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          >
             {(authLoading || loading) ? (
               <Text style={styles.loadingText}>Laden...</Text>
             ) : error ? (
