@@ -58,6 +58,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
   const [advisors, setAdvisors] = useState<Advisor[]>([]);
   const [clubLogos, setClubLogos] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newFirstName, setNewFirstName] = useState('');
   const [newLastName, setNewLastName] = useState('');
@@ -453,12 +454,26 @@ export function PlayerOverviewScreen({ navigation }: any) {
 
   const fetchPlayers = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const { data, error } = await supabase.from('player_details').select('id, first_name, last_name, birth_date, position, club, league, contract_end, listing, responsibility, future_club').order('last_name', { ascending: true });
-      if (!error) setPlayers(data || []);
-      else console.error('Fehler beim Laden der Spieler:', error);
-    } catch (err) {
-      console.error('Netzwerkfehler beim Laden der Spieler:', err);
+      const { data, error: queryError } = await supabase
+        .from('player_details')
+        .select('id, first_name, last_name, birth_date, position, club, league, contract_end, listing, responsibility, future_club')
+        .order('last_name', { ascending: true });
+
+      if (queryError) {
+        console.warn('Spieler laden fehlgeschlagen:', queryError);
+        setError(`Fehler beim Laden: ${queryError.message}`);
+        setPlayers([]);
+        return;
+      }
+
+      setPlayers(data || []);
+      setError(null);
+    } catch (err: any) {
+      console.warn('Netzwerkfehler beim Laden der Spieler:', err);
+      setError(err.message || 'Netzwerkfehler - bitte erneut versuchen');
+      setPlayers([]);
     } finally {
       setLoading(false);
     }
@@ -798,7 +813,18 @@ export function PlayerOverviewScreen({ navigation }: any) {
         </View>
 
         <ScrollView style={styles.tableBody}>
-          {loading ? <Text style={styles.loadingText}>Laden...</Text> : filteredPlayers.length === 0 ? <Text style={styles.emptyText}>Keine Spieler gefunden</Text> : (
+          {loading ? (
+            <Text style={styles.loadingText}>Laden...</Text>
+          ) : error ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+              <TouchableOpacity style={styles.retryButton} onPress={fetchPlayers}>
+                <Text style={styles.retryButtonText}>Erneut versuchen</Text>
+              </TouchableOpacity>
+            </View>
+          ) : filteredPlayers.length === 0 ? (
+            <Text style={styles.emptyText}>Keine Spieler gefunden</Text>
+          ) : (
             filteredPlayers.map((player) => renderPlayerRow(player))
           )}
         </ScrollView>
@@ -926,7 +952,11 @@ const styles = StyleSheet.create({
   listingBadgeText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   loadingText: { padding: 20, textAlign: 'center', color: '#64748b' },
   emptyText: { padding: 20, textAlign: 'center', color: '#64748b' },
-  
+  errorContainer: { padding: 20, alignItems: 'center' },
+  errorText: { color: '#dc2626', textAlign: 'center', marginBottom: 12 },
+  retryButton: { backgroundColor: '#1a1a1a', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
+  retryButtonText: { color: '#fff', fontWeight: '600' },
+
   // Modal - dezente Buttons
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 400 },

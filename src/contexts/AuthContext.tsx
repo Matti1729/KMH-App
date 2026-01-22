@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../config/supabase';
 
@@ -26,11 +26,16 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Session Watchdog Intervall (3 Minuten)
+const SESSION_CHECK_INTERVAL = 3 * 60 * 1000;
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const watchdogRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitializedRef = useRef(false);
 
   const fetchProfile = async (userId: string, userEmail: string | undefined) => {
     try {
@@ -65,11 +70,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .select('*')
         .eq('id', userId)
         .single();
-      
+
       if (profileError && profileError.code !== 'PGRST116') {
         console.warn('Profile fetch error:', profileError);
       }
-      
+
       if (profileData) {
         setProfile({
           ...profileData,
@@ -101,97 +106,144 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Session-Recovery Funktion
-  const recoverSession = async () => {
+  // Session Watchdog - prüft periodisch die Session-Gesundheit
+  const sessionWatchdog = async () => {
     try {
-      const { data: { session }, error } = await supabase.auth.getSession();
+      const { data: { session: currentSession }, error } = await supabase.auth.getSession();
+
       if (error) {
-        console.warn('getSession error:', error);
+        console.warn('Session watchdog - getSession error:', error);
+        return;
       }
-      
-      if (session) {
-        setSession(session);
-        setUser(session.user);
-        await fetchProfile(session.user.id, session.user.email);
-      } else {
-        // Versuche Session zu refreshen
-        const { data, error: refreshError } = await supabase.auth.refreshSession();
+
+      if (!currentSession) {
+        console.log('Session watchdog - Keine Session gefunden, versuche Refresh...');
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+
         if (refreshError) {
-          console.warn('refreshSession error:', refreshError);
+          console.warn('Session watchdog - Refresh fehlgeschlagen:', refreshError);
+          // Session ist wirklich kaputt - User ausloggen statt ewig "Laden..."
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+          return;
         }
-        if (data.session) {
-          setSession(data.session);
-          setUser(data.session.user);
-          await fetchProfile(data.session.user.id, data.session.user.email);
+
+        if (refreshData.session) {
+          console.log('Session watchdog - Session erfolgreich wiederhergestellt');
+          setSession(refreshData.session);
+          setUser(refreshData.session.user);
         }
       }
     } catch (e) {
-      console.warn('recoverSession exception:', e);
+      console.warn('Session watchdog exception:', e);
+    }
+  };
+
+  // Starte/Stoppe den Watchdog
+  const startWatchdog = () => {
+    if (watchdogRef.current) return; // Bereits gestartet
+    watchdogRef.current = setInterval(sessionWatchdog, SESSION_CHECK_INTERVAL);
+  };
+
+  const stopWatchdog = () => {
+    if (watchdogRef.current) {
+      clearInterval(watchdogRef.current);
+      watchdogRef.current = null;
     }
   };
 
   useEffect(() => {
+    // Verhindere doppelte Initialisierung
+    if (isInitializedRef.current) return;
+    isInitializedRef.current = true;
+
     // Initial Session laden
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) fetchProfile(session.user.id, session.user.email);
-      setLoading(false);
-    });
+    const initSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+
+        if (error) {
+          console.warn('Initial getSession error:', error);
+          setLoading(false);
+          return;
+        }
+
+        setSession(session);
+        setUser(session?.user ?? null);
+
+        if (session?.user) {
+          await fetchProfile(session.user.id, session.user.email);
+        }
+      } catch (e) {
+        console.warn('initSession exception:', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initSession();
 
     // Auth State Changes listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       console.log('Auth state changed:', event);
 
       // Bei TOKEN_REFRESHED nur Session aktualisieren, kein Profile-Fetch nötig
       if (event === 'TOKEN_REFRESHED') {
-        setSession(session);
-        setUser(session?.user ?? null);
-        return; // Keine weiteren Updates nötig
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
+        return;
       }
 
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) await fetchProfile(session.user.id, session.user.email);
-      else setProfile(null);
+      // Bei SIGNED_OUT alles clearen
+      if (event === 'SIGNED_OUT') {
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+
+      setSession(newSession);
+      setUser(newSession?.user ?? null);
+
+      if (newSession?.user) {
+        await fetchProfile(newSession.user.id, newSession.user.email);
+      } else {
+        setProfile(null);
+      }
+
       setLoading(false);
     });
 
-    // === FIX: Session-Recovery bei Tab-Wechsel (Web) ===
+    // Visibility Change Handler - nur bei Browser
     const handleVisibilityChange = async () => {
+      if (typeof document === 'undefined') return;
+
       if (document.visibilityState === 'visible') {
         supabase.auth.startAutoRefresh();
-        // Nur Recovery wenn keine Session vorhanden
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
-        if (!currentSession) {
-          console.log('Tab wieder aktiv - Keine Session, versuche Recovery...');
-          await recoverSession();
-        }
+        startWatchdog();
+        // Einmaliger Check bei Rückkehr
+        await sessionWatchdog();
       } else {
         supabase.auth.stopAutoRefresh();
+        stopWatchdog();
       }
-    };
-
-    const handleFocus = async () => {
-      supabase.auth.startAutoRefresh();
-      // Kein automatisches Recovery bei jedem Fokus - Supabase Auto-Refresh übernimmt das
     };
 
     // Event Listeners hinzufügen (nur im Browser)
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', handleVisibilityChange);
-      window.addEventListener('focus', handleFocus);
-      
-      // Auto-Refresh initial starten
       supabase.auth.startAutoRefresh();
+      startWatchdog();
     }
 
     // Cleanup
     return () => {
       subscription.unsubscribe();
+      stopWatchdog();
       if (typeof document !== 'undefined') {
         document.removeEventListener('visibilitychange', handleVisibilityChange);
-        window.removeEventListener('focus', handleFocus);
         supabase.auth.stopAutoRefresh();
       }
     };
@@ -225,7 +277,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         });
-      
+
       if (advisorError) {
         console.log('Advisor insert error:', advisorError);
         return { error: advisorError };
@@ -236,7 +288,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         first_name: firstName,
         last_name: lastName,
         role: 'advisor',
-        email: email
+        email: email,
+        phone: null,
+        phone_country_code: null
       });
     }
 
@@ -244,7 +298,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
+    stopWatchdog();
     await supabase.auth.signOut();
+    setSession(null);
+    setUser(null);
     setProfile(null);
   };
 
