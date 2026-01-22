@@ -1871,7 +1871,7 @@ const styles = StyleSheet.create({
 
   // Mobile Card List
   mobileCardList: { flex: 1 },
-  mobileCardListContent: { padding: 12, gap: 10 },
+  mobileCardListContent: { paddingHorizontal: 12, paddingVertical: 8 },
 
   // Mobile Player Card
   mobileCard: { backgroundColor: '#fff', borderRadius: 12, padding: 14, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 2 },

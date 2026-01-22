@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Platform, Pressable } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Platform, Pressable, SafeAreaView } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../config/supabase';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 const TRANSFER_STATUS = [
   { id: 'ideen', label: 'IDEEN', color: '#64748b' },
@@ -91,14 +93,18 @@ interface ClubLogo {
 
 type ViewMode = 'kanban' | 'liste';
 
+type MobileTab = 'ideen' | 'offen' | 'absage';
+
 export function TransferDetailScreen({ route, navigation }: any) {
   const { playerId, highlightClub } = route.params;
+  const isMobile = useIsMobile();
   const [player, setPlayer] = useState<Player | null>(null);
   const [clubs, setClubs] = useState<TransferClub[]>([]);
   const [clubLogos, setClubLogos] = useState<Record<string, string>>({});
   const [allClubNames, setAllClubNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('kanban');
+  const [mobileTab, setMobileTab] = useState<MobileTab>('ideen');
   
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
@@ -359,7 +365,28 @@ export function TransferDetailScreen({ route, navigation }: any) {
   };
 
   const getClubsByStatus = (statusId: string): TransferClub[] => {
-    return clubs.filter(c => c.status === statusId);
+    return clubs
+      .filter(c => c.status === statusId)
+      .sort((a, b) => {
+        const daysA = getDaysUntilReminder(a.created_at, a.reminder_days);
+        const daysB = getDaysUntilReminder(b.created_at, b.reminder_days);
+
+        // Beide haben Erinnerung -> nach Tagen sortieren (nächste zuerst)
+        if (daysA !== null && daysB !== null) {
+          if (daysA !== daysB) return daysA - daysB;
+          // Gleiche Tage -> alphabetisch
+          return a.club_name.localeCompare(b.club_name, 'de');
+        }
+
+        // Nur A hat Erinnerung -> A zuerst
+        if (daysA !== null) return -1;
+
+        // Nur B hat Erinnerung -> B zuerst
+        if (daysB !== null) return 1;
+
+        // Keine Erinnerung -> alphabetisch
+        return a.club_name.localeCompare(b.club_name, 'de');
+      });
   };
 
   const renderClubCard = (club: TransferClub) => {
@@ -828,6 +855,15 @@ export function TransferDetailScreen({ route, navigation }: any) {
   };
 
   if (!player) {
+    if (isMobile) {
+      return (
+        <SafeAreaView style={styles.mobileContainer}>
+          <View style={styles.mobileLoadingContainer}>
+            <Text style={styles.loadingText}>Laden...</Text>
+          </View>
+        </SafeAreaView>
+      );
+    }
     return (
       <View style={styles.modalOverlayContainer}>
         <View style={styles.modalContainer}>
@@ -839,6 +875,169 @@ export function TransferDetailScreen({ route, navigation }: any) {
 
   const playerClubLogo = getClubLogo(player.club);
 
+  // Mobile Club Card
+  const renderMobileClubCard = (club: TransferClub) => {
+    const logo = getClubLogo(club.club_name);
+    const daysUntil = getDaysUntilReminder(club.created_at, club.reminder_days);
+
+    return (
+      <TouchableOpacity
+        key={club.id}
+        style={styles.mobileClubCard}
+        onPress={() => openEditModal(club)}
+      >
+        <View style={styles.mobileClubCardHeader}>
+          {logo && <Image source={{ uri: logo }} style={styles.mobileClubLogo} />}
+          <View style={styles.mobileClubCardInfo}>
+            <Text style={styles.mobileClubName}>{club.club_name}</Text>
+            {club.advisor_name && (
+              <Text style={styles.mobileClubAdvisor}>👤 {club.advisor_name}</Text>
+            )}
+          </View>
+          {daysUntil !== null && (
+            <View style={[
+              styles.mobileReminderBadge,
+              daysUntil < 0 && styles.mobileReminderOverdue,
+              daysUntil === 0 && styles.mobileReminderToday,
+            ]}>
+              <Text style={[
+                styles.mobileReminderText,
+                daysUntil < 0 && styles.mobileReminderTextOverdue,
+                daysUntil === 0 && styles.mobileReminderTextToday,
+              ]}>
+                {daysUntil < 0 ? `vor ${Math.abs(daysUntil)}d` : daysUntil === 0 ? 'Heute' : `in ${daysUntil}d`}
+              </Text>
+            </View>
+          )}
+        </View>
+        {club.last_contact && (
+          <Text style={styles.mobileClubContact}>🕐 Letzter Kontakt: {formatDate(club.last_contact)}</Text>
+        )}
+        {club.notes && (
+          <Text style={styles.mobileClubNotes} numberOfLines={2}>"{club.notes}"</Text>
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+  // Mobile View
+  if (isMobile) {
+    const mobileClubs = getClubsByStatus(mobileTab);
+
+    return (
+      <SafeAreaView style={styles.mobileContainer}>
+        {/* Mobile Header */}
+        <View style={styles.mobileHeader}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.mobileBackButton}>
+            <Ionicons name="arrow-back" size={24} color="#1a1a1a" />
+          </TouchableOpacity>
+          <View style={styles.mobileHeaderCenter}>
+            <Text style={styles.mobileHeaderTitle}>{player.first_name} {player.last_name}</Text>
+            <Text style={styles.mobileHeaderSubtitle}>{calculateAge(player.birth_date)} Jahre • {getFullPosition(player.position)}</Text>
+          </View>
+          {playerClubLogo && (
+            <Image source={{ uri: playerClubLogo }} style={styles.mobileHeaderLogo} />
+          )}
+        </View>
+
+        {/* Tabs */}
+        <View style={styles.mobileTabs}>
+          {TRANSFER_STATUS.map(status => {
+            const count = getClubsByStatus(status.id).length;
+            const isActive = mobileTab === status.id;
+            return (
+              <TouchableOpacity
+                key={status.id}
+                style={[styles.mobileTab, isActive && styles.mobileTabActive]}
+                onPress={() => setMobileTab(status.id as MobileTab)}
+              >
+                <Text style={[styles.mobileTabText, isActive && styles.mobileTabTextActive]}>
+                  {status.id === 'offen' ? 'Offen' : status.label}
+                </Text>
+                <View style={[styles.mobileTabBadge, { backgroundColor: isActive ? status.color : '#e2e8f0' }]}>
+                  <Text style={[styles.mobileTabBadgeText, !isActive && { color: '#64748b' }]}>{count}</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Content */}
+        <ScrollView style={styles.mobileContent} contentContainerStyle={styles.mobileContentContainer}>
+          {mobileClubs.length === 0 ? (
+            <View style={styles.mobileEmptyState}>
+              <Text style={styles.mobileEmptyText}>Keine Vereine in dieser Kategorie</Text>
+            </View>
+          ) : (
+            mobileClubs.map(club => renderMobileClubCard(club))
+          )}
+        </ScrollView>
+
+        {/* Add Button */}
+        <TouchableOpacity
+          style={styles.mobileAddButton}
+          onPress={() => { resetForm(); setFormData({ ...formData, status: mobileTab }); setShowAddModal(true); }}
+        >
+          <Ionicons name="add" size={28} color="#fff" />
+        </TouchableOpacity>
+
+        {/* Add Modal - same as desktop */}
+        <Modal visible={showAddModal} transparent animationType="slide">
+          <View style={styles.mobileModalOverlay}>
+            <View style={styles.mobileModalContent}>
+              <View style={styles.mobileModalHeader}>
+                <Text style={styles.mobileModalTitle}>Neuen Verein anlegen</Text>
+                <TouchableOpacity onPress={() => setShowAddModal(false)}>
+                  <Ionicons name="close" size={24} color="#64748b" />
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.mobileModalScroll}>
+                {renderForm()}
+              </ScrollView>
+              <View style={styles.mobileModalButtons}>
+                <TouchableOpacity style={styles.mobileModalCancelButton} onPress={() => setShowAddModal(false)}>
+                  <Text style={styles.mobileModalCancelText}>Abbrechen</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.mobileModalSaveButton} onPress={addClub}>
+                  <Text style={styles.mobileModalSaveText}>Hinzufügen</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Edit Modal - same as desktop */}
+        <Modal visible={showEditModal} transparent animationType="slide">
+          <View style={styles.mobileModalOverlay}>
+            <View style={styles.mobileModalContent}>
+              <View style={styles.mobileModalHeader}>
+                <Text style={styles.mobileModalTitle}>Verein bearbeiten</Text>
+                <TouchableOpacity onPress={() => setShowEditModal(false)}>
+                  <Ionicons name="close" size={24} color="#64748b" />
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.mobileModalScroll}>
+                {renderForm()}
+              </ScrollView>
+              <View style={styles.mobileModalButtons}>
+                <TouchableOpacity style={styles.mobileModalDeleteButton} onPress={() => selectedClub && deleteClub(selectedClub.id)}>
+                  <Text style={styles.mobileModalDeleteText}>Löschen</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.mobileModalCancelButton} onPress={() => setShowEditModal(false)}>
+                  <Text style={styles.mobileModalCancelText}>Abbrechen</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.mobileModalSaveButton} onPress={updateClub}>
+                  <Text style={styles.mobileModalSaveText}>Speichern</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </SafeAreaView>
+    );
+  }
+
+  // Desktop View
   return (
     <View style={styles.modalOverlayContainer}>
       <TouchableOpacity style={styles.modalBackdrop} onPress={() => navigation.goBack()} activeOpacity={1} />
@@ -1223,4 +1422,279 @@ const styles = StyleSheet.create({
   reminderDropdownItemSelected: { backgroundColor: '#1a1a1a' },
   reminderDropdownItemText: { fontSize: 13, color: '#333' },
   reminderDropdownItemTextSelected: { color: '#fff' },
+
+  // ==================== MOBILE STYLES ====================
+  mobileContainer: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+  mobileLoadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Mobile Header
+  mobileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  mobileBackButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mobileHeaderCenter: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  mobileHeaderTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#1a1a1a',
+  },
+  mobileHeaderSubtitle: {
+    fontSize: 13,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  mobileHeaderLogo: {
+    width: 36,
+    height: 36,
+    resizeMode: 'contain',
+  },
+
+  // Mobile Tabs
+  mobileTabs: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    paddingHorizontal: 8,
+  },
+  mobileTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    gap: 6,
+  },
+  mobileTabActive: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#1a1a1a',
+  },
+  mobileTabText: {
+    fontSize: 13,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  mobileTabTextActive: {
+    color: '#1a1a1a',
+    fontWeight: '600',
+  },
+  mobileTabBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    minWidth: 18,
+    alignItems: 'center',
+  },
+  mobileTabBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#fff',
+  },
+
+  // Mobile Content
+  mobileContent: {
+    flex: 1,
+  },
+  mobileContentContainer: {
+    padding: 12,
+    paddingBottom: 80,
+  },
+  mobileEmptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  mobileEmptyText: {
+    fontSize: 15,
+    color: '#94a3b8',
+    fontStyle: 'italic',
+  },
+
+  // Mobile Club Card
+  mobileClubCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  mobileClubCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  mobileClubLogo: {
+    width: 36,
+    height: 36,
+    borderRadius: 6,
+    marginRight: 12,
+    resizeMode: 'contain',
+  },
+  mobileClubCardInfo: {
+    flex: 1,
+  },
+  mobileClubName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1a1a1a',
+  },
+  mobileClubAdvisor: {
+    fontSize: 13,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  mobileClubContact: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 8,
+  },
+  mobileClubNotes: {
+    fontSize: 12,
+    color: '#64748b',
+    fontStyle: 'italic',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+  },
+  mobileReminderBadge: {
+    backgroundColor: '#fef3c7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  mobileReminderOverdue: {
+    backgroundColor: '#fecaca',
+  },
+  mobileReminderToday: {
+    backgroundColor: '#fef3c7',
+  },
+  mobileReminderText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#b45309',
+  },
+  mobileReminderTextOverdue: {
+    color: '#dc2626',
+  },
+  mobileReminderTextToday: {
+    color: '#b45309',
+  },
+
+  // Mobile Add Button
+  mobileAddButton: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#1a1a1a',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+
+  // Mobile Modal
+  mobileModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  mobileModalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '90%',
+  },
+  mobileModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  mobileModalTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#1a1a1a',
+  },
+  mobileModalScroll: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    maxHeight: 400,
+  },
+  mobileModalButtons: {
+    flexDirection: 'row',
+    padding: 16,
+    gap: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+  },
+  mobileModalCancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 10,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+  },
+  mobileModalCancelText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  mobileModalSaveButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 10,
+    backgroundColor: '#1a1a1a',
+    alignItems: 'center',
+  },
+  mobileModalSaveText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  mobileModalDeleteButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: '#fef2f2',
+    alignItems: 'center',
+  },
+  mobileModalDeleteText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#ef4444',
+  },
 });
