@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Pressable } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 import { useIsMobile } from '../../hooks/useIsMobile';
+import { useAuth } from '../../contexts/AuthContext';
 
 const POSITIONS = ['Torwart', 'Innenverteidiger', 'Linker Verteidiger', 'Rechter Verteidiger', 'Defensives Mittelfeld', 'Zentrales Mittelfeld', 'Offensives Mittelfeld', 'Linke Außenbahn', 'Rechte Außenbahn', 'Stürmer'];
 const POSITION_SHORT: Record<string, string> = {
@@ -53,6 +54,7 @@ type SortDirection = 'asc' | 'desc';
 
 export function PlayerOverviewScreen({ navigation }: any) {
   const isMobile = useIsMobile();
+  const { session, loading: authLoading } = useAuth();
   const [players, setPlayers] = useState<Player[]>([]);
   const [filteredPlayers, setFilteredPlayers] = useState<Player[]>([]);
   const [advisors, setAdvisors] = useState<Advisor[]>([]);
@@ -60,6 +62,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const dataLoadedRef = useRef(false);
   const [newFirstName, setNewFirstName] = useState('');
   const [newLastName, setNewLastName] = useState('');
   const [sortField, setSortField] = useState<SortField>('name');
@@ -181,18 +184,28 @@ export function PlayerOverviewScreen({ navigation }: any) {
     setShowContractDropdown(false);
   };
 
+  // Daten nur laden wenn Auth bereit ist
   useEffect(() => {
-    fetchCurrentUser();
-    fetchPlayers();
-    fetchClubLogos();
-    fetchAdvisors();
-  }, []);
+    if (authLoading) return; // Warte auf Auth
+    if (!session) return; // Keine Session = nicht eingeloggt
 
-  // Refresh data when screen comes into focus
+    // Initiales Laden
+    if (!dataLoadedRef.current) {
+      dataLoadedRef.current = true;
+      fetchCurrentUser();
+      fetchPlayers();
+      fetchClubLogos();
+      fetchAdvisors();
+    }
+  }, [authLoading, session]);
+
+  // Refresh data when screen comes into focus (nur wenn Auth bereit)
   useFocusEffect(
     useCallback(() => {
-      fetchPlayers();
-    }, [])
+      if (!authLoading && session && dataLoadedRef.current) {
+        fetchPlayers();
+      }
+    }, [authLoading, session])
   );
 
   useEffect(() => { applyFilters(); }, [searchText, players, selectedYears, selectedPositions, selectedListings, selectedResponsibilities, selectedContractYears, sortField, sortDirection]);
@@ -832,7 +845,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
         </View>
 
         <ScrollView style={styles.tableBody}>
-          {loading ? (
+          {(authLoading || loading) ? (
             <Text style={styles.loadingText}>Laden...</Text>
           ) : error ? (
             <View style={styles.errorContainer}>
