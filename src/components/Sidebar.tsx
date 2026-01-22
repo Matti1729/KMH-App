@@ -505,17 +505,17 @@ const styles = StyleSheet.create({
   },
   mobileGreetingContainer: {
     flex: 1,
-    alignItems: 'center',
+    marginLeft: 4,
   },
   mobileGreeting: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
     color: '#1a1a1a',
   },
   mobileSubGreeting: {
-    fontSize: 10,
+    fontSize: 11,
     color: '#888',
-    marginTop: 1,
+    marginTop: 2,
   },
   profileButtonMobile: {
     width: 44,
