@@ -107,11 +107,6 @@ export function Sidebar({ navigation, activeScreen, profile }: SidebarProps) {
   const currentScreenLabel = navItems.find(item => item.id === activeScreen)?.label ||
     (activeScreen === 'admin' ? 'Administration' : 'Dashboard');
 
-  // Mobile Titel - Begrüßung auf Dashboard, sonst Screen-Name
-  const mobileTitle = activeScreen === 'dashboard'
-    ? `Hallo, ${profile?.first_name || 'User'}!`
-    : currentScreenLabel;
-
   // Sidebar-Inhalt (wird sowohl für Desktop als auch Mobile verwendet)
   const SidebarContent = () => (
     <>
@@ -286,7 +281,18 @@ export function Sidebar({ navigation, activeScreen, profile }: SidebarProps) {
           >
             <Text style={styles.hamburgerIcon}>☰</Text>
           </Pressable>
-          <Text style={styles.mobileTitle}>{mobileTitle}</Text>
+          {activeScreen === 'dashboard' ? (
+            <View style={styles.mobileGreetingContainer}>
+              <Text style={styles.mobileGreeting}>
+                Einen schönen {currentWeekday}, {profile?.first_name || 'User'}.
+              </Text>
+              <Text style={styles.mobileSubGreeting}>
+                Willkommen im Karl M. Herzog Sportmanagement!
+              </Text>
+            </View>
+          ) : (
+            <Text style={styles.mobileTitle}>{currentScreenLabel}</Text>
+          )}
           <TouchableOpacity
             onPress={() => navigation.navigate('MyProfile')}
             style={styles.profileButtonMobile}
@@ -496,6 +502,20 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '600',
     color: '#1a1a1a',
+  },
+  mobileGreetingContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  mobileGreeting: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1a1a1a',
+  },
+  mobileSubGreeting: {
+    fontSize: 10,
+    color: '#888',
+    marginTop: 1,
   },
   profileButtonMobile: {
     width: 44,
