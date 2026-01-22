@@ -1551,7 +1551,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 style={styles.dateDropdownButton} 
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker(field); setActiveDatePart('day'); }}
               >
-                <Text style={styles.dateDropdownText}>{currentDay || 'Tag'}</Text>
+                <Text style={currentDay ? styles.dateDropdownText : styles.dateDropdownPlaceholder}>{currentDay || 'Tag'}</Text>
                 <Text>▼</Text>
               </TouchableOpacity>
               {isActiveDay && (
@@ -1571,7 +1571,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 style={styles.dateDropdownButton} 
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker(field); setActiveDatePart('month'); }}
               >
-                <Text style={styles.dateDropdownText}>{MONTHS[currentMonth] || 'Monat'}</Text>
+                <Text style={MONTHS[currentMonth] ? styles.dateDropdownText : styles.dateDropdownPlaceholder}>{MONTHS[currentMonth] || 'Monat'}</Text>
                 <Text>▼</Text>
               </TouchableOpacity>
               {isActiveMonth && (
@@ -1591,7 +1591,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 style={styles.dateDropdownButton} 
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker(field); setActiveDatePart('year'); }}
               >
-                <Text style={styles.dateDropdownText}>{currentYear || 'Jahr'}</Text>
+                <Text style={currentYear ? styles.dateDropdownText : styles.dateDropdownPlaceholder}>{currentYear || 'Jahr'}</Text>
                 <Text>▼</Text>
               </TouchableOpacity>
               {isActiveYear && (
@@ -1633,7 +1633,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 style={styles.dateDropdownButton} 
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker('birth_date'); setActiveDatePart('day'); }}
               >
-                <Text style={styles.dateDropdownText}>{currentDay || 'Tag'}</Text>
+                <Text style={currentDay ? styles.dateDropdownText : styles.dateDropdownPlaceholder}>{currentDay || 'Tag'}</Text>
                 <Text>▼</Text>
               </TouchableOpacity>
               {isActiveDay && (
@@ -1653,7 +1653,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 style={styles.dateDropdownButton} 
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker('birth_date'); setActiveDatePart('month'); }}
               >
-                <Text style={styles.dateDropdownText}>{MONTHS[currentMonth] || 'Monat'}</Text>
+                <Text style={MONTHS[currentMonth] ? styles.dateDropdownText : styles.dateDropdownPlaceholder}>{MONTHS[currentMonth] || 'Monat'}</Text>
                 <Text>▼</Text>
               </TouchableOpacity>
               {isActiveMonth && (
@@ -1673,7 +1673,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 style={styles.dateDropdownButton} 
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker('birth_date'); setActiveDatePart('year'); }}
               >
-                <Text style={styles.dateDropdownText}>{currentYear || 'Jahr'}</Text>
+                <Text style={currentYear ? styles.dateDropdownText : styles.dateDropdownPlaceholder}>{currentYear || 'Jahr'}</Text>
                 <Text>▼</Text>
               </TouchableOpacity>
               {isActiveYear && (
@@ -1721,7 +1721,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 style={styles.dateDropdownButton} 
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker('contract_end'); setActiveDatePart('day'); }}
               >
-                <Text style={styles.dateDropdownText}>{currentDay || 'Tag'}</Text>
+                <Text style={currentDay ? styles.dateDropdownText : styles.dateDropdownPlaceholder}>{currentDay || 'Tag'}</Text>
                 <Text>▼</Text>
               </TouchableOpacity>
               {isActiveDay && (
@@ -1741,7 +1741,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 style={styles.dateDropdownButton} 
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker('contract_end'); setActiveDatePart('month'); }}
               >
-                <Text style={styles.dateDropdownText}>{MONTHS[currentMonth] || 'Monat'}</Text>
+                <Text style={MONTHS[currentMonth] ? styles.dateDropdownText : styles.dateDropdownPlaceholder}>{MONTHS[currentMonth] || 'Monat'}</Text>
                 <Text>▼</Text>
               </TouchableOpacity>
               {isActiveMonth && (
@@ -1761,7 +1761,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 style={styles.dateDropdownButton} 
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker('contract_end'); setActiveDatePart('year'); }}
               >
-                <Text style={styles.dateDropdownText}>{currentYear || 'Jahr'}</Text>
+                <Text style={currentYear ? styles.dateDropdownText : styles.dateDropdownPlaceholder}>{currentYear || 'Jahr'}</Text>
                 <Text>▼</Text>
               </TouchableOpacity>
               {isActiveYear && (
@@ -2326,7 +2326,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                   {renderField('Gehalt/Monat', 'salary_month')}
                   {renderField('Punktprämie', 'point_bonus')}
                   {renderField('Auflaufprämie', 'appearance_bonus')}
-                  <View style={styles.infoRow}><Text style={styles.label}>Sonstiges</Text>{editing ? <TextInput style={[styles.input, styles.smallTextArea]} value={editData.contract_notes || ''} onChangeText={(text) => updateField('contract_notes', text)} placeholder="Sonstiges..." multiline /> : <Text style={styles.value}>{player.contract_notes || '-'}</Text>}</View>
+                  <View style={styles.infoRow}><Text style={styles.label}>Sonstiges</Text>{editing ? <TextInput style={[styles.input, styles.smallTextArea]} value={editData.contract_notes || ''} onChangeText={(text) => updateField('contract_notes', text)} placeholder="Sonstiges..." placeholderTextColor="#999" multiline /> : <Text style={styles.value}>{player.contract_notes || '-'}</Text>}</View>
                   {renderDocuments()}
                   {renderSpielplanButton()}
                 </View>
@@ -2351,7 +2351,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                   <View style={styles.infoRow}><Text style={styles.label}> </Text><Text style={styles.value}> </Text></View>
                   <View style={styles.infoRow}><Text style={styles.label}> </Text><Text style={styles.value}> </Text></View>
                   <Text style={styles.sectionSubtitle}>Sonstiges</Text>
-                  <View style={styles.infoRow}>{editing ? <TextInput style={[styles.input, styles.smallTextArea]} value={editData.other_notes || ''} onChangeText={(text) => updateField('other_notes', text)} placeholder="Sonstiges..." multiline /> : <Text style={styles.value}>{player.other_notes || '-'}</Text>}</View>
+                  <View style={styles.infoRow}>{editing ? <TextInput style={[styles.input, styles.smallTextArea]} value={editData.other_notes || ''} onChangeText={(text) => updateField('other_notes', text)} placeholder="Sonstiges..." placeholderTextColor="#999" multiline /> : <Text style={styles.value}>{player.other_notes || '-'}</Text>}</View>
                 </View>
               </View>
             </View>
@@ -2359,7 +2359,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         </View>
         <View style={styles.cardFullWidth}>
           <Text style={styles.cardTitle}>Verletzungen & Krankheiten</Text>
-          <View style={styles.infoRow}>{editing ? <TextInput style={[styles.input, styles.textArea]} value={editData.injuries || ''} onChangeText={(text) => updateField('injuries', text)} placeholder="Verletzungshistorie..." multiline /> : <Text style={styles.value}>{player.injuries || '-'}</Text>}</View>
+          <View style={styles.infoRow}>{editing ? <TextInput style={[styles.input, styles.textArea]} value={editData.injuries || ''} onChangeText={(text) => updateField('injuries', text)} placeholder="Verletzungshistorie..." placeholderTextColor="#999" multiline /> : <Text style={styles.value}>{player.injuries || '-'}</Text>}</View>
         </View>
         </Pressable>
       </ScrollView>
@@ -2791,16 +2791,16 @@ const styles = StyleSheet.create({
   clubLogoSmall: { width: 24, height: 24, resizeMode: 'contain', marginRight: 8 },
   birthdayRow: { flexDirection: 'row', alignItems: 'center' },
   birthdayIcon: { fontSize: 16, marginLeft: 8 },
-  phoneContainer: { flexDirection: 'row', gap: 8 },
-  phoneCodePicker: { width: 120 },
-  phoneInput: { flex: 1 },
+  phoneContainer: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  phoneCodePicker: { width: 110, minWidth: 110 },
+  phoneInput: { flex: 1, minWidth: 100 },
   addressRow: { flexDirection: 'row', gap: 8 },
   addressColumn: { flexDirection: 'column', gap: 8 },
-  addressRowSmall: { flexDirection: 'row', gap: 8 },
+  addressRowSmall: { flexDirection: 'row', gap: 8, overflow: 'hidden' },
   addressStreet: { flex: 2 },
   addressPLZ: { width: 80 },
   addressCity: { flex: 1 },
-  addressCitySmall: { flex: 1 },
+  addressCitySmall: { flex: 1, minWidth: 0 },
   socialIconsRow: { flexDirection: 'row', gap: 12 },
   socialIcon: { width: 28, height: 28, resizeMode: 'contain' },
   socialInputRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
@@ -2918,6 +2918,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#333',
   },
+  dateDropdownPlaceholder: {
+    fontSize: 15,
+    color: '#999',
+  },
   transfermarktLinkRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2944,8 +2948,8 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   tmLinkIcon: {
-    width: 32,
-    height: 32,
+    width: 70,
+    height: 28,
     resizeMode: 'contain',
   },
   tmLinkText: {

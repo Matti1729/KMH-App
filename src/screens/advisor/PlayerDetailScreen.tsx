@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, Image, Linking, Modal, Pressable, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, Image, Linking, Modal, Pressable, Platform, useWindowDimensions } from 'react-native';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import * as DocumentPicker from 'expo-document-picker';
@@ -225,6 +225,8 @@ const fetchTransfermarktStats = async (transfermarktUrl: string): Promise<Transf
 export function PlayerDetailScreen({ route, navigation }: any) {
   const { playerId } = route.params;
   const { profile } = useAuth();
+  const { width } = useWindowDimensions();
+  const isMobile = width < 768;
   const [player, setPlayer] = useState<Player | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -1838,10 +1840,10 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       <View style={styles.infoRow}>
         <Text style={styles.label}>Spielplan</Text>
         <TouchableOpacity
-          style={styles.spielplanButton}
+          style={[styles.spielplanButton, isMobile && styles.spielplanButtonMobile]}
           onPress={openSpielplan}
         >
-          <Text style={styles.spielplanButtonText}>
+          <Text style={[styles.spielplanButtonText, isMobile && styles.spielplanButtonTextMobile]}>
             📅 Spielplan {displayName}
           </Text>
         </TouchableOpacity>
@@ -2076,7 +2078,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 style={styles.dateDropdownButton} 
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker(field); setActiveDatePart('day'); }}
               >
-                <Text style={styles.dateDropdownText}>{currentDay || 'Tag'}</Text>
+                <Text style={currentDay ? styles.dateDropdownText : styles.dateDropdownPlaceholder}>{currentDay || 'Tag'}</Text>
                 <Text>▼</Text>
               </TouchableOpacity>
               {isActiveDay && (
@@ -2096,7 +2098,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 style={styles.dateDropdownButton} 
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker(field); setActiveDatePart('month'); }}
               >
-                <Text style={styles.dateDropdownText}>{MONTHS[currentMonth] || 'Monat'}</Text>
+                <Text style={MONTHS[currentMonth] ? styles.dateDropdownText : styles.dateDropdownPlaceholder}>{MONTHS[currentMonth] || 'Monat'}</Text>
                 <Text>▼</Text>
               </TouchableOpacity>
               {isActiveMonth && (
@@ -2116,7 +2118,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 style={styles.dateDropdownButton} 
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker(field); setActiveDatePart('year'); }}
               >
-                <Text style={styles.dateDropdownText}>{currentYear || 'Jahr'}</Text>
+                <Text style={currentYear ? styles.dateDropdownText : styles.dateDropdownPlaceholder}>{currentYear || 'Jahr'}</Text>
                 <Text>▼</Text>
               </TouchableOpacity>
               {isActiveYear && (
@@ -2158,7 +2160,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 style={styles.dateDropdownButton} 
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker('birth_date'); setActiveDatePart('day'); }}
               >
-                <Text style={styles.dateDropdownText}>{currentDay || 'Tag'}</Text>
+                <Text style={currentDay ? styles.dateDropdownText : styles.dateDropdownPlaceholder}>{currentDay || 'Tag'}</Text>
                 <Text>▼</Text>
               </TouchableOpacity>
               {isActiveDay && (
@@ -2178,7 +2180,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 style={styles.dateDropdownButton} 
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker('birth_date'); setActiveDatePart('month'); }}
               >
-                <Text style={styles.dateDropdownText}>{MONTHS[currentMonth] || 'Monat'}</Text>
+                <Text style={MONTHS[currentMonth] ? styles.dateDropdownText : styles.dateDropdownPlaceholder}>{MONTHS[currentMonth] || 'Monat'}</Text>
                 <Text>▼</Text>
               </TouchableOpacity>
               {isActiveMonth && (
@@ -2198,7 +2200,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 style={styles.dateDropdownButton} 
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker('birth_date'); setActiveDatePart('year'); }}
               >
-                <Text style={styles.dateDropdownText}>{currentYear || 'Jahr'}</Text>
+                <Text style={currentYear ? styles.dateDropdownText : styles.dateDropdownPlaceholder}>{currentYear || 'Jahr'}</Text>
                 <Text>▼</Text>
               </TouchableOpacity>
               {isActiveYear && (
@@ -2246,7 +2248,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 style={styles.dateDropdownButton} 
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker('contract_end'); setActiveDatePart('day'); }}
               >
-                <Text style={styles.dateDropdownText}>{currentDay || 'Tag'}</Text>
+                <Text style={currentDay ? styles.dateDropdownText : styles.dateDropdownPlaceholder}>{currentDay || 'Tag'}</Text>
                 <Text>▼</Text>
               </TouchableOpacity>
               {isActiveDay && (
@@ -2266,7 +2268,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 style={styles.dateDropdownButton} 
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker('contract_end'); setActiveDatePart('month'); }}
               >
-                <Text style={styles.dateDropdownText}>{MONTHS[currentMonth] || 'Monat'}</Text>
+                <Text style={MONTHS[currentMonth] ? styles.dateDropdownText : styles.dateDropdownPlaceholder}>{MONTHS[currentMonth] || 'Monat'}</Text>
                 <Text>▼</Text>
               </TouchableOpacity>
               {isActiveMonth && (
@@ -2286,7 +2288,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 style={styles.dateDropdownButton} 
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker('contract_end'); setActiveDatePart('year'); }}
               >
-                <Text style={styles.dateDropdownText}>{currentYear || 'Jahr'}</Text>
+                <Text style={currentYear ? styles.dateDropdownText : styles.dateDropdownPlaceholder}>{currentYear || 'Jahr'}</Text>
                 <Text>▼</Text>
               </TouchableOpacity>
               {isActiveYear && (
@@ -2302,7 +2304,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               )}
             </View>
           </View>
-        ) : player?.contract_end ? (<View style={[styles.statusBadge, hasSecuredFuture ? styles.statusBadgeGreen : (inCurrentSeason ? styles.statusBadgeRed : styles.statusBadgeNormal)]}><Text style={[styles.statusBadgeText, hasSecuredFuture ? styles.statusTextGreen : (inCurrentSeason ? styles.statusTextRed : styles.statusTextNormal)]}>{formatDate(player.contract_end)}</Text></View>) : <Text style={styles.value}>-</Text>}
+        ) : player?.contract_end ? (<View style={[styles.statusBadge, isMobile && styles.statusBadgeMobile, hasSecuredFuture ? styles.statusBadgeGreen : (inCurrentSeason ? styles.statusBadgeRed : styles.statusBadgeNormal)]}><Text style={[styles.statusBadgeText, isMobile && styles.statusBadgeTextMobile, hasSecuredFuture ? styles.statusTextGreen : (inCurrentSeason ? styles.statusTextRed : styles.statusTextNormal)]}>{formatDate(player.contract_end)}</Text></View>) : <Text style={styles.value}>-</Text>}
       </View>
     );
   };
@@ -2548,7 +2550,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
 
   const renderU23Status = () => {
     const u23Status = calculateU23Status(player?.birth_date || '');
-    return (<View style={styles.infoRow}><Text style={styles.label}>U23-Spieler</Text><View style={[styles.statusBadge, u23Status.isU23 ? styles.statusBadgeGreen : styles.statusBadgeRed]}><Text style={[styles.statusBadgeText, u23Status.isU23 ? styles.statusTextGreen : styles.statusTextRed]}>{u23Status.isU23 ? `Ja (${u23Status.seasonsText})` : 'Nein'}</Text></View></View>);
+    return (<View style={styles.infoRow}><Text style={styles.label}>U23-Spieler</Text><View style={[styles.statusBadge, isMobile && styles.statusBadgeMobile, u23Status.isU23 ? styles.statusBadgeGreen : styles.statusBadgeRed]}><Text style={[styles.statusBadgeText, isMobile && styles.statusBadgeTextMobile, u23Status.isU23 ? styles.statusTextGreen : styles.statusTextRed]}>{u23Status.isU23 ? `Ja (${u23Status.seasonsText})` : 'Nein'}</Text></View></View>);
   };
 
   const renderInternatField = () => {
@@ -2604,7 +2606,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <Text style={styles.modalTitle}>Spieler löschen</Text>
-          <Text style={styles.modalText}>Möchten Sie {player?.first_name} {player?.last_name} wirklich löschen?</Text>
+          <Text style={styles.modalWarning}>Möchten Sie {player?.first_name} {player?.last_name} wirklich löschen?</Text>
           <View style={styles.modalButtons}>
             <TouchableOpacity style={styles.modalCancelButton} onPress={() => setShowDeleteModal(false)}>
               <Text style={styles.modalCancelButtonText}>Abbrechen</Text>
@@ -2703,21 +2705,21 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const isAnyDropdownOpen = showPositionPicker || showSecondaryPositionPicker || showNationalityPicker || showHeightPicker || showClubSuggestions || showFutureClubSuggestions || activeDatePicker !== null;
 
   return (
-    <View style={styles.modalOverlayContainer}>
-      <TouchableOpacity style={styles.modalBackdrop} onPress={() => navigation.goBack()} activeOpacity={1} />
-      <View style={styles.modalContainer}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Spielerprofil</Text>
+    <View style={[styles.modalOverlayContainer, isMobile && styles.modalOverlayContainerMobile]}>
+      {!isMobile && <TouchableOpacity style={styles.modalBackdrop} onPress={() => navigation.goBack()} activeOpacity={1} />}
+      <View style={[styles.modalContainer, isMobile && styles.modalContainerMobile]}>
+        <View style={[styles.header, isMobile && styles.headerMobile]}>
+          <Text style={[styles.headerTitle, isMobile && styles.headerTitleMobile]}>Spielerprofil</Text>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}><Text style={styles.closeButtonText}>✕</Text></TouchableOpacity>
         </View>
-        <ScrollView 
-          style={styles.content} 
+        <ScrollView
+          style={[styles.content, isMobile && styles.contentMobile]}
           onScrollBeginDrag={() => closeAllDropdowns()}
         >
         <Pressable onPress={() => closeAllDropdowns()}>
         {/* Redesigned Top Section */}
-        <View style={styles.topSection}>
-          <View style={styles.topLeft}>
+        <View style={[styles.topSection, isMobile && styles.topSectionMobile]}>
+          <View style={[styles.topLeft, isMobile && styles.topLeftMobile]}>
             {editing ? (
               <TouchableOpacity onPress={uploadPhoto} style={styles.photoContainer}>
                 {editData?.photo_url ? (
@@ -2733,13 +2735,13 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 </View>
               </TouchableOpacity>
             ) : (
-              <View style={styles.photoContainer}>
+              <View style={[styles.photoContainer, isMobile && styles.photoContainerMobile]}>
                 {player.photo_url ? <Image source={{ uri: player.photo_url }} style={styles.photo} /> : <View style={styles.photoPlaceholder}><Text style={styles.photoPlaceholderText}>Foto</Text></View>}
               </View>
             )}
           </View>
-          
-          <View style={styles.topCenter}>
+
+          <View style={[styles.topCenter, isMobile && styles.topCenterMobile]}>
             {editing ? (
               <>
                 <TextInput style={styles.nameInput} value={editData.first_name} onChangeText={(text) => updateField('first_name', text)} placeholder="Vorname" placeholderTextColor="#999" />
@@ -2747,22 +2749,22 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               </>
             ) : (
               <>
-                <Text style={styles.playerFirstName}>{player.first_name}</Text>
-                <Text style={styles.playerLastName}>{player.last_name}</Text>
+                <Text style={[styles.playerFirstName, isMobile && styles.playerFirstNameMobile]}>{player.first_name}</Text>
+                <Text style={[styles.playerLastName, isMobile && styles.playerLastNameMobile]}>{player.last_name}</Text>
                 <View style={styles.ageRow}>
-                  <Text style={styles.ageText}>{calculateAge(player.birth_date)} Jahre</Text>
+                  <Text style={[styles.ageText, isMobile && styles.ageTextMobile]}>{calculateAge(player.birth_date)} Jahre</Text>
                   {birthday && <Text style={styles.birthdayIconLarge}>🎉</Text>}
                 </View>
               </>
             )}
           </View>
-          
-          <View style={styles.topRight}>
+
+          <View style={[styles.topRight, isMobile && styles.topRightMobile]}>
             <View style={styles.clubSection}>
               {contractExpired ? (
-                <Image source={ArbeitsamtIcon} style={styles.clubLogoHeader} />
+                <Image source={ArbeitsamtIcon} style={[styles.clubLogoHeader, isMobile && styles.clubLogoHeaderMobile]} />
               ) : getClubLogo(player.club) ? (
-                <Image source={{ uri: getClubLogo(player.club)! }} style={styles.clubLogoHeader} />
+                <Image source={{ uri: getClubLogo(player.club)! }} style={[styles.clubLogoHeader, isMobile && styles.clubLogoHeaderMobile]} />
               ) : (
                 <Text style={styles.clubNameHeaderNoLogo}>{displayClub || '-'}</Text>
               )}
@@ -2782,11 +2784,13 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           </View>
         </View>
 
-        <View style={styles.twoColumnContainer}>
-          <View style={[styles.halfColumn, { zIndex: 400 }]}>
-            <View style={[styles.card, { zIndex: 400, overflow: 'visible' }]}>
+        {isMobile ? (
+          /* Mobile: Cards in gewünschter Reihenfolge */
+          <View style={styles.singleColumnContainer}>
+            {/* 1. Allgemein */}
+            <View style={[styles.card, styles.cardMobile, { zIndex: 400, overflow: 'visible' }]}>
               <Text style={styles.cardTitle}>Allgemein</Text>
-              <View style={[styles.splitContainer, { overflow: 'visible' }]}>
+              <View style={[styles.splitContainer, styles.splitContainerMobile, { overflow: 'visible' }]}>
                 <View style={[styles.splitColumn, { overflow: 'visible', zIndex: 400 }]}>
                   {renderTransfermarktField()}
                   {renderPositionDropdown()}
@@ -2797,26 +2801,57 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 </View>
                 <View style={[styles.splitColumn, { overflow: 'visible', zIndex: 350 }]}>
                   {renderStrengthsField()}
-                  <View style={{ height: 120 }} />
                   {renderPotentialsField()}
                 </View>
               </View>
             </View>
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Beratung</Text>
-              <View style={styles.infoRow}>
-                <Text style={styles.label}>Listung</Text>
-                {editing ? (<View style={styles.chipGrid}>{LISTINGS.map((opt) => (<TouchableOpacity key={opt} style={[styles.chip, editData?.listing === opt && styles.chipSelected]} onPress={() => updateField('listing', editData?.listing === opt ? null : opt)}><Text style={[styles.chipText, editData?.listing === opt && styles.chipTextSelected]}>{editData?.listing === opt ? '✓ ' : ''}{opt}</Text></TouchableOpacity>))}</View>
-                ) : player?.listing ? (<View style={[styles.listingBadge, player.listing === 'Karl Herzog Sportmanagement' ? styles.listingKMH : styles.listingPM]}><Text style={styles.listingBadgeText}>{player.listing}</Text></View>) : <Text style={styles.value}>-</Text>}
+            {/* 2. Vertrag */}
+            <View style={[styles.card, styles.cardMobile, { zIndex: 100, overflow: 'visible' }]}>
+              <Text style={styles.cardTitle}>Vertrag</Text>
+              <View style={[styles.splitContainer, styles.splitContainerMobile, { overflow: 'visible' }]}>
+                <View style={[styles.splitColumn, { overflow: 'visible', zIndex: 100 }]}>
+                  {renderClubField()}
+                  {renderFutureClubField()}
+                  {renderField('Liga', 'league')}
+                  {renderU23Status()}
+                  {renderContractEndField()}
+                  {renderField('Vertrag gilt für', 'contract_scope')}
+                  {renderField('Option', 'contract_option')}
+                  {renderField('Fixe Ablöse / Ausbildungsentschädigung', 'fixed_fee')}
+                </View>
+                <View style={styles.splitColumn}>
+                  {renderField('Gehalt/Monat', 'salary_month')}
+                  {renderField('Punktprämie', 'point_bonus')}
+                  {renderField('Auflaufprämie', 'appearance_bonus')}
+                  <View style={styles.infoRow}><Text style={styles.label}>Sonstiges</Text>{editing ? <TextInput style={[styles.input, styles.smallTextArea]} value={editData.contract_notes || ''} onChangeText={(text) => updateField('contract_notes', text)} placeholder="Sonstiges..." placeholderTextColor="#999" multiline /> : <Text style={styles.value}>{player.contract_notes || '-'}</Text>}</View>
+                  {renderDocuments()}
+                  {renderSpielplanButton()}
+                </View>
               </View>
-              {renderResponsibilitySelector()}
-              {renderDateField('Mandat gültig bis', 'mandate_until')}
-              {renderFieldWithDocuments('Provision', 'provision', 'provision_documents')}
-              {renderFieldWithDocuments('Weg-Vermittlung', 'transfer_commission', 'transfer_commission_documents')}
             </View>
-            <View style={styles.card}>
+            {/* 3. Beratung */}
+            <View style={[styles.card, styles.cardMobile]}>
+              <Text style={styles.cardTitle}>Beratung</Text>
+              <View style={styles.beratungContainerMobile}>
+                <View style={styles.beratungColumnMobile}>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.label}>Listung</Text>
+                    {editing ? (<View style={styles.chipGrid}>{LISTINGS.map((opt) => (<TouchableOpacity key={opt} style={[styles.chip, editData?.listing === opt && styles.chipSelected]} onPress={() => updateField('listing', editData?.listing === opt ? null : opt)}><Text style={[styles.chipText, editData?.listing === opt && styles.chipTextSelected]}>{editData?.listing === opt ? '✓ ' : ''}{opt}</Text></TouchableOpacity>))}</View>
+                    ) : player?.listing ? (<View style={[styles.listingBadge, styles.listingBadgeMobile, player.listing === 'Karl Herzog Sportmanagement' ? styles.listingKMH : styles.listingPM]}><Text style={[styles.listingBadgeText, styles.listingBadgeTextMobile]}>{player.listing}</Text></View>) : <Text style={styles.value}>-</Text>}
+                  </View>
+                  {renderFieldWithDocuments('Provision', 'provision', 'provision_documents')}
+                  {renderFieldWithDocuments('Weg-Vermittlung', 'transfer_commission', 'transfer_commission_documents')}
+                </View>
+                <View style={styles.beratungColumnMobile}>
+                  {renderResponsibilitySelector()}
+                  {renderDateField('Mandat gültig bis', 'mandate_until')}
+                </View>
+              </View>
+            </View>
+            {/* 4. Privat */}
+            <View style={[styles.card, styles.cardMobile]}>
               <Text style={styles.cardTitle}>Privat</Text>
-              <View style={styles.splitContainer}>
+              <View style={[styles.splitContainer, styles.splitContainerMobile]}>
                 <View style={[styles.splitColumn, { zIndex: 10 }]}>
                   {renderBirthDateField()}
                   {renderPhoneField('Telefon', 'phone', 'phone_country_code')}
@@ -2832,35 +2867,11 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 </View>
               </View>
             </View>
-          </View>
-          <View style={[styles.halfColumn, { zIndex: 100 }]}>
-            <View style={[styles.card, { zIndex: 100, overflow: 'visible' }]}>
-              <Text style={styles.cardTitle}>Vertrag</Text>
-              <View style={[styles.splitContainer, { overflow: 'visible' }]}>
-                <View style={[styles.splitColumn, { overflow: 'visible', zIndex: 100 }]}>
-                  {renderClubField()}
-                  {renderFutureClubField()}
-                  {renderField('Liga', 'league')}
-                  {renderU23Status()}
-                  {renderContractEndField()}
-                  {renderField('Vertrag gilt für', 'contract_scope')}
-                  {renderField('Option', 'contract_option')}
-                  {renderField('Fixe Ablöse / Ausbildungsentschädigung', 'fixed_fee')}
-                </View>
-                <View style={styles.splitColumn}>
-                  {renderField('Gehalt/Monat', 'salary_month')}
-                  {renderField('Punktprämie', 'point_bonus')}
-                  {renderField('Auflaufprämie', 'appearance_bonus')}
-                  <View style={styles.infoRow}><Text style={styles.label}>Sonstiges</Text>{editing ? <TextInput style={[styles.input, styles.smallTextArea]} value={editData.contract_notes || ''} onChangeText={(text) => updateField('contract_notes', text)} placeholder="Sonstiges..." multiline /> : <Text style={styles.value}>{player.contract_notes || '-'}</Text>}</View>
-                  {renderDocuments()}
-                  {renderSpielplanButton()}
-                </View>
-              </View>
-            </View>
-            <View style={styles.card}>
+            {/* 5. Familie */}
+            <View style={[styles.card, styles.cardMobile]}>
               <Text style={styles.cardTitle}>Familie</Text>
-              <View style={styles.familyContainer}>
-                <View style={styles.familyColumn}>
+              <View style={styles.familyContainerMobileTwoCol}>
+                <View style={styles.familyColumnMobile}>
                   <Text style={styles.sectionSubtitle}>Vater</Text>
                   {renderField('Name', 'father_name')}
                   {renderPhoneField('Telefon', 'father_phone', 'father_phone_country_code')}
@@ -2870,54 +2881,161 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                   {renderPhoneField('Telefon', 'mother_phone', 'mother_phone_country_code')}
                   {renderField('Job', 'mother_job')}
                 </View>
-                <View style={styles.familyColumn}>
+                <View style={styles.familyColumnMobile}>
                   <Text style={styles.sectionSubtitle}>Geschwister</Text>
                   {renderField('Name', 'siblings')}
-                  <View style={styles.infoRow}><Text style={styles.label}> </Text><Text style={styles.value}> </Text></View>
-                  <View style={styles.infoRow}><Text style={styles.label}> </Text><Text style={styles.value}> </Text></View>
                   <Text style={styles.sectionSubtitle}>Sonstiges</Text>
-                  <View style={styles.infoRow}>{editing ? <TextInput style={[styles.input, styles.smallTextArea]} value={editData.other_notes || ''} onChangeText={(text) => updateField('other_notes', text)} placeholder="Sonstiges..." multiline /> : <Text style={styles.value}>{player.other_notes || '-'}</Text>}</View>
+                  <View style={styles.infoRow}>{editing ? <TextInput style={[styles.input, styles.smallTextArea]} value={editData.other_notes || ''} onChangeText={(text) => updateField('other_notes', text)} placeholder="Sonstiges..." placeholderTextColor="#999" multiline /> : <Text style={styles.value}>{player.other_notes || '-'}</Text>}</View>
+                </View>
+              </View>
+            </View>
+            {/* 6. Verletzungen */}
+            <View style={[styles.card, styles.cardMobile]}>
+              <Text style={styles.cardTitle}>Verletzungen & Krankheiten</Text>
+              <View style={styles.infoRow}>{editing ? <TextInput style={[styles.input, styles.textArea]} value={editData.injuries || ''} onChangeText={(text) => updateField('injuries', text)} placeholder="Verletzungshistorie..." placeholderTextColor="#999" multiline /> : <Text style={styles.value}>{player.injuries || '-'}</Text>}</View>
+            </View>
+          </View>
+        ) : (
+          /* Desktop: 2-Spalten Layout */
+          <>
+          <View style={styles.twoColumnContainer}>
+            <View style={[styles.halfColumn, { zIndex: 400 }]}>
+              <View style={[styles.card, { zIndex: 400, overflow: 'visible' }]}>
+                <Text style={styles.cardTitle}>Allgemein</Text>
+                <View style={[styles.splitContainer, { overflow: 'visible' }]}>
+                  <View style={[styles.splitColumn, { overflow: 'visible', zIndex: 400 }]}>
+                    {renderTransfermarktField()}
+                    {renderPositionDropdown()}
+                    {renderSecondaryPositionDropdown()}
+                    {renderNationalitySelector()}
+                    {renderStrongFootSelector()}
+                    {renderHeightSelector()}
+                  </View>
+                  <View style={[styles.splitColumn, { overflow: 'visible', zIndex: 350 }]}>
+                    {renderStrengthsField()}
+                    <View style={{ height: 120 }} />
+                    {renderPotentialsField()}
+                  </View>
+                </View>
+              </View>
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Beratung</Text>
+                <View style={styles.infoRow}>
+                  <Text style={styles.label}>Listung</Text>
+                  {editing ? (<View style={styles.chipGrid}>{LISTINGS.map((opt) => (<TouchableOpacity key={opt} style={[styles.chip, editData?.listing === opt && styles.chipSelected]} onPress={() => updateField('listing', editData?.listing === opt ? null : opt)}><Text style={[styles.chipText, editData?.listing === opt && styles.chipTextSelected]}>{editData?.listing === opt ? '✓ ' : ''}{opt}</Text></TouchableOpacity>))}</View>
+                  ) : player?.listing ? (<View style={[styles.listingBadge, player.listing === 'Karl Herzog Sportmanagement' ? styles.listingKMH : styles.listingPM]}><Text style={styles.listingBadgeText}>{player.listing}</Text></View>) : <Text style={styles.value}>-</Text>}
+                </View>
+                {renderResponsibilitySelector()}
+                {renderDateField('Mandat gültig bis', 'mandate_until')}
+                {renderFieldWithDocuments('Provision', 'provision', 'provision_documents')}
+                {renderFieldWithDocuments('Weg-Vermittlung', 'transfer_commission', 'transfer_commission_documents')}
+              </View>
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Privat</Text>
+                <View style={styles.splitContainer}>
+                  <View style={[styles.splitColumn, { zIndex: 10 }]}>
+                    {renderBirthDateField()}
+                    {renderPhoneField('Telefon', 'phone', 'phone_country_code')}
+                    {renderField('E-Mail', 'email')}
+                    {renderAddressField()}
+                    {renderInternatField()}
+                  </View>
+                  <View style={[styles.splitColumn, { zIndex: 1 }]}>
+                    {renderField('Schulabschluss', 'education')}
+                    {renderField('Ausbildung/Studium', 'training')}
+                    {renderSocialLinks()}
+                    {renderField('Weitere Interessen', 'interests')}
+                  </View>
+                </View>
+              </View>
+            </View>
+            <View style={[styles.halfColumn, { zIndex: 100 }]}>
+              <View style={[styles.card, { zIndex: 100, overflow: 'visible' }]}>
+                <Text style={styles.cardTitle}>Vertrag</Text>
+                <View style={[styles.splitContainer, { overflow: 'visible' }]}>
+                  <View style={[styles.splitColumn, { overflow: 'visible', zIndex: 100 }]}>
+                    {renderClubField()}
+                    {renderFutureClubField()}
+                    {renderField('Liga', 'league')}
+                    {renderU23Status()}
+                    {renderContractEndField()}
+                    {renderField('Vertrag gilt für', 'contract_scope')}
+                    {renderField('Option', 'contract_option')}
+                    {renderField('Fixe Ablöse / Ausbildungsentschädigung', 'fixed_fee')}
+                  </View>
+                  <View style={styles.splitColumn}>
+                    {renderField('Gehalt/Monat', 'salary_month')}
+                    {renderField('Punktprämie', 'point_bonus')}
+                    {renderField('Auflaufprämie', 'appearance_bonus')}
+                    <View style={styles.infoRow}><Text style={styles.label}>Sonstiges</Text>{editing ? <TextInput style={[styles.input, styles.smallTextArea]} value={editData.contract_notes || ''} onChangeText={(text) => updateField('contract_notes', text)} placeholder="Sonstiges..." placeholderTextColor="#999" multiline /> : <Text style={styles.value}>{player.contract_notes || '-'}</Text>}</View>
+                    {renderDocuments()}
+                    {renderSpielplanButton()}
+                  </View>
+                </View>
+              </View>
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Familie</Text>
+                <View style={styles.familyContainer}>
+                  <View style={styles.familyColumn}>
+                    <Text style={styles.sectionSubtitle}>Vater</Text>
+                    {renderField('Name', 'father_name')}
+                    {renderPhoneField('Telefon', 'father_phone', 'father_phone_country_code')}
+                    {renderField('Job', 'father_job')}
+                    <Text style={styles.sectionSubtitle}>Mutter</Text>
+                    {renderField('Name', 'mother_name')}
+                    {renderPhoneField('Telefon', 'mother_phone', 'mother_phone_country_code')}
+                    {renderField('Job', 'mother_job')}
+                  </View>
+                  <View style={styles.familyColumn}>
+                    <Text style={styles.sectionSubtitle}>Geschwister</Text>
+                    {renderField('Name', 'siblings')}
+                    <View style={styles.infoRow}><Text style={styles.label}> </Text><Text style={styles.value}> </Text></View>
+                    <View style={styles.infoRow}><Text style={styles.label}> </Text><Text style={styles.value}> </Text></View>
+                    <Text style={styles.sectionSubtitle}>Sonstiges</Text>
+                    <View style={styles.infoRow}>{editing ? <TextInput style={[styles.input, styles.smallTextArea]} value={editData.other_notes || ''} onChangeText={(text) => updateField('other_notes', text)} placeholder="Sonstiges..." placeholderTextColor="#999" multiline /> : <Text style={styles.value}>{player.other_notes || '-'}</Text>}</View>
+                  </View>
                 </View>
               </View>
             </View>
           </View>
-        </View>
-        <View style={styles.cardFullWidth}>
-          <Text style={styles.cardTitle}>Verletzungen & Krankheiten</Text>
-          <View style={styles.infoRow}>{editing ? <TextInput style={[styles.input, styles.textArea]} value={editData.injuries || ''} onChangeText={(text) => updateField('injuries', text)} placeholder="Verletzungshistorie..." multiline /> : <Text style={styles.value}>{player.injuries || '-'}</Text>}</View>
-        </View>
+          <View style={styles.cardFullWidth}>
+            <Text style={styles.cardTitle}>Verletzungen & Krankheiten</Text>
+            <View style={styles.infoRow}>{editing ? <TextInput style={[styles.input, styles.textArea]} value={editData.injuries || ''} onChangeText={(text) => updateField('injuries', text)} placeholder="Verletzungshistorie..." placeholderTextColor="#999" multiline /> : <Text style={styles.value}>{player.injuries || '-'}</Text>}</View>
+          </View>
+          </>
+        )}
         </Pressable>
       </ScrollView>
-      <View style={styles.bottomButtons}>
-        <View style={styles.bottomButtonsLeft}>
+      <View style={isMobile ? styles.bottomButtonsMobile : styles.bottomButtons}>
+        <View style={isMobile ? styles.bottomButtonsRowMobile : styles.bottomButtonsLeft}>
           <TouchableOpacity
-            style={[styles.transferButton, player?.in_transfer_list && { backgroundColor: '#dc3545' }]}
+            style={[styles.transferButton, isMobile && styles.buttonMobile, player?.in_transfer_list && { backgroundColor: '#dc3545' }]}
             onPress={toggleTransferList}
           >
-            <Text style={styles.transferButtonText}>
+            <Text style={[styles.transferButtonText, isMobile && styles.buttonTextMobile]}>
               {player?.in_transfer_list ? 'Von Transfer entfernen' : 'Zu Transfer hinzufügen'}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.pdfProfileButton} onPress={() => setShowPDFProfileModal(true)}>
-            <Text style={styles.pdfProfileButtonText}>📄 PDF Profil</Text>
+          <TouchableOpacity style={[styles.pdfProfileButton, isMobile && styles.buttonMobile]} onPress={() => setShowPDFProfileModal(true)}>
+            <Text style={[styles.pdfProfileButtonText, isMobile && styles.buttonTextMobile]}>📄 PDF</Text>
           </TouchableOpacity>
         </View>
-        <View style={styles.bottomButtonsRight}>
+        <View style={isMobile ? styles.bottomButtonsRowMobile : styles.bottomButtonsRight}>
         {editing ? (
           <>
-            <TouchableOpacity style={styles.deleteButton} onPress={() => setShowDeleteModal(true)}>
-              <Text style={styles.deleteButtonText}>Löschen</Text>
+            <TouchableOpacity style={[styles.deleteButton, isMobile && styles.buttonMobile]} onPress={() => setShowDeleteModal(true)}>
+              <Text style={[styles.deleteButtonText, isMobile && styles.buttonTextMobile]}>Löschen</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.cancelButton} onPress={() => { setEditing(false); setEditData(player); setClubSearch(player.club || ''); setFutureClubSearch(player.future_club || ''); fetchPlayer(); }}>
-              <Text style={styles.cancelButtonText}>Abbrechen</Text>
+            <TouchableOpacity style={[styles.cancelButton, isMobile && styles.buttonMobile]} onPress={() => { setEditing(false); setEditData(player); setClubSearch(player.club || ''); setFutureClubSearch(player.future_club || ''); fetchPlayer(); }}>
+              <Text style={[styles.cancelButtonText, isMobile && styles.buttonTextMobile]}>Abbrechen</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-              <Text style={styles.saveButtonText}>Speichern</Text>
+            <TouchableOpacity style={[styles.saveButton, isMobile && styles.buttonMobile]} onPress={handleSave}>
+              <Text style={[styles.saveButtonText, isMobile && styles.buttonTextMobile]}>Speichern</Text>
             </TouchableOpacity>
           </>
         ) : (
-          <TouchableOpacity style={styles.editButton} onPress={() => setEditing(true)}>
-            <Text style={styles.editButtonText}>Bearbeiten</Text>
+          <TouchableOpacity style={[styles.editButton, isMobile && styles.buttonMobile]} onPress={() => setEditing(true)}>
+            <Text style={[styles.editButtonText, isMobile && styles.buttonTextMobile]}>Bearbeiten</Text>
           </TouchableOpacity>
         )}
         </View>
@@ -3241,23 +3359,27 @@ export function PlayerDetailScreen({ route, navigation }: any) {
 }
 const styles = StyleSheet.create({
   // Modal Overlay Container
-  modalOverlayContainer: { 
-    flex: 1, 
-    backgroundColor: 'rgba(0,0,0,0.5)', 
-    justifyContent: 'center', 
+  modalOverlayContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
-  modalBackdrop: { 
-    position: 'absolute', 
-    top: 0, 
-    left: 0, 
-    right: 0, 
+  modalOverlayContainerMobile: {
+    padding: 0,
+    backgroundColor: '#f5f5f5',
+  },
+  modalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
     bottom: 0,
   },
-  modalContainer: { 
-    backgroundColor: '#f5f5f5', 
-    borderRadius: 16, 
+  modalContainer: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 16,
     width: '95%',
     maxWidth: 1400,
     height: '95%',
@@ -3268,6 +3390,138 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 20,
     elevation: 20,
+  },
+  modalContainerMobile: {
+    width: '100%',
+    height: '100%',
+    maxWidth: '100%',
+    maxHeight: '100%',
+    borderRadius: 0,
+  },
+  headerMobile: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  headerTitleMobile: {
+    fontSize: 17,
+  },
+  contentMobile: {
+    padding: 12,
+  },
+  topSectionMobile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+  },
+  singleColumnContainer: {
+    flexDirection: 'column',
+  },
+  cardMobile: {
+    padding: 14,
+    marginBottom: 10,
+    borderRadius: 12,
+  },
+  cardTitleMobile: {
+    fontSize: 16,
+    marginBottom: 12,
+    paddingBottom: 10,
+  },
+  infoRowMobile: {
+    marginBottom: 8,
+  },
+  labelMobile: {
+    fontSize: 11,
+    marginBottom: 2,
+  },
+  valueMobile: {
+    fontSize: 14,
+  },
+  // Mobile Badge Styles
+  statusBadgeMobile: {
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+  },
+  statusBadgeTextMobile: {
+    fontSize: 12,
+  },
+  listingBadgeMobile: {
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+  },
+  listingBadgeTextMobile: {
+    fontSize: 12,
+  },
+  contractBadgeMobile: {
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+  },
+  contractBadgeTextMobile: {
+    fontSize: 12,
+  },
+  splitContainerMobile: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  splitColumnMobileHalf: {
+    width: '50%',
+    paddingRight: 8,
+  },
+  familyContainerMobile: {
+    flexDirection: 'column',
+  },
+  familyContainerMobileTwoCol: {
+    flexDirection: 'row',
+  },
+  familyColumnMobile: {
+    flex: 1,
+    paddingRight: 8,
+  },
+  beratungContainerMobile: {
+    flexDirection: 'row',
+  },
+  beratungColumnMobile: {
+    flex: 1,
+    paddingRight: 8,
+  },
+  topLeftMobile: {
+    alignItems: 'flex-start',
+    marginRight: 12,
+    marginBottom: 0,
+  },
+  topCenterMobile: {
+    flex: 1,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  topRightMobile: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  photoContainerMobile: {
+    width: 70,
+    height: 90,
+  },
+  playerFirstNameMobile: {
+    fontSize: 14,
+    color: '#666',
+  },
+  playerLastNameMobile: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  ageTextMobile: {
+    fontSize: 13,
+    color: '#888',
+  },
+  clubLogoHeaderMobile: {
+    width: 50,
+    height: 50,
+  },
+  splitColumnMobile: {
+    marginBottom: 8,
   },
   dropdownOverlay: {
     position: 'absolute',
@@ -3381,16 +3635,16 @@ const styles = StyleSheet.create({
   clubLogoSmall: { width: 24, height: 24, resizeMode: 'contain', marginRight: 8 },
   birthdayRow: { flexDirection: 'row', alignItems: 'center' },
   birthdayIcon: { fontSize: 16, marginLeft: 8 },
-  phoneContainer: { flexDirection: 'row', gap: 8 },
-  phoneCodePicker: { width: 120 },
-  phoneInput: { flex: 1 },
+  phoneContainer: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  phoneCodePicker: { width: 110, minWidth: 110 },
+  phoneInput: { flex: 1, minWidth: 100 },
   addressRow: { flexDirection: 'row', gap: 8 },
   addressColumn: { flexDirection: 'column', gap: 8 },
-  addressRowSmall: { flexDirection: 'row', gap: 8 },
+  addressRowSmall: { flexDirection: 'row', gap: 8, overflow: 'hidden' },
   addressStreet: { flex: 2 },
   addressPLZ: { width: 80 },
   addressCity: { flex: 1 },
-  addressCitySmall: { flex: 1 },
+  addressCitySmall: { flex: 1, minWidth: 0 },
   socialIconsRow: { flexDirection: 'row', gap: 12 },
   socialIcon: { width: 28, height: 28, resizeMode: 'contain' },
   socialInputRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
@@ -3427,10 +3681,16 @@ const styles = StyleSheet.create({
   cancelButtonText: { color: '#64748b', fontSize: 16, fontWeight: '600' },
   saveButton: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#10b981', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 10 },
   saveButtonText: { color: '#10b981', fontSize: 16, fontWeight: '600' },
+  // Mobile button styles
+  bottomButtonsMobile: { flexDirection: 'row', padding: 10, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#e2e8f0', justifyContent: 'space-between', alignItems: 'center' },
+  bottomButtonsRowMobile: { flexDirection: 'row', gap: 6 },
+  buttonMobile: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, height: 36 },
+  buttonTextMobile: { fontSize: 13 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 400 },
   modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 12, textAlign: 'center' },
   modalText: { fontSize: 16, color: '#333', textAlign: 'center', marginBottom: 20 },
+  modalWarning: { fontSize: 16, color: '#dc2626', textAlign: 'center', marginBottom: 20 },
   modalButtons: { flexDirection: 'row', justifyContent: 'space-between' },
   modalCancelButton: { flex: 1, padding: 14, borderRadius: 8, backgroundColor: '#eee', marginRight: 8, alignItems: 'center' },
   modalCancelButtonText: { color: '#666', fontWeight: '600' },
@@ -3473,11 +3733,21 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#ddd',
+    alignSelf: 'flex-start',
+  },
+  spielplanButtonMobile: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
   },
   spielplanButtonText: {
     fontSize: 14,
     color: '#333',
     fontWeight: '500',
+  },
+  spielplanButtonTextMobile: {
+    fontSize: 12,
   },
   spielplanHint: {
     fontSize: 12,
@@ -3508,6 +3778,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#333',
   },
+  dateDropdownPlaceholder: {
+    fontSize: 15,
+    color: '#999',
+  },
   transfermarktLinkRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -3534,8 +3808,8 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   tmLinkIcon: {
-    width: 32,
-    height: 32,
+    width: 70,
+    height: 28,
     resizeMode: 'contain',
   },
   tmLinkText: {

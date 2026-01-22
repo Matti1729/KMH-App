@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Pressable } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
@@ -83,6 +84,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
   const [selectedListings, setSelectedListings] = useState<string[]>([]);
   const [selectedResponsibilities, setSelectedResponsibilities] = useState<string[]>([]);
   const [selectedContractYears, setSelectedContractYears] = useState<string[]>([]);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
   
   // Separate Dropdown States wie in Scouting
   const [showYearDropdown, setShowYearDropdown] = useState(false);
@@ -607,13 +609,13 @@ export function PlayerOverviewScreen({ navigation }: any) {
   const renderPlayerRow = (player: Player) => {
     const hasAccess = hasAccessToPlayer(player.id);
     // Position in Kürzel umwandeln
-    const positionDisplay = player.position 
+    const positionDisplay = player.position
       ? player.position.split(', ').map(p => POSITION_SHORT[p.trim()] || p).join(', ')
       : '-';
     return (
-      <TouchableOpacity 
-        key={player.id} 
-        style={[styles.tableRow, !hasAccess && styles.tableRowLocked]} 
+      <TouchableOpacity
+        key={player.id}
+        style={[styles.tableRow, !hasAccess && styles.tableRowLocked]}
         onPress={() => handlePlayerClick(player)}
       >
         <View style={[styles.colName, styles.nameContainer]}>
@@ -633,8 +635,303 @@ export function PlayerOverviewScreen({ navigation }: any) {
     );
   };
 
+  // Mobile Card Rendering
+  const renderPlayerCard = (player: Player) => {
+    const hasAccess = hasAccessToPlayer(player.id);
+    const positionDisplay = player.position
+      ? player.position.split(', ').map(p => POSITION_SHORT[p.trim()] || p).join(', ')
+      : '-';
+    const expired = isContractExpired(player.contract_end);
+    const displayClub = getDisplayClub(player);
+    const logoUrl = expired ? null : getClubLogo(player.club);
+    const inCurrentSeason = isContractInCurrentSeason(player.contract_end);
+    const hasSecuredFuture = hasFutureClubAndExpiringContract(player);
+    const birthday = isBirthday(player.birth_date);
+
+    return (
+      <TouchableOpacity
+        key={player.id}
+        style={[styles.playerCard, !hasAccess && styles.playerCardLocked]}
+        onPress={() => handlePlayerClick(player)}
+      >
+        <View style={styles.playerCardHeader}>
+          <View style={styles.playerCardNameRow}>
+            {!hasAccess && <Text style={styles.lockIconMobile}>🔒</Text>}
+            <Text style={styles.playerCardName} numberOfLines={1}>
+              {player.last_name}, {player.first_name}
+            </Text>
+            {birthday && <Text style={styles.birthdayIconMobile}>🎉</Text>}
+          </View>
+          <View style={styles.playerCardBadges}>
+            {player.listing && (
+              <View style={[styles.listingBadgeMobile, player.listing === 'Karl Herzog Sportmanagement' ? styles.listingKMH : styles.listingPM]}>
+                <Text style={styles.listingBadgeTextMobile}>{player.listing === 'Karl Herzog Sportmanagement' ? 'KMH' : 'PM'}</Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        <View style={styles.playerCardBody}>
+          <View style={styles.playerCardRow}>
+            <View style={styles.playerCardClub}>
+              {expired ? (
+                <Image source={ArbeitsamtIcon} style={styles.clubLogoMobile} />
+              ) : logoUrl ? (
+                <Image source={{ uri: logoUrl }} style={styles.clubLogoMobile} />
+              ) : null}
+              <Text style={[styles.playerCardClubText, expired && styles.clubTextRed]} numberOfLines={1}>
+                {displayClub}
+              </Text>
+            </View>
+            <Text style={styles.playerCardPosition}>{positionDisplay}</Text>
+          </View>
+
+          <View style={styles.playerCardRow}>
+            <Text style={styles.playerCardLeague} numberOfLines={1}>{player.league || '-'}</Text>
+            {player.contract_end && (
+              <View style={[
+                styles.contractBadgeMobile,
+                hasSecuredFuture ? styles.contractBadgeMobileGreen :
+                inCurrentSeason ? styles.contractBadgeMobileRed : null
+              ]}>
+                <Text style={[
+                  styles.contractTextMobile,
+                  hasSecuredFuture ? styles.contractTextMobileGreen :
+                  inCurrentSeason ? styles.contractTextMobileRed : null
+                ]}>
+                  Vertrag bis {formatDate(player.contract_end)}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  // Anzahl aktiver Filter
+  const activeFilterCount = selectedPositions.length + selectedYears.length + selectedListings.length + selectedResponsibilities.length + selectedContractYears.length;
+
+  // Mobile View
+  if (isMobile) {
+    return (
+      <View style={styles.containerMobile}>
+        <Sidebar navigation={navigation} activeScreen="players" profile={profile} />
+
+        <View style={styles.mainContentMobile}>
+          {/* Mobile Toolbar */}
+          <View style={styles.mobileToolbar}>
+            <View style={styles.mobileSearchContainer}>
+              <Text style={styles.searchIcon}>🔍</Text>
+              <TextInput
+                style={styles.mobileSearchInput}
+                placeholder="Spieler suchen..."
+                placeholderTextColor="#9ca3af"
+                value={searchText}
+                onChangeText={setSearchText}
+              />
+            </View>
+            <TouchableOpacity
+              style={[styles.mobileFilterButton, activeFilterCount > 0 && styles.mobileFilterButtonActive]}
+              onPress={() => setShowMobileFilters(true)}
+            >
+              <Ionicons name="filter" size={20} color="#64748b" />
+              {activeFilterCount > 0 && (
+                <View style={styles.filterCountBubble}>
+                  <Text style={styles.filterCountText}>{activeFilterCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.mobileAddButton} onPress={() => setShowAddModal(true)}>
+              <Text style={styles.mobileAddButtonText}>+</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Player Count */}
+          <View style={styles.mobileSubheader}>
+            <Text style={styles.mobileSubheaderText}>{filteredPlayers.length} Spieler</Text>
+          </View>
+
+          {/* Player Cards */}
+          <ScrollView style={styles.mobileCardList} contentContainerStyle={styles.mobileCardListContent}>
+            {(authLoading || loading) ? (
+              <Text style={styles.loadingText}>Laden...</Text>
+            ) : error ? (
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>{error}</Text>
+                <TouchableOpacity style={styles.retryButton} onPress={() => fetchPlayers()}>
+                  <Text style={styles.retryButtonText}>Erneut versuchen</Text>
+                </TouchableOpacity>
+              </View>
+            ) : filteredPlayers.length === 0 ? (
+              <Text style={styles.emptyText}>Keine Spieler gefunden</Text>
+            ) : (
+              filteredPlayers.map(player => renderPlayerCard(player))
+            )}
+          </ScrollView>
+
+          {/* Mobile Filter Modal */}
+          <Modal visible={showMobileFilters} transparent animationType="slide">
+            <View style={styles.mobileFilterModal}>
+              <View style={styles.mobileFilterHeader}>
+                <Text style={styles.mobileFilterTitle}>Filter</Text>
+                <TouchableOpacity onPress={() => setShowMobileFilters(false)}>
+                  <Text style={styles.mobileFilterClose}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.mobileFilterContent}>
+                {/* Position Filter */}
+                <Text style={styles.mobileFilterLabel}>Position</Text>
+                <View style={styles.mobileFilterChips}>
+                  {POSITIONS.map(pos => (
+                    <TouchableOpacity
+                      key={pos}
+                      style={[styles.mobileChip, selectedPositions.includes(pos) && styles.mobileChipActive]}
+                      onPress={() => togglePosition(pos)}
+                    >
+                      <Text style={[styles.mobileChipText, selectedPositions.includes(pos) && styles.mobileChipTextActive]}>
+                        {POSITION_SHORT[pos]}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Jahrgang Filter */}
+                <Text style={styles.mobileFilterLabel}>Jahrgang</Text>
+                <View style={styles.mobileFilterChips}>
+                  {availableYears.map(year => (
+                    <TouchableOpacity
+                      key={year}
+                      style={[styles.mobileChip, selectedYears.includes(year) && styles.mobileChipActive]}
+                      onPress={() => toggleYear(year)}
+                    >
+                      <Text style={[styles.mobileChipText, selectedYears.includes(year) && styles.mobileChipTextActive]}>
+                        {year}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Listung Filter */}
+                <Text style={styles.mobileFilterLabel}>Listung</Text>
+                <View style={styles.mobileFilterChips}>
+                  {LISTINGS.map(listing => (
+                    <TouchableOpacity
+                      key={listing}
+                      style={[styles.mobileChip, selectedListings.includes(listing) && styles.mobileChipActive]}
+                      onPress={() => toggleListing(listing)}
+                    >
+                      <Text style={[styles.mobileChipText, selectedListings.includes(listing) && styles.mobileChipTextActive]}>
+                        {listing === 'Karl Herzog Sportmanagement' ? 'KMH' : 'PM'}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Zuständigkeit Filter */}
+                <Text style={styles.mobileFilterLabel}>Zuständigkeit</Text>
+                <View style={styles.mobileFilterChips}>
+                  {advisors.map(advisor => {
+                    const name = `${advisor.first_name} ${advisor.last_name}`.trim();
+                    return (
+                      <TouchableOpacity
+                        key={advisor.id}
+                        style={[styles.mobileChip, selectedResponsibilities.includes(name) && styles.mobileChipActive]}
+                        onPress={() => toggleResponsibility(name)}
+                      >
+                        <Text style={[styles.mobileChipText, selectedResponsibilities.includes(name) && styles.mobileChipTextActive]}>
+                          {advisor.first_name?.[0]}{advisor.last_name?.[0]}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* Vertragsende Filter */}
+                <Text style={styles.mobileFilterLabel}>Vertragsende</Text>
+                <View style={styles.mobileFilterChips}>
+                  {contractYearOptions.map(year => (
+                    <TouchableOpacity
+                      key={year}
+                      style={[styles.mobileChip, selectedContractYears.includes(year) && styles.mobileChipActive]}
+                      onPress={() => toggleContractYear(year)}
+                    >
+                      <Text style={[styles.mobileChipText, selectedContractYears.includes(year) && styles.mobileChipTextActive]}>
+                        {year}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+
+              <View style={styles.mobileFilterFooter}>
+                <TouchableOpacity
+                  style={styles.mobileFilterClearButton}
+                  onPress={() => {
+                    clearPositions();
+                    clearYears();
+                    clearListings();
+                    clearResponsibilities();
+                    clearContractYears();
+                  }}
+                >
+                  <Text style={styles.mobileFilterClearText}>Alle löschen</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.mobileFilterApplyButton} onPress={() => setShowMobileFilters(false)}>
+                  <Text style={styles.mobileFilterApplyText}>Anwenden ({filteredPlayers.length})</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+
+          {/* Add Player Modal */}
+          <Modal visible={showAddModal} transparent animationType="fade">
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Neuen Spieler anlegen</Text>
+                <TextInput style={styles.modalInput} placeholder="Vorname" value={newFirstName} onChangeText={setNewFirstName} />
+                <TextInput style={styles.modalInput} placeholder="Nachname" value={newLastName} onChangeText={setNewLastName} />
+                <Text style={styles.modalHint}>Zuständigkeit: {currentUserName || 'Sie'}</Text>
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity style={styles.modalCancelButton} onPress={() => setShowAddModal(false)}><Text style={styles.modalCancelButtonText}>Abbrechen</Text></TouchableOpacity>
+                  <TouchableOpacity style={styles.modalSaveButton} onPress={handleAddPlayer}><Text style={styles.modalSaveButtonText}>Speichern</Text></TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+
+          {/* Request Access Modal */}
+          <Modal visible={showRequestModal} transparent animationType="fade">
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Zuständigkeit beantragen</Text>
+                <Text style={styles.modalText}>
+                  Sie haben keinen Zugriff auf das Profil von{'\n'}
+                  <Text style={styles.modalPlayerName}>{selectedPlayer?.first_name} {selectedPlayer?.last_name}</Text>
+                </Text>
+                <Text style={styles.modalSubText}>
+                  Möchten Sie die Zuständigkeit beantragen?{'\n'}Ein Admin wird Ihre Anfrage prüfen.
+                </Text>
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity style={styles.modalCancelButton} onPress={() => { setShowRequestModal(false); setSelectedPlayer(null); }}>
+                    <Text style={styles.modalCancelButtonText}>Abbrechen</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.modalSaveButton} onPress={handleRequestAccess}>
+                    <Text style={styles.modalSaveButtonText}>Ja, beantragen</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+        </View>
+      </View>
+    );
+  }
+
+  // Desktop View
   return (
-    <View style={[styles.container, isMobile && styles.containerMobile]}>
+    <View style={styles.container}>
       {/* Sidebar / Mobile Header */}
       <Sidebar navigation={navigation} activeScreen="players" profile={profile} />
 
@@ -907,8 +1204,299 @@ export function PlayerOverviewScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, flexDirection: 'row', backgroundColor: '#f8fafc' },
-  containerMobile: { flexDirection: 'column' },
+  containerMobile: { flex: 1, flexDirection: 'column', backgroundColor: '#f8fafc' },
   mainContent: { flex: 1, backgroundColor: '#f8fafc' },
+  mainContentMobile: { flex: 1, backgroundColor: '#f8fafc' },
+
+  // Mobile Toolbar
+  mobileToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  mobileSearchContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    marginRight: 8,
+  },
+  mobileSearchInput: {
+    flex: 1,
+    paddingVertical: 10,
+    fontSize: 14,
+  },
+  mobileFilterButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: '#f8fafc',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+    position: 'relative',
+  },
+  mobileFilterButtonActive: {
+    backgroundColor: '#e0f2fe',
+  },
+  mobileFilterIcon: {
+    fontSize: 18,
+  },
+  filterCountBubble: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: '#3b82f6',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterCountText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  mobileAddButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: '#1a1a1a',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mobileAddButtonText: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: '500',
+  },
+
+  // Mobile Subheader
+  mobileSubheader: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#f8fafc',
+  },
+  mobileSubheaderText: {
+    fontSize: 13,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+
+  // Mobile Card List
+  mobileCardList: {
+    flex: 1,
+  },
+  mobileCardListContent: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+
+  // Player Card
+  playerCard: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  playerCardLocked: {
+    backgroundColor: '#fafafa',
+  },
+  playerCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  playerCardNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  playerCardName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1a1a1a',
+    flex: 1,
+  },
+  lockIconMobile: {
+    fontSize: 14,
+    marginRight: 6,
+  },
+  birthdayIconMobile: {
+    fontSize: 16,
+    marginLeft: 6,
+  },
+  playerCardBadges: {
+    flexDirection: 'row',
+  },
+  listingBadgeMobile: {
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 4,
+  },
+  listingBadgeTextMobile: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  playerCardBody: {},
+  playerCardRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  playerCardClub: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  clubLogoMobile: {
+    width: 18,
+    height: 18,
+    resizeMode: 'contain',
+    marginRight: 6,
+  },
+  playerCardClubText: {
+    fontSize: 13,
+    color: '#334155',
+    flex: 1,
+  },
+  playerCardPosition: {
+    fontSize: 12,
+    color: '#64748b',
+    fontWeight: '500',
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  playerCardLeague: {
+    fontSize: 12,
+    color: '#64748b',
+    flex: 1,
+  },
+  contractBadgeMobile: {
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 4,
+  },
+  contractBadgeMobileRed: {
+    backgroundColor: '#fef2f2',
+  },
+  contractBadgeMobileGreen: {
+    backgroundColor: '#f0fdf4',
+  },
+  contractTextMobile: {
+    fontSize: 11,
+    color: '#64748b',
+  },
+  contractTextMobileRed: {
+    color: '#dc2626',
+    fontWeight: '600',
+  },
+  contractTextMobileGreen: {
+    color: '#16a34a',
+    fontWeight: '600',
+  },
+
+  // Mobile Filter Modal
+  mobileFilterModal: {
+    flex: 1,
+    backgroundColor: '#fff',
+    marginTop: 60,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  mobileFilterHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  mobileFilterTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  mobileFilterClose: {
+    fontSize: 20,
+    color: '#64748b',
+    padding: 4,
+  },
+  mobileFilterContent: {
+    flex: 1,
+    padding: 16,
+  },
+  mobileFilterLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1a1a1a',
+    marginBottom: 10,
+    marginTop: 16,
+  },
+  mobileFilterChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  mobileChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: '#f1f5f9',
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  mobileChipActive: {
+    backgroundColor: '#1a1a1a',
+  },
+  mobileChipText: {
+    fontSize: 14,
+    color: '#334155',
+  },
+  mobileChipTextActive: {
+    color: '#fff',
+  },
+  mobileFilterFooter: {
+    flexDirection: 'row',
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+  },
+  mobileFilterClearButton: {
+    flex: 1,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  mobileFilterClearText: {
+    fontSize: 15,
+    color: '#ef4444',
+    fontWeight: '500',
+  },
+  mobileFilterApplyButton: {
+    flex: 2,
+    paddingVertical: 14,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  mobileFilterApplyText: {
+    fontSize: 15,
+    color: '#fff',
+    fontWeight: '600',
+  },
   
   // Header Banner - weiß mit Titel mittig
   headerBanner: { flexDirection: 'row', alignItems: 'center', padding: 24, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
