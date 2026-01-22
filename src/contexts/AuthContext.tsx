@@ -142,6 +142,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Auth State Changes listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed:', event);
+
+      // Bei TOKEN_REFRESHED nur Session aktualisieren, kein Profile-Fetch nötig
+      if (event === 'TOKEN_REFRESHED') {
+        setSession(session);
+        setUser(session?.user ?? null);
+        return; // Keine weiteren Updates nötig
+      }
+
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) await fetchProfile(session.user.id, session.user.email);
@@ -152,18 +160,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // === FIX: Session-Recovery bei Tab-Wechsel (Web) ===
     const handleVisibilityChange = async () => {
       if (document.visibilityState === 'visible') {
-        console.log('Tab wieder aktiv - Session wird geprüft...');
         supabase.auth.startAutoRefresh();
-        await recoverSession();
+        // Nur Recovery wenn keine Session vorhanden
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        if (!currentSession) {
+          console.log('Tab wieder aktiv - Keine Session, versuche Recovery...');
+          await recoverSession();
+        }
       } else {
         supabase.auth.stopAutoRefresh();
       }
     };
 
     const handleFocus = async () => {
-      console.log('Fenster hat Fokus - Session wird geprüft...');
       supabase.auth.startAutoRefresh();
-      await recoverSession();
+      // Kein automatisches Recovery bei jedem Fokus - Supabase Auto-Refresh übernimmt das
     };
 
     // Event Listeners hinzufügen (nur im Browser)
