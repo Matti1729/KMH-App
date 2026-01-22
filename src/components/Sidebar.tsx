@@ -17,9 +17,11 @@ interface SidebarProps {
 
 // Breakpoint für Mobile
 const MOBILE_BREAKPOINT = 768;
+const WEEKDAYS_DE = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
 
 export function Sidebar({ navigation, activeScreen, profile }: SidebarProps) {
   const [hoveredNav, setHoveredNav] = useState<string | null>(null);
+  const currentWeekday = WEEKDAYS_DE[new Date().getDay()];
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedbackType, setFeedbackType] = useState<'bug' | 'feature' | 'other'>('bug');
   const [feedbackText, setFeedbackText] = useState('');
@@ -104,6 +106,11 @@ export function Sidebar({ navigation, activeScreen, profile }: SidebarProps) {
   // Aktuellen Screen-Namen finden
   const currentScreenLabel = navItems.find(item => item.id === activeScreen)?.label ||
     (activeScreen === 'admin' ? 'Administration' : 'Dashboard');
+
+  // Mobile Titel - Begrüßung auf Dashboard, sonst Screen-Name
+  const mobileTitle = activeScreen === 'dashboard'
+    ? `Hallo, ${profile?.first_name || 'User'}!`
+    : currentScreenLabel;
 
   // Sidebar-Inhalt (wird sowohl für Desktop als auch Mobile verwendet)
   const SidebarContent = () => (
@@ -279,7 +286,7 @@ export function Sidebar({ navigation, activeScreen, profile }: SidebarProps) {
           >
             <Text style={styles.hamburgerIcon}>☰</Text>
           </Pressable>
-          <Text style={styles.mobileTitle}>{currentScreenLabel}</Text>
+          <Text style={styles.mobileTitle}>{mobileTitle}</Text>
           <TouchableOpacity
             onPress={() => navigation.navigate('MyProfile')}
             style={styles.profileButtonMobile}

@@ -227,18 +227,17 @@ export function AdvisorHomeScreen({ navigation }: any) {
 
       {/* Main Content */}
       <View style={styles.mainContent}>
-        {/* Header */}
-        <View style={[styles.header, isMobile && styles.headerMobile]}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.greeting, isMobile && styles.greetingMobile]}>
-              Einen schönen {currentWeekday}, {profile?.first_name || 'User'}.
-            </Text>
-            <Text style={[styles.subGreeting, isMobile && styles.subGreetingMobile]}>
-              Willkommen im Karl M. Herzog Sportmanagement!
-            </Text>
-          </View>
-          {/* Profile Button nur auf Desktop - auf Mobile ist es im Header oben */}
-          {!isMobile && (
+        {/* Header - nur auf Desktop, auf Mobile ist die Begrüßung im Sidebar-Header */}
+        {!isMobile && (
+          <View style={styles.header}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.greeting}>
+                Einen schönen {currentWeekday}, {profile?.first_name || 'User'}.
+              </Text>
+              <Text style={styles.subGreeting}>
+                Willkommen im Karl M. Herzog Sportmanagement!
+              </Text>
+            </View>
             <TouchableOpacity
               onPress={() => navigation.navigate('MyProfile')}
               style={styles.profileButton}
@@ -253,8 +252,8 @@ export function AdvisorHomeScreen({ navigation }: any) {
                 </View>
               )}
             </TouchableOpacity>
-          )}
-        </View>
+          </View>
+        )}
 
         {/* Dashboard Content */}
         <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollContent, isMobile && styles.scrollContentMobile]}>
