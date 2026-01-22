@@ -24,7 +24,14 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single",
+      "themeColor": "#ffffff",
+      "backgroundColor": "#ffffff",
+      "name": "Mandate Pro",
+      "shortName": "Mandate",
+      "lang": "de"
     }
   }
 }

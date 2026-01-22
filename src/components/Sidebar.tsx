@@ -112,9 +112,10 @@ export function Sidebar({ navigation, activeScreen, profile }: SidebarProps) {
     <>
       {/* Logo - klickbar zum Dashboard */}
       <Pressable onPress={goToDashboard} style={styles.logoContainer}>
-        <View style={styles.logoBox}>
-          <Text style={styles.logoText}>KMH</Text>
-        </View>
+        <Image
+          source={require('../../assets/kmh-logo.png')}
+          style={styles.logoImage}
+        />
         <Text style={styles.logoTitle}>Sports Agency</Text>
       </Pressable>
 
@@ -366,19 +367,11 @@ const styles = StyleSheet.create({
     // @ts-ignore
     cursor: 'pointer',
   },
-  logoBox: {
-    width: 40,
-    height: 40,
-    backgroundColor: '#1a1a1a',
+  logoImage: {
+    width: 44,
+    height: 44,
     borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
     marginRight: 12,
-  },
-  logoText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '700',
   },
   logoTitle: {
     fontSize: 15,
