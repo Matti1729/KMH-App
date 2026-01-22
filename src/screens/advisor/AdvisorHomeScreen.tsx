@@ -231,26 +231,29 @@ export function AdvisorHomeScreen({ navigation }: any) {
         <View style={[styles.header, isMobile && styles.headerMobile]}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.greeting, isMobile && styles.greetingMobile]}>
-              {isMobile ? `Hallo, ${profile?.first_name || 'User'}!` : `Einen schönen ${currentWeekday}, ${profile?.first_name || 'User'}.`}
+              Einen schönen {currentWeekday}, {profile?.first_name || 'User'}.
             </Text>
             <Text style={[styles.subGreeting, isMobile && styles.subGreetingMobile]}>
-              {isMobile ? 'Willkommen bei KMH Sports' : 'Willkommen im Karl M. Herzog Sportmanagement!'}
+              Willkommen im Karl M. Herzog Sportmanagement!
             </Text>
           </View>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('MyProfile')}
-            style={styles.profileButton}
-          >
-            {profile?.photo_url ? (
-              <Image source={{ uri: profile.photo_url }} style={[styles.profileAvatar, isMobile && styles.profileAvatarMobile]} />
-            ) : (
-              <View style={[styles.profileAvatarPlaceholder, isMobile && styles.profileAvatarMobile]}>
-                <Text style={styles.profileAvatarText}>
-                  {profile?.first_name?.[0] || ''}{profile?.last_name?.[0] || ''}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
+          {/* Profile Button nur auf Desktop - auf Mobile ist es im Header oben */}
+          {!isMobile && (
+            <TouchableOpacity
+              onPress={() => navigation.navigate('MyProfile')}
+              style={styles.profileButton}
+            >
+              {profile?.photo_url ? (
+                <Image source={{ uri: profile.photo_url }} style={styles.profileAvatar} />
+              ) : (
+                <View style={styles.profileAvatarPlaceholder}>
+                  <Text style={styles.profileAvatarText}>
+                    {profile?.first_name?.[0] || ''}{profile?.last_name?.[0] || ''}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Dashboard Content */}

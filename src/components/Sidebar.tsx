@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Modal, TextInput, TouchableOpacity, Platform, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Modal, TextInput, TouchableOpacity, Platform, useWindowDimensions, Image } from 'react-native';
 import { supabase } from '../config/supabase';
 import { CommonActions } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
@@ -280,7 +280,20 @@ export function Sidebar({ navigation, activeScreen, profile }: SidebarProps) {
             <Text style={styles.hamburgerIcon}>☰</Text>
           </Pressable>
           <Text style={styles.mobileTitle}>{currentScreenLabel}</Text>
-          <View style={styles.hamburgerButton} /> {/* Spacer für Zentrierung */}
+          <TouchableOpacity
+            onPress={() => navigation.navigate('MyProfile')}
+            style={styles.profileButtonMobile}
+          >
+            {profile?.photo_url ? (
+              <Image source={{ uri: profile.photo_url }} style={styles.profileAvatarMobile} />
+            ) : (
+              <View style={styles.profileAvatarPlaceholderMobile}>
+                <Text style={styles.profileAvatarTextMobile}>
+                  {profile?.first_name?.[0] || ''}{profile?.last_name?.[0] || ''}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
 
         {/* Mobile Menu Overlay */}
@@ -476,6 +489,30 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '600',
     color: '#1a1a1a',
+  },
+  profileButtonMobile: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileAvatarMobile: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  profileAvatarPlaceholderMobile: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#1a1a1a',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileAvatarTextMobile: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
   },
 
   // Mobile Menu
