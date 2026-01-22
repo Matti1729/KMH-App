@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Pressable } from 'react-native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
+import { MobileHeader } from '../../components/MobileHeader';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -27,6 +28,7 @@ export function FootballNetworkScreen({ navigation }: any) {
   const isMobile = useIsMobile();
   const { session, loading: authLoading } = useAuth();
   const dataLoadedRef = useRef(false);
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [clubs, setClubs] = useState<string[]>([]);
   const [clubLogos, setClubLogos] = useState<Record<string, string>>({});
@@ -142,15 +144,41 @@ export function FootballNetworkScreen({ navigation }: any) {
   const formatPhone = (c: Contact) => c.telefon ? `${c.telefon_code || ''} ${c.telefon}`.trim() : '-';
   const formatName = (c: Contact) => c.nachname && c.vorname ? `${c.nachname}, ${c.vorname}` : c.nachname || c.vorname || '-';
 
+  // Profile initials for header
+  const profileInitials = profile ? `${profile.first_name?.[0] || ''}${profile.last_name?.[0] || ''}` : '?';
+
   return (
     <View style={[styles.container, isMobile && styles.containerMobile]}>
-      <Sidebar navigation={navigation} activeScreen="network" profile={profile} />
+      {/* Mobile Sidebar Overlay */}
+      {isMobile && showMobileSidebar && (
+        <Pressable style={styles.sidebarOverlay} onPress={() => setShowMobileSidebar(false)}>
+          <Pressable style={styles.sidebarMobile} onPress={(e) => e.stopPropagation()}>
+            <Sidebar navigation={navigation} activeScreen="network" profile={profile} onNavigate={() => setShowMobileSidebar(false)} embedded />
+          </Pressable>
+        </Pressable>
+      )}
+
+      {/* Desktop Sidebar */}
+      {!isMobile && <Sidebar navigation={navigation} activeScreen="network" profile={profile} />}
+
       <TouchableOpacity style={styles.mainContent} activeOpacity={1} onPress={closeAllDropdowns}>
-        <View style={styles.headerBanner}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('AdvisorDashboard')}><Text style={styles.backButtonText}>← Zurück</Text></TouchableOpacity>
-          <View style={styles.headerBannerCenter}><Text style={styles.title}>Football Network</Text><Text style={styles.subtitle}>Kontakte zu Vereinen und Entscheidern</Text></View>
-          <View style={{ width: 100 }} />
-        </View>
+        {/* Mobile Header */}
+        {isMobile && (
+          <MobileHeader
+            title="Network"
+            onMenuPress={() => setShowMobileSidebar(true)}
+            profileInitials={profileInitials}
+          />
+        )}
+
+        {/* Desktop Header */}
+        {!isMobile && (
+          <View style={styles.headerBanner}>
+            <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('AdvisorDashboard')}><Text style={styles.backButtonText}>← Zurück</Text></TouchableOpacity>
+            <View style={styles.headerBannerCenter}><Text style={styles.title}>Football Network</Text><Text style={styles.subtitle}>Kontakte zu Vereinen und Entscheidern</Text></View>
+            <View style={{ width: 100 }} />
+          </View>
+        )}
 
         <View style={styles.toolbar}>
           <View style={styles.searchContainer}>
@@ -364,6 +392,11 @@ export function FootballNetworkScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1, flexDirection: 'row', backgroundColor: '#f8fafc' },
   containerMobile: { flexDirection: 'column' },
+
+  // Sidebar Overlay (Mobile)
+  sidebarOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 100, flexDirection: 'row' },
+  sidebarMobile: { width: 280, height: '100%', backgroundColor: '#fff' },
+
   mainContent: { flex: 1, backgroundColor: '#f8fafc' },
   headerBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16, paddingHorizontal: 24, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
   headerBannerCenter: { alignItems: 'center' },

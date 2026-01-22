@@ -19,16 +19,13 @@ interface SidebarProps {
 
 // Breakpoint für Mobile
 const MOBILE_BREAKPOINT = 768;
-const WEEKDAYS_DE = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
 
 export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedded }: SidebarProps) {
   const [hoveredNav, setHoveredNav] = useState<string | null>(null);
-  const currentWeekday = WEEKDAYS_DE[new Date().getDay()];
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedbackType, setFeedbackType] = useState<'bug' | 'feature' | 'other'>('bug');
   const [feedbackText, setFeedbackText] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user } = useAuth();
   const { width } = useWindowDimensions();
   const isMobile = width < MOBILE_BREAKPOINT;
@@ -82,18 +79,15 @@ export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedde
   };
 
   const goToDashboard = () => {
-    setMobileMenuOpen(false);
     navigation.navigate('AdvisorDashboard');
     onNavigate?.();
   };
 
   const handleNavigation = (screen: string, id: string) => {
     if (activeScreen === id) {
-      setMobileMenuOpen(false);
       onNavigate?.();
       return;
     }
-    setMobileMenuOpen(false);
     navigation.navigate(screen);
     onNavigate?.();
   };
@@ -107,10 +101,6 @@ export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedde
     { id: 'termine', label: 'Spieltage', icon: '📅', screen: 'Calendar' },
     { id: 'aufgaben', label: 'Aufgaben & Erinnerungen', icon: '✓', screen: 'Tasks' },
   ];
-
-  // Aktuellen Screen-Namen finden
-  const currentScreenLabel = navItems.find(item => item.id === activeScreen)?.label ||
-    (activeScreen === 'admin' ? 'Administration' : 'Dashboard');
 
   // Sidebar-Inhalt (wird sowohl für Desktop als auch Mobile verwendet)
   const SidebarContent = () => (
@@ -156,8 +146,8 @@ export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedde
           onHoverIn={() => setHoveredNav('admin')}
           onHoverOut={() => setHoveredNav(null)}
           onPress={() => {
-            setMobileMenuOpen(false);
             navigation.navigate('AdminPanel');
+            onNavigate?.();
           }}
           style={[
             styles.navItem,
@@ -285,74 +275,10 @@ export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedde
     );
   }
 
-  // Mobile: Header mit Hamburger-Menü
-  if (isMobile) {
-    return (
-      <>
-        {/* Mobile Header */}
-        <View style={styles.mobileHeader}>
-          <Pressable
-            onPress={() => setMobileMenuOpen(true)}
-            style={styles.hamburgerButton}
-          >
-            <Text style={styles.hamburgerIcon}>☰</Text>
-          </Pressable>
-          {activeScreen === 'dashboard' ? (
-            <View style={styles.mobileGreetingContainer}>
-              <Text style={styles.mobileGreeting}>
-                Einen schönen {currentWeekday}, {profile?.first_name || 'User'}.
-              </Text>
-              <Text style={styles.mobileSubGreeting}>
-                Willkommen im Karl M. Herzog Sportmanagement!
-              </Text>
-            </View>
-          ) : (
-            <Text style={styles.mobileTitle}>{currentScreenLabel}</Text>
-          )}
-          <TouchableOpacity
-            onPress={() => navigation.navigate('MyProfile')}
-            style={styles.profileButtonMobile}
-          >
-            {profile?.photo_url ? (
-              <Image source={{ uri: profile.photo_url }} style={styles.profileAvatarMobile} />
-            ) : (
-              <View style={styles.profileAvatarPlaceholderMobile}>
-                <Text style={styles.profileAvatarTextMobile}>
-                  {profile?.first_name?.[0] || ''}{profile?.last_name?.[0] || ''}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        {/* Mobile Menu Overlay */}
-        <Modal
-          visible={mobileMenuOpen}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setMobileMenuOpen(false)}
-        >
-          <View style={styles.mobileMenuOverlay}>
-            <Pressable
-              style={styles.mobileMenuBackdrop}
-              onPress={() => setMobileMenuOpen(false)}
-            />
-            <View style={styles.mobileMenuContent}>
-              {/* Close Button */}
-              <Pressable
-                style={styles.closeButton}
-                onPress={() => setMobileMenuOpen(false)}
-              >
-                <Text style={styles.closeButtonText}>✕</Text>
-              </Pressable>
-              <SidebarContent />
-            </View>
-          </View>
-        </Modal>
-
-        <FeedbackModal />
-      </>
-    );
+  // Mobile ohne embedded: Wird nicht mehr verwendet
+  // Alle Screens nutzen jetzt MobileHeader + embedded Sidebar
+  if (isMobile && !embedded) {
+    return null; // Sidebar wird auf Mobile nur mit embedded prop gerendert
   }
 
   // Desktop: Normale Sidebar

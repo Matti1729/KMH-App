@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Pressable } from 'react-native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
+import { MobileHeader } from '../../components/MobileHeader';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -109,6 +110,7 @@ export function TasksRemindersScreen({ navigation }: any) {
   const isMobile = useIsMobile();
   const { session, loading: authLoading } = useAuth();
   const dataLoadedRef = useRef(false);
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [profile, setProfile] = useState<any>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
@@ -624,26 +626,49 @@ export function TasksRemindersScreen({ navigation }: any) {
     );
   };
 
+  // Profile initials for header
+  const profileInitials = profile ? `${profile.first_name?.[0] || ''}${profile.last_name?.[0] || ''}` : '?';
+
   return (
     <View style={[styles.container, isMobile && styles.containerMobile]}>
-      <Sidebar navigation={navigation} activeScreen="tasks" profile={profile} />
-      
-      <Pressable 
+      {/* Mobile Sidebar Overlay */}
+      {isMobile && showMobileSidebar && (
+        <Pressable style={styles.sidebarOverlay} onPress={() => setShowMobileSidebar(false)}>
+          <Pressable style={styles.sidebarMobile} onPress={(e) => e.stopPropagation()}>
+            <Sidebar navigation={navigation} activeScreen="tasks" profile={profile} onNavigate={() => setShowMobileSidebar(false)} embedded />
+          </Pressable>
+        </Pressable>
+      )}
+
+      {/* Desktop Sidebar */}
+      {!isMobile && <Sidebar navigation={navigation} activeScreen="tasks" profile={profile} />}
+
+      <Pressable
         style={styles.mainContent}
         onPress={() => expandedTaskId && setExpandedTaskId(null)}
       >
-        
-        {/* Header Banner - wie ScoutingScreen */}
-        <View style={styles.headerBanner}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('AdvisorDashboard')}>
-            <Text style={styles.backButtonText}>← Zurück</Text>
-          </TouchableOpacity>
-          <View style={styles.headerBannerCenter}>
-            <Text style={styles.headerTitle}>Aufgaben & Erinnerungen</Text>
-            <Text style={styles.headerSubtitle}>To-Dos und Reminder im Überblick</Text>
+        {/* Mobile Header */}
+        {isMobile && (
+          <MobileHeader
+            title="Aufgaben"
+            onMenuPress={() => setShowMobileSidebar(true)}
+            profileInitials={profileInitials}
+          />
+        )}
+
+        {/* Header Banner - nur auf Desktop */}
+        {!isMobile && (
+          <View style={styles.headerBanner}>
+            <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('AdvisorDashboard')}>
+              <Text style={styles.backButtonText}>← Zurück</Text>
+            </TouchableOpacity>
+            <View style={styles.headerBannerCenter}>
+              <Text style={styles.headerTitle}>Aufgaben & Erinnerungen</Text>
+              <Text style={styles.headerSubtitle}>To-Dos und Reminder im Überblick</Text>
+            </View>
+            <View style={{ width: 100 }} />
           </View>
-          <View style={{ width: 100 }} />
-        </View>
+        )}
 
         {/* Content - 60/40 Split */}
         <View style={styles.splitContainer}>
@@ -947,6 +972,11 @@ export function TasksRemindersScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1, flexDirection: 'row', backgroundColor: '#f8fafc' },
   containerMobile: { flexDirection: 'column' },
+
+  // Sidebar Overlay (Mobile)
+  sidebarOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 100, flexDirection: 'row' },
+  sidebarMobile: { width: 280, height: '100%', backgroundColor: '#fff' },
+
   mainContent: { flex: 1, backgroundColor: '#f8fafc', position: 'relative', display: 'flex', flexDirection: 'column' },
   closeOverlay: { 
     position: 'absolute', 

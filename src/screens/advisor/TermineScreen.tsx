@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Pressable, ActivityIndicator, Image, Alert } from 'react-native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
+import { MobileHeader } from '../../components/MobileHeader';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAuth } from '../../contexts/AuthContext';
 import { getRelevantTermine, convertToDbFormat, getLastUpdateDisplay, getDFBTermineCount, getHallenTermineCount } from '../../services/dfbTermine';
@@ -77,6 +78,7 @@ export function TermineScreen({ navigation }: any) {
   const isMobile = useIsMobile();
   const { session, loading: authLoading } = useAuth();
   const dataLoadedRef = useRef(false);
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
   const [profile, setProfile] = useState<Advisor | null>(null);
   const [termine, setTermine] = useState<Termin[]>([]);
@@ -1867,11 +1869,35 @@ export function TermineScreen({ navigation }: any) {
     }
   };
 
+  // Profile initials for header
+  const profileInitials = profile ? `${profile.first_name?.[0] || ''}${profile.last_name?.[0] || ''}` : '?';
+
   return (
     <View style={[styles.container, isMobile && styles.containerMobile]}>
-      <Sidebar navigation={navigation} activeScreen="termine" profile={profile} />
+      {/* Mobile Sidebar Overlay */}
+      {isMobile && showMobileSidebar && (
+        <Pressable style={styles.sidebarOverlay} onPress={() => setShowMobileSidebar(false)}>
+          <Pressable style={styles.sidebarMobile} onPress={(e) => e.stopPropagation()}>
+            <Sidebar navigation={navigation} activeScreen="termine" profile={profile} onNavigate={() => setShowMobileSidebar(false)} embedded />
+          </Pressable>
+        </Pressable>
+      )}
+
+      {/* Desktop Sidebar */}
+      {!isMobile && <Sidebar navigation={navigation} activeScreen="termine" profile={profile} />}
+
       <View style={styles.mainContent}>
-        {viewMode === 'dashboard' && (
+        {/* Mobile Header */}
+        {isMobile && (
+          <MobileHeader
+            title="Spieltage"
+            onMenuPress={() => setShowMobileSidebar(true)}
+            profileInitials={profileInitials}
+          />
+        )}
+
+        {/* Desktop Header */}
+        {!isMobile && viewMode === 'dashboard' && (
           <View style={styles.header}>
             <TouchableOpacity onPress={() => navigation.navigate('AdvisorDashboard')} style={styles.backButton}>
               <Text style={styles.backButtonText}>← Zurück</Text>
@@ -1896,6 +1922,11 @@ export function TermineScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1, flexDirection: 'row', backgroundColor: '#f5f5f5' },
   containerMobile: { flexDirection: 'column' },
+
+  // Sidebar Overlay (Mobile)
+  sidebarOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 100, flexDirection: 'row' },
+  sidebarMobile: { width: 280, height: '100%', backgroundColor: '#fff' },
+
   mainContent: { flex: 1, backgroundColor: '#f5f5f5' },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
   headerCenter: { flex: 1, alignItems: 'center' },

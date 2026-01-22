@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Pressable } from 'react-native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
+import { MobileHeader } from '../../components/MobileHeader';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -28,6 +29,7 @@ export function AdvisorHomeScreen({ navigation }: any) {
   const [tasksAndRemindersCount, setTasksAndRemindersCount] = useState(0);
   const [networkContactsCount, setNetworkContactsCount] = useState(0);
   const dataLoadedRef = useRef(false);
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
   // Daten nur laden wenn Auth bereit ist
   useEffect(() => {
@@ -229,45 +231,36 @@ export function AdvisorHomeScreen({ navigation }: any) {
     </Pressable>
   );
 
-  return (
-    <View style={[styles.container, isMobile && styles.containerMobile]}>
-      {/* Sidebar - gemeinsame Komponente */}
-      <Sidebar navigation={navigation} activeScreen="dashboard" profile={profile} />
+  // Profile initials for header
+  const profileInitials = profile ? `${profile.first_name?.[0] || ''}${profile.last_name?.[0] || ''}` : '?';
 
-      {/* Main Content */}
-      <View style={styles.mainContent}>
-        {/* Header - nur auf Desktop, auf Mobile ist die Begrüßung im Sidebar-Header */}
-        {!isMobile && (
-          <View style={styles.header}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.greeting}>
-                Einen schönen {currentWeekday}, {profile?.first_name || 'User'}.
-              </Text>
-              <Text style={styles.subGreeting}>
-                Willkommen im Karl M. Herzog Sportmanagement!
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('MyProfile')}
-              style={styles.profileButton}
-            >
-              {profile?.photo_url ? (
-                <Image source={{ uri: profile.photo_url }} style={styles.profileAvatar} />
-              ) : (
-                <View style={styles.profileAvatarPlaceholder}>
-                  <Text style={styles.profileAvatarText}>
-                    {profile?.first_name?.[0] || ''}{profile?.last_name?.[0] || ''}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
+  // Mobile View
+  if (isMobile) {
+    return (
+      <View style={styles.containerMobile}>
+        {showMobileSidebar && (
+          <Pressable style={styles.sidebarOverlay} onPress={() => setShowMobileSidebar(false)}>
+            <Pressable style={styles.sidebarMobile} onPress={(e) => e.stopPropagation()}>
+              <Sidebar navigation={navigation} activeScreen="dashboard" profile={profile} onNavigate={() => setShowMobileSidebar(false)} embedded />
+            </Pressable>
+          </Pressable>
         )}
 
-        {/* Dashboard Content */}
-        <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollContent, isMobile && styles.scrollContentMobile]}>
-          {isMobile ? (
-            /* Mobile Layout - Einfache vertikale Cards */
+        <View style={styles.mainContentMobile}>
+          <MobileHeader
+            title="Dashboard"
+            onMenuPress={() => setShowMobileSidebar(true)}
+            profileInitials={profileInitials}
+          />
+
+          {/* Mobile Greeting */}
+          <View style={styles.mobileGreetingBanner}>
+            <Text style={styles.mobileGreetingText}>
+              Schönen {currentWeekday}, {profile?.first_name || 'User'}!
+            </Text>
+          </View>
+
+          <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContentMobile}>
             <View style={styles.mobileCardsContainer}>
               {/* KMH-Spieler */}
               <DashboardCard
@@ -390,9 +383,49 @@ export function AdvisorHomeScreen({ navigation }: any) {
                 </DashboardCard>
               )}
             </View>
-          ) : (
-            /* Desktop Layout */
-            <View style={styles.gridContainer}>
+          </ScrollView>
+        </View>
+      </View>
+    );
+  }
+
+  // Desktop View
+  return (
+    <View style={styles.container}>
+      {/* Sidebar */}
+      <Sidebar navigation={navigation} activeScreen="dashboard" profile={profile} />
+
+      {/* Main Content */}
+      <View style={styles.mainContent}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.greeting}>
+              Einen schönen {currentWeekday}, {profile?.first_name || 'User'}.
+            </Text>
+            <Text style={styles.subGreeting}>
+              Willkommen im Karl M. Herzog Sportmanagement!
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('MyProfile')}
+            style={styles.profileButton}
+          >
+            {profile?.photo_url ? (
+              <Image source={{ uri: profile.photo_url }} style={styles.profileAvatar} />
+            ) : (
+              <View style={styles.profileAvatarPlaceholder}>
+                <Text style={styles.profileAvatarText}>
+                  {profile?.first_name?.[0] || ''}{profile?.last_name?.[0] || ''}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Dashboard Content */}
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+          <View style={styles.gridContainer}>
 
               {/* Row 1 - KMH-Spieler + Transfers + Football Network links, Scouting rechts als Säule */}
               <View style={styles.row}>
@@ -551,8 +584,7 @@ export function AdvisorHomeScreen({ navigation }: any) {
                 </View>
               )}
 
-            </View>
-          )}
+          </View>
         </ScrollView>
       </View>
     </View>
@@ -566,7 +598,44 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   containerMobile: {
+    flex: 1,
     flexDirection: 'column',
+    backgroundColor: '#f5f5f5',
+  },
+
+  // Sidebar Overlay
+  sidebarOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    zIndex: 100,
+    flexDirection: 'row',
+  },
+  sidebarMobile: {
+    width: 280,
+    height: '100%',
+    backgroundColor: '#fff',
+  },
+  mainContentMobile: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+
+  // Mobile Greeting Banner
+  mobileGreetingBanner: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  mobileGreetingText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1a1a1a',
   },
 
   // Main Content

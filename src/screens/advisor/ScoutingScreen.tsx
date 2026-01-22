@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Platform, Linking, Pressable, RefreshControl } from 'react-native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
+import { MobileHeader } from '../../components/MobileHeader';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -186,6 +187,7 @@ export function ScoutingScreen({ navigation }: any) {
   const isMobile = useIsMobile();
   const { session, loading: authLoading } = useAuth();
   const dataLoadedRef = useRef(false);
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [activeTab, setActiveTab] = useState<ActiveTab>('spieler');
   const [viewMode, setViewMode] = useState<ViewMode>('kanban');
   const [scoutedPlayers, setScoutedPlayers] = useState<ScoutedPlayer[]>([]);
@@ -1815,28 +1817,65 @@ export function ScoutingScreen({ navigation }: any) {
     }
   };
 
+  // Profile initials for header
+  const profileInitials = profile ? `${profile.first_name?.[0] || ''}${profile.last_name?.[0] || ''}` : '?';
+
   return (
     <Pressable style={[styles.container, isMobile && styles.containerMobile]} onPress={closeAllDropdowns}>
-      <Sidebar navigation={navigation} activeScreen="scouting" profile={profile} />
+      {/* Mobile Sidebar Overlay */}
+      {isMobile && showMobileSidebar && (
+        <Pressable style={styles.sidebarOverlay} onPress={() => setShowMobileSidebar(false)}>
+          <Pressable style={styles.sidebarMobile} onPress={(e) => e.stopPropagation()}>
+            <Sidebar navigation={navigation} activeScreen="scouting" profile={profile} onNavigate={() => setShowMobileSidebar(false)} embedded />
+          </Pressable>
+        </Pressable>
+      )}
+
+      {/* Desktop Sidebar */}
+      {!isMobile && <Sidebar navigation={navigation} activeScreen="scouting" profile={profile} />}
+
       <View style={styles.mainContent}>
-        {/* Header Banner - weiß mit Titel mittig */}
-        <View style={styles.headerBanner}>
-          <TouchableOpacity style={styles.filterButton} onPress={() => navigation.navigate('AdvisorDashboard')}>
-            <Text style={styles.filterButtonText}>← Zurück</Text>
-          </TouchableOpacity>
-          <View style={styles.headerBannerCenter}>
-            <Text style={styles.title}>Scouting Area</Text>
-            <Text style={styles.subtitle}>Manage Talente, Berichte und Spieltermine.</Text>
-          </View>
-          <View style={styles.headerTabs}>
-            <TouchableOpacity style={[styles.filterButton, activeTab === 'spieler' && styles.filterButtonActive]} onPress={() => setActiveTab('spieler')}>
-              <Text style={[styles.filterButtonText, activeTab === 'spieler' && styles.filterButtonTextActive]}>Spieler-Datenbank</Text>
+        {/* Mobile Header */}
+        {isMobile && (
+          <MobileHeader
+            title="Scouting"
+            onMenuPress={() => setShowMobileSidebar(true)}
+            profileInitials={profileInitials}
+          />
+        )}
+
+        {/* Header Banner - nur auf Desktop */}
+        {!isMobile && (
+          <View style={styles.headerBanner}>
+            <TouchableOpacity style={styles.filterButton} onPress={() => navigation.navigate('AdvisorDashboard')}>
+              <Text style={styles.filterButtonText}>← Zurück</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.filterButton, activeTab === 'spiele' && styles.filterButtonActive]} onPress={() => setActiveTab('spiele')}>
-              <Text style={[styles.filterButtonText, activeTab === 'spiele' && styles.filterButtonTextActive]}>Scouting-Termine</Text>
+            <View style={styles.headerBannerCenter}>
+              <Text style={styles.title}>Scouting Area</Text>
+              <Text style={styles.subtitle}>Manage Talente, Berichte und Spieltermine.</Text>
+            </View>
+            <View style={styles.headerTabs}>
+              <TouchableOpacity style={[styles.filterButton, activeTab === 'spieler' && styles.filterButtonActive]} onPress={() => setActiveTab('spieler')}>
+                <Text style={[styles.filterButtonText, activeTab === 'spieler' && styles.filterButtonTextActive]}>Spieler-Datenbank</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.filterButton, activeTab === 'spiele' && styles.filterButtonActive]} onPress={() => setActiveTab('spiele')}>
+                <Text style={[styles.filterButtonText, activeTab === 'spiele' && styles.filterButtonTextActive]}>Scouting-Termine</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* Mobile Tabs */}
+        {isMobile && (
+          <View style={styles.mobileTabs}>
+            <TouchableOpacity style={[styles.mobileTab, activeTab === 'spieler' && styles.mobileTabActive]} onPress={() => setActiveTab('spieler')}>
+              <Text style={[styles.mobileTabText, activeTab === 'spieler' && styles.mobileTabTextActive]}>Spieler</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.mobileTab, activeTab === 'spiele' && styles.mobileTabActive]} onPress={() => setActiveTab('spiele')}>
+              <Text style={[styles.mobileTabText, activeTab === 'spiele' && styles.mobileTabTextActive]}>Termine</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        )}
 
         <View style={styles.toolbar}>
           <View style={styles.searchContainer}>
@@ -3127,6 +3166,17 @@ const styles = StyleSheet.create({
   container: { flex: 1, flexDirection: 'row', backgroundColor: '#f8fafc' },
   containerMobile: { flexDirection: 'column' },
   mainContent: { flex: 1 },
+
+  // Sidebar Overlay (Mobile)
+  sidebarOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 100, flexDirection: 'row' },
+  sidebarMobile: { width: 280, height: '100%', backgroundColor: '#fff' },
+
+  // Mobile Tabs
+  mobileTabs: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0', paddingHorizontal: 12 },
+  mobileTab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
+  mobileTabActive: { borderBottomWidth: 2, borderBottomColor: '#1a1a1a' },
+  mobileTabText: { fontSize: 14, color: '#64748b', fontWeight: '500' },
+  mobileTabTextActive: { color: '#1a1a1a', fontWeight: '600' },
   
   // Header Banner - weiß mit Titel mittig
   headerBanner: { flexDirection: 'row', alignItems: 'center', padding: 24, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
