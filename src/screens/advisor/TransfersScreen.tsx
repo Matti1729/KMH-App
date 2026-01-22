@@ -790,9 +790,9 @@ export function TransfersScreen({ navigation }: any) {
       <View style={styles.containerMobile}>
         {showMobileSidebar && (
           <Pressable style={styles.sidebarOverlay} onPress={() => setShowMobileSidebar(false)}>
-            <View style={styles.sidebarMobile}>
+            <Pressable style={styles.sidebarMobile} onPress={(e) => e.stopPropagation()}>
               <Sidebar navigation={navigation} activeScreen="transfers" profile={profile} onNavigate={() => setShowMobileSidebar(false)} />
-            </View>
+            </Pressable>
           </Pressable>
         )}
 

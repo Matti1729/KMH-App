@@ -730,9 +730,9 @@ export function PlayerOverviewScreen({ navigation }: any) {
       <View style={styles.containerMobile}>
         {showMobileSidebar && (
           <Pressable style={styles.sidebarOverlay} onPress={() => setShowMobileSidebar(false)}>
-            <View style={styles.sidebarMobile}>
+            <Pressable style={styles.sidebarMobile} onPress={(e) => e.stopPropagation()}>
               <Sidebar navigation={navigation} activeScreen="players" profile={profile} onNavigate={() => setShowMobileSidebar(false)} />
-            </View>
+            </Pressable>
           </Pressable>
         )}
 
