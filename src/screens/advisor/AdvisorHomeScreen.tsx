@@ -253,168 +253,293 @@ export function AdvisorHomeScreen({ navigation }: any) {
 
         {/* Dashboard Content */}
         <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollContent, isMobile && styles.scrollContentMobile]}>
-          <View style={styles.gridContainer}>
-
-            {/* Row 1 - KMH-Spieler + Transfers + Football Network links, Scouting rechts als Säule */}
-            <View style={[styles.row, isMobile && styles.rowMobile]}>
-              {/* Linke Spalte - KMH-Spieler, Transfers, Football Network */}
-              <View style={styles.leftColumn}>
-                {/* Obere Zeile - KMH-Spieler + Transfers */}
-                <View style={[styles.topRow, isMobile && styles.topRowMobile]}>
-                  {/* KMH-Spieler - Large Card */}
-                  <DashboardCard 
-                    id="players"
-                    style={styles.mainCard}
-                    onPress={() => navigation.navigate('PlayerOverview')}
-                    hoverStyle={styles.mainCardHovered}
-                  >
-                    <Text style={styles.playerCountTopRight}>{playerCount}</Text>
-                    <Text style={styles.mainCardBackgroundEmoji}>👤</Text>
-                    <View style={styles.mainCardContent}>
-                      <View style={styles.mainCardLeft}>
-                        <Text style={styles.mainCardTitle}>KMH-Spieler</Text>
-                        <Text style={styles.mainCardSubtitle}>
-                          Verwaltung aller Daten unserer{'\n'}
-                          aktiven Spieler und Trainer.
-                        </Text>
-                        <View style={styles.mainCardFooter}>
-                          <Text style={styles.mainCardLink}>Zur Übersicht</Text>
-                          <Text style={styles.mainCardArrow}>→</Text>
-                        </View>
-                      </View>
-                    </View>
-                  </DashboardCard>
-
-                  {/* Transfers Card */}
-                  <DashboardCard 
-                    id="transfers"
-                    style={styles.transferCard}
-                    onPress={() => navigation.navigate('Transfers')}
-                    hoverStyle={styles.lightCardHovered}
-                  >
-                    <View style={styles.transferHeader}>
-                      <View style={styles.transferIcon}>
-                        <Text style={styles.transferIconText}>🔄</Text>
-                      </View>
-                      <Text style={styles.transferCount}>{transferCount}</Text>
-                    </View>
-                    <View style={styles.transferFooter}>
-                      <Text style={styles.transferTitle}>Transfers</Text>
-                      <Text style={styles.transferSubtitle}>Auslaufende Verträge & mögliche Wechsel</Text>
-                    </View>
-                  </DashboardCard>
-                </View>
-
-                {/* Football Network Card - volle Breite unter KMH + Transfers (weiß) */}
-                <DashboardCard 
-                  id="network"
-                  style={styles.networkCardWide}
-                  onPress={() => navigation.navigate('FootballNetwork')}
-                  hoverStyle={styles.lightCardHovered}
-                >
-                  <View style={styles.networkWideTop}>
-                    <View style={styles.networkWideIcon}>
-                      <Text style={styles.networkWideIconText}>💼</Text>
-                    </View>
-                    <View style={styles.networkWideTitleContainer}>
-                      <Text style={styles.networkWideTitle}>Football Network</Text>
-                      <Text style={styles.networkWideSubtitle}>Kontakte zu Vereinen und Entscheidern</Text>
-                    </View>
+          {isMobile ? (
+            /* Mobile Layout - Einfache vertikale Cards */
+            <View style={styles.mobileCardsContainer}>
+              {/* KMH-Spieler */}
+              <DashboardCard
+                id="players"
+                style={styles.mobileCard}
+                onPress={() => navigation.navigate('PlayerOverview')}
+                hoverStyle={styles.lightCardHovered}
+              >
+                <View style={styles.mobileCardContent}>
+                  <View style={styles.mobileCardIcon}><Text style={styles.mobileCardIconText}>👤</Text></View>
+                  <View style={styles.mobileCardText}>
+                    <Text style={styles.mobileCardTitle}>KMH-Spieler</Text>
+                    <Text style={styles.mobileCardSubtitle}>Verwaltung aller Spieler</Text>
                   </View>
-                  <Text style={styles.networkWideCount}>{networkContactsCount}</Text>
-                </DashboardCard>
-              </View>
+                  <Text style={styles.mobileCardCount}>{playerCount}</Text>
+                </View>
+              </DashboardCard>
 
-              {/* Scouting - Säule (Dark) - volle Höhe */}
+              {/* Transfers */}
+              <DashboardCard
+                id="transfers"
+                style={styles.mobileCard}
+                onPress={() => navigation.navigate('Transfers')}
+                hoverStyle={styles.lightCardHovered}
+              >
+                <View style={styles.mobileCardContent}>
+                  <View style={styles.mobileCardIcon}><Text style={styles.mobileCardIconText}>🔄</Text></View>
+                  <View style={styles.mobileCardText}>
+                    <Text style={styles.mobileCardTitle}>Transfers</Text>
+                    <Text style={styles.mobileCardSubtitle}>Auslaufende Verträge</Text>
+                  </View>
+                  <Text style={styles.mobileCardCount}>{transferCount}</Text>
+                </View>
+              </DashboardCard>
+
+              {/* Scouting */}
               <DashboardCard
                 id="scouting"
-                style={[styles.scoutingCardTall, isMobile && styles.scoutingCardTallMobile]}
+                style={styles.mobileCardDark}
                 onPress={() => navigation.navigate('Scouting')}
                 hoverStyle={styles.darkCardHovered}
               >
-                <Text style={styles.scoutingTallCount}>{scoutingCount}</Text>
-                <View style={styles.scoutingVerticalTextContainer}>
-                  <Text style={styles.scoutingVerticalText}>S{'\n'}C{'\n'}O{'\n'}U{'\n'}T{'\n'}I{'\n'}N{'\n'}G</Text>
-                </View>
-                <View style={styles.scoutingTallFooter}>
-                  <Text style={styles.scoutingTallSubtitle}>Talente{'\n'}im Blick</Text>
+                <View style={styles.mobileCardContent}>
+                  <View style={styles.mobileCardIconDark}><Text style={styles.mobileCardIconText}>🔍</Text></View>
+                  <View style={styles.mobileCardText}>
+                    <Text style={styles.mobileCardTitleDark}>Scouting</Text>
+                    <Text style={styles.mobileCardSubtitleDark}>Talente im Blick</Text>
+                  </View>
+                  <Text style={styles.mobileCardCountDark}>{scoutingCount}</Text>
                 </View>
               </DashboardCard>
-            </View>
 
-            {/* Row 2 - Aufgaben & Spieltage */}
-            <View style={[styles.row, isMobile && styles.rowMobile]}>
-              {/* Aufgaben - Dark */}
-              <DashboardCard 
+              {/* Football Network */}
+              <DashboardCard
+                id="network"
+                style={styles.mobileCard}
+                onPress={() => navigation.navigate('FootballNetwork')}
+                hoverStyle={styles.lightCardHovered}
+              >
+                <View style={styles.mobileCardContent}>
+                  <View style={styles.mobileCardIcon}><Text style={styles.mobileCardIconText}>💼</Text></View>
+                  <View style={styles.mobileCardText}>
+                    <Text style={styles.mobileCardTitle}>Football Network</Text>
+                    <Text style={styles.mobileCardSubtitle}>Kontakte & Entscheider</Text>
+                  </View>
+                  <Text style={styles.mobileCardCount}>{networkContactsCount}</Text>
+                </View>
+              </DashboardCard>
+
+              {/* Aufgaben */}
+              <DashboardCard
                 id="aufgaben"
-                style={styles.darkBottomCard}
+                style={styles.mobileCardDark}
                 onPress={() => navigation.navigate('Tasks')}
                 hoverStyle={styles.darkCardHovered}
               >
-                <View style={styles.darkBottomCardContent}>
-                  <View style={styles.darkBottomCardIcon}>
-                    <Text style={styles.darkBottomCardIconText}>✓</Text>
+                <View style={styles.mobileCardContent}>
+                  <View style={styles.mobileCardIconDark}><Text style={styles.mobileCardIconText}>✓</Text></View>
+                  <View style={styles.mobileCardText}>
+                    <Text style={styles.mobileCardTitleDark}>Aufgaben</Text>
+                    <Text style={styles.mobileCardSubtitleDark}>To-Dos & Erinnerungen</Text>
                   </View>
-                  <View style={styles.darkBottomCardText}>
-                    <Text style={styles.darkBottomCardTitle}>Aufgaben & Erinnerungen</Text>
-                    <Text style={styles.darkBottomCardSubtitle}>Deine To-Dos & Erinnerungen</Text>
-                  </View>
-                  <View style={styles.darkBottomCardBadge}>
-                    <Text style={styles.darkBottomCardBadgeText}>{tasksAndRemindersCount}</Text>
-                  </View>
+                  <Text style={styles.mobileCardCountDark}>{tasksAndRemindersCount}</Text>
                 </View>
               </DashboardCard>
 
-              {/* Spieltage - Dark */}
-              <DashboardCard 
+              {/* Spieltage */}
+              <DashboardCard
                 id="termine"
-                style={styles.darkBottomCard}
+                style={styles.mobileCardDark}
                 onPress={() => navigation.navigate('Calendar')}
                 hoverStyle={styles.darkCardHovered}
               >
-                <View style={styles.darkBottomCardContent}>
-                  <View style={styles.darkBottomCardIcon}>
-                    <Text style={styles.darkBottomCardIconText}>📅</Text>
+                <View style={styles.mobileCardContent}>
+                  <View style={styles.mobileCardIconDark}><Text style={styles.mobileCardIconText}>📅</Text></View>
+                  <View style={styles.mobileCardText}>
+                    <Text style={styles.mobileCardTitleDark}>Spieltage</Text>
+                    <Text style={styles.mobileCardSubtitleDark}>Spiele & Termine</Text>
                   </View>
-                  <View style={styles.darkBottomCardText}>
-                    <Text style={styles.darkBottomCardTitle}>Spieltage</Text>
-                    <Text style={styles.darkBottomCardSubtitle}>Lehrgänge, Spiele & Turniere</Text>
-                  </View>
-                  <View style={styles.darkBottomCardBadge}>
-                    <Text style={styles.darkBottomCardBadgeText}>{todayGamesCount}</Text>
-                  </View>
+                  <Text style={styles.mobileCardCountDark}>{todayGamesCount}</Text>
                 </View>
               </DashboardCard>
-            </View>
 
-            {/* Row 3 - Admin (only if admin) */}
-            {profile?.role === 'admin' && (
-              <View style={styles.adminRow}>
-                <DashboardCard 
+              {/* Admin */}
+              {profile?.role === 'admin' && (
+                <DashboardCard
                   id="admin"
-                  style={styles.adminCard}
+                  style={styles.mobileCardDark}
                   onPress={() => navigation.navigate('AdminPanel')}
+                  hoverStyle={styles.darkCardHovered}
+                >
+                  <View style={styles.mobileCardContent}>
+                    <View style={styles.mobileCardIconDark}><Text style={styles.mobileCardIconText}>⚙️</Text></View>
+                    <View style={styles.mobileCardText}>
+                      <Text style={styles.mobileCardTitleDark}>Administration</Text>
+                      <Text style={styles.mobileCardSubtitleDark}>Benutzer & Rechte</Text>
+                    </View>
+                    {pendingRequestsCount > 0 && <Text style={styles.mobileCardCountDark}>{pendingRequestsCount}</Text>}
+                  </View>
+                </DashboardCard>
+              )}
+            </View>
+          ) : (
+            /* Desktop Layout */
+            <View style={styles.gridContainer}>
+
+              {/* Row 1 - KMH-Spieler + Transfers + Football Network links, Scouting rechts als Säule */}
+              <View style={styles.row}>
+                {/* Linke Spalte - KMH-Spieler, Transfers, Football Network */}
+                <View style={styles.leftColumn}>
+                  {/* Obere Zeile - KMH-Spieler + Transfers */}
+                  <View style={styles.topRow}>
+                    {/* KMH-Spieler - Large Card */}
+                    <DashboardCard
+                      id="players"
+                      style={styles.mainCard}
+                      onPress={() => navigation.navigate('PlayerOverview')}
+                      hoverStyle={styles.mainCardHovered}
+                    >
+                      <Text style={styles.playerCountTopRight}>{playerCount}</Text>
+                      <Text style={styles.mainCardBackgroundEmoji}>👤</Text>
+                      <View style={styles.mainCardContent}>
+                        <View style={styles.mainCardLeft}>
+                          <Text style={styles.mainCardTitle}>KMH-Spieler</Text>
+                          <Text style={styles.mainCardSubtitle}>
+                            Verwaltung aller Daten unserer{'\n'}
+                            aktiven Spieler und Trainer.
+                          </Text>
+                          <View style={styles.mainCardFooter}>
+                            <Text style={styles.mainCardLink}>Zur Übersicht</Text>
+                            <Text style={styles.mainCardArrow}>→</Text>
+                          </View>
+                        </View>
+                      </View>
+                    </DashboardCard>
+
+                    {/* Transfers Card */}
+                    <DashboardCard
+                      id="transfers"
+                      style={styles.transferCard}
+                      onPress={() => navigation.navigate('Transfers')}
+                      hoverStyle={styles.lightCardHovered}
+                    >
+                      <View style={styles.transferHeader}>
+                        <View style={styles.transferIcon}>
+                          <Text style={styles.transferIconText}>🔄</Text>
+                        </View>
+                        <Text style={styles.transferCount}>{transferCount}</Text>
+                      </View>
+                      <View style={styles.transferFooter}>
+                        <Text style={styles.transferTitle}>Transfers</Text>
+                        <Text style={styles.transferSubtitle}>Auslaufende Verträge & mögliche Wechsel</Text>
+                      </View>
+                    </DashboardCard>
+                  </View>
+
+                  {/* Football Network Card */}
+                  <DashboardCard
+                    id="network"
+                    style={styles.networkCardWide}
+                    onPress={() => navigation.navigate('FootballNetwork')}
+                    hoverStyle={styles.lightCardHovered}
+                  >
+                    <View style={styles.networkWideTop}>
+                      <View style={styles.networkWideIcon}>
+                        <Text style={styles.networkWideIconText}>💼</Text>
+                      </View>
+                      <View style={styles.networkWideTitleContainer}>
+                        <Text style={styles.networkWideTitle}>Football Network</Text>
+                        <Text style={styles.networkWideSubtitle}>Kontakte zu Vereinen und Entscheidern</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.networkWideCount}>{networkContactsCount}</Text>
+                  </DashboardCard>
+                </View>
+
+                {/* Scouting - Säule */}
+                <DashboardCard
+                  id="scouting"
+                  style={styles.scoutingCardTall}
+                  onPress={() => navigation.navigate('Scouting')}
+                  hoverStyle={styles.darkCardHovered}
+                >
+                  <Text style={styles.scoutingTallCount}>{scoutingCount}</Text>
+                  <View style={styles.scoutingVerticalTextContainer}>
+                    <Text style={styles.scoutingVerticalText}>S{'\n'}C{'\n'}O{'\n'}U{'\n'}T{'\n'}I{'\n'}N{'\n'}G</Text>
+                  </View>
+                  <View style={styles.scoutingTallFooter}>
+                    <Text style={styles.scoutingTallSubtitle}>Talente{'\n'}im Blick</Text>
+                  </View>
+                </DashboardCard>
+              </View>
+
+              {/* Row 2 - Aufgaben & Spieltage */}
+              <View style={styles.row}>
+                <DashboardCard
+                  id="aufgaben"
+                  style={styles.darkBottomCard}
+                  onPress={() => navigation.navigate('Tasks')}
                   hoverStyle={styles.darkCardHovered}
                 >
                   <View style={styles.darkBottomCardContent}>
                     <View style={styles.darkBottomCardIcon}>
-                      <Text style={styles.darkBottomCardIconText}>⚙️</Text>
+                      <Text style={styles.darkBottomCardIconText}>✓</Text>
                     </View>
                     <View style={styles.darkBottomCardText}>
-                      <Text style={styles.darkBottomCardTitle}>Administration</Text>
-                      <Text style={styles.darkBottomCardSubtitle}>Benutzer & Rechte verwalten</Text>
+                      <Text style={styles.darkBottomCardTitle}>Aufgaben & Erinnerungen</Text>
+                      <Text style={styles.darkBottomCardSubtitle}>Deine To-Dos & Erinnerungen</Text>
                     </View>
-                    {pendingRequestsCount > 0 && (
-                      <View style={styles.darkBottomCardBadge}>
-                        <Text style={styles.darkBottomCardBadgeText}>{pendingRequestsCount}</Text>
-                      </View>
-                    )}
+                    <View style={styles.darkBottomCardBadge}>
+                      <Text style={styles.darkBottomCardBadgeText}>{tasksAndRemindersCount}</Text>
+                    </View>
+                  </View>
+                </DashboardCard>
+
+                <DashboardCard
+                  id="termine"
+                  style={styles.darkBottomCard}
+                  onPress={() => navigation.navigate('Calendar')}
+                  hoverStyle={styles.darkCardHovered}
+                >
+                  <View style={styles.darkBottomCardContent}>
+                    <View style={styles.darkBottomCardIcon}>
+                      <Text style={styles.darkBottomCardIconText}>📅</Text>
+                    </View>
+                    <View style={styles.darkBottomCardText}>
+                      <Text style={styles.darkBottomCardTitle}>Spieltage</Text>
+                      <Text style={styles.darkBottomCardSubtitle}>Lehrgänge, Spiele & Turniere</Text>
+                    </View>
+                    <View style={styles.darkBottomCardBadge}>
+                      <Text style={styles.darkBottomCardBadgeText}>{todayGamesCount}</Text>
+                    </View>
                   </View>
                 </DashboardCard>
               </View>
-            )}
 
-          </View>
+              {/* Row 3 - Admin */}
+              {profile?.role === 'admin' && (
+                <View style={styles.adminRow}>
+                  <DashboardCard
+                    id="admin"
+                    style={styles.adminCard}
+                    onPress={() => navigation.navigate('AdminPanel')}
+                    hoverStyle={styles.darkCardHovered}
+                  >
+                    <View style={styles.darkBottomCardContent}>
+                      <View style={styles.darkBottomCardIcon}>
+                        <Text style={styles.darkBottomCardIconText}>⚙️</Text>
+                      </View>
+                      <View style={styles.darkBottomCardText}>
+                        <Text style={styles.darkBottomCardTitle}>Administration</Text>
+                        <Text style={styles.darkBottomCardSubtitle}>Benutzer & Rechte verwalten</Text>
+                      </View>
+                      {pendingRequestsCount > 0 && (
+                        <View style={styles.darkBottomCardBadge}>
+                          <Text style={styles.darkBottomCardBadgeText}>{pendingRequestsCount}</Text>
+                        </View>
+                      )}
+                    </View>
+                  </DashboardCard>
+                </View>
+              )}
+
+            </View>
+          )}
         </ScrollView>
       </View>
     </View>
@@ -489,6 +614,82 @@ const styles = StyleSheet.create({
   scrollContentMobile: {
     padding: 16,
   },
+
+  // Mobile Cards
+  mobileCardsContainer: {
+    gap: 12,
+  },
+  mobileCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  mobileCardDark: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
+    padding: 16,
+  },
+  mobileCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  mobileCardIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  mobileCardIconDark: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  mobileCardIconText: {
+    fontSize: 20,
+  },
+  mobileCardText: {
+    flex: 1,
+  },
+  mobileCardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1a1a1a',
+  },
+  mobileCardTitleDark: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  mobileCardSubtitle: {
+    fontSize: 13,
+    color: '#666',
+    marginTop: 2,
+  },
+  mobileCardSubtitleDark: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.6)',
+    marginTop: 2,
+  },
+  mobileCardCount: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  mobileCardCountDark: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#fff',
+  },
+
   gridContainer: {
     maxWidth: 1000,
     width: '100%',
