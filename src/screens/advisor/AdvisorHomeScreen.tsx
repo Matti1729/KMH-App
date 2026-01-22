@@ -228,21 +228,23 @@ export function AdvisorHomeScreen({ navigation }: any) {
       {/* Main Content */}
       <View style={styles.mainContent}>
         {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>
-              Einen schönen {currentWeekday}, {profile?.first_name || 'User'}.
+        <View style={[styles.header, isMobile && styles.headerMobile]}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.greeting, isMobile && styles.greetingMobile]}>
+              {isMobile ? `Hallo, ${profile?.first_name || 'User'}!` : `Einen schönen ${currentWeekday}, ${profile?.first_name || 'User'}.`}
             </Text>
-            <Text style={styles.subGreeting}>Willkommen im Karl M. Herzog Sportmanagement!</Text>
+            <Text style={[styles.subGreeting, isMobile && styles.subGreetingMobile]}>
+              {isMobile ? 'Willkommen bei KMH Sports' : 'Willkommen im Karl M. Herzog Sportmanagement!'}
+            </Text>
           </View>
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => navigation.navigate('MyProfile')}
             style={styles.profileButton}
           >
             {profile?.photo_url ? (
-              <Image source={{ uri: profile.photo_url }} style={styles.profileAvatar} />
+              <Image source={{ uri: profile.photo_url }} style={[styles.profileAvatar, isMobile && styles.profileAvatarMobile]} />
             ) : (
-              <View style={styles.profileAvatarPlaceholder}>
+              <View style={[styles.profileAvatarPlaceholder, isMobile && styles.profileAvatarMobile]}>
                 <Text style={styles.profileAvatarText}>
                   {profile?.first_name?.[0] || ''}{profile?.last_name?.[0] || ''}
                 </Text>
@@ -571,15 +573,25 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
+  headerMobile: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
   greeting: {
     fontSize: 24,
     fontWeight: '700',
     color: '#1a1a1a',
   },
+  greetingMobile: {
+    fontSize: 18,
+  },
   subGreeting: {
     fontSize: 14,
     color: '#888',
     marginTop: 2,
+  },
+  subGreetingMobile: {
+    fontSize: 12,
   },
   profileButton: {
     // @ts-ignore
@@ -589,6 +601,11 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
+  },
+  profileAvatarMobile: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
   },
   profileAvatarPlaceholder: {
     width: 44,
