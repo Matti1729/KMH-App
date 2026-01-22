@@ -127,6 +127,16 @@ const formatGameDate = (dateStr: string): string => {
   }
 };
 
+const formatDateShort = (dateStr: string): string => {
+  if (!dateStr) return '-';
+  try {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+  } catch {
+    return dateStr;
+  }
+};
+
 const isGameToday = (dateStr: string): boolean => {
   if (!dateStr) return false;
   const today = new Date();
@@ -183,12 +193,15 @@ const fetchAgentFromTransfermarkt = async (transfermarktUrl: string): Promise<st
   }
 };
 
+type MobileStatusTab = 'gesichtet' | 'in_beobachtung' | 'kontaktiert' | 'archiv';
+
 export function ScoutingScreen({ navigation }: any) {
   const isMobile = useIsMobile();
   const { session, loading: authLoading } = useAuth();
   const dataLoadedRef = useRef(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [activeTab, setActiveTab] = useState<ActiveTab>('spieler');
+  const [mobileStatusTab, setMobileStatusTab] = useState<MobileStatusTab>('gesichtet');
   const [viewMode, setViewMode] = useState<ViewMode>('kanban');
   const [scoutedPlayers, setScoutedPlayers] = useState<ScoutedPlayer[]>([]);
   const [scoutingGames, setScoutingGames] = useState<ScoutingGame[]>([]);
@@ -221,6 +234,7 @@ export function ScoutingScreen({ navigation }: any) {
   const [showDecisionModal, setShowDecisionModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [archiveReason, setArchiveReason] = useState('');
   const [transferListing, setTransferListing] = useState('');
   const [transferResponsibility, setTransferResponsibility] = useState('');
@@ -777,6 +791,20 @@ export function ScoutingScreen({ navigation }: any) {
     }
   };
 
+  // Open player detail modal
+  const openPlayerDetailModal = (player: ScoutedPlayer) => {
+    setSelectedPlayer(player);
+    setEditData({
+      first_name: player.first_name, last_name: player.last_name, birth_date: player.birth_date,
+      position: player.position, club: player.club, rating: player.rating, status: player.status,
+      notes: player.notes, photo_url: player.photo_url, transfermarkt_url: player.transfermarkt_url,
+      agent_name: player.agent_name, phone: player.phone, additional_info: player.additional_info,
+      current_status: player.current_status,
+    });
+    setEditClubSearchText(player.club || '');
+    setShowPlayerDetailModal(true);
+  };
+
   // Game detail functions
   const openGameDetail = async (game: ScoutingGame) => {
     setSelectedGame(game);
@@ -1266,8 +1294,8 @@ export function ScoutingScreen({ navigation }: any) {
         <View style={styles.cardHeader}>
           {getClubLogo(player.club) && <Image source={{ uri: getClubLogo(player.club)! }} style={styles.clubLogoCard} />}
           <View style={styles.cardInfo}>
-            <Text style={styles.playerName}>{player.last_name}, {player.first_name}</Text>
-            <Text style={styles.playerYear}>Jg. {getYearFromDate(player.birth_date)}</Text>
+            <Text style={styles.playerName}>{player.last_name}, {player.first_name} <Text style={styles.playerYearInline}>({getYearFromDate(player.birth_date)})</Text></Text>
+            <Text style={styles.playerClubName}>{player.club || '-'}</Text>
           </View>
           <View style={styles.cardRight}>
             <View style={styles.positionBadgesRow}>
@@ -1351,8 +1379,7 @@ export function ScoutingScreen({ navigation }: any) {
   const renderListView = () => (
     <View style={styles.tableContainer}>
       <View style={styles.tableHeader}>
-        <Text style={[styles.tableHeaderCell, { flex: 1.6 }]}>Name</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 0.4 }]}>Geb.</Text>
+        <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Name</Text>
         <Text style={[styles.tableHeaderCell, { flex: 0.8 }]}>Pos.</Text>
         <Text style={[styles.tableHeaderCell, { flex: 1.4 }]}>Verein</Text>
         <Text style={[styles.tableHeaderCell, { flex: 1.2 }]}>Berater</Text>
@@ -1373,8 +1400,7 @@ export function ScoutingScreen({ navigation }: any) {
             setEditClubSearchText(player.club || ''); 
             setShowPlayerDetailModal(true); 
           }}>
-            <Text style={[styles.tableCell, styles.tableCellText, { flex: 1.6 }]}>{player.last_name}, {player.first_name}</Text>
-            <Text style={[styles.tableCell, { flex: 0.4 }]}>{getYearFromDate(player.birth_date)}</Text>
+            <Text style={[styles.tableCell, styles.tableCellText, { flex: 2 }]}>{player.last_name}, {player.first_name} <Text style={{ color: '#64748b', fontWeight: '400' }}>({getYearFromDate(player.birth_date)})</Text></Text>
             <View style={[styles.tableCell, { flex: 0.8, flexDirection: 'row', flexWrap: 'wrap', gap: 4 }]}>
               {parsePositions(player.position).map((pos, idx) => (
                 <View key={idx} style={styles.positionBadgeSmall}><Text style={styles.positionTextSmall}>{pos}</Text></View>
@@ -1647,6 +1673,28 @@ export function ScoutingScreen({ navigation }: any) {
     showClubDrop: boolean, setShowClubDrop: (s: boolean) => void
   ) => (
     <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={true} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+      {/* Status-Auswahl */}
+      <View style={[styles.detailInfo, { alignSelf: 'flex-start', marginBottom: 12 }]}>
+        <Text style={[styles.formLabel, { marginBottom: 6 }]}>Status</Text>
+        <View style={styles.statusSelector}>
+          {SCOUTING_STATUS.map(status => (
+            <TouchableOpacity
+              key={status.id}
+              style={[
+                styles.statusOption,
+                data.status === status.id && { backgroundColor: status.color, borderColor: status.color }
+              ]}
+              onPress={() => setData({ ...data, status: status.id })}
+            >
+              <Text style={[
+                styles.statusOptionText,
+                data.status === status.id && { color: '#fff' }
+              ]}>{status.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
       {/* Erste Säule: Grunddaten + Kontakt */}
       <View style={[styles.detailInfo, { zIndex: 9999 }]}>
         <View style={styles.formRow}>
@@ -1820,6 +1868,761 @@ export function ScoutingScreen({ navigation }: any) {
   // Profile initials for header
   const profileInitials = profile ? `${profile.first_name?.[0] || ''}${profile.last_name?.[0] || ''}` : '?';
 
+  // Mobile Player Card
+  const renderMobilePlayerCard = (player: ScoutedPlayer) => {
+    const logo = getClubLogo(player.club);
+    const birthYear = player.birth_date ? new Date(player.birth_date).getFullYear() : null;
+
+    return (
+      <TouchableOpacity
+        key={player.id}
+        style={styles.mobilePlayerCard}
+        onPress={() => openPlayerDetailModal(player)}
+      >
+        {/* Row 1: Name with year (left) | Position badges (right) */}
+        <View style={styles.mobilePlayerCardRow}>
+          <Text style={styles.mobilePlayerCardName}>
+            {player.last_name}, {player.first_name}
+            {birthYear ? <Text style={styles.mobilePlayerCardYear}> ({birthYear})</Text> : null}
+          </Text>
+          <View style={styles.positionBadgesRow}>
+            {parsePositions(player.position).map((pos, idx) => (
+              <View key={idx} style={styles.positionBadgeSmall}>
+                <Text style={styles.positionTextSmall}>{pos}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+        {/* Row 2: Club with logo (left) | Rating badge (right) */}
+        <View style={styles.mobilePlayerCardRow}>
+          <View style={styles.mobilePlayerCardClubRow}>
+            {logo && <Image source={{ uri: logo }} style={styles.mobilePlayerCardLogo} />}
+            <Text style={styles.mobilePlayerCardClub} numberOfLines={1}>{player.club || '-'}</Text>
+          </View>
+          {player.rating ? (
+            <View style={styles.ratingBadgeSmall}>
+              <Text style={styles.ratingTextSmall}>⭐ {player.rating}/10</Text>
+            </View>
+          ) : null}
+        </View>
+        {/* Row 4: Current status note */}
+        {player.current_status && (
+          <Text style={styles.mobilePlayerCardStatus} numberOfLines={2}>💬 {player.current_status}</Text>
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+  // Mobile Scouting Game Card
+  const renderMobileGameCard = (game: ScoutingGame) => {
+    const homeLogo = getClubLogo(game.home_team);
+    const awayLogo = getClubLogo(game.away_team);
+    const dateStr = game.date ? formatDateShort(game.date) : '-';
+
+    return (
+      <TouchableOpacity
+        key={game.id}
+        style={styles.mobileGameCard}
+        onPress={() => openGameDetail(game)}
+      >
+        <View style={styles.mobileGameCardHeader}>
+          <Text style={styles.mobileGameCardDate}>{dateStr}</Text>
+          {game.age_group && <Text style={styles.mobileGameCardJahrgang}>{game.age_group}</Text>}
+        </View>
+        <View style={styles.mobileGameCardTeams}>
+          <View style={styles.mobileGameCardTeam}>
+            {homeLogo && <Image source={{ uri: homeLogo }} style={styles.mobileGameCardLogo} />}
+            <Text style={styles.mobileGameCardTeamName} numberOfLines={1}>{game.home_team}</Text>
+          </View>
+          <Text style={styles.mobileGameCardVs}>vs</Text>
+          <View style={styles.mobileGameCardTeam}>
+            {awayLogo && <Image source={{ uri: awayLogo }} style={styles.mobileGameCardLogo} />}
+            <Text style={styles.mobileGameCardTeamName} numberOfLines={1}>{game.away_team}</Text>
+          </View>
+        </View>
+        {game.location && <Text style={styles.mobileGameCardVenue}>📍 {game.location}</Text>}
+      </TouchableOpacity>
+    );
+  };
+
+  // Get players for mobile status tab (including archive)
+  const getMobileStatusPlayers = () => {
+    if (mobileStatusTab === 'archiv') {
+      return scoutedPlayers.filter(p => p.archived);
+    }
+    return getPlayersByStatus(mobileStatusTab);
+  };
+
+  // Mobile View
+  if (isMobile) {
+    const mobileStatusPlayers = getMobileStatusPlayers();
+    const upcomingGames = scoutingGames.filter(g => {
+      if (!g.date) return false;
+      const gameDate = new Date(g.date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return gameDate >= today;
+    }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    return (
+      <Pressable style={styles.mobileContainer} onPress={closeAllDropdowns}>
+        {/* Mobile Sidebar Overlay */}
+        {showMobileSidebar && (
+          <Pressable style={styles.sidebarOverlay} onPress={() => setShowMobileSidebar(false)}>
+            <Pressable style={styles.sidebarMobile} onPress={(e) => e.stopPropagation()}>
+              <Sidebar navigation={navigation} activeScreen="scouting" profile={profile} onNavigate={() => setShowMobileSidebar(false)} embedded />
+            </Pressable>
+          </Pressable>
+        )}
+
+        <MobileHeader
+          title="Scouting"
+          onMenuPress={() => setShowMobileSidebar(true)}
+          profileInitials={profileInitials}
+        />
+
+        {/* Main Tabs: Spieler / Termine */}
+        <View style={styles.mobileTabs}>
+          <TouchableOpacity style={[styles.mobileTab, activeTab === 'spieler' && styles.mobileTabActive]} onPress={() => setActiveTab('spieler')}>
+            <Text style={[styles.mobileTabText, activeTab === 'spieler' && styles.mobileTabTextActive]}>Spieler</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.mobileTab, activeTab === 'spiele' && styles.mobileTabActive]} onPress={() => setActiveTab('spiele')}>
+            <Text style={[styles.mobileTabText, activeTab === 'spiele' && styles.mobileTabTextActive]}>Termine</Text>
+          </TouchableOpacity>
+        </View>
+
+        {activeTab === 'spieler' ? (
+          <>
+            {/* Status Tabs */}
+            <View style={styles.mobileStatusTabs}>
+              {SCOUTING_STATUS.map(status => {
+                const count = getPlayersByStatus(status.id).length;
+                const isActive = mobileStatusTab === status.id;
+                return (
+                  <TouchableOpacity
+                    key={status.id}
+                    style={[styles.mobileStatusTab, isActive && { borderBottomColor: status.color }]}
+                    onPress={() => setMobileStatusTab(status.id as MobileStatusTab)}
+                  >
+                    <Text style={[styles.mobileStatusTabText, isActive && { color: status.color }]} numberOfLines={1}>
+                      {status.label.split(' ')[0]}
+                    </Text>
+                    <View style={[styles.mobileStatusBadge, { backgroundColor: isActive ? status.color : '#e2e8f0' }]}>
+                      <Text style={[styles.mobileStatusBadgeText, !isActive && { color: '#64748b' }]}>{count}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+              {/* Archiv Tab */}
+              <TouchableOpacity
+                style={[styles.mobileStatusTab, mobileStatusTab === 'archiv' && { borderBottomColor: '#64748b' }]}
+                onPress={() => setMobileStatusTab('archiv')}
+              >
+                <Text style={[styles.mobileStatusTabText, mobileStatusTab === 'archiv' && { color: '#64748b' }]}>Archiv</Text>
+                <View style={[styles.mobileStatusBadge, { backgroundColor: mobileStatusTab === 'archiv' ? '#64748b' : '#e2e8f0' }]}>
+                  <Text style={[styles.mobileStatusBadgeText, mobileStatusTab !== 'archiv' && { color: '#64748b' }]}>
+                    {scoutedPlayers.filter(p => p.archived).length}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            {/* Search */}
+            <View style={styles.mobileSearchContainer}>
+              <Text style={styles.mobileSearchIcon}>🔍</Text>
+              <TextInput
+                style={styles.mobileSearchInput}
+                placeholder="Spieler, Verein suchen..."
+                placeholderTextColor="#9ca3af"
+                value={searchText}
+                onChangeText={setSearchText}
+              />
+              {searchText && (
+                <TouchableOpacity onPress={() => setSearchText('')}>
+                  <Text style={styles.mobileSearchClear}>✕</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Player List */}
+            <ScrollView
+              style={styles.mobileContentScroll}
+              contentContainerStyle={styles.mobileContentContainer}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+            >
+              {mobileStatusPlayers.length === 0 ? (
+                <View style={styles.mobileEmptyState}>
+                  <Text style={styles.mobileEmptyText}>Keine Spieler in dieser Kategorie</Text>
+                </View>
+              ) : (
+                mobileStatusPlayers
+                  .filter(p => {
+                    if (!searchText) return true;
+                    const search = searchText.toLowerCase();
+                    return (
+                      p.first_name?.toLowerCase().includes(search) ||
+                      p.last_name?.toLowerCase().includes(search) ||
+                      p.club?.toLowerCase().includes(search)
+                    );
+                  })
+                  .map(player => renderMobilePlayerCard(player))
+              )}
+            </ScrollView>
+
+            {/* FAB */}
+            <TouchableOpacity style={styles.mobileFab} onPress={() => setShowAddPlayerModal(true)}>
+              <Text style={styles.mobileFabIcon}>+</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            {/* Games Search */}
+            <View style={styles.mobileSearchContainer}>
+              <Text style={styles.mobileSearchIcon}>🔍</Text>
+              <TextInput
+                style={styles.mobileSearchInput}
+                placeholder="Spiel, Verein suchen..."
+                placeholderTextColor="#9ca3af"
+                value={gamesSearchQuery}
+                onChangeText={(text) => {
+                  setGamesSearchQuery(text);
+                  if (text.trim()) {
+                    setGamesViewMode('search');
+                  } else {
+                    setGamesViewMode('upcoming');
+                  }
+                }}
+              />
+              {gamesSearchQuery && (
+                <TouchableOpacity onPress={() => { setGamesSearchQuery(''); setGamesViewMode('upcoming'); }}>
+                  <Text style={styles.mobileSearchClear}>✕</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Games List */}
+            <ScrollView
+              style={styles.mobileContentScroll}
+              contentContainerStyle={styles.mobileContentContainer}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+            >
+              {upcomingGames.length === 0 ? (
+                <View style={styles.mobileEmptyState}>
+                  <Text style={styles.mobileEmptyText}>Keine kommenden Termine</Text>
+                </View>
+              ) : (
+                upcomingGames
+                  .filter(g => {
+                    if (!gamesSearchQuery) return true;
+                    const search = gamesSearchQuery.toLowerCase();
+                    return (
+                      g.home_team?.toLowerCase().includes(search) ||
+                      g.away_team?.toLowerCase().includes(search) ||
+                      g.venue?.toLowerCase().includes(search)
+                    );
+                  })
+                  .map(game => renderMobileGameCard(game))
+              )}
+            </ScrollView>
+
+            {/* FAB */}
+            <TouchableOpacity style={styles.mobileFab} onPress={() => setShowAddGameModal(true)}>
+              <Text style={styles.mobileFabIcon}>+</Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* Add Game Modal for Mobile */}
+        <Modal visible={showAddGameModal} transparent animationType="slide">
+          <View style={styles.mobileModalOverlay}>
+            <View style={styles.mobileModalContent}>
+              <View style={styles.mobileModalHeader}>
+                <Text style={styles.mobileModalTitle}>Neues Spiel anlegen</Text>
+                <TouchableOpacity onPress={() => setShowAddGameModal(false)}>
+                  <Text style={styles.mobileModalClose}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.mobileModalScroll}>
+                <View style={{ padding: 16 }}>
+                  <View style={{ marginBottom: 16 }}>
+                    <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>Datum *</Text>
+                    <TextInput
+                      style={{ borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 12, fontSize: 15 }}
+                      placeholder="TT.MM.JJJJ"
+                      placeholderTextColor="#9ca3af"
+                      value={newGame.date ? formatDateShort(newGame.date) : ''}
+                      onChangeText={(text) => {
+                        const parts = text.split('.');
+                        if (parts.length === 3) {
+                          const [day, month, year] = parts;
+                          const dateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                          setNewGame({ ...newGame, date: dateStr });
+                        }
+                      }}
+                    />
+                  </View>
+                  <View style={{ marginBottom: 16 }}>
+                    <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>Heimmannschaft *</Text>
+                    <TextInput
+                      style={{ borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 12, fontSize: 15 }}
+                      placeholder="Vereinsname"
+                      placeholderTextColor="#9ca3af"
+                      value={newGame.home_team || ''}
+                      onChangeText={(text) => setNewGame({ ...newGame, home_team: text })}
+                    />
+                  </View>
+                  <View style={{ marginBottom: 16 }}>
+                    <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>Gastmannschaft *</Text>
+                    <TextInput
+                      style={{ borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 12, fontSize: 15 }}
+                      placeholder="Vereinsname"
+                      placeholderTextColor="#9ca3af"
+                      value={newGame.away_team || ''}
+                      onChangeText={(text) => setNewGame({ ...newGame, away_team: text })}
+                    />
+                  </View>
+                  <View style={{ marginBottom: 16 }}>
+                    <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>Spielort</Text>
+                    <TextInput
+                      style={{ borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 12, fontSize: 15 }}
+                      placeholder="Adresse oder Stadion"
+                      placeholderTextColor="#9ca3af"
+                      value={newGame.location || ''}
+                      onChangeText={(text) => setNewGame({ ...newGame, location: text })}
+                    />
+                  </View>
+                  <View style={{ marginBottom: 16 }}>
+                    <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>Jahrgang</Text>
+                    <TextInput
+                      style={{ borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 12, fontSize: 15 }}
+                      placeholder="z.B. U19, U17"
+                      placeholderTextColor="#9ca3af"
+                      value={newGame.age_group || ''}
+                      onChangeText={(text) => setNewGame({ ...newGame, age_group: text })}
+                    />
+                  </View>
+                  <View style={{ marginBottom: 16 }}>
+                    <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>Notizen</Text>
+                    <TextInput
+                      style={{ borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 12, fontSize: 15, minHeight: 80 }}
+                      placeholder="Weitere Infos..."
+                      placeholderTextColor="#9ca3af"
+                      multiline
+                      value={newGame.notes || ''}
+                      onChangeText={(text) => setNewGame({ ...newGame, notes: text })}
+                    />
+                  </View>
+                </View>
+              </ScrollView>
+              <View style={styles.mobileModalButtons}>
+                <TouchableOpacity style={styles.mobileModalCancelBtn} onPress={() => setShowAddGameModal(false)}>
+                  <Text style={styles.mobileModalCancelText}>Abbrechen</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.mobileModalSaveBtn} onPress={addScoutingGame}>
+                  <Text style={styles.mobileModalSaveText}>Hinzufügen</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Add Player Modal */}
+        <Modal visible={showAddPlayerModal} transparent animationType="slide">
+          <View style={styles.mobileModalOverlay}>
+            <View style={styles.mobileModalContent}>
+              <View style={styles.mobileModalHeader}>
+                <Text style={styles.mobileModalTitle}>Neuen Spieler anlegen</Text>
+                <TouchableOpacity onPress={closeAddPlayerModal}>
+                  <Text style={styles.mobileModalClose}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.mobileModalScroll}>
+                {renderPlayerForm(newPlayer, setNewPlayer, newPlayerClubSearch, setNewPlayerClubSearch, showNewPlayerClubDropdown, setShowNewPlayerClubDropdown)}
+              </ScrollView>
+              <View style={styles.mobileModalButtons}>
+                <TouchableOpacity style={styles.mobileModalCancelBtn} onPress={closeAddPlayerModal}>
+                  <Text style={styles.mobileModalCancelText}>Abbrechen</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.mobileModalSaveBtn} onPress={addScoutedPlayer}>
+                  <Text style={styles.mobileModalSaveText}>Hinzufügen</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+
+        {/* Player Detail Modal - reuse desktop modal */}
+        {selectedPlayer && (
+          <Modal visible={showPlayerDetailModal} transparent animationType="slide">
+            <View style={styles.mobileModalOverlay}>
+              <View style={[styles.mobileModalContent, { maxHeight: '95%' }]}>
+                <View style={styles.mobileModalHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.mobileModalTitle}>
+                      {selectedPlayer.last_name}, {selectedPlayer.first_name}
+                      {selectedPlayer.birth_date && (
+                        <Text style={{ fontSize: 14, fontWeight: '400', color: '#64748b' }}> ({new Date(selectedPlayer.birth_date).getFullYear()})</Text>
+                      )}
+                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                      {getClubLogo(selectedPlayer.club) && (
+                        <Image source={{ uri: getClubLogo(selectedPlayer.club)! }} style={{ width: 18, height: 18, marginRight: 6 }} />
+                      )}
+                      <Text style={{ fontSize: 14, color: '#64748b' }}>{selectedPlayer.club || '-'}</Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity onPress={() => { setShowPlayerDetailModal(false); setIsEditing(false); }}>
+                    <Text style={styles.mobileModalClose}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+                <ScrollView style={styles.mobileModalScroll}>
+                  {isEditing ? (
+                    renderPlayerForm(editData, setEditData, editClubSearchText, setEditClubSearchText, showEditClubDropdown, setShowEditClubDropdown)
+                  ) : (
+                    <View style={{ padding: 16 }}>
+                      {/* Status-Auswahl */}
+                      <View style={styles.mobileDetailBox}>
+                        <Text style={styles.mobileDetailLabel}>Status</Text>
+                        <View style={styles.statusSelector}>
+                          {SCOUTING_STATUS.map(status => (
+                            <View
+                              key={status.id}
+                              style={[
+                                styles.statusOption,
+                                selectedPlayer.status === status.id && { backgroundColor: status.color, borderColor: status.color }
+                              ]}
+                            >
+                              <Text style={[
+                                styles.statusOptionText,
+                                selectedPlayer.status === status.id && { color: '#fff' }
+                              ]}>{status.label}</Text>
+                            </View>
+                          ))}
+                          <View
+                            style={[
+                              styles.statusOption,
+                              selectedPlayer.archived && { backgroundColor: '#64748b', borderColor: '#64748b' }
+                            ]}
+                          >
+                            <Text style={[
+                              styles.statusOptionText,
+                              selectedPlayer.archived && { color: '#fff' }
+                            ]}>Archiv</Text>
+                          </View>
+                        </View>
+                      </View>
+
+                      {/* Position | Einschätzung */}
+                      <View style={styles.mobileDetailBox}>
+                        <View style={{ flexDirection: 'row', gap: 16 }}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.mobileDetailLabel}>Position</Text>
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
+                              {parsePositions(selectedPlayer.position).map((pos, idx) => (
+                                <View key={idx} style={styles.positionBadge}><Text style={styles.positionText}>{pos}</Text></View>
+                              ))}
+                            </View>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.mobileDetailLabel}>Einschätzung</Text>
+                            {selectedPlayer.rating ? (
+                              <View style={[styles.ratingBadge, { alignSelf: 'flex-start' }]}><Text style={styles.ratingText}>⭐ {selectedPlayer.rating}/10</Text></View>
+                            ) : (
+                              <Text style={styles.mobileDetailValue}>-</Text>
+                            )}
+                          </View>
+                        </View>
+                      </View>
+
+                      {/* Kontakt | Scout */}
+                      <View style={styles.mobileDetailBox}>
+                        <View style={{ flexDirection: 'row', gap: 16 }}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.mobileDetailLabel}>Kontakt</Text>
+                            <Text style={styles.mobileDetailValue}>{selectedPlayer.phone || '-'}</Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.mobileDetailLabel}>Scout</Text>
+                            <Text style={styles.mobileDetailValue}>{selectedPlayer.scout_name || '-'}</Text>
+                          </View>
+                        </View>
+                      </View>
+
+                      {/* Weitere Infos + IST-Stand */}
+                      <View style={styles.mobileDetailBox}>
+                        {selectedPlayer.transfermarkt_url && (
+                          <TouchableOpacity onPress={() => openTransfermarkt(selectedPlayer.transfermarkt_url!)} style={{ marginBottom: 12 }}>
+                            <Text style={styles.mobileDetailLabel}>Transfermarkt</Text>
+                            <Image source={TransfermarktLogo} style={{ width: 100, height: 20, resizeMode: 'contain' }} />
+                          </TouchableOpacity>
+                        )}
+                        <View style={{ marginBottom: 12 }}>
+                          <Text style={styles.mobileDetailLabel}>Weitere Infos</Text>
+                          <Text style={styles.mobileDetailValue}>{selectedPlayer.additional_info || '-'}</Text>
+                        </View>
+                        <View>
+                          <Text style={styles.mobileDetailLabel}>IST-Stand</Text>
+                          <Text style={styles.mobileDetailValue}>{selectedPlayer.current_status || '-'}</Text>
+                        </View>
+                      </View>
+
+                      {/* Fußballerische Einschätzung */}
+                      <View style={[styles.mobileDetailBox, { marginBottom: 0 }]}>
+                        <Text style={styles.mobileDetailLabel}>Fußballerische Einschätzung</Text>
+                        <Text style={styles.mobileDetailValue}>{selectedPlayer.notes || '-'}</Text>
+                      </View>
+                    </View>
+                  )}
+                </ScrollView>
+                <View style={styles.mobileModalButtons}>
+                  {isEditing ? (
+                    <>
+                      <TouchableOpacity style={[styles.mobileModalCancelBtn, { backgroundColor: '#fee2e2' }]} onPress={() => setShowDeleteConfirm(true)}>
+                        <Text style={[styles.mobileModalCancelText, { color: '#dc2626' }]}>Löschen</Text>
+                      </TouchableOpacity>
+                      <View style={{ flexDirection: 'row', gap: 10 }}>
+                        <TouchableOpacity style={styles.mobileModalCancelBtn} onPress={() => setIsEditing(false)}>
+                          <Text style={styles.mobileModalCancelText}>Abbrechen</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.mobileModalSaveBtn} onPress={updateScoutedPlayer}>
+                          <Text style={styles.mobileModalSaveText}>Speichern</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </>
+                  ) : (
+                    <>
+                      <TouchableOpacity style={styles.mobileModalCancelBtn} onPress={() => { setShowPlayerDetailModal(false); setShowDecisionModal(true); }}>
+                        <Text style={styles.mobileModalCancelText}>Entscheidung</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.mobileModalSaveBtn} onPress={() => setIsEditing(true)}>
+                        <Text style={styles.mobileModalSaveText}>Bearbeiten</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
+              </View>
+            </View>
+          </Modal>
+        )}
+
+        {/* Game Detail Modal */}
+        {selectedGame && (
+          <Modal visible={showGameDetailModal} transparent animationType="slide">
+            <View style={styles.mobileModalOverlay}>
+              <View style={[styles.mobileModalContent, { maxHeight: '95%' }]}>
+                <View style={styles.mobileModalHeader}>
+                  <Text style={styles.mobileModalTitle}>{selectedGame.home_team} vs {selectedGame.away_team}</Text>
+                  <TouchableOpacity onPress={() => setShowGameDetailModal(false)}>
+                    <Text style={styles.mobileModalClose}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+                <ScrollView style={styles.mobileModalScroll}>
+                  <View style={{ padding: 16 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+                      <View style={{ alignItems: 'center', flex: 1 }}>
+                        {getClubLogo(selectedGame.home_team) && (
+                          <Image source={{ uri: getClubLogo(selectedGame.home_team)! }} style={{ width: 48, height: 48, marginBottom: 8 }} />
+                        )}
+                        <Text style={{ fontSize: 14, fontWeight: '500', textAlign: 'center' }}>{selectedGame.home_team}</Text>
+                      </View>
+                      <Text style={{ fontSize: 18, color: '#94a3b8', marginHorizontal: 16 }}>vs</Text>
+                      <View style={{ alignItems: 'center', flex: 1 }}>
+                        {getClubLogo(selectedGame.away_team) && (
+                          <Image source={{ uri: getClubLogo(selectedGame.away_team)! }} style={{ width: 48, height: 48, marginBottom: 8 }} />
+                        )}
+                        <Text style={{ fontSize: 14, fontWeight: '500', textAlign: 'center' }}>{selectedGame.away_team}</Text>
+                      </View>
+                    </View>
+
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginBottom: 16 }}>
+                      <View style={{ minWidth: 100 }}>
+                        <Text style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Datum</Text>
+                        <Text style={{ fontSize: 14, color: '#1a1a1a' }}>{selectedGame.date ? formatGameDate(selectedGame.date) : '-'}</Text>
+                      </View>
+                      {selectedGame.age_group && (
+                        <View style={{ minWidth: 80 }}>
+                          <Text style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Jahrgang</Text>
+                          <Text style={{ fontSize: 14, color: '#1a1a1a' }}>{selectedGame.age_group}</Text>
+                        </View>
+                      )}
+                      {selectedGame.game_type && (
+                        <View style={{ minWidth: 80 }}>
+                          <Text style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Art</Text>
+                          <Text style={{ fontSize: 14, color: '#1a1a1a' }}>{selectedGame.game_type}</Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {selectedGame.location && (
+                      <View style={{ marginBottom: 16 }}>
+                        <Text style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Spielort</Text>
+                        <Text style={{ fontSize: 14, color: '#1a1a1a' }}>📍 {selectedGame.location}</Text>
+                      </View>
+                    )}
+
+                    {selectedGame.notes && (
+                      <View style={{ marginBottom: 16 }}>
+                        <Text style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Notizen</Text>
+                        <Text style={{ fontSize: 14, color: '#1a1a1a' }}>{selectedGame.notes}</Text>
+                      </View>
+                    )}
+                  </View>
+                </ScrollView>
+                <View style={styles.mobileModalButtons}>
+                  <TouchableOpacity style={[styles.mobileModalCancelBtn, { backgroundColor: '#fee2e2' }]} onPress={() => deleteScoutingGame(selectedGame.id)}>
+                    <Text style={[styles.mobileModalCancelText, { color: '#dc2626' }]}>Löschen</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.mobileModalSaveBtn} onPress={() => { setIsEditingGame(true); setEditGameData(selectedGame); }}>
+                    <Text style={styles.mobileModalSaveText}>Bearbeiten</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+        )}
+
+        {/* Entscheidungs-Modal (Mobile) */}
+        {showDecisionModal && selectedPlayer && (
+          <Modal visible={showDecisionModal} transparent animationType="fade">
+            <View style={styles.modalOverlay}>
+              <View style={[styles.decisionModalContent, { padding: 20, maxWidth: 320 }]}>
+                <Text style={[styles.decisionModalTitle, { fontSize: 16, marginBottom: 4 }]}>Entscheidung treffen</Text>
+                <Text style={[styles.decisionModalSubtitle, { fontSize: 13, marginBottom: 16 }]}>{selectedPlayer.last_name}, {selectedPlayer.first_name}</Text>
+
+                <View style={[styles.decisionButtonsContainer, { gap: 10 }]}>
+                  <TouchableOpacity style={[styles.transferButton, { padding: 12 }]} onPress={() => { setShowDecisionModal(false); setShowTransferModal(true); }}>
+                    <Text style={[styles.transferButtonIcon, { fontSize: 18 }]}>✓</Text>
+                    <Text style={[styles.transferButtonText, { fontSize: 13 }]}>Übernehmen</Text>
+                    <Text style={[styles.transferButtonSubtext, { fontSize: 10 }]}>In Spielerübersicht</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={[styles.archiveButton, { padding: 12 }]} onPress={() => { setShowDecisionModal(false); setShowArchiveModal(true); }}>
+                    <Text style={[styles.archiveButtonIcon, { fontSize: 18 }]}>✗</Text>
+                    <Text style={[styles.archiveButtonText, { fontSize: 13 }]}>Archivieren</Text>
+                    <Text style={[styles.archiveButtonSubtext, { fontSize: 10 }]}>Ins Archiv verschieben</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity style={[styles.decisionCancelButton, { marginTop: 12, paddingVertical: 10, paddingHorizontal: 20, backgroundColor: '#f1f5f9', borderRadius: 8 }]} onPress={() => setShowDecisionModal(false)}>
+                  <Text style={[styles.decisionCancelButtonText, { fontSize: 13 }]}>Abbrechen</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+        )}
+
+        {/* Archiv-Modal (Mobile) */}
+        {showArchiveModal && selectedPlayer && (
+          <Modal visible={showArchiveModal} transparent animationType="fade">
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Spieler archivieren</Text>
+                <Text style={styles.modalSubtitle}>{selectedPlayer.last_name}, {selectedPlayer.first_name}</Text>
+
+                <View style={styles.formField}>
+                  <Text style={styles.formLabel}>Grund für Archivierung</Text>
+                  <TextInput
+                    style={[styles.formInput, styles.textArea]}
+                    value={archiveReason}
+                    onChangeText={setArchiveReason}
+                    placeholder="z.B. Kein Interesse, Spieler hat abgesagt, andere Agentur gewählt..."
+                    placeholderTextColor="#9ca3af"
+                    multiline
+                  />
+                </View>
+
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity style={styles.cancelButton} onPress={() => { setShowArchiveModal(false); setArchiveReason(''); }}>
+                    <Text style={styles.cancelButtonText}>Abbrechen</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.archiveConfirmButton} onPress={archivePlayer}>
+                    <Text style={styles.archiveConfirmButtonText}>Archivieren</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+        )}
+
+        {/* Transfer/Übernahme-Modal (Mobile) */}
+        {showTransferModal && selectedPlayer && (
+          <Modal visible={showTransferModal} transparent animationType="fade">
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Spieler übernehmen</Text>
+                <Text style={styles.modalSubtitle}>{selectedPlayer.last_name}, {selectedPlayer.first_name} in die Spielerübersicht übernehmen</Text>
+
+                <View style={styles.formField}>
+                  <Text style={styles.formLabel}>Listung *</Text>
+                  <View style={styles.listingSelector}>
+                    {LISTINGS.map(listing => (
+                      <TouchableOpacity
+                        key={listing}
+                        style={[styles.listingOption, transferListing === listing && styles.listingOptionSelected]}
+                        onPress={() => setTransferListing(listing)}
+                      >
+                        <Text style={[styles.listingOptionText, transferListing === listing && styles.listingOptionTextSelected]}>{listing}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                <View style={styles.formField}>
+                  <Text style={styles.formLabel}>Zuständiger Berater *</Text>
+                  <View style={styles.advisorSelector}>
+                    {advisors.map(advisor => (
+                      <TouchableOpacity
+                        key={advisor.id}
+                        style={[styles.advisorOption, transferResponsibility === `${advisor.first_name} ${advisor.last_name}` && styles.advisorOptionSelected]}
+                        onPress={() => setTransferResponsibility(`${advisor.first_name} ${advisor.last_name}`)}
+                      >
+                        <Text style={[styles.advisorOptionText, transferResponsibility === `${advisor.first_name} ${advisor.last_name}` && styles.advisorOptionTextSelected]}>
+                          {advisor.first_name} {advisor.last_name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity style={styles.cancelButton} onPress={() => { setShowTransferModal(false); setTransferListing(''); setTransferResponsibility(''); }}>
+                    <Text style={styles.cancelButtonText}>Abbrechen</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.transferConfirmButton} onPress={transferToPlayers}>
+                    <Text style={styles.transferConfirmButtonText}>Übernehmen</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+        )}
+
+        {/* Löschen Bestätigung Modal (Mobile) */}
+        {showDeleteConfirm && selectedPlayer && (
+          <Modal visible={showDeleteConfirm} transparent animationType="fade">
+            <View style={styles.modalOverlay}>
+              <View style={styles.deleteConfirmModal}>
+                <Text style={styles.deleteConfirmTitle}>Spieler löschen</Text>
+                <Text style={styles.deleteConfirmText}>Möchten Sie {selectedPlayer.first_name} {selectedPlayer.last_name} wirklich löschen?</Text>
+
+                <View style={styles.deleteConfirmButtons}>
+                  <TouchableOpacity style={styles.deleteConfirmCancelBtn} onPress={() => setShowDeleteConfirm(false)}>
+                    <Text style={styles.deleteConfirmCancelText}>Abbrechen</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.deleteConfirmDeleteBtn} onPress={() => { setShowDeleteConfirm(false); deleteScoutedPlayer(selectedPlayer.id); }}>
+                    <Text style={styles.deleteConfirmDeleteText}>Löschen</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+        )}
+      </Pressable>
+    );
+  }
+
+  // Desktop View
   return (
     <Pressable style={[styles.container, isMobile && styles.containerMobile]} onPress={closeAllDropdowns}>
       {/* Mobile Sidebar Overlay */}
@@ -2939,12 +3742,17 @@ export function ScoutingScreen({ navigation }: any) {
             <View style={[styles.modalContentLarge, { overflow: 'visible' }]}>
               <View style={styles.detailHeader}>
                 <View style={styles.detailHeaderLeft}>
-                  <Text style={styles.detailName}>{selectedPlayer.first_name} {selectedPlayer.last_name}</Text>
+                  <Text style={styles.detailName}>
+                    {selectedPlayer.last_name}, {selectedPlayer.first_name}
+                    {selectedPlayer.birth_date && (
+                      <Text style={{ fontSize: 14, fontWeight: '400', color: '#64748b' }}> ({new Date(selectedPlayer.birth_date).getFullYear()})</Text>
+                    )}
+                  </Text>
                   <View style={styles.detailClubRow}>
-                    <Text style={styles.detailClub}>{selectedPlayer.club || '-'}</Text>
                     {getClubLogo(selectedPlayer.club) && (
                       <Image source={{ uri: getClubLogo(selectedPlayer.club)! }} style={styles.detailClubLogo} />
                     )}
+                    <Text style={styles.detailClub}>{selectedPlayer.club || '-'}</Text>
                   </View>
                 </View>
                 <TouchableOpacity onPress={() => { setShowPlayerDetailModal(false); setIsEditing(false); setShowEditClubDropdown(false); }} style={styles.closeButton}>
@@ -2958,18 +3766,46 @@ export function ScoutingScreen({ navigation }: any) {
                 <ScrollView style={{ maxHeight: 500 }} showsVerticalScrollIndicator={false}>
                   {/* Two Column Layout */}
                   <View style={styles.detailTwoColumn}>
-                    {/* Left Column: Grunddaten */}
+                    {/* Left Column: Status + Grunddaten */}
                     <View style={styles.detailColumnLeft}>
-                      <View style={styles.detailInfo}>
-                        <View style={styles.detailRowVertical}>
-                          <Text style={styles.detailLabelSmall}>Geburtsdatum</Text>
-                          <Text style={styles.detailValueLarge}>{formatBirthDisplay(selectedPlayer.birth_date)}</Text>
+                      {/* Status-Auswahl */}
+                      <View style={[styles.detailInfo, { marginBottom: 12 }]}>
+                        <Text style={[styles.detailLabelSmall, { marginBottom: 6 }]}>Status</Text>
+                        <View style={styles.statusSelector}>
+                          {SCOUTING_STATUS.map(status => (
+                            <View
+                              key={status.id}
+                              style={[
+                                styles.statusOption,
+                                selectedPlayer.status === status.id && { backgroundColor: status.color, borderColor: status.color }
+                              ]}
+                            >
+                              <Text style={[
+                                styles.statusOptionText,
+                                selectedPlayer.status === status.id && { color: '#fff' }
+                              ]}>{status.label}</Text>
+                            </View>
+                          ))}
+                          <View
+                            style={[
+                              styles.statusOption,
+                              selectedPlayer.archived && { backgroundColor: '#64748b', borderColor: '#64748b' }
+                            ]}
+                          >
+                            <Text style={[
+                              styles.statusOptionText,
+                              selectedPlayer.archived && { color: '#fff' }
+                            ]}>Archiv</Text>
+                          </View>
                         </View>
+                      </View>
+
+                      <View style={[styles.detailInfo, { marginBottom: 0, flex: 1 }]}>
                         <View style={styles.detailRowVertical}>
                           <Text style={styles.detailLabelSmall}>Position</Text>
                           <View style={styles.positionBadgesRowDetail}>
                             {parsePositions(selectedPlayer.position).map((pos, idx) => (
-                              <View key={idx} style={styles.positionBadge}><Text style={styles.positionText}>{pos}</Text></View>
+                              <View key={idx} style={styles.positionBadgeLarge}><Text style={styles.positionTextLarge}>{pos}</Text></View>
                             ))}
                           </View>
                         </View>
@@ -2981,7 +3817,7 @@ export function ScoutingScreen({ navigation }: any) {
                             <Text style={styles.detailValueLarge}>-</Text>
                           )}
                         </View>
-                        <View style={styles.detailRowVertical}>
+                        <View style={[styles.detailRowVertical, { marginBottom: 0 }]}>
                           <Text style={styles.detailLabelSmall}>Kontakt</Text>
                           <Text style={styles.detailValueLarge}>{selectedPlayer.phone || '-'}</Text>
                         </View>
@@ -3021,7 +3857,7 @@ export function ScoutingScreen({ navigation }: any) {
                   </View>
 
                   {/* Fußballerische Einschätzung in eigener Säule */}
-                  <View style={[styles.detailInfo, { marginTop: 16 }]}>
+                  <View style={[styles.detailInfo, { marginTop: 12, marginBottom: 0 }]}>
                     <View style={[styles.detailRowVertical, { marginBottom: 0 }]}>
                       <Text style={styles.detailLabelSmall}>Fußballerische Einschätzung</Text>
                       <Text style={styles.detailValueLarge}>{selectedPlayer.notes || '-'}</Text>
@@ -3054,7 +3890,7 @@ export function ScoutingScreen({ navigation }: any) {
         <View style={styles.modalOverlay}>
           <View style={styles.decisionModalContent}>
             <Text style={styles.decisionModalTitle}>Entscheidung treffen</Text>
-            <Text style={styles.decisionModalSubtitle}>{selectedPlayer?.first_name} {selectedPlayer?.last_name}</Text>
+            <Text style={styles.decisionModalSubtitle}>{selectedPlayer?.last_name}, {selectedPlayer?.first_name}</Text>
             
             <View style={styles.decisionButtonsContainer}>
               <TouchableOpacity style={styles.transferButton} onPress={() => { setShowDecisionModal(false); setShowTransferModal(true); }}>
@@ -3082,8 +3918,8 @@ export function ScoutingScreen({ navigation }: any) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Spieler archivieren</Text>
-            <Text style={styles.modalSubtitle}>{selectedPlayer?.first_name} {selectedPlayer?.last_name}</Text>
-            
+            <Text style={styles.modalSubtitle}>{selectedPlayer?.last_name}, {selectedPlayer?.first_name}</Text>
+
             <View style={styles.formField}>
               <Text style={styles.formLabel}>Grund für Archivierung</Text>
               <TextInput 
@@ -3113,7 +3949,7 @@ export function ScoutingScreen({ navigation }: any) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Spieler übernehmen</Text>
-            <Text style={styles.modalSubtitle}>{selectedPlayer?.first_name} {selectedPlayer?.last_name} in die Spielerübersicht übernehmen</Text>
+            <Text style={styles.modalSubtitle}>{selectedPlayer?.last_name}, {selectedPlayer?.first_name} in die Spielerübersicht übernehmen</Text>
             
             <View style={styles.formField}>
               <Text style={styles.formLabel}>Listung *</Text>
@@ -3238,7 +4074,8 @@ const styles = StyleSheet.create({
   clubLogoCard: { width: 32, height: 32, resizeMode: 'contain', marginRight: 10 },
   cardInfo: { flex: 1 },
   playerName: { fontSize: 16, fontWeight: '600', color: '#1a1a1a' },
-  playerYear: { fontSize: 14, color: '#64748b', marginTop: 2 },
+  playerYearInline: { fontSize: 13, fontWeight: '400', color: '#64748b' },
+  playerClubName: { fontSize: 13, color: '#64748b', marginTop: 2 },
   playerClub: { fontSize: 12, color: '#64748b', marginTop: 2 },
   cardRight: { alignItems: 'flex-end', gap: 4 },
   positionBadgesRow: { flexDirection: 'row', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' },
@@ -3247,14 +4084,14 @@ const styles = StyleSheet.create({
   birthYear: { fontSize: 11, color: '#64748b' },
   clubLogoSmall: { width: 28, height: 28, resizeMode: 'contain', marginTop: 4 },
   cardFooter: { flexDirection: 'row', alignItems: 'center', marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#f1f5f9' },
-  positionBadge: { backgroundColor: '#e0f2fe', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 4 },
-  positionText: { fontSize: 11, fontWeight: '600', color: '#0369a1' },
-  ratingBadge: { backgroundColor: '#dcfce7', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 4 },
-  ratingText: { fontSize: 11, fontWeight: '600', color: '#166534' },
+  positionBadge: { backgroundColor: '#e0f2fe', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4 },
+  positionText: { fontSize: 10, fontWeight: '600', color: '#0369a1' },
+  ratingBadge: { backgroundColor: '#dcfce7', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4 },
+  ratingText: { fontSize: 10, fontWeight: '600', color: '#166534' },
   ratingBadgeSmall: { backgroundColor: '#dcfce7', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4 },
-  ratingTextSmall: { fontSize: 11, fontWeight: '600', color: '#166534' },
-  ratingBadgeList: { backgroundColor: '#dcfce7', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4, alignSelf: 'flex-start' },
-  ratingTextList: { fontSize: 12, fontWeight: '500', color: '#166534' },
+  ratingTextSmall: { fontSize: 10, fontWeight: '600', color: '#166534' },
+  ratingBadgeList: { backgroundColor: '#dcfce7', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4 },
+  ratingTextList: { fontSize: 10, fontWeight: '600', color: '#166534' },
   tmIconSmall: { padding: 2 },
   tmLogoSmall: { width: 40, height: 16, resizeMode: 'contain' },
   tmLogoMedium: { width: 50, height: 20, resizeMode: 'contain' },
@@ -3271,10 +4108,9 @@ const styles = StyleSheet.create({
   tableRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', alignItems: 'center' },
   tableCell: { fontSize: 14, color: '#1a1a1a' },
   tableCellText: { fontSize: 14, color: '#1a1a1a', fontWeight: '500' },
-  ratingTextList: { color: '#166534', fontWeight: '600' },
   clubLogoTable: { width: 24, height: 24, resizeMode: 'contain' },
-  positionBadgeSmall: { backgroundColor: '#e0f2fe', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4, alignSelf: 'flex-start' },
-  positionTextSmall: { fontSize: 11, fontWeight: '600', color: '#0369a1' },
+  positionBadgeSmall: { backgroundColor: '#e0f2fe', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4 },
+  positionTextSmall: { fontSize: 10, fontWeight: '600', color: '#0369a1' },
   statusBadge: { paddingVertical: 4, paddingHorizontal: 8, borderRadius: 4 },
   statusBadgeText: { fontSize: 11, fontWeight: '600' },
   gamesContainer: { flex: 1, backgroundColor: '#fff', borderRadius: 12, overflow: 'hidden' },
@@ -3301,8 +4137,8 @@ const styles = StyleSheet.create({
   modalContentLarge: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 800, maxHeight: '90%', zIndex: 1 },
   modalTitle: { fontSize: 20, fontWeight: '700', color: '#1a1a1a' },
   detailHeaderLeft: { flex: 1 },
-  detailClubRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 8 },
-  detailClubLogo: { width: 24, height: 24, resizeMode: 'contain' },
+  detailClubRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+  detailClubLogo: { width: 18, height: 18, resizeMode: 'contain', marginRight: 4 },
   detailTwoColumn: { flexDirection: 'row', gap: 20 },
   detailColumnLeft: { flex: 1 },
   detailColumnRight: { flex: 1 },
@@ -3310,11 +4146,13 @@ const styles = StyleSheet.create({
   detailLabelSmall: { fontSize: 12, color: '#64748b', marginBottom: 4 },
   detailValueLarge: { fontSize: 15, color: '#1a1a1a', fontWeight: '500' },
   positionBadgesRowDetail: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  ratingBadgeLarge: { backgroundColor: '#dcfce7', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, alignSelf: 'flex-start' },
-  ratingTextLarge: { fontSize: 14, fontWeight: '600', color: '#166534' },
+  positionBadgeLarge: { backgroundColor: '#e0f2fe', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4, alignSelf: 'flex-start' },
+  positionTextLarge: { fontSize: 10, fontWeight: '600', color: '#0369a1' },
+  ratingBadgeLarge: { backgroundColor: '#dcfce7', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4, alignSelf: 'flex-start' },
+  ratingTextLarge: { fontSize: 10, fontWeight: '600', color: '#166534' },
   tmLinkRowDetail: { flexDirection: 'row', alignItems: 'center' },
   tmLogoDetail: { width: 80, height: 24, resizeMode: 'contain' },
-  detailInfoScout: { backgroundColor: '#f8fafc', borderRadius: 8, padding: 12, marginTop: 12 },
+  detailInfoScout: { backgroundColor: '#f8fafc', borderRadius: 12, padding: 16, flex: 1 },
   formRow: { flexDirection: 'row', gap: 16, marginBottom: 16 },
   formField: { flex: 1, marginBottom: 8 },
   formLabel: { fontSize: 13, color: '#64748b', marginBottom: 6, fontWeight: '500' },
@@ -3331,23 +4169,23 @@ const styles = StyleSheet.create({
   ratingOptionSelected: { backgroundColor: '#1a1a1a' },
   ratingOptionTextSmall: { fontSize: 11, color: '#64748b', fontWeight: '600' },
   ratingOptionTextSelected: { color: '#fff' },
-  modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 24, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
+  modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
   cancelButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0' },
   cancelButtonText: { fontSize: 14, color: '#64748b' },
   saveButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#10b981' },
   saveButtonText: { fontSize: 14, color: '#10b981', fontWeight: '500' },
-  editButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#3b82f6' },
-  editButtonText: { fontSize: 14, color: '#3b82f6', fontWeight: '500' },
+  editButton: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#3b82f6' },
+  editButtonText: { fontSize: 14, color: '#3b82f6', fontWeight: '600' },
   deleteButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#ef4444', marginRight: 'auto' },
   deleteButtonText: { fontSize: 14, color: '#ef4444', fontWeight: '500' },
-  decisionButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#f59e0b', marginRight: 'auto' },
-  decisionButtonText: { fontSize: 14, color: '#f59e0b', fontWeight: '500' },
+  decisionButton: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#fef3c7', borderWidth: 1, borderColor: '#f59e0b', marginRight: 'auto' },
+  decisionButtonText: { fontSize: 14, color: '#b45309', fontWeight: '600' },
   closeButton: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center' },
   closeButtonText: { fontSize: 16, color: '#64748b' },
   detailHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, zIndex: 1000 },
   detailName: { fontSize: 22, fontWeight: '700', color: '#1a1a1a' },
-  detailClub: { fontSize: 14, color: '#64748b', marginTop: 4 },
-  detailInfo: { backgroundColor: '#f8fafc', borderRadius: 12, padding: 16, marginBottom: 16 },
+  detailClub: { fontSize: 14, color: '#64748b' },
+  detailInfo: { backgroundColor: '#f8fafc', borderRadius: 12, padding: 16, marginBottom: 12 },
   detailRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   detailLabel: { fontSize: 13, color: '#64748b', width: 100 },
   detailValue: { fontSize: 14, color: '#1a1a1a', fontWeight: '500', flex: 1 },
@@ -3378,6 +4216,25 @@ const styles = StyleSheet.create({
   archiveButtonSubtext: { fontSize: 12, color: '#991b1b', marginTop: 4 },
   decisionCancelButton: { paddingVertical: 12, paddingHorizontal: 24 },
   decisionCancelButtonText: { fontSize: 14, color: '#64748b' },
+  // Status Selector (global style)
+  statusSelector: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  statusOption: { paddingVertical: 3, paddingHorizontal: 8, borderRadius: 4, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
+  statusOptionText: { fontSize: 10, fontWeight: '500', color: '#64748b' },
+  statusOptionActive: { backgroundColor: '#10b981', borderColor: '#10b981' },
+  statusOptionActiveText: { color: '#fff' },
+  // Mobile Detail Box (global style)
+  mobileDetailBox: { backgroundColor: '#f8fafc', borderRadius: 12, padding: 14, marginBottom: 12 },
+  mobileDetailLabel: { fontSize: 11, color: '#94a3b8', marginBottom: 4 },
+  mobileDetailValue: { fontSize: 13, color: '#1a1a1a' },
+  // Delete Confirmation Modal (global style)
+  deleteConfirmModal: { backgroundColor: '#fff', borderRadius: 12, padding: 20, width: '85%', maxWidth: 280, alignItems: 'center' },
+  deleteConfirmTitle: { fontSize: 15, fontWeight: '600', color: '#1a1a1a', marginBottom: 8 },
+  deleteConfirmText: { fontSize: 13, color: '#ef4444', textAlign: 'center', marginBottom: 16 },
+  deleteConfirmButtons: { flexDirection: 'row', gap: 10, width: '100%' },
+  deleteConfirmCancelBtn: { flex: 1, paddingVertical: 10, backgroundColor: '#f1f5f9', borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0' },
+  deleteConfirmCancelText: { fontSize: 13, fontWeight: '500', color: '#64748b' },
+  deleteConfirmDeleteBtn: { flex: 1, paddingVertical: 10, backgroundColor: '#ef4444', borderRadius: 8, alignItems: 'center' },
+  deleteConfirmDeleteText: { fontSize: 13, fontWeight: '500', color: '#fff' },
   modalSubtitle: { fontSize: 14, color: '#64748b', marginBottom: 20 },
   archiveConfirmButton: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#ef4444' },
   archiveConfirmButtonText: { fontSize: 14, color: '#fff', fontWeight: '600' },
@@ -3476,7 +4333,7 @@ const styles = StyleSheet.create({
   addedToDatabaseBtnText: { fontSize: 10, color: '#fff', fontWeight: '600' },
   deletePlayerBtn: { paddingHorizontal: 8 },
   deleteBtnSmall: { fontSize: 11 },
-  ratingBadgeTight: { backgroundColor: '#dcfce7', paddingVertical: 2, paddingHorizontal: 4, borderRadius: 4, alignSelf: 'flex-start' },
+  ratingBadgeTight: { backgroundColor: '#dcfce7', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4 },
   ratingTextTight: { fontSize: 10, fontWeight: '600', color: '#166534' },
   // Add Player Row
   addPlayerRowNew: { flexDirection: 'row', gap: 6, alignItems: 'center', paddingTop: 12, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
@@ -3528,4 +4385,300 @@ const styles = StyleSheet.create({
   playerEditDropdownItemActive: { backgroundColor: '#dcfce7' },
   playerEditDropdownItemText: { fontSize: 14, color: '#1a1a1a' },
   playerEditDropdownItemTextActive: { color: '#166534', fontWeight: '600' },
+
+  // ==================== MOBILE STYLES ====================
+  mobileContainer: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+
+  // Mobile Status Tabs
+  mobileStatusTabs: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    paddingHorizontal: 4,
+  },
+  mobileStatusTab: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  mobileStatusTabText: {
+    fontSize: 11,
+    color: '#64748b',
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  mobileStatusBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    minWidth: 18,
+    alignItems: 'center',
+  },
+  mobileStatusBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#fff',
+  },
+
+  // Mobile Search
+  mobileSearchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    marginHorizontal: 12,
+    marginVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  mobileSearchIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  mobileSearchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#1a1a1a',
+  },
+  mobileSearchClear: {
+    fontSize: 16,
+    color: '#9ca3af',
+    marginLeft: 8,
+  },
+
+  // Mobile Content
+  mobileContentScroll: {
+    flex: 1,
+  },
+  mobileContentContainer: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingBottom: 80,
+  },
+  mobileEmptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  mobileEmptyText: {
+    fontSize: 15,
+    color: '#94a3b8',
+    fontStyle: 'italic',
+  },
+
+  // Mobile Player Card
+  mobilePlayerCard: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  mobilePlayerCardRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  mobilePlayerCardName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1a1a1a',
+    flex: 1,
+  },
+  mobilePlayerCardClubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  mobilePlayerCardLogo: {
+    width: 18,
+    height: 18,
+    marginRight: 6,
+  },
+  mobilePlayerCardClub: {
+    fontSize: 13,
+    color: '#64748b',
+    flex: 1,
+  },
+  mobilePlayerCardYear: {
+    fontSize: 13,
+    color: '#64748b',
+    fontWeight: '400',
+  },
+  mobilePlayerCardStatus: {
+    fontSize: 12,
+    color: '#64748b',
+    fontStyle: 'italic',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+  },
+
+  // Mobile Game Card
+  mobileGameCard: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  mobileGameCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  mobileGameCardDate: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1a1a1a',
+  },
+  mobileGameCardJahrgang: {
+    fontSize: 11,
+    color: '#64748b',
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  mobileGameCardTeams: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  mobileGameCardTeam: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  mobileGameCardLogo: {
+    width: 24,
+    height: 24,
+    resizeMode: 'contain',
+    marginRight: 8,
+  },
+  mobileGameCardTeamName: {
+    fontSize: 13,
+    color: '#1a1a1a',
+    flex: 1,
+  },
+  mobileGameCardVs: {
+    fontSize: 12,
+    color: '#94a3b8',
+    marginHorizontal: 8,
+  },
+  mobileGameCardVenue: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 8,
+  },
+
+  // Mobile FAB
+  mobileFab: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#1a1a1a',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  mobileFabIcon: {
+    fontSize: 22,
+    color: '#fff',
+    fontWeight: '300',
+  },
+
+  // Mobile Modal
+  mobileModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  mobileModalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '90%',
+  },
+  mobileModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  mobileModalTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#1a1a1a',
+  },
+  mobileModalClose: {
+    fontSize: 20,
+    color: '#64748b',
+  },
+  mobileModalScroll: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    maxHeight: 400,
+  },
+  mobileModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 16,
+    gap: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+  },
+  mobileModalCancelBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    backgroundColor: '#fef3c7',
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+    alignItems: 'center',
+  },
+  mobileModalCancelText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#b45309',
+  },
+  mobileModalSaveBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    alignItems: 'center',
+  },
+  mobileModalSaveText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1a1a1a',
+  },
 });
