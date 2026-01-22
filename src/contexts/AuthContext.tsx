@@ -107,25 +107,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Session Watchdog - prüft periodisch die Session-Gesundheit
+  // NIEMALS Auto-Logout - nur stille Recovery-Versuche
   const sessionWatchdog = async () => {
     try {
       const { data: { session: currentSession }, error } = await supabase.auth.getSession();
 
       if (error) {
-        console.warn('Session watchdog - getSession error:', error);
+        console.warn('Session watchdog - getSession error (wird ignoriert):', error);
+        // Fehler ignorieren - Session bleibt wie sie ist
         return;
       }
 
-      if (!currentSession) {
-        console.log('Session watchdog - Keine Session gefunden, versuche Refresh...');
+      if (!currentSession && session) {
+        // Wir hatten eine Session, aber jetzt nicht mehr - versuche Recovery
+        console.log('Session watchdog - Session verloren, versuche Refresh...');
         const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
 
         if (refreshError) {
-          console.warn('Session watchdog - Refresh fehlgeschlagen:', refreshError);
-          // Session ist wirklich kaputt - User ausloggen statt ewig "Laden..."
-          setSession(null);
-          setUser(null);
-          setProfile(null);
+          // Refresh fehlgeschlagen - KEIN Logout, einfach weiter versuchen
+          console.warn('Session watchdog - Refresh fehlgeschlagen (nächster Versuch in 3 Min):', refreshError);
           return;
         }
 
@@ -136,7 +136,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch (e) {
-      console.warn('Session watchdog exception:', e);
+      // Bei Exceptions: ignorieren und weiter versuchen
+      console.warn('Session watchdog exception (wird ignoriert):', e);
     }
   };
 

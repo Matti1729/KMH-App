@@ -452,9 +452,15 @@ export function PlayerOverviewScreen({ navigation }: any) {
     else { setSortField(field); setSortDirection('asc'); }
   };
 
-  const fetchPlayers = async () => {
-    setLoading(true);
-    setError(null);
+  const fetchPlayers = async (retryCount = 0) => {
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 2000; // 2 Sekunden
+
+    if (retryCount === 0) {
+      setLoading(true);
+      setError(null);
+    }
+
     try {
       const { data, error: queryError } = await supabase
         .from('player_details')
@@ -462,19 +468,32 @@ export function PlayerOverviewScreen({ navigation }: any) {
         .order('last_name', { ascending: true });
 
       if (queryError) {
-        console.warn('Spieler laden fehlgeschlagen:', queryError);
+        console.warn(`Spieler laden fehlgeschlagen (Versuch ${retryCount + 1}/${MAX_RETRIES}):`, queryError);
+
+        // Automatisch retry bei Auth-Fehlern oder Netzwerk-Problemen
+        if (retryCount < MAX_RETRIES - 1) {
+          setTimeout(() => fetchPlayers(retryCount + 1), RETRY_DELAY);
+          return;
+        }
+
         setError(`Fehler beim Laden: ${queryError.message}`);
-        setPlayers([]);
+        setLoading(false);
         return;
       }
 
       setPlayers(data || []);
       setError(null);
+      setLoading(false);
     } catch (err: any) {
-      console.warn('Netzwerkfehler beim Laden der Spieler:', err);
-      setError(err.message || 'Netzwerkfehler - bitte erneut versuchen');
-      setPlayers([]);
-    } finally {
+      console.warn(`Netzwerkfehler (Versuch ${retryCount + 1}/${MAX_RETRIES}):`, err);
+
+      // Automatisch retry
+      if (retryCount < MAX_RETRIES - 1) {
+        setTimeout(() => fetchPlayers(retryCount + 1), RETRY_DELAY);
+        return;
+      }
+
+      setError('Verbindungsproblem - bitte erneut versuchen');
       setLoading(false);
     }
   };
