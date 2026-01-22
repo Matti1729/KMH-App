@@ -14,13 +14,14 @@ interface SidebarProps {
     role?: string;
   } | null;
   onNavigate?: () => void;
+  embedded?: boolean; // Wenn true, wird nur der Inhalt ohne Mobile-Header/Modal gerendert
 }
 
 // Breakpoint für Mobile
 const MOBILE_BREAKPOINT = 768;
 const WEEKDAYS_DE = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
 
-export function Sidebar({ navigation, activeScreen, profile, onNavigate }: SidebarProps) {
+export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedded }: SidebarProps) {
   const [hoveredNav, setHoveredNav] = useState<string | null>(null);
   const currentWeekday = WEEKDAYS_DE[new Date().getDay()];
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -274,6 +275,16 @@ export function Sidebar({ navigation, activeScreen, profile, onNavigate }: Sideb
     </Modal>
   );
 
+  // Mobile embedded: Nur Content ohne Header/Modal (für externes Overlay)
+  if (isMobile && embedded) {
+    return (
+      <View style={styles.sidebarEmbedded}>
+        <SidebarContent />
+        <FeedbackModal />
+      </View>
+    );
+  }
+
   // Mobile: Header mit Hamburger-Menü
   if (isMobile) {
     return (
@@ -360,6 +371,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRightWidth: 1,
     borderRightColor: '#eee',
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+  },
+  // Embedded Sidebar (für externes Overlay)
+  sidebarEmbedded: {
+    flex: 1,
+    backgroundColor: '#fff',
     paddingVertical: 20,
     paddingHorizontal: 16,
   },

@@ -791,7 +791,7 @@ export function TransfersScreen({ navigation }: any) {
         {showMobileSidebar && (
           <Pressable style={styles.sidebarOverlay} onPress={() => setShowMobileSidebar(false)}>
             <Pressable style={styles.sidebarMobile} onPress={(e) => e.stopPropagation()}>
-              <Sidebar navigation={navigation} activeScreen="transfers" profile={profile} onNavigate={() => setShowMobileSidebar(false)} />
+              <Sidebar navigation={navigation} activeScreen="transfers" profile={profile} onNavigate={() => setShowMobileSidebar(false)} embedded />
             </Pressable>
           </Pressable>
         )}
