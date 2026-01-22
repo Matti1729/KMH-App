@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Image, Pressable, Modal } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { MobileHeader } from '../../components/MobileHeader';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 import { useIsMobile } from '../../hooks/useIsMobile';
@@ -125,7 +127,12 @@ export function TransfersScreen({ navigation }: any) {
   const [selectedPositions, setSelectedPositions] = useState<string[]>([]);
   const [selectedListings, setSelectedListings] = useState<string[]>([]);
   const [selectedResponsibilities, setSelectedResponsibilities] = useState<string[]>([]);
-  
+
+  // Mobile States
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+
   // Separate Dropdown States wie in Scouting
   const [showYearDropdown, setShowYearDropdown] = useState(false);
   const [showPositionDropdown, setShowPositionDropdown] = useState(false);
@@ -598,6 +605,13 @@ export function TransfersScreen({ navigation }: any) {
     setLoading(false);
   };
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchPlayers();
+    await fetchSearchingClubs();
+    setRefreshing(false);
+  }, []);
+
   const formatDate = (dateString: string) => {
     if (!dateString) return '-';
     const date = new Date(dateString);
@@ -690,8 +704,427 @@ export function TransfersScreen({ navigation }: any) {
     );
   };
 
+  // Mobile Player Card - identisch zu PlayerOverviewScreen
+  const renderMobilePlayerCard = (player: Player) => {
+    const hasAccess = userRole === 'admin' || myPlayerIds.includes(player.id);
+    const positionDisplay = player.position
+      ? player.position.split(', ').map(p => POSITION_SHORT[p.trim()] || p).join(', ')
+      : '-';
+    const expired = isContractExpired(player.contract_end);
+    const displayClub = getDisplayClub(player);
+    const logoUrl = expired ? null : getClubLogo(player.club);
+    const inCurrentSeason = isContractInCurrentSeason(player.contract_end);
+    const hasSecuredFuture = hasFutureClub(player) && inCurrentSeason;
+    const birthday = isBirthday(player.birth_date);
+
+    return (
+      <TouchableOpacity
+        key={player.id}
+        style={[styles.playerCard, !hasAccess && styles.playerCardLocked]}
+        onPress={() => handlePlayerClick(player)}
+      >
+        <View style={styles.playerCardHeader}>
+          <View style={styles.playerCardNameRow}>
+            {!hasAccess && <Text style={styles.lockIconMobile}>🔒</Text>}
+            <Text style={styles.playerCardName} numberOfLines={1}>
+              {player.last_name}, {player.first_name}
+            </Text>
+            {birthday && <Text style={styles.birthdayIconMobile}>🎉</Text>}
+          </View>
+          <View style={styles.playerCardBadges}>
+            {player.listing && (
+              <View style={[styles.listingBadgeMobile, player.listing === 'Karl Herzog Sportmanagement' ? styles.listingKMH : styles.listingPM]}>
+                <Text style={styles.listingBadgeTextMobile}>{player.listing === 'Karl Herzog Sportmanagement' ? 'KMH' : 'PM'}</Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        <View style={styles.playerCardBody}>
+          <View style={styles.playerCardRow}>
+            <View style={styles.playerCardClub}>
+              {expired ? (
+                <Image source={ArbeitsamtIcon} style={styles.clubLogoMobile} />
+              ) : logoUrl ? (
+                <Image source={{ uri: logoUrl }} style={styles.clubLogoMobile} />
+              ) : null}
+              <Text style={[styles.playerCardClubText, expired && styles.clubTextRed]} numberOfLines={1}>
+                {displayClub}
+              </Text>
+            </View>
+            <Text style={styles.playerCardPosition}>{positionDisplay}</Text>
+          </View>
+
+          <View style={styles.playerCardRow}>
+            <Text style={styles.playerCardLeague} numberOfLines={1}>{player.league || '-'}</Text>
+            {player.contract_end && (
+              <View style={[
+                styles.contractBadgeMobile,
+                hasSecuredFuture ? styles.contractBadgeMobileGreen :
+                inCurrentSeason ? styles.contractBadgeMobileRed : null
+              ]}>
+                <Text style={[
+                  styles.contractTextMobile,
+                  hasSecuredFuture ? styles.contractTextMobileGreen :
+                  inCurrentSeason ? styles.contractTextMobileRed : null
+                ]}>
+                  Vertrag bis {formatDate(player.contract_end)}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  // Active filter count for mobile
+  const activeFilterCount = selectedPositions.length + selectedYears.length + selectedListings.length + selectedResponsibilities.length;
+
+  // Profile initials for header
+  const profileInitials = profile ? `${profile.first_name?.[0] || ''}${profile.last_name?.[0] || ''}` : '?';
+
+  // Mobile View
+  if (isMobile) {
+    return (
+      <View style={styles.containerMobile}>
+        {showMobileSidebar && (
+          <Pressable style={styles.sidebarOverlay} onPress={() => setShowMobileSidebar(false)}>
+            <View style={styles.sidebarMobile}>
+              <Sidebar navigation={navigation} activeScreen="transfers" profile={profile} onNavigate={() => setShowMobileSidebar(false)} />
+            </View>
+          </Pressable>
+        )}
+
+        <View style={styles.mainContentMobile}>
+          {/* Mobile Header */}
+          <MobileHeader
+            title="Transfers"
+            onMenuPress={() => setShowMobileSidebar(true)}
+            profileInitials={profileInitials}
+          />
+
+          {/* Mobile Tabs */}
+          <View style={styles.mobileTabs}>
+            <TouchableOpacity
+              style={[styles.mobileTab, activeTab === 'spieler' && styles.mobileTabActive]}
+              onPress={() => setActiveTab('spieler')}
+            >
+              <Text style={[styles.mobileTabText, activeTab === 'spieler' && styles.mobileTabTextActive]}>
+                Spieler ({transferPlayers.length})
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.mobileTab, activeTab === 'vereine' && styles.mobileTabActive]}
+              onPress={() => setActiveTab('vereine')}
+            >
+              <Text style={[styles.mobileTabText, activeTab === 'vereine' && styles.mobileTabTextActive]}>
+                Vereine
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Mobile Toolbar */}
+          <View style={styles.mobileToolbar}>
+            <View style={styles.mobileSearchContainer}>
+              <Text style={styles.searchIcon}>🔍</Text>
+              <TextInput
+                style={styles.mobileSearchInput}
+                placeholder={activeTab === 'spieler' ? "Spieler suchen..." : "Verein suchen..."}
+                placeholderTextColor="#9ca3af"
+                value={activeTab === 'spieler' ? searchText : clubSearchText}
+                onChangeText={activeTab === 'spieler' ? setSearchText : setClubSearchText}
+              />
+            </View>
+            {activeTab === 'spieler' && (
+              <TouchableOpacity
+                style={[styles.mobileFilterButton, activeFilterCount > 0 && styles.mobileFilterButtonActive]}
+                onPress={() => setShowMobileFilters(true)}
+              >
+                <Ionicons name="filter" size={20} color={activeFilterCount > 0 ? "#fff" : "#64748b"} />
+                {activeFilterCount > 0 && (
+                  <View style={styles.filterCountBubble}>
+                    <Text style={styles.filterCountText}>{activeFilterCount}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            )}
+            {activeTab === 'vereine' && (
+              <TouchableOpacity style={styles.mobileAddButton} onPress={() => setShowAddClubModal(true)}>
+                <Text style={styles.mobileAddButtonText}>+</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Player Count */}
+          <View style={styles.mobileSubheader}>
+            <Text style={styles.mobileSubheaderText}>
+              {activeTab === 'spieler' ? `${filteredPlayers.length} Spieler` : `${filteredSearchingClubs.length} Vereine`}
+            </Text>
+          </View>
+
+          {/* Content */}
+          <ScrollView style={styles.mobileCardList} contentContainerStyle={styles.mobileCardListContent}>
+            {loading ? (
+              <Text style={styles.loadingText}>Laden...</Text>
+            ) : activeTab === 'spieler' ? (
+              filteredPlayers.length === 0 ? (
+                <Text style={styles.emptyText}>Keine Spieler gefunden</Text>
+              ) : (
+                filteredPlayers.map(player => renderMobilePlayerCard(player))
+              )
+            ) : (
+              filteredSearchingClubs.length === 0 ? (
+                <Text style={styles.emptyText}>Keine Vereine gefunden</Text>
+              ) : (
+                filteredSearchingClubs.map(club => (
+                  <TouchableOpacity
+                    key={club.id}
+                    style={styles.mobileCard}
+                    onPress={() => { setSelectedClub(club); setShowClubDetailModal(true); }}
+                  >
+                    <View style={styles.mobileCardHeader}>
+                      <View style={styles.mobileCardNameRow}>
+                        {clubLogos[club.club_name] && (
+                          <Image source={{ uri: clubLogos[club.club_name] }} style={styles.mobileCardClubLogo} />
+                        )}
+                        <View style={styles.mobileCardNameContainer}>
+                          <Text style={styles.mobileCardName}>{club.club_name}</Text>
+                          <Text style={styles.mobileCardClub}>{club.league || '-'}</Text>
+                        </View>
+                      </View>
+                    </View>
+                    <View style={styles.mobileCardDetails}>
+                      <View style={styles.mobileCardRow}>
+                        <Text style={styles.mobileCardLabel}>Position</Text>
+                        <Text style={styles.mobileCardValue}>{club.position_needed || '-'}</Text>
+                      </View>
+                      <View style={styles.mobileCardRow}>
+                        <Text style={styles.mobileCardLabel}>Jahrgang</Text>
+                        <Text style={styles.mobileCardValue}>{club.year_range || '-'}</Text>
+                      </View>
+                      {club.contact_person && (
+                        <View style={styles.mobileCardRow}>
+                          <Text style={styles.mobileCardLabel}>Kontakt</Text>
+                          <Text style={styles.mobileCardValue}>{club.contact_person}</Text>
+                        </View>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                ))
+              )
+            )}
+          </ScrollView>
+
+          {/* Mobile Filter Modal */}
+          <Modal visible={showMobileFilters} transparent animationType="slide">
+            <View style={styles.mobileFilterModal}>
+              <View style={styles.mobileFilterHeader}>
+                <Text style={styles.mobileFilterTitle}>Filter</Text>
+                <TouchableOpacity onPress={() => setShowMobileFilters(false)}>
+                  <Text style={styles.mobileFilterClose}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.mobileFilterContent}>
+                {/* Position Filter */}
+                <Text style={styles.mobileFilterSectionTitle}>Position</Text>
+                <View style={styles.mobileChipContainer}>
+                  {POSITIONS.map(pos => {
+                    const isSelected = selectedPositions.includes(pos);
+                    return (
+                      <TouchableOpacity
+                        key={pos}
+                        style={[styles.mobileChip, isSelected && styles.mobileChipSelected]}
+                        onPress={() => togglePosition(pos)}
+                      >
+                        <Text style={[styles.mobileChipText, isSelected && styles.mobileChipTextSelected]}>
+                          {POSITION_SHORT[pos]}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* Year Filter */}
+                <Text style={styles.mobileFilterSectionTitle}>Jahrgang</Text>
+                <View style={styles.mobileChipContainer}>
+                  {availableYears.map(year => {
+                    const isSelected = selectedYears.includes(year);
+                    return (
+                      <TouchableOpacity
+                        key={year}
+                        style={[styles.mobileChip, isSelected && styles.mobileChipSelected]}
+                        onPress={() => toggleYear(year)}
+                      >
+                        <Text style={[styles.mobileChipText, isSelected && styles.mobileChipTextSelected]}>
+                          {year}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* Listing Filter */}
+                <Text style={styles.mobileFilterSectionTitle}>Listung</Text>
+                <View style={styles.mobileChipContainer}>
+                  {LISTINGS.map(listing => {
+                    const isSelected = selectedListings.includes(listing);
+                    const label = listing === 'Karl Herzog Sportmanagement' ? 'KMH' : 'PM';
+                    return (
+                      <TouchableOpacity
+                        key={listing}
+                        style={[styles.mobileChip, isSelected && styles.mobileChipSelected]}
+                        onPress={() => toggleListing(listing)}
+                      >
+                        <Text style={[styles.mobileChipText, isSelected && styles.mobileChipTextSelected]}>
+                          {label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* Responsibility Filter */}
+                <Text style={styles.mobileFilterSectionTitle}>Zuständigkeit</Text>
+                <View style={styles.mobileChipContainer}>
+                  {advisors.map(advisor => {
+                    const fullName = `${advisor.first_name} ${advisor.last_name}`;
+                    const isSelected = selectedResponsibilities.includes(fullName);
+                    return (
+                      <TouchableOpacity
+                        key={advisor.id}
+                        style={[styles.mobileChip, isSelected && styles.mobileChipSelected]}
+                        onPress={() => toggleResponsibility(fullName)}
+                      >
+                        <Text style={[styles.mobileChipText, isSelected && styles.mobileChipTextSelected]}>
+                          {advisor.first_name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+              <View style={styles.mobileFilterFooter}>
+                <TouchableOpacity
+                  style={styles.mobileFilterClearButton}
+                  onPress={() => {
+                    clearPositions();
+                    clearYears();
+                    clearListings();
+                    clearResponsibilities();
+                  }}
+                >
+                  <Text style={styles.mobileFilterClearText}>Alle löschen</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.mobileFilterApplyButton}
+                  onPress={() => setShowMobileFilters(false)}
+                >
+                  <Text style={styles.mobileFilterApplyText}>Anwenden</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+
+          {/* Add Club Modal (shared) */}
+          <Modal visible={showAddClubModal} transparent animationType="fade">
+            <Pressable style={styles.modalOverlay} onPress={() => setShowFormClubDropdown(false)}>
+              <Pressable style={styles.modalContent} onPress={() => setShowFormClubDropdown(false)}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>{editingClub ? 'Verein bearbeiten' : 'Neuen suchenden Verein anlegen'}</Text>
+                  <TouchableOpacity onPress={() => { setShowAddClubModal(false); resetClubForm(); }} style={styles.closeButton}>
+                    <Text style={styles.closeButtonText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+                <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                  <View style={styles.formField}>
+                    <Text style={styles.formLabel}>Verein *</Text>
+                    <TextInput style={styles.formInput} value={formClubSearch} onChangeText={(t) => { setFormClubSearch(t); setNewClub({...newClub, club_name: t}); }} placeholder="Vereinsname" placeholderTextColor="#9ca3af" />
+                  </View>
+                  <View style={styles.formField}>
+                    <Text style={styles.formLabel}>Liga</Text>
+                    <TextInput style={styles.formInput} value={newClub.league || ''} onChangeText={(t) => setNewClub({...newClub, league: t})} placeholder="z.B. Bundesliga" placeholderTextColor="#9ca3af" />
+                  </View>
+                  <View style={styles.formField}>
+                    <Text style={styles.formLabel}>Position</Text>
+                    <TextInput style={styles.formInput} value={newClub.position_needed || ''} onChangeText={(t) => setNewClub({...newClub, position_needed: t})} placeholder="z.B. IV, ST" placeholderTextColor="#9ca3af" />
+                  </View>
+                  <View style={styles.formField}>
+                    <Text style={styles.formLabel}>Jahrgang</Text>
+                    <TextInput style={styles.formInput} value={newClub.year_range || ''} onChangeText={(t) => setNewClub({...newClub, year_range: t})} placeholder="z.B. 2005-2007" placeholderTextColor="#9ca3af" />
+                  </View>
+                  <View style={styles.formField}>
+                    <Text style={styles.formLabel}>Ansprechpartner</Text>
+                    <TextInput style={styles.formInput} value={newClub.contact_person || ''} onChangeText={(t) => setNewClub({...newClub, contact_person: t})} placeholder="Name" placeholderTextColor="#9ca3af" />
+                  </View>
+                  <View style={styles.formField}>
+                    <Text style={styles.formLabel}>Notizen</Text>
+                    <TextInput style={[styles.formInput, { minHeight: 60 }]} value={newClub.notes || ''} onChangeText={(t) => setNewClub({...newClub, notes: t})} placeholder="Weitere Infos..." placeholderTextColor="#9ca3af" multiline />
+                  </View>
+                </ScrollView>
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity style={styles.cancelButton} onPress={() => { setShowAddClubModal(false); resetClubForm(); }}>
+                    <Text style={styles.cancelButtonText}>Abbrechen</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.saveButton} onPress={saveSearchingClub}>
+                    <Text style={styles.saveButtonText}>Speichern</Text>
+                  </TouchableOpacity>
+                </View>
+              </Pressable>
+            </Pressable>
+          </Modal>
+
+          {/* Club Detail Modal (shared) */}
+          <Modal visible={showClubDetailModal} transparent animationType="fade">
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <View>
+                    <Text style={styles.modalTitle}>{selectedClub?.club_name}</Text>
+                    {selectedClub?.league && <Text style={styles.detailSubtitle}>{selectedClub.league}</Text>}
+                  </View>
+                  <TouchableOpacity onPress={() => { setShowClubDetailModal(false); setSelectedClub(null); }} style={styles.closeButton}>
+                    <Text style={styles.closeButtonText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+                {selectedClub && (
+                  <View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Position</Text>
+                      <Text style={styles.detailValue}>{selectedClub.position_needed || '-'}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Jahrgang</Text>
+                      <Text style={styles.detailValue}>{selectedClub.year_range || '-'}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Ansprechpartner</Text>
+                      <Text style={styles.detailValue}>{selectedClub.contact_person || '-'}</Text>
+                    </View>
+                    {selectedClub.notes && (
+                      <View style={styles.detailRowNotes}>
+                        <Text style={styles.detailLabel}>Notizen</Text>
+                        <Text style={styles.detailNotesText}>{selectedClub.notes}</Text>
+                      </View>
+                    )}
+                    <View style={styles.detailActions}>
+                      <TouchableOpacity style={styles.editButton} onPress={() => openEditClubModal(selectedClub)}>
+                        <Text style={styles.editButtonText}>Bearbeiten</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+              </View>
+            </View>
+          </Modal>
+        </View>
+      </View>
+    );
+  }
+
+  // Desktop View
   return (
-    <View style={[styles.container, isMobile && styles.containerMobile]}>
+    <View style={styles.container}>
       {/* Sidebar */}
       <Sidebar navigation={navigation} activeScreen="transfers" profile={profile} />
 
@@ -1409,4 +1842,188 @@ const styles = StyleSheet.create({
   clubDropdownText: { fontSize: 14, color: '#333' },
   clubDropdownCustom: { backgroundColor: '#f0fdf4' },
   clubDropdownCustomText: { fontSize: 14, color: '#16a34a', fontWeight: '500' },
+
+  // ==================== MOBILE STYLES ====================
+  containerMobile: { flex: 1, flexDirection: 'row', backgroundColor: '#f8fafc' },
+  mainContentMobile: { flex: 1, backgroundColor: '#f8fafc' },
+
+  // Mobile Tabs
+  mobileTabs: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0', paddingHorizontal: 12 },
+  mobileTab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
+  mobileTabActive: { borderBottomWidth: 2, borderBottomColor: '#1a1a1a' },
+  mobileTabText: { fontSize: 14, color: '#64748b', fontWeight: '500' },
+  mobileTabTextActive: { color: '#1a1a1a', fontWeight: '600' },
+
+  // Mobile Toolbar
+  mobileToolbar: { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 8, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  mobileSearchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 8, paddingHorizontal: 10, height: 40 },
+  mobileSearchInput: { flex: 1, fontSize: 14, color: '#1a1a1a', marginLeft: 8 },
+  mobileFilterButton: { width: 40, height: 40, borderRadius: 8, backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center' },
+  mobileFilterButtonActive: { backgroundColor: '#1a1a1a' },
+  mobileAddButton: { width: 40, height: 40, borderRadius: 8, backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center' },
+  mobileAddButtonText: { color: '#fff', fontSize: 24, fontWeight: '300' },
+  filterCountBubble: { position: 'absolute', top: -4, right: -4, backgroundColor: '#ef4444', borderRadius: 10, minWidth: 18, height: 18, justifyContent: 'center', alignItems: 'center' },
+  filterCountText: { color: '#fff', fontSize: 11, fontWeight: '600' },
+
+  // Mobile Subheader
+  mobileSubheader: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#f8fafc' },
+  mobileSubheaderText: { fontSize: 13, color: '#64748b' },
+
+  // Mobile Card List
+  mobileCardList: { flex: 1 },
+  mobileCardListContent: { padding: 12, gap: 10 },
+
+  // Mobile Player Card
+  mobileCard: { backgroundColor: '#fff', borderRadius: 12, padding: 14, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
+  mobileCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
+  mobileCardNameRow: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  mobileCardClubLogo: { width: 32, height: 32, resizeMode: 'contain', marginRight: 10 },
+  mobileCardNameContainer: { flex: 1 },
+  mobileCardName: { fontSize: 15, fontWeight: '600', color: '#1a1a1a' },
+  mobileCardClub: { fontSize: 13, color: '#64748b', marginTop: 2 },
+  mobileCardLock: { fontSize: 14, marginLeft: 8 },
+  mobileListingBadge: { paddingVertical: 3, paddingHorizontal: 8, borderRadius: 4 },
+  mobileListingText: { color: '#fff', fontSize: 11, fontWeight: '600' },
+  mobileCardDetails: { gap: 6 },
+  mobileCardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  mobileCardLabel: { fontSize: 13, color: '#64748b' },
+  mobileCardValue: { fontSize: 13, color: '#1a1a1a', fontWeight: '500' },
+  mobileCardPositions: { flexDirection: 'row', gap: 4 },
+  mobilePositionBadge: { backgroundColor: '#e0f2fe', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4 },
+  mobilePositionText: { fontSize: 11, fontWeight: '600', color: '#0369a1' },
+  mobileContractBadge: { backgroundColor: '#fef2f2', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4 },
+  mobileContractText: { fontSize: 12, fontWeight: '600', color: '#dc2626' },
+
+  // Mobile Filter Modal
+  mobileFilterModal: { flex: 1, backgroundColor: '#fff', marginTop: 50, borderTopLeftRadius: 20, borderTopRightRadius: 20, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 10, elevation: 10 },
+  mobileFilterHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  mobileFilterTitle: { fontSize: 18, fontWeight: '600', color: '#1a1a1a' },
+  mobileFilterClose: { fontSize: 24, color: '#64748b' },
+  mobileFilterContent: { flex: 1, padding: 16 },
+  mobileFilterSectionTitle: { fontSize: 14, fontWeight: '600', color: '#1a1a1a', marginBottom: 10, marginTop: 16 },
+  mobileChipContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  mobileChip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
+  mobileChipSelected: { backgroundColor: '#1a1a1a', borderColor: '#1a1a1a' },
+  mobileChipText: { fontSize: 13, color: '#64748b', fontWeight: '500' },
+  mobileChipTextSelected: { color: '#fff' },
+  mobileFilterFooter: { flexDirection: 'row', padding: 16, gap: 12, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
+  mobileFilterClearButton: { flex: 1, paddingVertical: 12, borderRadius: 8, backgroundColor: '#f1f5f9', alignItems: 'center' },
+  mobileFilterClearText: { fontSize: 14, color: '#64748b', fontWeight: '600' },
+  mobileFilterApplyButton: { flex: 1, paddingVertical: 12, borderRadius: 8, backgroundColor: '#1a1a1a', alignItems: 'center' },
+  mobileFilterApplyText: { fontSize: 14, color: '#fff', fontWeight: '600' },
+
+  // Sidebar Overlay
+  sidebarOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 100, flexDirection: 'row' },
+  sidebarMobile: { width: 280, height: '100%', backgroundColor: '#fff' },
+
+  // Player Card (identisch zu PlayerOverviewScreen)
+  playerCard: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  playerCardLocked: {
+    backgroundColor: '#fafafa',
+  },
+  playerCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  playerCardNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  playerCardName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1a1a1a',
+    flex: 1,
+  },
+  lockIconMobile: {
+    fontSize: 14,
+    marginRight: 6,
+  },
+  birthdayIconMobile: {
+    fontSize: 16,
+    marginLeft: 6,
+  },
+  playerCardBadges: {
+    flexDirection: 'row',
+  },
+  listingBadgeMobile: {
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 4,
+  },
+  listingBadgeTextMobile: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  playerCardBody: {},
+  playerCardRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  playerCardClub: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  clubLogoMobile: {
+    width: 18,
+    height: 18,
+    resizeMode: 'contain',
+    marginRight: 6,
+  },
+  playerCardClubText: {
+    fontSize: 13,
+    color: '#334155',
+    flex: 1,
+  },
+  playerCardPosition: {
+    fontSize: 12,
+    color: '#64748b',
+    fontWeight: '500',
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  playerCardLeague: {
+    fontSize: 12,
+    color: '#64748b',
+    flex: 1,
+  },
+  contractBadgeMobile: {
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 4,
+  },
+  contractBadgeMobileRed: {
+    backgroundColor: '#fef2f2',
+  },
+  contractBadgeMobileGreen: {
+    backgroundColor: '#f0fdf4',
+  },
+  contractTextMobile: {
+    fontSize: 11,
+    color: '#64748b',
+  },
+  contractTextMobileRed: {
+    color: '#dc2626',
+    fontWeight: '600',
+  },
+  contractTextMobileGreen: {
+    color: '#16a34a',
+    fontWeight: '600',
+  },
 });

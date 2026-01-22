@@ -13,13 +13,14 @@ interface SidebarProps {
     photo_url?: string;
     role?: string;
   } | null;
+  onNavigate?: () => void;
 }
 
 // Breakpoint für Mobile
 const MOBILE_BREAKPOINT = 768;
 const WEEKDAYS_DE = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
 
-export function Sidebar({ navigation, activeScreen, profile }: SidebarProps) {
+export function Sidebar({ navigation, activeScreen, profile, onNavigate }: SidebarProps) {
   const [hoveredNav, setHoveredNav] = useState<string | null>(null);
   const currentWeekday = WEEKDAYS_DE[new Date().getDay()];
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -82,15 +83,18 @@ export function Sidebar({ navigation, activeScreen, profile }: SidebarProps) {
   const goToDashboard = () => {
     setMobileMenuOpen(false);
     navigation.navigate('AdvisorDashboard');
+    onNavigate?.();
   };
 
   const handleNavigation = (screen: string, id: string) => {
     if (activeScreen === id) {
       setMobileMenuOpen(false);
+      onNavigate?.();
       return;
     }
     setMobileMenuOpen(false);
     navigation.navigate(screen);
+    onNavigate?.();
   };
 
   // Sidebar Navigation - alle Bereiche

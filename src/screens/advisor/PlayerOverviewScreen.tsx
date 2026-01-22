@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
+import { MobileHeader } from '../../components/MobileHeader';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -86,6 +87,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
   const [selectedContractYears, setSelectedContractYears] = useState<string[]>([]);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
   // Separate Dropdown States wie in Scouting
   const [showYearDropdown, setShowYearDropdown] = useState(false);
@@ -719,13 +721,29 @@ export function PlayerOverviewScreen({ navigation }: any) {
   // Anzahl aktiver Filter
   const activeFilterCount = selectedPositions.length + selectedYears.length + selectedListings.length + selectedResponsibilities.length + selectedContractYears.length;
 
+  // Profile initials for header
+  const profileInitials = profile ? `${profile.first_name?.[0] || ''}${profile.last_name?.[0] || ''}` : '?';
+
   // Mobile View
   if (isMobile) {
     return (
       <View style={styles.containerMobile}>
-        <Sidebar navigation={navigation} activeScreen="players" profile={profile} />
+        {showMobileSidebar && (
+          <Pressable style={styles.sidebarOverlay} onPress={() => setShowMobileSidebar(false)}>
+            <View style={styles.sidebarMobile}>
+              <Sidebar navigation={navigation} activeScreen="players" profile={profile} onNavigate={() => setShowMobileSidebar(false)} />
+            </View>
+          </Pressable>
+        )}
 
         <View style={styles.mainContentMobile}>
+          {/* Mobile Header */}
+          <MobileHeader
+            title="Spielerübersicht"
+            onMenuPress={() => setShowMobileSidebar(true)}
+            profileInitials={profileInitials}
+          />
+
           {/* Mobile Toolbar */}
           <View style={styles.mobileToolbar}>
             <View style={styles.mobileSearchContainer}>
@@ -1216,6 +1234,8 @@ export function PlayerOverviewScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1, flexDirection: 'row', backgroundColor: '#f8fafc' },
   containerMobile: { flex: 1, flexDirection: 'column', backgroundColor: '#f8fafc' },
+  sidebarOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 100, flexDirection: 'row' },
+  sidebarMobile: { width: 280, height: '100%', backgroundColor: '#fff' },
   mainContent: { flex: 1, backgroundColor: '#f8fafc' },
   mainContentMobile: { flex: 1, backgroundColor: '#f8fafc' },
 
