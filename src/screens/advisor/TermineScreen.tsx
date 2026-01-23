@@ -932,44 +932,95 @@ export function TermineScreen({ navigation }: any) {
     }).length;
   };
 
-  const renderDashboard = () => (
-    <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-      <View style={styles.gridContainer}>
-        <View style={styles.row}>
-          <DashboardCard id="spiele" style={styles.mainCard} onPress={() => setViewMode('spiele')} hoverStyle={styles.mainCardHovered}>
-            <Text style={styles.todayCountTopRight}>{getTodayGamesCount()}</Text>
-            <View style={styles.mainCardContent}>
-              <View style={styles.mainCardLeft}>
-                <Text style={styles.mainCardTitle}>Spiele unserer Spieler</Text>
-                <Text style={styles.mainCardSubtitle}>
-                  {playerGames.length > 0 
-                    ? `${playerGames.length} Spiele in den nächsten 5 Wochen`
-                    : 'Alle Partien deiner Mandanten\nim Überblick'
-                  }
-                </Text>
-                <View style={styles.mainCardFooter}>
-                  <Text style={styles.mainCardLink}>Zur Übersicht</Text>
-                  <Text style={styles.mainCardArrow}>→</Text>
+  const renderDashboard = () => {
+    // Mobile Dashboard View
+    if (isMobile) {
+      return (
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContentMobile}>
+          <View style={styles.mobileCardsContainer}>
+            {/* Spiele unserer Spieler */}
+            <DashboardCard
+              id="spiele"
+              style={styles.mobileCard}
+              onPress={() => setViewMode('spiele')}
+              hoverStyle={styles.lightCardHovered}
+            >
+              <View style={styles.mobileCardContent}>
+                <View style={styles.mobileCardIcon}><Text style={styles.mobileCardIconText}>⚽</Text></View>
+                <View style={styles.mobileCardText}>
+                  <Text style={styles.mobileCardTitle}>Spiele unserer Spieler</Text>
+                  <Text style={styles.mobileCardSubtitle}>
+                    {playerGames.length > 0
+                      ? `${playerGames.length} Spiele in 5 Wochen`
+                      : 'Partien im Überblick'
+                    }
+                  </Text>
+                </View>
+                <Text style={styles.mobileCardCount}>{getTodayGamesCount()}</Text>
+              </View>
+            </DashboardCard>
+
+            {/* Weitere Termine */}
+            <DashboardCard
+              id="termine"
+              style={styles.mobileCardDark}
+              onPress={() => setViewMode('termine')}
+              hoverStyle={styles.darkCardHovered}
+            >
+              <View style={styles.mobileCardContent}>
+                <View style={styles.mobileCardIconDark}><Text style={styles.mobileCardIconText}>📋</Text></View>
+                <View style={styles.mobileCardText}>
+                  <Text style={styles.mobileCardTitleDark}>Weitere Termine</Text>
+                  <Text style={styles.mobileCardSubtitleDark}>Lehrgänge & Turniere</Text>
+                </View>
+                <Text style={styles.mobileCardCountDark}>{getTodayTermineCount()}</Text>
+              </View>
+            </DashboardCard>
+          </View>
+        </ScrollView>
+      );
+    }
+
+    // Desktop Dashboard View
+    return (
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        <View style={styles.gridContainer}>
+          <View style={styles.row}>
+            <DashboardCard id="spiele" style={styles.mainCard} onPress={() => setViewMode('spiele')} hoverStyle={styles.mainCardHovered}>
+              <Text style={styles.todayCountTopRight}>{getTodayGamesCount()}</Text>
+              <View style={styles.mainCardContent}>
+                <View style={styles.mainCardLeft}>
+                  <Text style={styles.mainCardTitle}>Spiele unserer Spieler</Text>
+                  <Text style={styles.mainCardSubtitle}>
+                    {playerGames.length > 0
+                      ? `${playerGames.length} Spiele in den nächsten 5 Wochen`
+                      : 'Alle Partien deiner Mandanten\nim Überblick'
+                    }
+                  </Text>
+                  <View style={styles.mainCardFooter}>
+                    <Text style={styles.mainCardLink}>Zur Übersicht</Text>
+                    <Text style={styles.mainCardArrow}>→</Text>
+                  </View>
+                </View>
+                <View style={styles.mainCardRight}>
                 </View>
               </View>
-              <View style={styles.mainCardRight}>
+            </DashboardCard>
+            <DashboardCard id="termine" style={styles.termineCardFull} onPress={() => setViewMode('termine')} hoverStyle={styles.lightCardHovered}>
+              <Text style={styles.todayCountTopRight}>{getTodayTermineCount()}</Text>
+              <View style={styles.termineHeader}>
+                <View style={styles.termineIcon}><Text style={styles.termineIconText}>📋</Text></View>
               </View>
-            </View>
-          </DashboardCard>
-          <DashboardCard id="termine" style={styles.termineCardFull} onPress={() => setViewMode('termine')} hoverStyle={styles.lightCardHovered}>
-            <Text style={styles.todayCountTopRight}>{getTodayTermineCount()}</Text>
-            <View style={styles.termineHeader}>
-              <View style={styles.termineIcon}><Text style={styles.termineIconText}>📋</Text></View>
-            </View>
-            <View style={styles.termineFooter}>
-              <Text style={styles.termineTitle}>Weitere Termine</Text>
-              <Text style={styles.termineSubtitle}>Lehrgänge, Sichtungen und Turniere</Text>
-            </View>
-          </DashboardCard>
+              <View style={styles.termineFooter}>
+                <Text style={styles.termineTitle}>Weitere Termine</Text>
+                <Text style={styles.termineSubtitle}>Lehrgänge, Sichtungen und Turniere</Text>
+              </View>
+            </DashboardCard>
+          </View>
         </View>
-      </View>
-    </ScrollView>
-  );
+      </ScrollView>
+    );
+  };
 
   const renderSpieleUnsererSpieler = () => {
     const isAnyDropdownOpen = showResponsibilityDropdown || showPlayerDropdown;
@@ -1936,6 +1987,83 @@ const styles = StyleSheet.create({
   backButtonText: { fontSize: 14, color: '#64748b' },
   scrollView: { flex: 1 },
   scrollContent: { padding: 24 },
+  scrollContentMobile: { padding: 16 },
+
+  // Mobile Cards
+  mobileCardsContainer: {},
+  mobileCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#eee',
+    marginBottom: 12,
+  },
+  mobileCardDark: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+  },
+  mobileCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  mobileCardIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  mobileCardIconDark: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  mobileCardIconText: {
+    fontSize: 20,
+  },
+  mobileCardText: {
+    flex: 1,
+  },
+  mobileCardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1a1a1a',
+  },
+  mobileCardTitleDark: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  mobileCardSubtitle: {
+    fontSize: 13,
+    color: '#666',
+    marginTop: 2,
+  },
+  mobileCardSubtitleDark: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.6)',
+    marginTop: 2,
+  },
+  mobileCardCount: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  mobileCardCountDark: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#fff',
+  },
+
   gridContainer: { maxWidth: 1000, width: '100%' },
   row: { flexDirection: 'row', gap: 16, marginBottom: 16 },
   card: { borderRadius: 20, overflow: 'hidden', cursor: 'pointer' as any },

@@ -2717,7 +2717,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       <View style={[styles.modalContainer, isMobile && styles.modalContainerMobile]}>
         <View style={[styles.header, isMobile && styles.headerMobile]}>
           <Text style={[styles.headerTitle, isMobile && styles.headerTitleMobile]}>Spielerprofil</Text>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}><Text style={styles.closeButtonText}>✕</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={isMobile ? undefined : styles.closeButton}><Text style={isMobile ? styles.closeButtonTextMobile : styles.closeButtonText}>✕</Text></TouchableOpacity>
         </View>
         <ScrollView
           style={[styles.content, isMobile && styles.contentMobile]}
@@ -3376,7 +3376,8 @@ const styles = StyleSheet.create({
   },
   modalOverlayContainerMobile: {
     padding: 0,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
   },
   modalBackdrop: {
     position: 'absolute',
@@ -3401,10 +3402,12 @@ const styles = StyleSheet.create({
   },
   modalContainerMobile: {
     width: '100%',
-    height: '100%',
     maxWidth: '100%',
-    maxHeight: '100%',
-    borderRadius: 0,
+    maxHeight: '90%',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
   },
   headerMobile: {
     paddingVertical: 12,
@@ -3544,6 +3547,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 20, fontWeight: 'bold' },
   closeButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', justifyContent: 'center', alignItems: 'center' },
   closeButtonText: { color: '#64748b', fontSize: 18 },
+  closeButtonTextMobile: { fontSize: 20, color: '#64748b' },
   content: { flex: 1, padding: 16 },
   loadingText: { padding: 20, textAlign: 'center', color: '#666' },
   topSection: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 16, padding: 20, marginBottom: 16 },

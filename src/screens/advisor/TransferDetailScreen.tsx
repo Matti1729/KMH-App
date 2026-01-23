@@ -925,20 +925,16 @@ export function TransferDetailScreen({ route, navigation }: any) {
     const mobileClubs = getClubsByStatus(mobileTab);
 
     return (
-      <SafeAreaView style={styles.mobileContainer}>
-        {/* Mobile Header */}
-        <View style={styles.mobileHeader}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.mobileBackButton}>
-            <Ionicons name="arrow-back" size={24} color="#1a1a1a" />
-          </TouchableOpacity>
-          <View style={styles.mobileHeaderCenter}>
-            <Text style={styles.mobileHeaderTitle}>{player.first_name} {player.last_name}</Text>
-            <Text style={styles.mobileHeaderSubtitle}>{calculateAge(player.birth_date)} Jahre • {getFullPosition(player.position)}</Text>
+      <View style={styles.mobileScreenOverlay}>
+        <View style={styles.mobileScreenContent}>
+          {/* Mobile Header */}
+          <View style={styles.mobileScreenHeader}>
+            <Text style={styles.mobileScreenTitle}>{player.first_name} {player.last_name}</Text>
+            <TouchableOpacity onPress={() => navigation.goBack()}>
+              <Text style={styles.mobileScreenClose}>✕</Text>
+            </TouchableOpacity>
           </View>
-          {playerClubLogo && (
-            <Image source={{ uri: playerClubLogo }} style={styles.mobileHeaderLogo} />
-          )}
-        </View>
+          <Text style={styles.mobileScreenSubtitle}>{calculateAge(player.birth_date)} Jahre • {getFullPosition(player.position)}</Text>
 
         {/* Tabs */}
         <View style={styles.mobileTabs}>
@@ -978,7 +974,7 @@ export function TransferDetailScreen({ route, navigation }: any) {
           style={styles.mobileAddButton}
           onPress={() => { resetForm(); setFormData({ ...formData, status: mobileTab }); setShowAddModal(true); }}
         >
-          <Ionicons name="add" size={28} color="#fff" />
+          <Ionicons name="add" size={24} color="#fff" />
         </TouchableOpacity>
 
         {/* Add Modal - same as desktop */}
@@ -1033,7 +1029,8 @@ export function TransferDetailScreen({ route, navigation }: any) {
             </View>
           </View>
         </Modal>
-      </SafeAreaView>
+        </View>
+      </View>
     );
   }
 
@@ -1424,6 +1421,43 @@ const styles = StyleSheet.create({
   reminderDropdownItemTextSelected: { color: '#fff' },
 
   // ==================== MOBILE STYLES ====================
+  mobileScreenOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  mobileScreenContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '90%',
+    flex: 1,
+  },
+  mobileScreenHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 4,
+  },
+  mobileScreenTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#1a1a1a',
+  },
+  mobileScreenClose: {
+    fontSize: 20,
+    color: '#64748b',
+  },
+  mobileScreenSubtitle: {
+    fontSize: 14,
+    color: '#64748b',
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
   mobileContainer: {
     flex: 1,
     backgroundColor: '#f8fafc',
@@ -1610,17 +1644,16 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 20,
     right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#1a1a1a',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.2,
     shadowRadius: 8,
-    elevation: 8,
   },
 
   // Mobile Modal

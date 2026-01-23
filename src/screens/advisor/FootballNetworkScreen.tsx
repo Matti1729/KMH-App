@@ -188,32 +188,26 @@ export function FootballNetworkScreen({ navigation }: any) {
         style={styles.mobileCard}
         onPress={() => handleContactClick(contact)}
       >
-        <View style={styles.mobileCardHeader}>
-          <View style={styles.mobileCardNameRow}>
-            {logoUrl && <Image source={{ uri: logoUrl }} style={styles.mobileCardClubLogo} />}
-            <View style={styles.mobileCardNameContainer}>
-              <Text style={styles.mobileCardName}>{formatName(contact)}</Text>
-              <Text style={styles.mobileCardClub}>{contact.verein || '-'}</Text>
-            </View>
-          </View>
-          <View style={styles.mobileCardBadgesRight}>
+        {/* Row 1: Name (left) | Position badges (right) */}
+        <View style={styles.mobileCardRow}>
+          <Text style={styles.mobileCardName}>{formatName(contact)}</Text>
+          <View style={styles.mobileCardBadgesRow}>
             {(contact.position || contact.mannschaft) && (
               <View style={styles.mobilePositionBadge}>
                 <Text style={styles.mobilePositionText}>{[contact.position, contact.mannschaft].filter(Boolean).join(' · ')}</Text>
               </View>
             )}
-            {contact.bereich && (
-              <View style={[styles.mobileBereichBadge, contact.bereich === 'Nachwuchs' && styles.mobileBereichBadgeNachwuchs]}>
-                <Text style={[styles.mobileBereichText, contact.bereich === 'Nachwuchs' && styles.mobileBereichTextNachwuchs]}>{contact.bereich}</Text>
-              </View>
-            )}
           </View>
         </View>
-        <View style={styles.mobileCardDetails}>
-          {contact.telefon && (
-            <View style={styles.mobileCardRow}>
-              <Text style={styles.mobileCardLabel}>Telefon</Text>
-              <Text style={styles.mobileCardValue}>{formatPhone(contact)}</Text>
+        {/* Row 2: Club with logo (left) | Bereich badge (right) */}
+        <View style={styles.mobileCardRow}>
+          <View style={styles.mobileCardClubRow}>
+            {logoUrl && <Image source={{ uri: logoUrl }} style={styles.mobileCardClubLogo} />}
+            <Text style={styles.mobileCardClub} numberOfLines={1}>{contact.verein || '-'}</Text>
+          </View>
+          {contact.bereich && (
+            <View style={[styles.mobileBereichBadge, contact.bereich === 'Nachwuchs' && styles.mobileBereichBadgeNachwuchs]}>
+              <Text style={[styles.mobileBereichText, contact.bereich === 'Nachwuchs' && styles.mobileBereichTextNachwuchs]}>{contact.bereich}</Text>
             </View>
           )}
         </View>
@@ -372,18 +366,18 @@ export function FootballNetworkScreen({ navigation }: any) {
 
         {/* Mobile Contact Detail Modal */}
         <Modal visible={showContactDetailModal} transparent animationType="slide">
-          <Pressable style={styles.modalOverlay} onPress={() => setShowContactDetailModal(false)}>
-            <Pressable style={styles.mobileDetailModal} onPress={(e) => e.stopPropagation()}>
+          <View style={styles.mobileModalOverlay}>
+            <View style={[styles.mobileModalContent, { maxHeight: '95%' }]}>
               {selectedContact && (
                 <>
                   <View style={styles.mobileDetailHeader}>
-                    <View style={styles.mobileDetailNameRow}>
-                      {getClubLogo(selectedContact.verein) && (
-                        <Image source={{ uri: getClubLogo(selectedContact.verein)! }} style={styles.mobileDetailLogo} />
-                      )}
-                      <View>
-                        <Text style={styles.mobileDetailName}>{formatName(selectedContact)}</Text>
-                        <Text style={styles.mobileDetailClub}>{selectedContact.verein || '-'}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.mobileDetailName}>{formatName(selectedContact)}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                        {getClubLogo(selectedContact.verein) && (
+                          <Image source={{ uri: getClubLogo(selectedContact.verein)! }} style={{ width: 18, height: 18, marginRight: 6 }} />
+                        )}
+                        <Text style={{ fontSize: 14, color: '#64748b' }}>{selectedContact.verein || '-'}</Text>
                       </View>
                     </View>
                     <TouchableOpacity onPress={() => setShowContactDetailModal(false)}>
@@ -392,41 +386,59 @@ export function FootballNetworkScreen({ navigation }: any) {
                   </View>
 
                   <ScrollView style={styles.mobileDetailContent}>
+                    {/* Bereich | Position | Mannschaft */}
                     <View style={styles.mobileDetailBox}>
-                      <Text style={styles.mobileDetailLabel}>Bereich</Text>
-                      {selectedContact.bereich ? (
-                        <View style={[styles.mobileBereichBadge, selectedContact.bereich === 'Nachwuchs' && styles.mobileBereichBadgeNachwuchs, { alignSelf: 'flex-start' }]}>
-                          <Text style={[styles.mobileBereichText, selectedContact.bereich === 'Nachwuchs' && styles.mobileBereichTextNachwuchs]}>{selectedContact.bereich}</Text>
+                      <View style={{ flexDirection: 'row', gap: 16 }}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.mobileDetailLabel}>Bereich</Text>
+                          {selectedContact.bereich ? (
+                            <View style={[styles.mobileBereichBadge, selectedContact.bereich === 'Nachwuchs' && styles.mobileBereichBadgeNachwuchs, { alignSelf: 'flex-start' }]}>
+                              <Text style={[styles.mobileBereichText, selectedContact.bereich === 'Nachwuchs' && styles.mobileBereichTextNachwuchs]}>{selectedContact.bereich}</Text>
+                            </View>
+                          ) : <Text style={styles.mobileDetailValue}>-</Text>}
                         </View>
-                      ) : <Text style={styles.mobileDetailValue}>-</Text>}
-                    </View>
-
-                    <View style={styles.mobileDetailBox}>
-                      <Text style={styles.mobileDetailLabel}>Position</Text>
-                      {(selectedContact.position || selectedContact.mannschaft) ? (
-                        <View style={[styles.mobilePositionBadge, { alignSelf: 'flex-start' }]}>
-                          <Text style={styles.mobilePositionText}>{[selectedContact.position, selectedContact.mannschaft].filter(Boolean).join(' · ')}</Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.mobileDetailLabel}>Position</Text>
+                          {selectedContact.position ? (
+                            <View style={[styles.mobilePositionBadge, { alignSelf: 'flex-start' }]}>
+                              <Text style={styles.mobilePositionText}>{selectedContact.position}</Text>
+                            </View>
+                          ) : <Text style={styles.mobileDetailValue}>-</Text>}
                         </View>
-                      ) : <Text style={styles.mobileDetailValue}>-</Text>}
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.mobileDetailLabel}>Mannschaft</Text>
+                          {selectedContact.mannschaft ? (
+                            <View style={[styles.mobilePositionBadge, { alignSelf: 'flex-start' }]}>
+                              <Text style={styles.mobilePositionText}>{selectedContact.mannschaft}</Text>
+                            </View>
+                          ) : <Text style={styles.mobileDetailValue}>-</Text>}
+                        </View>
+                      </View>
                     </View>
 
+                    {/* Telefon | E-Mail */}
                     <View style={styles.mobileDetailBox}>
-                      <Text style={styles.mobileDetailLabel}>Telefon</Text>
-                      <Text style={styles.mobileDetailValue}>{formatPhone(selectedContact)}</Text>
+                      <View style={{ flexDirection: 'row', gap: 16 }}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.mobileDetailLabel}>Telefon</Text>
+                          <Text style={styles.mobileDetailValue}>{formatPhone(selectedContact)}</Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.mobileDetailLabel}>E-Mail</Text>
+                          <Text style={[styles.mobileDetailValue, selectedContact.email && { color: '#3b82f6' }]} numberOfLines={1}>{selectedContact.email || '-'}</Text>
+                        </View>
+                      </View>
                     </View>
 
-                    <View style={styles.mobileDetailBox}>
-                      <Text style={styles.mobileDetailLabel}>E-Mail</Text>
-                      <Text style={[styles.mobileDetailValue, selectedContact.email && { color: '#3b82f6' }]}>{selectedContact.email || '-'}</Text>
-                    </View>
-
+                    {/* Liga */}
                     <View style={styles.mobileDetailBox}>
                       <Text style={styles.mobileDetailLabel}>Liga (Zugehörigkeit 1. Mannschaft)</Text>
                       <Text style={styles.mobileDetailValue}>{selectedContact.liga || '-'}</Text>
                     </View>
 
+                    {/* Weitere Informationen */}
                     {selectedContact.notes && (
-                      <View style={styles.mobileDetailBox}>
+                      <View style={[styles.mobileDetailBox, { marginBottom: 0 }]}>
                         <Text style={styles.mobileDetailLabel}>Weitere Informationen</Text>
                         <Text style={styles.mobileDetailValue}>{selectedContact.notes}</Text>
                       </View>
@@ -440,8 +452,8 @@ export function FootballNetworkScreen({ navigation }: any) {
                   </View>
                 </>
               )}
-            </Pressable>
-          </Pressable>
+            </View>
+          </View>
         </Modal>
 
         {/* Add/Edit Modal for Mobile */}
@@ -1116,30 +1128,24 @@ const styles = StyleSheet.create({
 
   // Mobile Card List
   mobileCardList: { flex: 1 },
-  mobileCardListContent: { padding: 16, gap: 12 },
+  mobileCardListContent: { padding: 16 },
 
-  // Mobile Card
-  mobileCard: { backgroundColor: '#fff', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#e2e8f0' },
-  mobileCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
-  mobileCardNameRow: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  mobileCardClubLogo: { width: 32, height: 32, borderRadius: 6, marginRight: 10 },
-  mobileCardNameContainer: { flex: 1 },
-  mobileCardName: { fontSize: 15, fontWeight: '600', color: '#1a1a1a' },
-  mobileCardClub: { fontSize: 12, color: '#64748b', marginTop: 2 },
-  mobileCardBadges: { flexDirection: 'row', gap: 6 },
-  mobileCardBadgesRight: { alignItems: 'flex-end', gap: 4 },
-  mobileCardDetails: { gap: 8 },
-  mobileCardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  mobileCardLabel: { fontSize: 12, color: '#94a3b8' },
-  mobileCardValue: { fontSize: 13, color: '#1a1a1a', fontWeight: '500' },
+  // Mobile Card (matching Scouting style)
+  mobileCard: { backgroundColor: '#fff', borderRadius: 10, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: '#e2e8f0' },
+  mobileCardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  mobileCardName: { fontSize: 15, fontWeight: '600', color: '#1a1a1a', flex: 1 },
+  mobileCardClubRow: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  mobileCardClubLogo: { width: 18, height: 18, marginRight: 6 },
+  mobileCardClub: { fontSize: 13, color: '#64748b', flex: 1 },
+  mobileCardBadgesRow: { flexDirection: 'row', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' },
 
-  // Mobile Badges
-  mobileBereichBadge: { backgroundColor: '#f0fdf4', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4 },
-  mobileBereichBadgeNachwuchs: { backgroundColor: '#fef3c7' },
-  mobileBereichText: { fontSize: 10, fontWeight: '600', color: '#166534' },
+  // Mobile Badges (matching Scouting style with borders)
+  mobileBereichBadge: { backgroundColor: '#f0fdf4', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 4, borderWidth: 1, borderColor: '#bbf7d0' },
+  mobileBereichBadgeNachwuchs: { backgroundColor: '#fef3c7', borderColor: '#fde68a' },
+  mobileBereichText: { fontSize: 10, fontWeight: '500', color: '#166534' },
   mobileBereichTextNachwuchs: { color: '#92400e' },
-  mobilePositionBadge: { backgroundColor: '#e0f2fe', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4 },
-  mobilePositionText: { fontSize: 10, fontWeight: '600', color: '#0369a1' },
+  mobilePositionBadge: { backgroundColor: '#e0f2fe', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 4, borderWidth: 1, borderColor: '#bae6fd' },
+  mobilePositionText: { fontSize: 10, fontWeight: '500', color: '#0369a1' },
 
   // FAB
   fab: { position: 'absolute', bottom: 20, right: 20, width: 44, height: 44, borderRadius: 22, backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
@@ -1163,23 +1169,24 @@ const styles = StyleSheet.create({
   mobileFilterApplyButton: { flex: 1, paddingVertical: 14, borderRadius: 8, backgroundColor: '#1a1a1a', alignItems: 'center' },
   mobileFilterApplyText: { fontSize: 14, color: '#fff', fontWeight: '600' },
 
-  // Mobile Detail Modal
-  mobileDetailModal: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '90%', marginTop: 'auto' },
-  mobileDetailHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 20, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  // Mobile Detail Modal (matching Scouting sizes)
+  mobileModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  mobileModalContent: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '90%' },
+  mobileDetailHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
   mobileDetailNameRow: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   mobileDetailLogo: { width: 40, height: 40, borderRadius: 8, marginRight: 12 },
-  mobileDetailName: { fontSize: 18, fontWeight: '700', color: '#1a1a1a' },
+  mobileDetailName: { fontSize: 17, fontWeight: '600', color: '#1a1a1a' },
   mobileDetailClub: { fontSize: 13, color: '#64748b', marginTop: 2 },
-  mobileDetailClose: { fontSize: 24, color: '#64748b', padding: 4 },
-  mobileDetailContent: { padding: 20 },
+  mobileDetailClose: { fontSize: 20, color: '#64748b' },
+  mobileDetailContent: { paddingHorizontal: 20, paddingVertical: 16 },
   mobileDetailBox: { backgroundColor: '#f8fafc', borderRadius: 12, padding: 14, marginBottom: 12 },
   mobileDetailLabel: { fontSize: 11, color: '#94a3b8', marginBottom: 4 },
   mobileDetailValue: { fontSize: 13, color: '#1a1a1a' },
-  mobileDetailFooter: { flexDirection: 'row', gap: 12, padding: 20, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
-  mobileDeleteButton: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca' },
-  mobileDeleteText: { fontSize: 14, color: '#ef4444', fontWeight: '600' },
-  mobileEditButton: { flex: 1, paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center' },
-  mobileEditText: { fontSize: 14, color: '#1a1a1a', fontWeight: '600' },
+  mobileDetailFooter: { flexDirection: 'row', justifyContent: 'flex-end', padding: 16, gap: 10, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
+  mobileDeleteButton: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#fee2e2', borderWidth: 1, borderColor: '#fecaca', alignItems: 'center' },
+  mobileDeleteText: { fontSize: 14, color: '#dc2626', fontWeight: '600' },
+  mobileEditButton: { paddingVertical: 12, paddingHorizontal: 24, borderRadius: 10, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#64748b', alignItems: 'center' },
+  mobileEditText: { fontSize: 16, color: '#64748b', fontWeight: '600' },
 
   // Mobile Form Modal
   mobileFormModal: { backgroundColor: '#fff', borderRadius: 16, padding: 20, width: '95%', maxHeight: '95%' },
