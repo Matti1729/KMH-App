@@ -1115,6 +1115,14 @@ export function TermineScreen({ navigation }: any) {
 
             <View style={{ flex: 1 }} />
 
+            {/* Alle auswählen / abwählen */}
+            <TouchableOpacity
+              style={[styles.mobileGamesIconBtn, areAllFilteredSelected() && styles.mobileGamesToolbarBtnActive]}
+              onPress={toggleSelectAllFiltered}
+            >
+              <Ionicons name={areAllFilteredSelected() ? "checkbox" : "checkbox-outline"} size={18} color={areAllFilteredSelected() ? "#fff" : "#64748b"} />
+            </TouchableOpacity>
+
             <TouchableOpacity
               style={[styles.mobileGamesIconBtn, activeFilterCount > 0 && styles.mobileGamesToolbarBtnActive]}
               onPress={() => setShowPlayerDropdown(true)}
@@ -1234,7 +1242,12 @@ export function TermineScreen({ navigation }: any) {
                 const awayLogo = getClubLogo(game.away_team);
 
                 return (
-                  <View key={game.id} style={[styles.mobileGameCard, isToday && styles.mobileGameCardToday]}>
+                  <TouchableOpacity
+                    key={game.id}
+                    style={[styles.mobileGameCard, isToday && styles.mobileGameCardToday]}
+                    onPress={() => toggleGameSelection(game.id, game.selected)}
+                    activeOpacity={0.7}
+                  >
                     {/* Header: Mannschaft • Art + Datum */}
                     <View style={styles.mobileGameCardHeader}>
                       <Text style={styles.mobileGameCardLeague}>{ageCategory} • {gameArt}</Text>
@@ -1252,16 +1265,26 @@ export function TermineScreen({ navigation }: any) {
                       <Text style={styles.mobileGameCardTeamName} numberOfLines={1}>{awayTeam}</Text>
                     </View>
 
-                    {/* Players */}
+                    {/* Players + Checkbox */}
                     <View style={styles.mobileGameCardPlayers}>
                       <Text style={styles.mobileGameCardPlayersLabel}>👤</Text>
                       <Text style={styles.mobileGameCardPlayersText}>{playerNames}</Text>
+                      <View style={[styles.mobileGameCardCheckbox, game.selected && styles.mobileGameCardCheckboxSelected]}>
+                        {game.selected && <Text style={styles.mobileGameCardCheckmark}>✓</Text>}
+                      </View>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 );
               })
             )}
           </ScrollView>
+
+          {/* Floating Export Button */}
+          {getSelectedGamesCount() > 0 && (
+            <TouchableOpacity style={styles.mobileGamesFloatingExport} onPress={exportSelectedToCalendar}>
+              <Text style={styles.mobileGamesFloatingExportText}>📅 {getSelectedGamesCount()}</Text>
+            </TouchableOpacity>
+          )}
         </View>
       );
     }
@@ -2289,6 +2312,7 @@ const styles = StyleSheet.create({
   mobileGamesContainer: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+    position: 'relative',
   },
   mobileGamesToolbar: {
     flexDirection: 'row',
@@ -2341,6 +2365,27 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     marginLeft: 4,
+  },
+  mobileGamesFloatingExport: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    height: 44,
+    paddingHorizontal: 16,
+    borderRadius: 22,
+    backgroundColor: '#10b981',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  mobileGamesFloatingExportText: {
+    fontSize: 15,
+    color: '#fff',
+    fontWeight: '600',
   },
   mobileGamesFilterModal: {
     flex: 1,
@@ -2516,6 +2561,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#1a1a1a',
     fontWeight: '500',
+  },
+  mobileGameCardCheckbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  mobileGameCardCheckboxSelected: {
+    backgroundColor: '#10b981',
+    borderColor: '#10b981',
+  },
+  mobileGameCardCheckmark: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
   },
   mobileGameCardMatch: {
     flexDirection: 'row',
