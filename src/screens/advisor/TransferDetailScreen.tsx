@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal,
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../config/supabase';
 import { useIsMobile } from '../../hooks/useIsMobile';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const TRANSFER_STATUS = [
   { id: 'ideen', label: 'IDEEN', color: '#64748b' },
@@ -98,6 +99,7 @@ type MobileTab = 'ideen' | 'offen' | 'absage';
 export function TransferDetailScreen({ route, navigation }: any) {
   const { playerId, highlightClub } = route.params;
   const isMobile = useIsMobile();
+  const { colors, isDark } = useTheme();
   const [player, setPlayer] = useState<Player | null>(null);
   const [clubs, setClubs] = useState<TransferClub[]>([]);
   const [clubLogos, setClubLogos] = useState<Record<string, string>>({});
@@ -158,6 +160,16 @@ export function TransferDetailScreen({ route, navigation }: any) {
     fetchClubs();
     fetchClubLogos();
   }, []);
+
+  // Auto-switch to correct tab when highlightClub is provided
+  useEffect(() => {
+    if (highlightClub && clubs.length > 0) {
+      const club = clubs.find(c => c.club_name === highlightClub);
+      if (club) {
+        setMobileTab(club.status as MobileTab);
+      }
+    }
+  }, [highlightClub, clubs]);
 
   const fetchPlayer = async () => {
     const { data } = await supabase
@@ -424,33 +436,33 @@ export function TransferDetailScreen({ route, navigation }: any) {
           draggable
           onDragStart={() => handleDragStart(club)}
           onDragEnd={() => { setDraggedClub(null); setDropTarget(null); }}
-          style={{ 
+          style={{
             cursor: 'grab',
             opacity: draggedClub?.id === club.id ? 0.5 : 1,
           }}
         >
-          <TouchableOpacity style={[styles.clubCard, isHighlighted && styles.clubCardHighlighted]} onPress={() => openEditModal(club)}>
+          <TouchableOpacity style={[styles.clubCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }, isHighlighted && styles.clubCardHighlighted]} onPress={() => openEditModal(club)}>
             {renderReminderBadge()}
             <View style={styles.clubCardHeader}>
               {logo && (
                 <Image source={{ uri: logo }} style={styles.clubLogo} />
               )}
-              <Text style={styles.clubName}>{club.club_name}</Text>
+              <Text style={[styles.clubName, { color: colors.text }]}>{club.club_name}</Text>
             </View>
             {club.advisor_name && (
               <View style={styles.clubCardRow}>
                 <Text style={styles.clubCardIcon}>👤</Text>
-                <Text style={styles.clubCardText}>{club.advisor_name}</Text>
+                <Text style={[styles.clubCardText, { color: colors.textSecondary }]}>{club.advisor_name}</Text>
               </View>
             )}
             {club.last_contact && (
               <View style={styles.clubCardRow}>
                 <Text style={styles.clubCardIcon}>🕐</Text>
-                <Text style={styles.clubCardText}>Letzter Kontakt: {formatDate(club.last_contact)}</Text>
+                <Text style={[styles.clubCardText, { color: colors.textSecondary }]}>Letzter Kontakt: {formatDate(club.last_contact)}</Text>
               </View>
             )}
             {club.notes && (
-              <Text style={styles.clubNotes}>"{club.notes}"</Text>
+              <Text style={[styles.clubNotes, { color: colors.textSecondary, borderTopColor: colors.border }]}>"{club.notes}"</Text>
             )}
           </TouchableOpacity>
         </div>
@@ -458,28 +470,28 @@ export function TransferDetailScreen({ route, navigation }: any) {
     }
 
     return (
-      <TouchableOpacity key={club.id} style={[styles.clubCard, isHighlighted && styles.clubCardHighlighted]} onPress={() => openEditModal(club)}>
+      <TouchableOpacity key={club.id} style={[styles.clubCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }, isHighlighted && styles.clubCardHighlighted]} onPress={() => openEditModal(club)}>
         {renderReminderBadge()}
         <View style={styles.clubCardHeader}>
           {logo && (
             <Image source={{ uri: logo }} style={styles.clubLogo} />
           )}
-          <Text style={styles.clubName}>{club.club_name}</Text>
+          <Text style={[styles.clubName, { color: colors.text }]}>{club.club_name}</Text>
         </View>
         {club.advisor_name && (
           <View style={styles.clubCardRow}>
             <Text style={styles.clubCardIcon}>👤</Text>
-            <Text style={styles.clubCardText}>{club.advisor_name}</Text>
+            <Text style={[styles.clubCardText, { color: colors.textSecondary }]}>{club.advisor_name}</Text>
           </View>
         )}
         {club.last_contact && (
           <View style={styles.clubCardRow}>
             <Text style={styles.clubCardIcon}>🕐</Text>
-            <Text style={styles.clubCardText}>Letzter Kontakt: {formatDate(club.last_contact)}</Text>
+            <Text style={[styles.clubCardText, { color: colors.textSecondary }]}>Letzter Kontakt: {formatDate(club.last_contact)}</Text>
           </View>
         )}
         {club.notes && (
-          <Text style={styles.clubNotes}>"{club.notes}"</Text>
+          <Text style={[styles.clubNotes, { color: colors.textSecondary, borderTopColor: colors.border }]}>"{club.notes}"</Text>
         )}
       </TouchableOpacity>
     );
@@ -498,10 +510,10 @@ export function TransferDetailScreen({ route, navigation }: any) {
           onDrop={(e) => handleDrop(e, status.id)}
           style={{
             flex: 1,
-            backgroundColor: '#f8fafc',
+            backgroundColor: colors.surfaceSecondary,
             borderRadius: 10,
             padding: 10,
-            border: isDropTarget ? '2px dashed #3b82f6' : '1px solid #e2e8f0',
+            border: isDropTarget ? '2px dashed #3b82f6' : `1px solid ${colors.border}`,
             transition: 'background-color 0.2s',
             display: 'flex',
             flexDirection: 'column',
@@ -509,14 +521,14 @@ export function TransferDetailScreen({ route, navigation }: any) {
           }}
         >
           <View style={styles.kanbanHeader}>
-            <Text style={styles.kanbanTitle}>{status.label}</Text>
+            <Text style={[styles.kanbanTitle, { color: colors.textSecondary }]}>{status.label}</Text>
             <View style={[styles.countBadge, { backgroundColor: status.color }]}>
               <Text style={styles.countText}>{columnClubs.length}</Text>
             </View>
           </View>
           <div style={{ flex: 1, overflowY: 'auto', paddingRight: 4 }}>
             {columnClubs.length === 0 ? (
-              <Text style={styles.emptyColumn}>Leer</Text>
+              <Text style={[styles.emptyColumn, { color: colors.textMuted }]}>Leer</Text>
             ) : (
               columnClubs.map(club => renderClubCard(club))
             )}
@@ -526,16 +538,16 @@ export function TransferDetailScreen({ route, navigation }: any) {
     }
 
     return (
-      <View key={status.id} style={[styles.kanbanColumn, isDropTarget && styles.kanbanColumnDropTarget]}>
+      <View key={status.id} style={[styles.kanbanColumn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, isDropTarget && styles.kanbanColumnDropTarget]}>
         <View style={styles.kanbanHeader}>
-          <Text style={styles.kanbanTitle}>{status.label}</Text>
+          <Text style={[styles.kanbanTitle, { color: colors.textSecondary }]}>{status.label}</Text>
           <View style={[styles.countBadge, { backgroundColor: status.color }]}>
             <Text style={styles.countText}>{columnClubs.length}</Text>
           </View>
         </View>
         <ScrollView style={styles.kanbanContent} showsVerticalScrollIndicator={false}>
           {columnClubs.length === 0 ? (
-            <Text style={styles.emptyColumn}>Leer</Text>
+            <Text style={[styles.emptyColumn, { color: colors.textMuted }]}>Leer</Text>
           ) : (
             columnClubs.map(club => renderClubCard(club))
           )}
@@ -545,31 +557,31 @@ export function TransferDetailScreen({ route, navigation }: any) {
   };
 
   const renderListView = () => (
-    <View style={styles.tableContainer}>
-      <View style={styles.tableHeader}>
-        <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Verein</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 1.2 }]}>Ansprechpartner</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Letzter Kontakt</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Status</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Notiz</Text>
+    <View style={[styles.tableContainer, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+      <View style={[styles.tableHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+        <Text style={[styles.tableHeaderCell, { flex: 2, color: colors.textSecondary }]}>Verein</Text>
+        <Text style={[styles.tableHeaderCell, { flex: 1.2, color: colors.textSecondary }]}>Ansprechpartner</Text>
+        <Text style={[styles.tableHeaderCell, { flex: 1, color: colors.textSecondary }]}>Letzter Kontakt</Text>
+        <Text style={[styles.tableHeaderCell, { flex: 1, color: colors.textSecondary }]}>Status</Text>
+        <Text style={[styles.tableHeaderCell, { flex: 2, color: colors.textSecondary }]}>Notiz</Text>
       </View>
       <ScrollView>
         {clubs.map(club => (
-          <TouchableOpacity key={club.id} style={styles.tableRow} onPress={() => openEditModal(club)}>
+          <TouchableOpacity key={club.id} style={[styles.tableRow, { borderBottomColor: colors.border }]} onPress={() => openEditModal(club)}>
             <View style={[styles.tableCell, { flex: 2, flexDirection: 'row', alignItems: 'center' }]}>
               {getClubLogo(club.club_name) && (
                 <Image source={{ uri: getClubLogo(club.club_name)! }} style={styles.tableLogo} />
               )}
-              <Text style={styles.tableCellText}>{club.club_name}</Text>
+              <Text style={[styles.tableCellText, { color: colors.text }]}>{club.club_name}</Text>
             </View>
-            <Text style={[styles.tableCell, { flex: 1.2 }]}>{club.advisor_name || '-'}</Text>
-            <Text style={[styles.tableCell, { flex: 1 }]}>{club.last_contact ? formatDate(club.last_contact) : '-'}</Text>
+            <Text style={[styles.tableCell, { flex: 1.2, color: colors.text }]}>{club.advisor_name || '-'}</Text>
+            <Text style={[styles.tableCell, { flex: 1, color: colors.text }]}>{club.last_contact ? formatDate(club.last_contact) : '-'}</Text>
             <View style={[styles.tableCell, { flex: 1 }]}>
               <View style={[styles.statusBadge, { backgroundColor: TRANSFER_STATUS.find(s => s.id === club.status)?.color }]}>
                 <Text style={styles.statusBadgeText}>{TRANSFER_STATUS.find(s => s.id === club.status)?.label}</Text>
               </View>
             </View>
-            <Text style={[styles.tableCell, { flex: 2 }]} numberOfLines={1}>{club.notes || '-'}</Text>
+            <Text style={[styles.tableCell, { flex: 2, color: colors.text }]} numberOfLines={1}>{club.notes || '-'}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -609,34 +621,34 @@ export function TransferDetailScreen({ route, navigation }: any) {
     return (
       <Pressable onPress={() => closeAllDropdowns()}>
         <View style={[styles.formRow, { zIndex: 300 }]}>
-          <Text style={styles.formLabel}>Verein *</Text>
+          <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Verein *</Text>
           <View style={styles.autocompleteContainer}>
-            <TouchableOpacity 
-              style={styles.clubDropdownButton}
+            <TouchableOpacity
+              style={[styles.clubDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
               onPress={() => { closeAllDropdowns(); setShowClubSuggestions(!showClubSuggestions); }}
             >
-              <Text style={[styles.clubDropdownText, !formData.club_name && { color: '#999' }]}>
+              <Text style={[styles.clubDropdownText, { color: colors.text }, !formData.club_name && { color: colors.textMuted }]}>
                 {formData.club_name || 'Verein auswählen...'}
               </Text>
-              <Text style={styles.clubDropdownArrow}>▼</Text>
+              <Text style={[styles.clubDropdownArrow, { color: colors.textSecondary }]}>▼</Text>
             </TouchableOpacity>
             {showClubSuggestions && (
-              <Pressable style={styles.clubSuggestionsList} onPress={(e) => e.stopPropagation()}>
+              <Pressable style={[styles.clubSuggestionsList, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
                 <TextInput
-                  style={styles.clubSearchInput}
+                  style={[styles.clubSearchInput, { backgroundColor: colors.inputBackground, borderBottomColor: colors.border, color: colors.text }]}
                   value={clubSearch}
                   onChangeText={(text) => {
                     setClubSearch(text);
                   }}
                   placeholder="Suchen oder eigenen Namen eingeben..."
-                  placeholderTextColor="#999"
+                  placeholderTextColor={colors.textMuted}
                   autoFocus
                 />
                 <ScrollView style={styles.clubSuggestionsScroll} nestedScrollEnabled keyboardShouldPersistTaps="handled">
                   {/* Option für eigenen Namen wenn Text eingegeben */}
                   {clubSearch.length >= 2 && !allClubNames.some(n => n.toLowerCase() === clubSearch.toLowerCase()) && (
                     <TouchableOpacity
-                      style={[styles.clubSuggestionItem, styles.clubSuggestionItemCustom]}
+                      style={[styles.clubSuggestionItem, styles.clubSuggestionItemCustom, { borderBottomColor: colors.border }]}
                       onPress={() => {
                         setFormData({ ...formData, club_name: clubSearch });
                         setClubSearch('');
@@ -649,14 +661,14 @@ export function TransferDetailScreen({ route, navigation }: any) {
                   {(clubSearch.length >= 2 ? filteredClubs : allClubNames.slice(0, 15)).map(name => (
                     <TouchableOpacity
                       key={name}
-                      style={[styles.clubSuggestionItem, formData.club_name === name && styles.clubSuggestionItemSelected]}
+                      style={[styles.clubSuggestionItem, { borderBottomColor: colors.border }, formData.club_name === name && styles.clubSuggestionItemSelected]}
                       onPress={() => {
                         setFormData({ ...formData, club_name: name });
                         setClubSearch('');
                         setShowClubSuggestions(false);
                       }}
                     >
-                      <Text style={[styles.clubSuggestionText, formData.club_name === name && styles.clubSuggestionTextSelected]}>{name}</Text>
+                      <Text style={[styles.clubSuggestionText, { color: colors.text }, formData.club_name === name && styles.clubSuggestionTextSelected]}>{name}</Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -666,15 +678,15 @@ export function TransferDetailScreen({ route, navigation }: any) {
         </View>
 
         <View style={styles.formRow}>
-          <Text style={styles.formLabel}>Status</Text>
+          <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Status</Text>
           <View style={styles.statusSelector}>
             {TRANSFER_STATUS.map(status => (
               <TouchableOpacity
                 key={status.id}
-                style={[styles.statusOption, formData.status === status.id && { backgroundColor: status.color }]}
+                style={[styles.statusOption, { backgroundColor: colors.surfaceSecondary }, formData.status === status.id && { backgroundColor: status.color }]}
                 onPress={() => { setFormData({ ...formData, status: status.id }); closeAllDropdowns(); }}
               >
-                <Text style={[styles.statusOptionText, formData.status === status.id && { color: '#fff' }]}>
+                <Text style={[styles.statusOptionText, { color: colors.textSecondary }, formData.status === status.id && { color: '#fff' }]}>
                   {status.label}
                 </Text>
               </TouchableOpacity>
@@ -683,42 +695,42 @@ export function TransferDetailScreen({ route, navigation }: any) {
         </View>
 
         <View style={styles.formRow}>
-          <Text style={styles.formLabel}>Ansprechpartner</Text>
+          <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Ansprechpartner</Text>
           <TextInput
-            style={styles.formInput}
+            style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
             value={formData.advisor_name}
             onChangeText={(text) => setFormData({ ...formData, advisor_name: text })}
             onFocus={() => closeAllDropdowns()}
             placeholder="z.B. Sportdirektor Max Müller"
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.textMuted}
           />
         </View>
 
         <View style={[styles.formRow, { zIndex: 200 }]}>
-          <Text style={styles.formLabel}>Letzter Kontakt</Text>
+          <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Letzter Kontakt</Text>
           <View style={styles.datePickerRow}>
             {/* Day Picker */}
             <View style={[styles.datePickerFieldSmall, { zIndex: showDayPicker ? 210 : 1 }]}>
-              <TouchableOpacity 
-                style={styles.dateDropdownButton} 
+              <TouchableOpacity
+                style={[styles.dateDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                 onPress={() => { closeAllDropdowns(); setShowDayPicker(!showDayPicker); }}
               >
-                <Text style={[styles.dateDropdownText, !displayDay && { color: '#999' }]}>{displayDay || 'Tag'}</Text>
-                <Text style={styles.dateDropdownArrow}>▼</Text>
+                <Text style={[styles.dateDropdownText, { color: colors.text }, !displayDay && { color: colors.textMuted }]}>{displayDay || 'Tag'}</Text>
+                <Text style={[styles.dateDropdownArrow, { color: colors.textSecondary }]}>▼</Text>
               </TouchableOpacity>
               {showDayPicker && (
-                <View style={styles.datePickerList}>
+                <View style={[styles.datePickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <ScrollView style={styles.datePickerScroll} nestedScrollEnabled>
                     {DAYS.map((d) => (
-                      <TouchableOpacity 
-                        key={d} 
-                        style={[styles.datePickerItem, displayDay === d && styles.datePickerItemSelected]} 
-                        onPress={() => { 
+                      <TouchableOpacity
+                        key={d}
+                        style={[styles.datePickerItem, { borderBottomColor: colors.border }, displayDay === d && styles.datePickerItemSelected]}
+                        onPress={() => {
                           updateDatePart('day', d);
                           setShowDayPicker(false);
                         }}
                       >
-                        <Text style={[styles.datePickerItemText, displayDay === d && styles.datePickerItemTextSelected]}>{d}</Text>
+                        <Text style={[styles.datePickerItemText, { color: colors.text }, displayDay === d && styles.datePickerItemTextSelected]}>{d}</Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -728,26 +740,26 @@ export function TransferDetailScreen({ route, navigation }: any) {
 
             {/* Month Picker */}
             <View style={[styles.datePickerFieldMedium, { zIndex: showMonthPicker ? 210 : 1 }]}>
-              <TouchableOpacity 
-                style={styles.dateDropdownButton} 
+              <TouchableOpacity
+                style={[styles.dateDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                 onPress={() => { closeAllDropdowns(); setShowMonthPicker(!showMonthPicker); }}
               >
-                <Text style={[styles.dateDropdownText, displayMonth === null && { color: '#999' }]}>{displayMonth !== null ? MONTHS[displayMonth] : 'Monat'}</Text>
-                <Text style={styles.dateDropdownArrow}>▼</Text>
+                <Text style={[styles.dateDropdownText, { color: colors.text }, displayMonth === null && { color: colors.textMuted }]}>{displayMonth !== null ? MONTHS[displayMonth] : 'Monat'}</Text>
+                <Text style={[styles.dateDropdownArrow, { color: colors.textSecondary }]}>▼</Text>
               </TouchableOpacity>
               {showMonthPicker && (
-                <View style={[styles.datePickerList, { minWidth: 110 }]}>
+                <View style={[styles.datePickerList, { minWidth: 110, backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <ScrollView style={styles.datePickerScroll} nestedScrollEnabled>
                     {MONTHS.map((m, idx) => (
-                      <TouchableOpacity 
-                        key={m} 
-                        style={[styles.datePickerItem, displayMonth === idx && styles.datePickerItemSelected]} 
-                        onPress={() => { 
+                      <TouchableOpacity
+                        key={m}
+                        style={[styles.datePickerItem, { borderBottomColor: colors.border }, displayMonth === idx && styles.datePickerItemSelected]}
+                        onPress={() => {
                           updateDatePart('month', idx);
                           setShowMonthPicker(false);
                         }}
                       >
-                        <Text style={[styles.datePickerItemText, displayMonth === idx && styles.datePickerItemTextSelected]}>{m}</Text>
+                        <Text style={[styles.datePickerItemText, { color: colors.text }, displayMonth === idx && styles.datePickerItemTextSelected]}>{m}</Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -757,26 +769,26 @@ export function TransferDetailScreen({ route, navigation }: any) {
 
             {/* Year Picker */}
             <View style={[styles.datePickerFieldSmall, { zIndex: showYearPicker ? 210 : 1 }]}>
-              <TouchableOpacity 
-                style={styles.dateDropdownButton} 
+              <TouchableOpacity
+                style={[styles.dateDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                 onPress={() => { closeAllDropdowns(); setShowYearPicker(!showYearPicker); }}
               >
-                <Text style={[styles.dateDropdownText, !displayYear && { color: '#999' }]}>{displayYear || 'Jahr'}</Text>
-                <Text style={styles.dateDropdownArrow}>▼</Text>
+                <Text style={[styles.dateDropdownText, { color: colors.text }, !displayYear && { color: colors.textMuted }]}>{displayYear || 'Jahr'}</Text>
+                <Text style={[styles.dateDropdownArrow, { color: colors.textSecondary }]}>▼</Text>
               </TouchableOpacity>
               {showYearPicker && (
-                <View style={styles.datePickerList}>
+                <View style={[styles.datePickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <ScrollView style={styles.datePickerScroll} nestedScrollEnabled>
                     {YEARS.map((y) => (
-                      <TouchableOpacity 
-                        key={y} 
-                        style={[styles.datePickerItem, displayYear === y && styles.datePickerItemSelected]} 
-                        onPress={() => { 
+                      <TouchableOpacity
+                        key={y}
+                        style={[styles.datePickerItem, { borderBottomColor: colors.border }, displayYear === y && styles.datePickerItemSelected]}
+                        onPress={() => {
                           updateDatePart('year', y);
                           setShowYearPicker(false);
                         }}
                       >
-                        <Text style={[styles.datePickerItemText, displayYear === y && styles.datePickerItemTextSelected]}>{y}</Text>
+                        <Text style={[styles.datePickerItemText, { color: colors.text }, displayYear === y && styles.datePickerItemTextSelected]}>{y}</Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -787,11 +799,11 @@ export function TransferDetailScreen({ route, navigation }: any) {
         </View>
 
         <View style={[styles.formRow, { zIndex: 50 }]}>
-          <Text style={styles.formLabel}>Erinnerung in</Text>
+          <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Erinnerung in</Text>
           <View style={{ position: 'relative' }}>
-            <TouchableOpacity 
-              style={styles.reminderDropdownButton}
-              onPress={() => { 
+            <TouchableOpacity
+              style={[styles.reminderDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
+              onPress={() => {
                 setShowReminderPicker(!showReminderPicker);
                 setShowDayPicker(false);
                 setShowMonthPicker(false);
@@ -799,24 +811,25 @@ export function TransferDetailScreen({ route, navigation }: any) {
                 setShowClubSuggestions(false);
               }}
             >
-              <Text style={styles.reminderDropdownText}>
-                {formData.reminder_days === -1 
-                  ? 'Keine Erinnerung' 
-                  : formData.reminder_days === 0 
+              <Text style={[styles.reminderDropdownText, { color: colors.text }]}>
+                {formData.reminder_days === -1
+                  ? 'Keine Erinnerung'
+                  : formData.reminder_days === 0
                     ? 'Heute'
                     : `${formData.reminder_days} Tage`
                 }
               </Text>
-              <Text>▼</Text>
+              <Text style={{ color: colors.textSecondary }}>▼</Text>
             </TouchableOpacity>
             {showReminderPicker && (
-              <View style={styles.reminderDropdownList}>
+              <View style={[styles.reminderDropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
                   {REMINDER_OPTIONS.map(option => (
                     <TouchableOpacity
                       key={option.value}
                       style={[
                         styles.reminderDropdownItem,
+                        { borderBottomColor: colors.border },
                         formData.reminder_days === option.value && styles.reminderDropdownItemSelected
                       ]}
                       onPress={() => {
@@ -826,6 +839,7 @@ export function TransferDetailScreen({ route, navigation }: any) {
                     >
                       <Text style={[
                         styles.reminderDropdownItemText,
+                        { color: colors.text },
                         formData.reminder_days === option.value && styles.reminderDropdownItemTextSelected
                       ]}>
                         {option.label}
@@ -839,14 +853,14 @@ export function TransferDetailScreen({ route, navigation }: any) {
         </View>
 
         <View style={styles.formRow}>
-          <Text style={styles.formLabel}>Notizen</Text>
+          <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Notizen</Text>
           <TextInput
-            style={[styles.formInput, styles.formTextArea]}
+            style={[styles.formInput, styles.formTextArea, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
             value={formData.notes}
             onChangeText={(text) => setFormData({ ...formData, notes: text })}
             onFocus={() => closeAllDropdowns()}
             placeholder="z.B. Interesse hinterlegt beim Sportdirektor"
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.textMuted}
             multiline
           />
         </View>
@@ -857,17 +871,17 @@ export function TransferDetailScreen({ route, navigation }: any) {
   if (!player) {
     if (isMobile) {
       return (
-        <SafeAreaView style={styles.mobileContainer}>
+        <SafeAreaView style={[styles.mobileContainer, { backgroundColor: colors.background }]}>
           <View style={styles.mobileLoadingContainer}>
-            <Text style={styles.loadingText}>Laden...</Text>
+            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Laden...</Text>
           </View>
         </SafeAreaView>
       );
     }
     return (
       <View style={styles.modalOverlayContainer}>
-        <View style={styles.modalContainer}>
-          <Text style={styles.loadingText}>Laden...</Text>
+        <View style={[styles.modalContainer, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Laden...</Text>
         </View>
       </View>
     );
@@ -879,19 +893,20 @@ export function TransferDetailScreen({ route, navigation }: any) {
   const renderMobileClubCard = (club: TransferClub) => {
     const logo = getClubLogo(club.club_name);
     const daysUntil = getDaysUntilReminder(club.created_at, club.reminder_days);
+    const isHighlighted = highlightClub && club.club_name === highlightClub;
 
     return (
       <TouchableOpacity
         key={club.id}
-        style={styles.mobileClubCard}
+        style={[styles.mobileClubCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }, isHighlighted && styles.mobileClubCardHighlighted]}
         onPress={() => openEditModal(club)}
       >
         <View style={styles.mobileClubCardHeader}>
           {logo && <Image source={{ uri: logo }} style={styles.mobileClubLogo} />}
           <View style={styles.mobileClubCardInfo}>
-            <Text style={styles.mobileClubName}>{club.club_name}</Text>
+            <Text style={[styles.mobileClubName, { color: colors.text }]}>{club.club_name}</Text>
             {club.advisor_name && (
-              <Text style={styles.mobileClubAdvisor}>👤 {club.advisor_name}</Text>
+              <Text style={[styles.mobileClubAdvisor, { color: colors.textSecondary }]}>👤 {club.advisor_name}</Text>
             )}
           </View>
           {daysUntil !== null && (
@@ -911,10 +926,10 @@ export function TransferDetailScreen({ route, navigation }: any) {
           )}
         </View>
         {club.last_contact && (
-          <Text style={styles.mobileClubContact}>🕐 Letzter Kontakt: {formatDate(club.last_contact)}</Text>
+          <Text style={[styles.mobileClubContact, { color: colors.textSecondary }]}>🕐 Letzter Kontakt: {formatDate(club.last_contact)}</Text>
         )}
         {club.notes && (
-          <Text style={styles.mobileClubNotes} numberOfLines={2}>"{club.notes}"</Text>
+          <Text style={[styles.mobileClubNotes, { color: colors.textSecondary, borderTopColor: colors.border }]} numberOfLines={2}>"{club.notes}"</Text>
         )}
       </TouchableOpacity>
     );
@@ -926,32 +941,32 @@ export function TransferDetailScreen({ route, navigation }: any) {
 
     return (
       <View style={styles.mobileScreenOverlay}>
-        <View style={styles.mobileScreenContent}>
+        <View style={[styles.mobileScreenContent, { backgroundColor: colors.background }]}>
           {/* Mobile Header */}
-          <View style={styles.mobileScreenHeader}>
-            <Text style={styles.mobileScreenTitle}>{player.first_name} {player.last_name}</Text>
+          <View style={[styles.mobileScreenHeader, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.mobileScreenTitle, { color: colors.text }]}>{player.first_name} {player.last_name}</Text>
             <TouchableOpacity onPress={() => navigation.goBack()}>
-              <Text style={styles.mobileScreenClose}>✕</Text>
+              <Text style={[styles.mobileScreenClose, { color: colors.textSecondary }]}>✕</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.mobileScreenSubtitle}>{calculateAge(player.birth_date)} Jahre • {getFullPosition(player.position)}</Text>
+          <Text style={[styles.mobileScreenSubtitle, { color: colors.textSecondary, borderBottomColor: colors.border, backgroundColor: colors.surface }]}>{calculateAge(player.birth_date)} Jahre • {getFullPosition(player.position)}</Text>
 
         {/* Tabs */}
-        <View style={styles.mobileTabs}>
+        <View style={[styles.mobileTabs, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
           {TRANSFER_STATUS.map(status => {
             const count = getClubsByStatus(status.id).length;
             const isActive = mobileTab === status.id;
             return (
               <TouchableOpacity
                 key={status.id}
-                style={[styles.mobileTab, isActive && styles.mobileTabActive]}
+                style={[styles.mobileTab, isActive && [styles.mobileTabActive, { borderBottomColor: colors.primary }]]}
                 onPress={() => setMobileTab(status.id as MobileTab)}
               >
-                <Text style={[styles.mobileTabText, isActive && styles.mobileTabTextActive]}>
+                <Text style={[styles.mobileTabText, { color: colors.textSecondary }, isActive && [styles.mobileTabTextActive, { color: colors.text }]]}>
                   {status.id === 'offen' ? 'Offen' : status.label}
                 </Text>
-                <View style={[styles.mobileTabBadge, { backgroundColor: isActive ? status.color : '#e2e8f0' }]}>
-                  <Text style={[styles.mobileTabBadgeText, !isActive && { color: '#64748b' }]}>{count}</Text>
+                <View style={[styles.mobileTabBadge, { backgroundColor: isActive ? status.color : colors.surfaceSecondary }]}>
+                  <Text style={[styles.mobileTabBadgeText, !isActive && { color: colors.textSecondary }]}>{count}</Text>
                 </View>
               </TouchableOpacity>
             );
@@ -959,10 +974,10 @@ export function TransferDetailScreen({ route, navigation }: any) {
         </View>
 
         {/* Content */}
-        <ScrollView style={styles.mobileContent} contentContainerStyle={styles.mobileContentContainer}>
+        <ScrollView style={[styles.mobileContent, { backgroundColor: colors.background }]} contentContainerStyle={styles.mobileContentContainer}>
           {mobileClubs.length === 0 ? (
             <View style={styles.mobileEmptyState}>
-              <Text style={styles.mobileEmptyText}>Keine Vereine in dieser Kategorie</Text>
+              <Text style={[styles.mobileEmptyText, { color: colors.textMuted }]}>Keine Vereine in dieser Kategorie</Text>
             </View>
           ) : (
             mobileClubs.map(club => renderMobileClubCard(club))
@@ -971,31 +986,31 @@ export function TransferDetailScreen({ route, navigation }: any) {
 
         {/* Add Button */}
         <TouchableOpacity
-          style={styles.mobileAddButton}
+          style={[styles.mobileAddButton, { backgroundColor: colors.primary }]}
           onPress={() => { resetForm(); setFormData({ ...formData, status: mobileTab }); setShowAddModal(true); }}
         >
-          <Ionicons name="add" size={24} color="#fff" />
+          <Ionicons name="add" size={24} color={colors.primaryText} />
         </TouchableOpacity>
 
         {/* Add Modal - same as desktop */}
         <Modal visible={showAddModal} transparent animationType="slide">
           <View style={styles.mobileModalOverlay}>
-            <View style={styles.mobileModalContent}>
-              <View style={styles.mobileModalHeader}>
-                <Text style={styles.mobileModalTitle}>Neuen Verein anlegen</Text>
+            <View style={[styles.mobileModalContent, { backgroundColor: colors.surface }]}>
+              <View style={[styles.mobileModalHeader, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.mobileModalTitle, { color: colors.text }]}>Neuen Verein anlegen</Text>
                 <TouchableOpacity onPress={() => setShowAddModal(false)}>
-                  <Ionicons name="close" size={24} color="#64748b" />
+                  <Ionicons name="close" size={24} color={colors.textSecondary} />
                 </TouchableOpacity>
               </View>
               <ScrollView style={styles.mobileModalScroll}>
                 {renderForm()}
               </ScrollView>
-              <View style={styles.mobileModalButtons}>
-                <TouchableOpacity style={styles.mobileModalCancelButton} onPress={() => setShowAddModal(false)}>
-                  <Text style={styles.mobileModalCancelText}>Abbrechen</Text>
+              <View style={[styles.mobileModalButtons, { borderTopColor: colors.border }]}>
+                <TouchableOpacity style={[styles.mobileModalCancelButton, { backgroundColor: colors.surfaceSecondary }]} onPress={() => setShowAddModal(false)}>
+                  <Text style={[styles.mobileModalCancelText, { color: colors.textSecondary }]}>Abbrechen</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.mobileModalSaveButton} onPress={addClub}>
-                  <Text style={styles.mobileModalSaveText}>Hinzufügen</Text>
+                <TouchableOpacity style={[styles.mobileModalSaveButton, { backgroundColor: colors.primary }]} onPress={addClub}>
+                  <Text style={[styles.mobileModalSaveText, { color: colors.primaryText }]}>Hinzufügen</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1005,25 +1020,25 @@ export function TransferDetailScreen({ route, navigation }: any) {
         {/* Edit Modal - same as desktop */}
         <Modal visible={showEditModal} transparent animationType="slide">
           <View style={styles.mobileModalOverlay}>
-            <View style={styles.mobileModalContent}>
-              <View style={styles.mobileModalHeader}>
-                <Text style={styles.mobileModalTitle}>Verein bearbeiten</Text>
+            <View style={[styles.mobileModalContent, { backgroundColor: colors.surface }]}>
+              <View style={[styles.mobileModalHeader, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.mobileModalTitle, { color: colors.text }]}>Verein bearbeiten</Text>
                 <TouchableOpacity onPress={() => setShowEditModal(false)}>
-                  <Ionicons name="close" size={24} color="#64748b" />
+                  <Ionicons name="close" size={24} color={colors.textSecondary} />
                 </TouchableOpacity>
               </View>
               <ScrollView style={styles.mobileModalScroll}>
                 {renderForm()}
               </ScrollView>
-              <View style={styles.mobileModalButtons}>
+              <View style={[styles.mobileModalButtons, { borderTopColor: colors.border }]}>
                 <TouchableOpacity style={styles.mobileModalDeleteButton} onPress={() => selectedClub && deleteClub(selectedClub.id)}>
                   <Text style={styles.mobileModalDeleteText}>Löschen</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.mobileModalCancelButton} onPress={() => setShowEditModal(false)}>
-                  <Text style={styles.mobileModalCancelText}>Abbrechen</Text>
+                <TouchableOpacity style={[styles.mobileModalCancelButton, { backgroundColor: colors.surfaceSecondary }]} onPress={() => setShowEditModal(false)}>
+                  <Text style={[styles.mobileModalCancelText, { color: colors.textSecondary }]}>Abbrechen</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.mobileModalSaveButton} onPress={updateClub}>
-                  <Text style={styles.mobileModalSaveText}>Speichern</Text>
+                <TouchableOpacity style={[styles.mobileModalSaveButton, { backgroundColor: colors.primary }]} onPress={updateClub}>
+                  <Text style={[styles.mobileModalSaveText, { color: colors.primaryText }]}>Speichern</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1038,29 +1053,29 @@ export function TransferDetailScreen({ route, navigation }: any) {
   return (
     <View style={styles.modalOverlayContainer}>
       <TouchableOpacity style={styles.modalBackdrop} onPress={() => navigation.goBack()} activeOpacity={1} />
-      <View style={styles.modalContainer}>
+      <View style={[styles.modalContainer, { backgroundColor: colors.surface }]}>
         {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Interessenten / Vereine</Text>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
-            <Text style={styles.closeButtonText}>✕</Text>
+        <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Interessenten / Vereine</Text>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.closeButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
+            <Text style={[styles.closeButtonText, { color: colors.textSecondary }]}>✕</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.content}>
+        <View style={[styles.content, { backgroundColor: colors.surface }]}>
           {/* Player Info - ohne Bild, mit Alter und Position */}
-          <View style={styles.topSection}>
+          <View style={[styles.topSection, { backgroundColor: colors.surfaceSecondary }]}>
             <View style={styles.topLeft}>
-              <Text style={styles.playerFirstName}>{player.first_name}</Text>
-              <Text style={styles.playerLastName}>{player.last_name}</Text>
-              <Text style={styles.playerMeta}>{calculateAge(player.birth_date)} Jahre • {getFullPosition(player.position)}</Text>
+              <Text style={[styles.playerFirstName, { color: colors.textSecondary }]}>{player.first_name}</Text>
+              <Text style={[styles.playerLastName, { color: colors.text }]}>{player.last_name}</Text>
+              <Text style={[styles.playerMeta, { color: colors.textSecondary }]}>{calculateAge(player.birth_date)} Jahre • {getFullPosition(player.position)}</Text>
             </View>
-            
+
             <View style={styles.topRight}>
               {playerClubLogo ? (
                 <Image source={{ uri: playerClubLogo }} style={styles.clubLogoHeader} />
               ) : (
-                <Text style={styles.clubNameHeader}>{player.club || '-'}</Text>
+                <Text style={[styles.clubNameHeader, { color: colors.text }]}>{player.club || '-'}</Text>
               )}
             </View>
           </View>
@@ -1068,23 +1083,23 @@ export function TransferDetailScreen({ route, navigation }: any) {
           {/* Toolbar */}
           <View style={styles.toolbar}>
             <View style={styles.toolbarLeft}>
-              <View style={styles.viewToggle}>
+              <View style={[styles.viewToggle, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <TouchableOpacity
-                  style={[styles.viewButton, viewMode === 'kanban' && styles.viewButtonActive]}
+                  style={[styles.viewButton, viewMode === 'kanban' && [styles.viewButtonActive, { backgroundColor: colors.surfaceSecondary }]]}
                   onPress={() => setViewMode('kanban')}
                 >
-                  <Text style={styles.viewButtonText}>▦</Text>
+                  <Text style={[styles.viewButtonText, { color: colors.textSecondary }]}>▦</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.viewButton, viewMode === 'liste' && styles.viewButtonActive]}
+                  style={[styles.viewButton, viewMode === 'liste' && [styles.viewButtonActive, { backgroundColor: colors.surfaceSecondary }]]}
                   onPress={() => setViewMode('liste')}
                 >
-                  <Text style={styles.viewButtonText}>☰</Text>
+                  <Text style={[styles.viewButtonText, { color: colors.textSecondary }]}>☰</Text>
                 </TouchableOpacity>
               </View>
             </View>
-            <TouchableOpacity style={styles.addButton} onPress={() => { resetForm(); setShowAddModal(true); }}>
-              <Text style={styles.addButtonText}>+ Neuen Verein anlegen</Text>
+            <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.primary }]} onPress={() => { resetForm(); setShowAddModal(true); }}>
+              <Text style={[styles.addButtonText, { color: colors.primaryText }]}>+ Neuen Verein anlegen</Text>
             </TouchableOpacity>
           </View>
 
@@ -1101,14 +1116,14 @@ export function TransferDetailScreen({ route, navigation }: any) {
         {/* Add Modal */}
         <Modal visible={showAddModal} transparent animationType="fade">
           <Pressable style={styles.formModalOverlay} onPress={() => setShowAddModal(false)}>
-            <Pressable style={styles.formModalContent} onPress={(e) => e.stopPropagation()}>
-              <Text style={styles.formModalTitle}>Neuen Verein anlegen</Text>
+            <Pressable style={[styles.formModalContent, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
+              <Text style={[styles.formModalTitle, { color: colors.text }]}>Neuen Verein anlegen</Text>
               {renderForm()}
               <View style={styles.formModalButtons}>
-                <TouchableOpacity style={styles.formModalCancelButton} onPress={() => setShowAddModal(false)}>
-                  <Text style={styles.formModalCancelText}>Abbrechen</Text>
+                <TouchableOpacity style={[styles.formModalCancelButton, { backgroundColor: colors.surfaceSecondary }]} onPress={() => setShowAddModal(false)}>
+                  <Text style={[styles.formModalCancelText, { color: colors.textSecondary }]}>Abbrechen</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.formModalSaveButton} onPress={addClub}>
+                <TouchableOpacity style={[styles.formModalSaveButton, { backgroundColor: colors.surfaceSecondary, borderColor: '#10b981' }]} onPress={addClub}>
                   <Text style={styles.formModalSaveText}>Hinzufügen</Text>
                 </TouchableOpacity>
               </View>
@@ -1119,17 +1134,17 @@ export function TransferDetailScreen({ route, navigation }: any) {
         {/* Edit Modal */}
         <Modal visible={showEditModal} transparent animationType="fade">
           <Pressable style={styles.formModalOverlay} onPress={() => setShowEditModal(false)}>
-            <Pressable style={styles.formModalContent} onPress={(e) => e.stopPropagation()}>
-              <Text style={styles.formModalTitle}>Verein bearbeiten</Text>
+            <Pressable style={[styles.formModalContent, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
+              <Text style={[styles.formModalTitle, { color: colors.text }]}>Verein bearbeiten</Text>
               {renderForm()}
               <View style={styles.formModalButtons}>
                 <TouchableOpacity style={styles.formModalDeleteButton} onPress={() => selectedClub && deleteClub(selectedClub.id)}>
                   <Text style={styles.formModalDeleteText}>Löschen</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.formModalCancelButton} onPress={() => setShowEditModal(false)}>
-                  <Text style={styles.formModalCancelText}>Abbrechen</Text>
+                <TouchableOpacity style={[styles.formModalCancelButton, { backgroundColor: colors.surfaceSecondary }]} onPress={() => setShowEditModal(false)}>
+                  <Text style={[styles.formModalCancelText, { color: colors.textSecondary }]}>Abbrechen</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.formModalSaveButton} onPress={updateClub}>
+                <TouchableOpacity style={[styles.formModalSaveButton, { backgroundColor: colors.surfaceSecondary, borderColor: '#10b981' }]} onPress={updateClub}>
                   <Text style={styles.formModalSaveText}>Speichern</Text>
                 </TouchableOpacity>
               </View>
@@ -1272,8 +1287,8 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   clubCardHighlighted: {
-    backgroundColor: '#fef2f2',
-    borderColor: '#fecaca',
+    backgroundColor: '#f1f5f9',
+    borderColor: '#94a3b8',
     borderWidth: 2,
   },
   reminderBadge: {
@@ -1576,6 +1591,11 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     borderWidth: 1,
     borderColor: '#e2e8f0',
+  },
+  mobileClubCardHighlighted: {
+    backgroundColor: '#f1f5f9',
+    borderColor: '#94a3b8',
+    borderWidth: 2,
   },
   mobileClubCardHeader: {
     flexDirection: 'row',

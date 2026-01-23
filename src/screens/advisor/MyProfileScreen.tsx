@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Image, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Image, ScrollView, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../config/supabase';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const COUNTRY_CODES = [
   { code: '+49', country: 'DE' }, { code: '+43', country: 'AT' }, { code: '+41', country: 'CH' },
@@ -24,14 +25,9 @@ interface AdvisorProfile {
   role: string;
 }
 
-interface PlayerAccess {
-  id: string;
-  player_id: string;
-  access_type: string;
-  player_name?: string;
-}
-
 export function MyProfileScreen({ navigation }: any) {
+  const { theme, colors, setTheme, isDark } = useTheme();
+
   const [profile, setProfile] = useState<AdvisorProfile | null>(null);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -43,9 +39,7 @@ export function MyProfileScreen({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [email, setEmail] = useState('');
-  const [myPlayers, setMyPlayers] = useState<PlayerAccess[]>([]);
-  const [pendingRequests, setPendingRequests] = useState<PlayerAccess[]>([]);
-  
+
   const [showPasswordChange, setShowPasswordChange] = useState(false);
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -55,7 +49,6 @@ export function MyProfileScreen({ navigation }: any) {
 
   useEffect(() => {
     fetchProfile();
-    fetchMyPlayers();
   }, []);
 
   const fetchProfile = async () => {
@@ -66,16 +59,16 @@ export function MyProfileScreen({ navigation }: any) {
       navigation.goBack();
       return;
     }
-    
+
     setEmail(user.email || '');
     setOriginalEmail(user.email || '');
-    
+
     const { data, error } = await supabase
       .from('advisors')
       .select('*')
       .eq('id', user.id)
       .single();
-    
+
     if (error) {
       console.log('Error fetching profile:', error);
       if (error.code === 'PGRST116') {
@@ -84,7 +77,7 @@ export function MyProfileScreen({ navigation }: any) {
           .insert([{ id: user.id, first_name: '', last_name: '' }])
           .select()
           .single();
-        
+
         if (newProfile) {
           setProfile(newProfile);
           setFirstName(newProfile.first_name || '');
@@ -107,51 +100,19 @@ export function MyProfileScreen({ navigation }: any) {
     setLoading(false);
   };
 
-  const fetchMyPlayers = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data: accessData } = await supabase
-      .from('player_access')
-      .select('id, player_id, access_type')
-      .eq('advisor_id', user.id);
-
-    if (accessData && accessData.length > 0) {
-      const playerIds = accessData.map(a => a.player_id);
-      const { data: players } = await supabase
-        .from('player_details')
-        .select('id, first_name, last_name')
-        .in('id', playerIds);
-
-      const enrichedData = accessData.map(access => ({
-        ...access,
-        player_name: players?.find(p => p.id === access.player_id)
-          ? `${players.find(p => p.id === access.player_id)?.first_name} ${players.find(p => p.id === access.player_id)?.last_name}`
-          : 'Unbekannt'
-      }));
-
-      setMyPlayers(enrichedData.filter(a => a.access_type === 'owner' || a.access_type === 'viewer'));
-      setPendingRequests(enrichedData.filter(a => a.access_type === 'requested'));
-    }
-  };
-
   const handleSave = async () => {
     if (!profile) return;
 
-    // Validate required email
     if (!email || !email.includes('@')) {
       Alert.alert('Fehler', 'Bitte gib eine gültige E-Mail-Adresse ein');
       return;
     }
 
     setSaving(true);
-    console.log('Saving profile...', { firstName, lastName, birthDate, phone, phoneCode, photoUrl, email });
 
-    // Check if email changed
     const emailChanged = email !== originalEmail;
 
     if (emailChanged) {
-      // Update email in Supabase Auth (requires confirmation)
       const { error: authError } = await supabase.auth.updateUser({ email: email });
       if (authError) {
         setSaving(false);
@@ -193,7 +154,6 @@ export function MyProfileScreen({ navigation }: any) {
 
   const handleCancel = () => {
     setEditing(false);
-    // Restore all original values
     if (profile) {
       setFirstName(profile.first_name || '');
       setLastName(profile.last_name || '');
@@ -218,21 +178,19 @@ export function MyProfileScreen({ navigation }: any) {
       Alert.alert('Fehler', 'Passwörter stimmen nicht überein');
       return;
     }
-    
-    // First verify old password by re-authenticating
+
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email: email,
       password: oldPassword
     });
-    
+
     if (signInError) {
       Alert.alert('Fehler', 'Aktuelles Passwort ist falsch');
       return;
     }
-    
-    // Now update password
+
     const { error } = await supabase.auth.updateUser({ password: newPassword });
-    
+
     if (error) {
       Alert.alert('Fehler', error.message);
     } else {
@@ -246,18 +204,13 @@ export function MyProfileScreen({ navigation }: any) {
 
   const handleForgotPassword = async () => {
     const { error } = await supabase.auth.resetPasswordForEmail(email);
-    
+
     if (error) {
       Alert.alert('Fehler', error.message);
     } else {
       Alert.alert('Erfolg', 'Eine E-Mail zum Zurücksetzen des Passworts wurde gesendet');
       setShowPasswordChange(false);
     }
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
   };
 
   const formatDate = (dateString: string) => {
@@ -291,21 +244,25 @@ export function MyProfileScreen({ navigation }: any) {
     }
   };
 
+  const toggleDarkMode = () => {
+    setTheme(isDark ? 'light' : 'dark');
+  };
+
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <Text style={styles.loadingText}>Laden...</Text>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Laden...</Text>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={styles.backButtonText}>←</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backButton, { backgroundColor: colors.surfaceSecondary }]}>
+          <Text style={[styles.backButtonText, { color: colors.text }]}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Mein Profil</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Mein Profil</Text>
         <View style={styles.placeholder} />
       </View>
 
@@ -315,8 +272,8 @@ export function MyProfileScreen({ navigation }: any) {
           {photoUrl ? (
             <Image source={{ uri: photoUrl }} style={styles.photo} />
           ) : (
-            <View style={styles.photoPlaceholder}>
-              <Text style={styles.photoPlaceholderText}>
+            <View style={[styles.photoPlaceholder, { backgroundColor: colors.primary }]}>
+              <Text style={[styles.photoPlaceholderText, { color: colors.primaryText }]}>
                 {firstName?.[0] || ''}{lastName?.[0] || ''}
               </Text>
             </View>
@@ -324,68 +281,83 @@ export function MyProfileScreen({ navigation }: any) {
           {editing && (
             <input
               type="text"
-              style={{ marginTop: 12, padding: 10, fontSize: 14, borderRadius: 8, border: '1px solid #ddd', width: 250, textAlign: 'center' }}
-              placeholder="Foto-URL" placeholderTextColor="#999"
+              style={{ marginTop: 12, padding: 10, fontSize: 14, borderRadius: 8, border: `1px solid ${colors.border}`, width: 250, textAlign: 'center', backgroundColor: colors.inputBackground, color: colors.text }}
+              placeholder="Foto-URL"
               value={photoUrl}
               onChange={(e) => setPhotoUrl(e.target.value)}
             />
           )}
         </View>
 
+        {/* Dark Mode Card */}
+        <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Erscheinungsbild</Text>
+
+          <View style={styles.darkModeRow}>
+            <Text style={[styles.darkModeLabel, { color: colors.text }]}>Dark Mode</Text>
+            <Switch
+              value={isDark}
+              onValueChange={toggleDarkMode}
+              trackColor={{ false: '#767577', true: '#81b0ff' }}
+              thumbColor={isDark ? '#f5dd4b' : '#f4f3f4'}
+            />
+          </View>
+        </View>
+
         {/* Profile Card */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Persönliche Daten</Text>
+        <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Persönliche Daten</Text>
 
           <View style={styles.infoRow}>
-            <Text style={styles.label}>Vorname</Text>
+            <Text style={[styles.label, { color: colors.textMuted }]}>Vorname</Text>
             {editing ? (
               <input
                 type="text"
-                style={{ padding: 12, fontSize: 15, borderRadius: 8, border: '1px solid #ddd', width: '100%', boxSizing: 'border-box' }}
+                style={{ padding: 12, fontSize: 15, borderRadius: 8, border: `1px solid ${colors.border}`, width: '100%', boxSizing: 'border-box', backgroundColor: colors.inputBackground, color: colors.text }}
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
-                placeholder="Vorname" placeholderTextColor="#999"
+                placeholder="Vorname"
               />
             ) : (
-              <Text style={styles.value}>{firstName || '-'}</Text>
+              <Text style={[styles.value, { color: colors.text }]}>{firstName || '-'}</Text>
             )}
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.label}>Nachname</Text>
+            <Text style={[styles.label, { color: colors.textMuted }]}>Nachname</Text>
             {editing ? (
               <input
                 type="text"
-                style={{ padding: 12, fontSize: 15, borderRadius: 8, border: '1px solid #ddd', width: '100%', boxSizing: 'border-box' }}
+                style={{ padding: 12, fontSize: 15, borderRadius: 8, border: `1px solid ${colors.border}`, width: '100%', boxSizing: 'border-box', backgroundColor: colors.inputBackground, color: colors.text }}
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
-                placeholder="Nachname" placeholderTextColor="#999"
+                placeholder="Nachname"
               />
             ) : (
-              <Text style={styles.value}>{lastName || '-'}</Text>
+              <Text style={[styles.value, { color: colors.text }]}>{lastName || '-'}</Text>
             )}
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.label}>Geburtsdatum</Text>
+            <Text style={[styles.label, { color: colors.textMuted }]}>Geburtsdatum</Text>
             {editing ? (
               <input
                 type="date"
-                style={{ padding: 12, fontSize: 15, borderRadius: 8, border: '1px solid #ddd', width: '100%', boxSizing: 'border-box' }}
+                style={{ padding: 12, fontSize: 15, borderRadius: 8, border: `1px solid ${colors.border}`, width: '100%', boxSizing: 'border-box', backgroundColor: colors.inputBackground, color: colors.text }}
                 value={convertToInputDate(birthDate)}
                 onChange={(e) => setBirthDate(e.target.value)}
               />
             ) : (
-              <Text style={styles.value}>{formatDate(birthDate)}</Text>
+              <Text style={[styles.value, { color: colors.text }]}>{formatDate(birthDate)}</Text>
             )}
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.label}>Telefon</Text>
+            <Text style={[styles.label, { color: colors.textMuted }]}>Telefon</Text>
             {editing ? (
               <div style={{ display: 'flex', gap: 8 }}>
                 <select
-                  style={{ padding: 12, fontSize: 15, borderRadius: 8, border: '1px solid #ddd', width: 110 }}
+                  style={{ padding: 12, fontSize: 15, borderRadius: 8, border: `1px solid ${colors.border}`, width: 110, backgroundColor: colors.inputBackground, color: colors.text }}
                   value={phoneCode}
                   onChange={(e) => setPhoneCode(e.target.value)}
                 >
@@ -395,14 +367,14 @@ export function MyProfileScreen({ navigation }: any) {
                 </select>
                 <input
                   type="tel"
-                  style={{ padding: 12, fontSize: 15, borderRadius: 8, border: '1px solid #ddd', flex: 1 }}
+                  style={{ padding: 12, fontSize: 15, borderRadius: 8, border: `1px solid ${colors.border}`, flex: 1, backgroundColor: colors.inputBackground, color: colors.text }}
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="Telefonnummer" placeholderTextColor="#999"
+                  placeholder="Telefonnummer"
                 />
               </div>
             ) : (
-              <Text style={styles.value}>
+              <Text style={[styles.value, { color: colors.text }]}>
                 {phone ? `${phoneCode} ${phone}` : '-'}
               </Text>
             )}
@@ -410,53 +382,53 @@ export function MyProfileScreen({ navigation }: any) {
         </View>
 
         {/* Account Card */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Account</Text>
+        <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Account</Text>
 
           <View style={styles.infoRow}>
-            <Text style={styles.label}>Rolle</Text>
+            <Text style={[styles.label, { color: colors.textMuted }]}>Rolle</Text>
             <View style={[styles.roleBadge, getRoleBadgeStyle(profile?.role || 'berater')]}>
               <Text style={styles.roleBadgeText}>{getRoleDisplay(profile?.role || 'berater')}</Text>
             </View>
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.label}>E-Mail</Text>
+            <Text style={[styles.label, { color: colors.textMuted }]}>E-Mail</Text>
             {editing ? (
               <input
                 type="email"
-                style={{ padding: 12, fontSize: 15, borderRadius: 8, border: '1px solid #ddd', width: '100%', boxSizing: 'border-box' } as any}
+                style={{ padding: 12, fontSize: 15, borderRadius: 8, border: `1px solid ${colors.border}`, width: '100%', boxSizing: 'border-box', backgroundColor: colors.inputBackground, color: colors.text } as any}
                 value={email}
                 onChange={(e: any) => setEmail(e.target.value)}
-                placeholder="E-Mail-Adresse" placeholderTextColor="#999"
+                placeholder="E-Mail-Adresse"
               />
             ) : (
-              <Text style={styles.value}>{email}</Text>
+              <Text style={[styles.value, { color: colors.text }]}>{email}</Text>
             )}
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.label}>Passwort</Text>
+            <Text style={[styles.label, { color: colors.textMuted }]}>Passwort</Text>
             {showPasswordChange ? (
               <View>
                 <input
                   type="password"
-                  style={{ padding: 12, fontSize: 15, borderRadius: 8, border: '1px solid #ddd', width: '100%', boxSizing: 'border-box', marginBottom: 8 }}
-                  placeholder="Aktuelles Passwort" placeholderTextColor="#999"
+                  style={{ padding: 12, fontSize: 15, borderRadius: 8, border: `1px solid ${colors.border}`, width: '100%', boxSizing: 'border-box', marginBottom: 8, backgroundColor: colors.inputBackground, color: colors.text }}
+                  placeholder="Aktuelles Passwort"
                   value={oldPassword}
                   onChange={(e) => setOldPassword(e.target.value)}
                 />
                 <input
                   type="password"
-                  style={{ padding: 12, fontSize: 15, borderRadius: 8, border: '1px solid #ddd', width: '100%', boxSizing: 'border-box', marginBottom: 8 }}
-                  placeholder="Neues Passwort" placeholderTextColor="#999"
+                  style={{ padding: 12, fontSize: 15, borderRadius: 8, border: `1px solid ${colors.border}`, width: '100%', boxSizing: 'border-box', marginBottom: 8, backgroundColor: colors.inputBackground, color: colors.text }}
+                  placeholder="Neues Passwort"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                 />
                 <input
                   type="password"
-                  style={{ padding: 12, fontSize: 15, borderRadius: 8, border: '1px solid #ddd', width: '100%', boxSizing: 'border-box' }}
-                  placeholder="Neues Passwort bestätigen" placeholderTextColor="#999"
+                  style={{ padding: 12, fontSize: 15, borderRadius: 8, border: `1px solid ${colors.border}`, width: '100%', boxSizing: 'border-box', backgroundColor: colors.inputBackground, color: colors.text }}
+                  placeholder="Neues Passwort bestätigen"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                 />
@@ -464,17 +436,17 @@ export function MyProfileScreen({ navigation }: any) {
                   <Text style={{ color: '#5bc0de', fontSize: 14 }}>Passwort vergessen?</Text>
                 </TouchableOpacity>
                 <View style={styles.passwordButtons}>
-                  <TouchableOpacity style={styles.cancelPasswordButton} onPress={() => { setShowPasswordChange(false); setOldPassword(''); setNewPassword(''); setConfirmPassword(''); }}>
-                    <Text style={styles.cancelPasswordButtonText}>Abbrechen</Text>
+                  <TouchableOpacity style={[styles.cancelPasswordButton, { backgroundColor: colors.surfaceSecondary }]} onPress={() => { setShowPasswordChange(false); setOldPassword(''); setNewPassword(''); setConfirmPassword(''); }}>
+                    <Text style={[styles.cancelPasswordButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.savePasswordButton} onPress={handlePasswordChange}>
-                    <Text style={styles.savePasswordButtonText}>Speichern</Text>
+                  <TouchableOpacity style={[styles.savePasswordButton, { backgroundColor: colors.primary }]} onPress={handlePasswordChange}>
+                    <Text style={[styles.savePasswordButtonText, { color: colors.primaryText }]}>Speichern</Text>
                   </TouchableOpacity>
                 </View>
               </View>
             ) : (
-              <TouchableOpacity style={styles.changePasswordButton} onPress={() => setShowPasswordChange(true)}>
-                <Text style={styles.changePasswordButtonText}>Passwort ändern</Text>
+              <TouchableOpacity style={[styles.changePasswordButton, { backgroundColor: colors.surfaceSecondary }]} onPress={() => setShowPasswordChange(true)}>
+                <Text style={[styles.changePasswordButtonText, { color: colors.text }]}>Passwort ändern</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -483,19 +455,19 @@ export function MyProfileScreen({ navigation }: any) {
       </ScrollView>
 
       {/* Bottom Buttons */}
-      <View style={styles.bottomButtons}>
+      <View style={[styles.bottomButtons, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
         {editing ? (
           <>
-            <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
-              <Text style={styles.cancelButtonText}>Abbrechen</Text>
+            <TouchableOpacity style={[styles.cancelButton, { backgroundColor: colors.surfaceSecondary }]} onPress={handleCancel}>
+              <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.saveButton, saving && styles.saveButtonDisabled]} onPress={handleSave} disabled={saving}>
-              <Text style={styles.saveButtonText}>{saving ? 'Speichern...' : 'Speichern'}</Text>
+            <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.primary }, saving && styles.saveButtonDisabled]} onPress={handleSave} disabled={saving}>
+              <Text style={[styles.saveButtonText, { color: colors.primaryText }]}>{saving ? 'Speichern...' : 'Speichern'}</Text>
             </TouchableOpacity>
           </>
         ) : (
-          <TouchableOpacity style={styles.editButton} onPress={() => setEditing(true)}>
-            <Text style={styles.editButtonText}>Bearbeiten</Text>
+          <TouchableOpacity style={[styles.editButton, { backgroundColor: colors.primary }]} onPress={() => setEditing(true)}>
+            <Text style={[styles.editButtonText, { color: colors.primaryText }]}>Bearbeiten</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -504,54 +476,44 @@ export function MyProfileScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#ddd' },
-  backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#eee', justifyContent: 'center', alignItems: 'center' },
-  backButtonText: { fontSize: 20, color: '#333' },
+  container: { flex: 1 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1 },
+  backButton: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+  backButtonText: { fontSize: 20 },
   headerTitle: { fontSize: 20, fontWeight: 'bold' },
   placeholder: { width: 40 },
   content: { flex: 1, padding: 16 },
-  loadingText: { padding: 20, textAlign: 'center', color: '#666' },
+  loadingText: { padding: 20, textAlign: 'center' },
   photoSection: { alignItems: 'center', marginBottom: 16 },
   photo: { width: 120, height: 120, borderRadius: 60, backgroundColor: '#eee' },
-  photoPlaceholder: { width: 120, height: 120, borderRadius: 60, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
-  photoPlaceholderText: { color: '#fff', fontSize: 36, fontWeight: 'bold' },
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 20, marginBottom: 16 },
-  cardTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a1a', marginBottom: 16, borderBottomWidth: 2, borderBottomColor: '#f0f0f0', paddingBottom: 12 },
-  subTitle: { fontSize: 15, fontWeight: '600', color: '#666', marginTop: 16, marginBottom: 8 },
+  photoPlaceholder: { width: 120, height: 120, borderRadius: 60, justifyContent: 'center', alignItems: 'center' },
+  photoPlaceholderText: { fontSize: 36, fontWeight: 'bold' },
+  card: { borderRadius: 16, padding: 20, marginBottom: 16, borderWidth: 1 },
+  cardTitle: { fontSize: 18, fontWeight: '700', marginBottom: 16, borderBottomWidth: 2, borderBottomColor: 'rgba(128,128,128,0.2)', paddingBottom: 12 },
+  darkModeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  darkModeLabel: { fontSize: 16, fontWeight: '500' },
   infoRow: { marginBottom: 16 },
-  label: { fontSize: 13, color: '#999', marginBottom: 4 },
-  value: { fontSize: 16, color: '#333' },
+  label: { fontSize: 13, marginBottom: 4 },
+  value: { fontSize: 16 },
   roleBadge: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 20, alignSelf: 'flex-start' },
   roleAdmin: { backgroundColor: '#000' },
   roleBerater: { backgroundColor: '#5bc0de' },
   roleScout: { backgroundColor: '#28a745' },
   roleSpieler: { backgroundColor: '#ffc107' },
   roleBadgeText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  changePasswordButton: { backgroundColor: '#f0f0f0', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 8, alignSelf: 'flex-start' },
-  changePasswordButtonText: { color: '#333', fontSize: 14, fontWeight: '600' },
+  changePasswordButton: { paddingVertical: 12, paddingHorizontal: 16, borderRadius: 8, alignSelf: 'flex-start' },
+  changePasswordButtonText: { fontSize: 14, fontWeight: '600' },
   passwordButtons: { flexDirection: 'row', marginTop: 12, gap: 8 },
-  cancelPasswordButton: { flex: 1, backgroundColor: '#eee', paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
-  cancelPasswordButtonText: { color: '#666', fontWeight: '600' },
-  savePasswordButton: { flex: 1, backgroundColor: '#000', paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
-  savePasswordButtonText: { color: '#fff', fontWeight: '600' },
-  emptyText: { color: '#999', fontSize: 14, fontStyle: 'italic' },
-  playerItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-  playerName: { fontSize: 15, color: '#333' },
-  accessBadge: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 12 },
-  accessOwner: { backgroundColor: '#000' },
-  accessViewer: { backgroundColor: '#6c757d' },
-  accessBadgeText: { color: '#fff', fontSize: 12, fontWeight: '600' },
-  accessPending: { backgroundColor: '#ffc107', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 12 },
-  accessPendingText: { color: '#333', fontSize: 12, fontWeight: '600' },
-  logoutButton: { backgroundColor: '#fff', borderWidth: 2, borderColor: '#ff4444', paddingVertical: 14, borderRadius: 10, alignItems: 'center', marginTop: 8, marginBottom: 20 },
-  logoutButtonText: { color: '#ff4444', fontSize: 16, fontWeight: '600' },
-  bottomButtons: { flexDirection: 'row', padding: 16, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#ddd', justifyContent: 'flex-end', gap: 8 },
-  editButton: { backgroundColor: '#000', paddingVertical: 14, paddingHorizontal: 24, borderRadius: 10 },
-  editButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  cancelButton: { backgroundColor: '#eee', paddingVertical: 14, paddingHorizontal: 20, borderRadius: 10 },
-  cancelButtonText: { color: '#666', fontSize: 16, fontWeight: '600' },
-  saveButton: { backgroundColor: '#000', paddingVertical: 14, paddingHorizontal: 24, borderRadius: 10 },
-  saveButtonDisabled: { backgroundColor: '#666' },
-  saveButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  cancelPasswordButton: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
+  cancelPasswordButtonText: { fontWeight: '600' },
+  savePasswordButton: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
+  savePasswordButtonText: { fontWeight: '600' },
+  bottomButtons: { flexDirection: 'row', padding: 16, borderTopWidth: 1, justifyContent: 'flex-end', gap: 8 },
+  editButton: { paddingVertical: 14, paddingHorizontal: 24, borderRadius: 10 },
+  editButtonText: { fontSize: 16, fontWeight: '600' },
+  cancelButton: { paddingVertical: 14, paddingHorizontal: 20, borderRadius: 10 },
+  cancelButtonText: { fontSize: 16, fontWeight: '600' },
+  saveButton: { paddingVertical: 14, paddingHorizontal: 24, borderRadius: 10 },
+  saveButtonDisabled: { opacity: 0.6 },
+  saveButtonText: { fontSize: 16, fontWeight: '600' },
 });

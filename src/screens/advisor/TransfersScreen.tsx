@@ -2,10 +2,12 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Image, Pressable, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { MobileHeader } from '../../components/MobileHeader';
+import { MobileSidebar } from '../../components/MobileSidebar';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const POSITIONS = ['Torwart', 'Innenverteidiger', 'Linker Verteidiger', 'Rechter Verteidiger', 'Defensives Mittelfeld', 'Offensives Mittelfeld', 'Linke Außenbahn', 'Rechte Außenbahn', 'Stürmer'];
 const POSITION_SHORT: Record<string, string> = {
@@ -68,6 +70,7 @@ interface SearchingClub {
 export function TransfersScreen({ navigation }: any) {
   const isMobile = useIsMobile();
   const { session, loading: authLoading } = useAuth();
+  const { colors, isDark } = useTheme();
   const dataLoadedRef = useRef(false);
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
   const [transferPlayers, setTransferPlayers] = useState<Player[]>([]);
@@ -787,38 +790,39 @@ export function TransfersScreen({ navigation }: any) {
   // Mobile View
   if (isMobile) {
     return (
-      <View style={styles.containerMobile}>
-        {showMobileSidebar && (
-          <Pressable style={styles.sidebarOverlay} onPress={() => setShowMobileSidebar(false)}>
-            <Pressable style={styles.sidebarMobile} onPress={(e) => e.stopPropagation()}>
-              <Sidebar navigation={navigation} activeScreen="transfers" profile={profile} onNavigate={() => setShowMobileSidebar(false)} embedded />
-            </Pressable>
-          </Pressable>
-        )}
+      <View style={[styles.containerMobile, { backgroundColor: colors.background }]}>
+        <MobileSidebar
+          visible={showMobileSidebar}
+          onClose={() => setShowMobileSidebar(false)}
+          navigation={navigation}
+          activeScreen="transfers"
+          profile={profile}
+        />
 
-        <View style={styles.mainContentMobile}>
+        <View style={[styles.mainContentMobile, { backgroundColor: colors.background }]}>
           {/* Mobile Header */}
           <MobileHeader
             title="Transfers"
             onMenuPress={() => setShowMobileSidebar(true)}
+            onProfilePress={() => navigation.navigate('MyProfile')}
             profileInitials={profileInitials}
           />
 
           {/* Mobile Tabs */}
-          <View style={styles.mobileTabs}>
+          <View style={[styles.mobileTabs, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
             <TouchableOpacity
-              style={[styles.mobileTab, activeTab === 'spieler' && styles.mobileTabActive]}
+              style={[styles.mobileTab, activeTab === 'spieler' && [styles.mobileTabActive, { borderBottomColor: colors.primary }]]}
               onPress={() => setActiveTab('spieler')}
             >
-              <Text style={[styles.mobileTabText, activeTab === 'spieler' && styles.mobileTabTextActive]}>
+              <Text style={[styles.mobileTabText, { color: colors.textSecondary }, activeTab === 'spieler' && [styles.mobileTabTextActive, { color: colors.text }]]}>
                 Spieler ({transferPlayers.length})
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.mobileTab, activeTab === 'vereine' && styles.mobileTabActive]}
+              style={[styles.mobileTab, activeTab === 'vereine' && [styles.mobileTabActive, { borderBottomColor: colors.primary }]]}
               onPress={() => setActiveTab('vereine')}
             >
-              <Text style={[styles.mobileTabText, activeTab === 'vereine' && styles.mobileTabTextActive]}>
+              <Text style={[styles.mobileTabText, { color: colors.textSecondary }, activeTab === 'vereine' && [styles.mobileTabTextActive, { color: colors.text }]]}>
                 Vereine
               </Text>
             </TouchableOpacity>
@@ -1124,29 +1128,29 @@ export function TransfersScreen({ navigation }: any) {
 
   // Desktop View
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Sidebar */}
       <Sidebar navigation={navigation} activeScreen="transfers" profile={profile} />
 
       {/* Main Content */}
-      <View style={styles.mainContent}>
+      <View style={[styles.mainContent, { backgroundColor: colors.background }]}>
         {/* Header Banner */}
-        <Pressable style={styles.headerBanner} onPress={closeAllDropdowns}>
-          <TouchableOpacity style={styles.filterButton} onPress={() => navigation.navigate('AdvisorDashboard')}>
-            <Text style={styles.filterButtonText}>← Zurück</Text>
+        <Pressable style={[styles.headerBanner, { backgroundColor: colors.surface, borderBottomColor: colors.border }]} onPress={closeAllDropdowns}>
+          <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary }]} onPress={() => navigation.navigate('AdvisorDashboard')}>
+            <Text style={[styles.filterButtonText, { color: colors.text }]}>← Zurück</Text>
           </TouchableOpacity>
           <View style={styles.headerBannerCenter}>
-            <Text style={styles.headerTitle}>Transfers</Text>
-            <Text style={styles.headerSubtitle}>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>Transfers</Text>
+            <Text style={[styles.headerSubtitle, { color: colors.textMuted }]}>
               Spieler mit auslaufendem Vertrag und Vereine auf der Suche
             </Text>
           </View>
           <View style={styles.headerTabs}>
-            <TouchableOpacity style={[styles.filterButton, activeTab === 'spieler' && styles.filterButtonActive]} onPress={() => { closeAllDropdowns(); setActiveTab('spieler'); }}>
-              <Text style={[styles.filterButtonText, activeTab === 'spieler' && styles.filterButtonTextActive]}>Spieler ({transferPlayers.length})</Text>
+            <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary }, activeTab === 'spieler' && { backgroundColor: colors.primary }]} onPress={() => { closeAllDropdowns(); setActiveTab('spieler'); }}>
+              <Text style={[styles.filterButtonText, { color: colors.textSecondary }, activeTab === 'spieler' && { color: colors.primaryText }]}>Spieler ({transferPlayers.length})</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.filterButton, activeTab === 'vereine' && styles.filterButtonActive]} onPress={() => { closeAllDropdowns(); setActiveTab('vereine'); }}>
-              <Text style={[styles.filterButtonText, activeTab === 'vereine' && styles.filterButtonTextActive]}>Vereine auf der Suche...</Text>
+            <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary }, activeTab === 'vereine' && { backgroundColor: colors.primary }]} onPress={() => { closeAllDropdowns(); setActiveTab('vereine'); }}>
+              <Text style={[styles.filterButtonText, { color: colors.textSecondary }, activeTab === 'vereine' && { color: colors.primaryText }]}>Vereine auf der Suche...</Text>
             </TouchableOpacity>
           </View>
         </Pressable>

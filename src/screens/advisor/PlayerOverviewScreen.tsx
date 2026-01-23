@@ -5,8 +5,10 @@ import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 import { MobileHeader } from '../../components/MobileHeader';
+import { MobileSidebar } from '../../components/MobileSidebar';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const POSITIONS = ['Torwart', 'Innenverteidiger', 'Linker Verteidiger', 'Rechter Verteidiger', 'Defensives Mittelfeld', 'Zentrales Mittelfeld', 'Offensives Mittelfeld', 'Linke Außenbahn', 'Rechte Außenbahn', 'Stürmer'];
 const POSITION_SHORT: Record<string, string> = {
@@ -57,6 +59,7 @@ type SortDirection = 'asc' | 'desc';
 export function PlayerOverviewScreen({ navigation }: any) {
   const isMobile = useIsMobile();
   const { session, loading: authLoading } = useAuth();
+  const { colors, isDark } = useTheme();
   const [players, setPlayers] = useState<Player[]>([]);
   const [filteredPlayers, setFilteredPlayers] = useState<Player[]>([]);
   const [advisors, setAdvisors] = useState<Advisor[]>([]);
@@ -727,31 +730,32 @@ export function PlayerOverviewScreen({ navigation }: any) {
   // Mobile View
   if (isMobile) {
     return (
-      <View style={styles.containerMobile}>
-        {showMobileSidebar && (
-          <Pressable style={styles.sidebarOverlay} onPress={() => setShowMobileSidebar(false)}>
-            <Pressable style={styles.sidebarMobile} onPress={(e) => e.stopPropagation()}>
-              <Sidebar navigation={navigation} activeScreen="players" profile={profile} onNavigate={() => setShowMobileSidebar(false)} embedded />
-            </Pressable>
-          </Pressable>
-        )}
+      <View style={[styles.containerMobile, { backgroundColor: colors.background }]}>
+        <MobileSidebar
+          visible={showMobileSidebar}
+          onClose={() => setShowMobileSidebar(false)}
+          navigation={navigation}
+          activeScreen="players"
+          profile={profile}
+        />
 
-        <View style={styles.mainContentMobile}>
+        <View style={[styles.mainContentMobile, { backgroundColor: colors.background }]}>
           {/* Mobile Header */}
           <MobileHeader
             title="Spielerübersicht"
             onMenuPress={() => setShowMobileSidebar(true)}
+            onProfilePress={() => navigation.navigate('MyProfile')}
             profileInitials={profileInitials}
           />
 
           {/* Mobile Toolbar */}
-          <View style={styles.mobileToolbar}>
-            <View style={styles.mobileSearchContainer}>
+          <View style={[styles.mobileToolbar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+            <View style={[styles.mobileSearchContainer, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
               <Text style={styles.searchIcon}>🔍</Text>
               <TextInput
-                style={styles.mobileSearchInput}
+                style={[styles.mobileSearchInput, { color: colors.text }]}
                 placeholder="Spieler suchen..."
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={colors.textMuted}
                 value={searchText}
                 onChangeText={setSearchText}
               />
@@ -960,20 +964,20 @@ export function PlayerOverviewScreen({ navigation }: any) {
 
   // Desktop View
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Sidebar / Mobile Header */}
       <Sidebar navigation={navigation} activeScreen="players" profile={profile} />
 
       {/* Main Content */}
-      <View style={styles.mainContent}>
+      <View style={[styles.mainContent, { backgroundColor: colors.background }]}>
         {/* Header Banner - weiß mit Titel mittig und Zurück links */}
-        <View style={styles.headerBanner}>
-          <TouchableOpacity onPress={() => navigation.navigate('AdvisorDashboard')} style={styles.filterButton}>
-            <Text style={styles.filterButtonText}>← Zurück</Text>
+        <View style={[styles.headerBanner, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+          <TouchableOpacity onPress={() => navigation.navigate('AdvisorDashboard')} style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary }]}>
+            <Text style={[styles.filterButtonText, { color: colors.text }]}>← Zurück</Text>
           </TouchableOpacity>
           <View style={styles.headerBannerCenter}>
-            <Text style={styles.headerTitle}>KMH-Spieler</Text>
-            <Text style={styles.headerSubtitle}>Verwaltung aller Daten unserer {players.length} aktiven Spieler und Trainer</Text>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>KMH-Spieler</Text>
+            <Text style={[styles.headerSubtitle, { color: colors.textMuted }]}>Verwaltung aller Daten unserer {players.length} aktiven Spieler und Trainer</Text>
           </View>
           <View style={{ width: 80 }} />
         </View>

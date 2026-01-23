@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable, Modal, TextInput, TouchableOpacity, 
 import { supabase } from '../config/supabase';
 import { CommonActions } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface SidebarProps {
   navigation: any;
@@ -29,6 +30,7 @@ export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedde
   const { user } = useAuth();
   const { width } = useWindowDimensions();
   const isMobile = width < MOBILE_BREAKPOINT;
+  const { colors, isDark } = useTheme();
 
   const submitFeedback = async () => {
     if (!feedbackText.trim()) {
@@ -111,7 +113,7 @@ export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedde
           source={require('../../assets/kmh-logo.png')}
           style={styles.logoImage}
         />
-        <Text style={styles.logoTitle}>Sports Agency</Text>
+        <Text style={[styles.logoTitle, { color: colors.text }]}>Sports Agency</Text>
       </Pressable>
 
       {/* Navigation */}
@@ -124,14 +126,15 @@ export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedde
             onPress={() => handleNavigation(item.screen, item.id)}
             style={[
               styles.navItem,
-              activeScreen === item.id && styles.navItemActive,
-              hoveredNav === item.id && styles.navItemHovered,
+              activeScreen === item.id && { backgroundColor: colors.surfaceSecondary },
+              hoveredNav === item.id && { backgroundColor: colors.surfaceSecondary },
             ]}
           >
             <Text style={styles.navIcon}>{item.icon}</Text>
             <Text style={[
               styles.navLabel,
-              activeScreen === item.id && styles.navLabelActive
+              { color: colors.textSecondary },
+              activeScreen === item.id && { color: colors.text, fontWeight: '600' }
             ]}>{item.label}</Text>
           </Pressable>
         ))}
@@ -151,14 +154,15 @@ export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedde
           }}
           style={[
             styles.navItem,
-            activeScreen === 'admin' && styles.navItemActive,
-            hoveredNav === 'admin' && styles.navItemHovered,
+            activeScreen === 'admin' && { backgroundColor: colors.surfaceSecondary },
+            hoveredNav === 'admin' && { backgroundColor: colors.surfaceSecondary },
           ]}
         >
           <Text style={styles.navIcon}>⚙️</Text>
           <Text style={[
             styles.navLabel,
-            activeScreen === 'admin' && styles.navLabelActive
+            { color: colors.textSecondary },
+            activeScreen === 'admin' && { color: colors.text, fontWeight: '600' }
           ]}>Administration</Text>
         </Pressable>
       )}
@@ -170,11 +174,12 @@ export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedde
         onPress={() => setShowFeedbackModal(true)}
         style={[
           styles.feedbackButton,
-          hoveredNav === 'feedback' && styles.feedbackButtonHovered,
+          { backgroundColor: isDark ? 'rgba(2, 132, 199, 0.2)' : '#f0f9ff' },
+          hoveredNav === 'feedback' && { backgroundColor: isDark ? 'rgba(2, 132, 199, 0.3)' : '#e0f2fe' },
         ]}
       >
         <Text style={styles.feedbackIcon}>💬</Text>
-        <Text style={styles.feedbackText}>Feedback / Bug</Text>
+        <Text style={[styles.feedbackText, { color: isDark ? '#7dd3fc' : '#0284c7' }]}>Feedback / Bug</Text>
       </Pressable>
 
       {/* Logout */}
@@ -184,7 +189,8 @@ export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedde
         onPress={handleLogout}
         style={[
           styles.logoutButton,
-          hoveredNav === 'logout' && styles.logoutButtonHovered,
+          { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.2)' : '#fef2f2' },
+          hoveredNav === 'logout' && { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.3)' : '#fee2e2' },
         ]}
       >
         <Text style={styles.logoutIcon}>↪</Text>
@@ -197,8 +203,8 @@ export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedde
   const FeedbackModal = () => (
     <Modal visible={showFeedbackModal} transparent animationType="fade">
       <View style={styles.modalOverlay}>
-        <View style={[styles.modalContent, isMobile && styles.modalContentMobile]}>
-          <Text style={styles.modalTitle}>Feedback / Bug melden</Text>
+        <View style={[styles.modalContent, isMobile && styles.modalContentMobile, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.modalTitle, { color: colors.text }]}>Feedback / Bug melden</Text>
 
           {/* Type Selection */}
           <View style={[styles.typeContainer, isMobile && styles.typeContainerMobile]}>
@@ -211,51 +217,53 @@ export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedde
                 key={type.id}
                 style={[
                   styles.typeButton,
-                  feedbackType === type.id && styles.typeButtonActive,
+                  { borderColor: colors.border },
+                  feedbackType === type.id && { backgroundColor: colors.primary, borderColor: colors.primary },
                 ]}
                 onPress={() => setFeedbackType(type.id as any)}
               >
                 <Text style={[
                   styles.typeButtonText,
-                  feedbackType === type.id && styles.typeButtonTextActive,
+                  { color: colors.textSecondary },
+                  feedbackType === type.id && { color: colors.primaryText },
                 ]}>{type.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
 
           {/* Description */}
-          <Text style={styles.inputLabel}>Beschreibung</Text>
+          <Text style={[styles.inputLabel, { color: colors.text }]}>Beschreibung</Text>
           <TextInput
-            style={styles.textArea}
+            style={[styles.textArea, { borderColor: colors.border, backgroundColor: colors.inputBackground, color: colors.text }]}
             value={feedbackText}
             onChangeText={setFeedbackText}
             placeholder="Beschreibe das Problem oder deinen Vorschlag..."
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.textMuted}
             multiline
             numberOfLines={5}
           />
 
-          <Text style={styles.hintText}>
+          <Text style={[styles.hintText, { color: colors.textMuted }]}>
             Aktueller Bereich: {activeScreen}
           </Text>
 
           {/* Buttons */}
           <View style={styles.modalButtons}>
             <TouchableOpacity
-              style={styles.cancelButton}
+              style={[styles.cancelButton, { borderColor: colors.border }]}
               onPress={() => {
                 setShowFeedbackModal(false);
                 setFeedbackText('');
               }}
             >
-              <Text style={styles.cancelButtonText}>Abbrechen</Text>
+              <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.submitButton, submitting && { opacity: 0.6 }]}
+              style={[styles.submitButton, { backgroundColor: colors.primary }, submitting && { opacity: 0.6 }]}
               onPress={submitFeedback}
               disabled={submitting}
             >
-              <Text style={styles.submitButtonText}>
+              <Text style={[styles.submitButtonText, { color: colors.primaryText }]}>
                 {submitting ? 'Sende...' : 'Absenden'}
               </Text>
             </TouchableOpacity>
@@ -268,7 +276,7 @@ export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedde
   // Mobile embedded: Nur Content ohne Header/Modal (für externes Overlay)
   if (isMobile && embedded) {
     return (
-      <View style={styles.sidebarEmbedded}>
+      <View style={[styles.sidebarEmbedded, { backgroundColor: colors.surface }]}>
         <SidebarContent />
         <FeedbackModal />
       </View>
@@ -283,7 +291,7 @@ export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedde
 
   // Desktop: Normale Sidebar
   return (
-    <View style={styles.sidebar}>
+    <View style={[styles.sidebar, { backgroundColor: colors.surface, borderRightColor: colors.border }]}>
       <SidebarContent />
       <FeedbackModal />
     </View>

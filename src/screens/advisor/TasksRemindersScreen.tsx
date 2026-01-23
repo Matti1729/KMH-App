@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Pressable } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 import { MobileHeader } from '../../components/MobileHeader';
+import { MobileSidebar } from '../../components/MobileSidebar';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface Task {
   id: string;
@@ -109,6 +112,7 @@ const isInTwoDays = (dateStr: string): boolean => {
 export function TasksRemindersScreen({ navigation }: any) {
   const isMobile = useIsMobile();
   const { session, loading: authLoading } = useAuth();
+  const { colors, isDark } = useTheme();
   const dataLoadedRef = useRef(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [profile, setProfile] = useState<any>(null);
@@ -122,6 +126,10 @@ export function TasksRemindersScreen({ navigation }: any) {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [showCompletedTasks, setShowCompletedTasks] = useState(false);
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
+
+  // Mobile Tab State
+  const [mobileActiveTab, setMobileActiveTab] = useState<'tasks' | 'reminders'>('tasks');
+  const [mobileExpandedTaskId, setMobileExpandedTaskId] = useState<string | null>(null);
 
   // Form States
   const [taskTitle, setTaskTitle] = useState('');
@@ -162,6 +170,16 @@ export function TasksRemindersScreen({ navigation }: any) {
       fetchReminders();
     }
   }, [currentUserId]);
+
+  // Refresh data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (currentUserId) {
+        fetchTasks();
+        fetchReminders();
+      }
+    }, [currentUserId])
+  );
 
   const fetchProfile = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -629,55 +647,455 @@ export function TasksRemindersScreen({ navigation }: any) {
   // Profile initials for header
   const profileInitials = profile ? `${profile.first_name?.[0] || ''}${profile.last_name?.[0] || ''}` : '?';
 
-  return (
-    <View style={[styles.container, isMobile && styles.containerMobile]}>
-      {/* Mobile Sidebar Overlay */}
-      {isMobile && showMobileSidebar && (
-        <Pressable style={styles.sidebarOverlay} onPress={() => setShowMobileSidebar(false)}>
-          <Pressable style={styles.sidebarMobile} onPress={(e) => e.stopPropagation()}>
-            <Sidebar navigation={navigation} activeScreen="tasks" profile={profile} onNavigate={() => setShowMobileSidebar(false)} embedded />
-          </Pressable>
-        </Pressable>
-      )}
+  // Mobile task card renderer
+  const renderMobileTaskCard = (task: Task) => {
+    const hasSubtasks = task.subtasks && task.subtasks.length > 0;
+    const completedSubtasks = task.subtasks?.filter(s => s.completed).length || 0;
+    const totalSubtasks = task.subtasks?.length || 0;
+    const isExpanded = mobileExpandedTaskId === task.id;
+    const isOverdueOrToday = task.due_date && !task.completed && (() => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const dueDate = new Date(task.due_date);
+      dueDate.setHours(0, 0, 0, 0);
+      return dueDate <= today;
+    })();
 
-      {/* Desktop Sidebar */}
-      {!isMobile && <Sidebar navigation={navigation} activeScreen="tasks" profile={profile} />}
-
-      <Pressable
-        style={styles.mainContent}
-        onPress={() => expandedTaskId && setExpandedTaskId(null)}
+    return (
+      <View
+        key={task.id}
+        style={[styles.mobileTaskCard, isOverdueOrToday && styles.mobileTaskCardOverdue]}
       >
-        {/* Mobile Header */}
-        {isMobile && (
-          <MobileHeader
-            title="Aufgaben"
-            onMenuPress={() => setShowMobileSidebar(true)}
-            profileInitials={profileInitials}
-          />
+        <View style={styles.mobileTaskCardRow}>
+          <TouchableOpacity
+            style={[styles.mobileCheckbox, task.completed && styles.mobileCheckboxChecked]}
+            onPress={() => toggleTaskComplete(task)}
+          >
+            {task.completed && <Text style={styles.mobileCheckboxIcon}>✓</Text>}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.mobileTaskCardContent}
+            onPress={() => hasSubtasks ? setMobileExpandedTaskId(isExpanded ? null : task.id) : openEditTaskModal(task)}
+            onLongPress={() => openEditTaskModal(task)}
+          >
+            <Text style={[styles.mobileTaskTitle, task.completed && styles.mobileTaskTitleCompleted]} numberOfLines={1}>
+              {task.title}
+            </Text>
+            {hasSubtasks && (
+              <View style={styles.mobileSubtaskBadge}>
+                <Text style={styles.mobileSubtaskBadgeText}>{completedSubtasks}/{totalSubtasks}</Text>
+                <Text style={styles.mobileSubtaskBadgeArrow}>{isExpanded ? '▲' : '▼'}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          {task.due_date && (
+            <View style={styles.mobileTaskDateBadge}>
+              <Text style={styles.mobileTaskDateText}>
+                {formatDateShort(task.due_date)}
+              </Text>
+            </View>
+          )}
+          <TouchableOpacity style={styles.mobileTaskEditButton} onPress={() => openEditTaskModal(task)}>
+            <Text style={styles.mobileTaskEditIcon}>✎</Text>
+          </TouchableOpacity>
+        </View>
+        {task.description && (
+          <Text style={styles.mobileTaskDescription} numberOfLines={1}>{task.description}</Text>
         )}
 
-        {/* Header Banner - nur auf Desktop */}
-        {!isMobile && (
-          <View style={styles.headerBanner}>
-            <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('AdvisorDashboard')}>
-              <Text style={styles.backButtonText}>← Zurück</Text>
-            </TouchableOpacity>
-            <View style={styles.headerBannerCenter}>
-              <Text style={styles.headerTitle}>Aufgaben & Erinnerungen</Text>
-              <Text style={styles.headerSubtitle}>To-Dos und Reminder im Überblick</Text>
-            </View>
-            <View style={{ width: 100 }} />
+        {/* Expandable Subtasks */}
+        {isExpanded && hasSubtasks && (
+          <View style={styles.mobileSubtasksList}>
+            {task.subtasks?.map(subtask => (
+              <TouchableOpacity
+                key={subtask.id}
+                style={styles.mobileSubtaskItem}
+                onPress={() => toggleSubtaskComplete(subtask)}
+              >
+                <View style={[styles.mobileSubtaskCheckbox, subtask.completed && styles.mobileSubtaskCheckboxChecked]}>
+                  {subtask.completed && <Text style={styles.mobileSubtaskCheckIcon}>✓</Text>}
+                </View>
+                <Text style={[styles.mobileSubtaskTitle, subtask.completed && styles.mobileSubtaskTitleCompleted]}>
+                  {subtask.title}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
         )}
+      </View>
+    );
+  };
+
+  // Mobile reminder card renderer
+  const renderMobileReminderCard = (reminder: Reminder) => {
+    const isTransfer = reminder.source_type === 'transfer';
+    const daysUntil = getDaysUntil(reminder.due_date);
+    const isOverdue = daysUntil < 0;
+
+    return (
+      <View
+        key={reminder.id}
+        style={[styles.mobileReminderCard, isOverdue && styles.mobileReminderCardOverdue]}
+      >
+        <TouchableOpacity
+          style={styles.mobileReminderCardHeader}
+          onPress={() => isTransfer && navigateToTransfer(reminder)}
+          activeOpacity={isTransfer ? 0.7 : 1}
+        >
+          <TouchableOpacity
+            style={[styles.mobileCheckbox, reminder.completed && styles.mobileCheckboxChecked]}
+            onPress={() => toggleReminderComplete(reminder)}
+          >
+            {reminder.completed && <Text style={styles.mobileCheckboxIcon}>✓</Text>}
+          </TouchableOpacity>
+          <Text style={[styles.mobileReminderTitle, reminder.completed && styles.mobileReminderTitleCompleted]} numberOfLines={1}>
+            {reminder.title}
+          </Text>
+          <View style={[styles.mobileReminderDaysBadge, isOverdue && styles.mobileReminderDaysBadgeOverdue]}>
+            <Text style={[styles.mobileReminderDaysText, isOverdue && styles.mobileReminderDaysTextOverdue]}>
+              {isOverdue ? `vor ${Math.abs(daysUntil)}d` :
+               daysUntil === 0 ? 'Heute' : `in ${daysUntil}d`}
+            </Text>
+          </View>
+        </TouchableOpacity>
+        {reminder.player_name && (
+          <View style={styles.mobileReminderFooter}>
+            <Text style={styles.mobileReminderPlayer}>{reminder.player_name}</Text>
+            {isTransfer && (
+              <View style={styles.mobileReminderBadge}>
+                <Text style={styles.mobileReminderBadgeText}>Transfer</Text>
+              </View>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  // Mobile View
+  if (isMobile) {
+    return (
+      <View style={[styles.containerMobile, { backgroundColor: colors.background }]}>
+        <MobileSidebar
+          visible={showMobileSidebar}
+          onClose={() => setShowMobileSidebar(false)}
+          navigation={navigation}
+          activeScreen="tasks"
+          profile={profile}
+        />
+
+        <View style={[styles.mobileMainContent, { backgroundColor: colors.background }]}>
+          <MobileHeader
+            title="Aufgaben & Erinnerungen"
+            onMenuPress={() => setShowMobileSidebar(true)}
+            onProfilePress={() => navigation.navigate('MyProfile')}
+            profileInitials={profileInitials}
+          />
+
+          {/* Mobile Tabs */}
+          <View style={[styles.mobileTabs, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+            <TouchableOpacity
+              style={[styles.mobileTab, mobileActiveTab === 'tasks' && [styles.mobileTabActive, { borderBottomColor: colors.primary }]]}
+              onPress={() => setMobileActiveTab('tasks')}
+            >
+              <Text style={[styles.mobileTabText, { color: colors.textSecondary }, mobileActiveTab === 'tasks' && [styles.mobileTabTextActive, { color: colors.text }]]}>
+                Aufgaben
+              </Text>
+              <View style={[styles.mobileTabBadge, { backgroundColor: colors.surfaceSecondary }, mobileActiveTab === 'tasks' && [styles.mobileTabBadgeActive, { backgroundColor: colors.primary }]]}>
+                <Text style={[styles.mobileTabBadgeText, { color: colors.textSecondary }, mobileActiveTab === 'tasks' && [styles.mobileTabBadgeTextActive, { color: colors.primaryText }]]}>
+                  {activeTasks.length}
+                </Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.mobileTab, mobileActiveTab === 'reminders' && [styles.mobileTabActive, { borderBottomColor: colors.primary }]]}
+              onPress={() => setMobileActiveTab('reminders')}
+            >
+              <Text style={[styles.mobileTabText, { color: colors.textSecondary }, mobileActiveTab === 'reminders' && [styles.mobileTabTextActive, { color: colors.text }]]}>
+                Erinnerungen
+              </Text>
+              <View style={[styles.mobileTabBadge, { backgroundColor: colors.surfaceSecondary }, mobileActiveTab === 'reminders' && [styles.mobileTabBadgeActive, { backgroundColor: colors.primary }]]}>
+                <Text style={[styles.mobileTabBadgeText, { color: colors.textSecondary }, mobileActiveTab === 'reminders' && [styles.mobileTabBadgeTextActive, { color: colors.primaryText }]]}>
+                  {todayAndOverdueReminders.length + laterReminders.length}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {/* Mobile Content */}
+          <ScrollView style={styles.mobileScrollView} contentContainerStyle={styles.mobileScrollContent}>
+            {mobileActiveTab === 'tasks' ? (
+              <>
+                {sortedActiveTasks.length === 0 ? (
+                  <View style={styles.mobileEmptyState}>
+                    <Text style={styles.mobileEmptyStateText}>Keine offenen Aufgaben</Text>
+                  </View>
+                ) : (
+                  sortedActiveTasks.map(renderMobileTaskCard)
+                )}
+
+                {/* Completed Tasks */}
+                {completedTasks.length > 0 && (
+                  <View style={styles.mobileCompletedSection}>
+                    <TouchableOpacity
+                      style={styles.mobileCompletedHeader}
+                      onPress={() => setShowCompletedTasks(!showCompletedTasks)}
+                    >
+                      <Text style={styles.mobileCompletedHeaderText}>
+                        Erledigt ({completedTasks.length})
+                      </Text>
+                      <Text style={styles.mobileCompletedHeaderIcon}>
+                        {showCompletedTasks ? '▲' : '▼'}
+                      </Text>
+                    </TouchableOpacity>
+                    {showCompletedTasks && (
+                      <View style={styles.mobileCompletedList}>
+                        {completedTasks.map(renderMobileTaskCard)}
+                      </View>
+                    )}
+                  </View>
+                )}
+              </>
+            ) : (
+              <>
+                {/* Heute & Überfällig */}
+                {todayAndOverdueReminders.length > 0 && (
+                  <View style={styles.mobileReminderSection}>
+                    <View style={[styles.mobileReminderSectionHeader, styles.mobileReminderSectionHeaderToday]}>
+                      <Text style={styles.mobileReminderSectionTitle}>Heute & Überfällig</Text>
+                      <View style={styles.mobileReminderSectionBadge}>
+                        <Text style={styles.mobileReminderSectionBadgeText}>{todayAndOverdueReminders.length}</Text>
+                      </View>
+                    </View>
+                    {todayAndOverdueReminders.map(renderMobileReminderCard)}
+                  </View>
+                )}
+
+                {/* Später */}
+                {laterReminders.length > 0 && (
+                  <View style={styles.mobileReminderSection}>
+                    <View style={[styles.mobileReminderSectionHeader, styles.mobileReminderSectionHeaderLater]}>
+                      <Text style={styles.mobileReminderSectionTitle}>In den nächsten Tagen</Text>
+                      <View style={styles.mobileReminderSectionBadge}>
+                        <Text style={styles.mobileReminderSectionBadgeText}>{laterReminders.length}</Text>
+                      </View>
+                    </View>
+                    {laterReminders.map(renderMobileReminderCard)}
+                  </View>
+                )}
+
+                {todayAndOverdueReminders.length === 0 && laterReminders.length === 0 && (
+                  <View style={styles.mobileEmptyState}>
+                    <Text style={styles.mobileEmptyStateText}>Keine Erinnerungen</Text>
+                  </View>
+                )}
+              </>
+            )}
+          </ScrollView>
+
+          {/* Floating Add Button (nur bei Tasks Tab) */}
+          {mobileActiveTab === 'tasks' && (
+            <TouchableOpacity style={styles.mobileFloatingButton} onPress={openNewTaskModal}>
+              <Text style={styles.mobileFloatingButtonText}>+</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Mobile Task Modal */}
+        <Modal visible={showTaskModal} transparent animationType="none">
+          <View style={styles.mobileModalOverlay}>
+            <Pressable style={styles.mobileModalBackdrop} onPress={() => setShowTaskModal(false)} />
+            <View style={styles.mobileModalContainer}>
+              <View style={styles.mobileModalHeader}>
+                <Text style={styles.mobileModalTitle}>
+                  {editingTask ? 'Aufgabe bearbeiten' : 'Neue Aufgabe'}
+                </Text>
+                <TouchableOpacity style={styles.mobileModalCloseButton} onPress={() => setShowTaskModal(false)}>
+                  <Text style={styles.mobileModalCloseButtonText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.mobileModalBody}>
+                {/* Title */}
+                <View style={styles.mobileFormField}>
+                  <Text style={styles.mobileFormLabel}>Titel *</Text>
+                  <TextInput
+                    style={styles.mobileFormInput}
+                    value={taskTitle}
+                    onChangeText={setTaskTitle}
+                    placeholder="Was ist zu tun?"
+                    placeholderTextColor="#999"
+                  />
+                </View>
+
+                {/* Description */}
+                <View style={styles.mobileFormField}>
+                  <Text style={styles.mobileFormLabel}>Beschreibung</Text>
+                  <TextInput
+                    style={[styles.mobileFormInput, styles.mobileTextArea]}
+                    value={taskDescription}
+                    onChangeText={setTaskDescription}
+                    placeholder="Weitere Details..."
+                    placeholderTextColor="#999"
+                    multiline
+                  />
+                </View>
+
+                {/* Due Date */}
+                <View style={styles.mobileFormField}>
+                  <Text style={styles.mobileFormLabel}>Fälligkeitsdatum</Text>
+                  <View style={styles.mobileDatePickerRow}>
+                    {/* Day */}
+                    <View style={styles.mobileDatePickerField}>
+                      <TouchableOpacity
+                        style={styles.mobileDateDropdownButton}
+                        onPress={() => { setShowDayPicker(!showDayPicker); setShowMonthPicker(false); setShowYearPicker(false); }}
+                      >
+                        <Text style={styles.mobileDateDropdownText}>{selectedDay || 'Tag'}</Text>
+                        <Text style={styles.mobileDateDropdownArrow}>▼</Text>
+                      </TouchableOpacity>
+                      {showDayPicker && (
+                        <ScrollView style={styles.mobileDatePickerList} nestedScrollEnabled>
+                          {DAYS.map(d => (
+                            <TouchableOpacity
+                              key={d}
+                              style={[styles.mobileDatePickerItem, selectedDay === d && styles.mobileDatePickerItemSelected]}
+                              onPress={() => { setSelectedDay(d); setShowDayPicker(false); }}
+                            >
+                              <Text style={[styles.mobileDatePickerItemText, selectedDay === d && styles.mobileDatePickerItemTextSelected]}>{d}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      )}
+                    </View>
+
+                    {/* Month */}
+                    <View style={[styles.mobileDatePickerField, { flex: 2 }]}>
+                      <TouchableOpacity
+                        style={styles.mobileDateDropdownButton}
+                        onPress={() => { setShowMonthPicker(!showMonthPicker); setShowDayPicker(false); setShowYearPicker(false); }}
+                      >
+                        <Text style={styles.mobileDateDropdownText}>{selectedMonth !== null ? MONTHS[selectedMonth] : 'Monat'}</Text>
+                        <Text style={styles.mobileDateDropdownArrow}>▼</Text>
+                      </TouchableOpacity>
+                      {showMonthPicker && (
+                        <ScrollView style={styles.mobileDatePickerList} nestedScrollEnabled>
+                          {MONTHS.map((m, idx) => (
+                            <TouchableOpacity
+                              key={m}
+                              style={[styles.mobileDatePickerItem, selectedMonth === idx && styles.mobileDatePickerItemSelected]}
+                              onPress={() => { setSelectedMonth(idx); setShowMonthPicker(false); }}
+                            >
+                              <Text style={[styles.mobileDatePickerItemText, selectedMonth === idx && styles.mobileDatePickerItemTextSelected]}>{m}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      )}
+                    </View>
+
+                    {/* Year */}
+                    <View style={styles.mobileDatePickerField}>
+                      <TouchableOpacity
+                        style={styles.mobileDateDropdownButton}
+                        onPress={() => { setShowYearPicker(!showYearPicker); setShowDayPicker(false); setShowMonthPicker(false); }}
+                      >
+                        <Text style={styles.mobileDateDropdownText}>{selectedYear || 'Jahr'}</Text>
+                        <Text style={styles.mobileDateDropdownArrow}>▼</Text>
+                      </TouchableOpacity>
+                      {showYearPicker && (
+                        <ScrollView style={styles.mobileDatePickerList} nestedScrollEnabled>
+                          {YEARS.map(y => (
+                            <TouchableOpacity
+                              key={y}
+                              style={[styles.mobileDatePickerItem, selectedYear === y && styles.mobileDatePickerItemSelected]}
+                              onPress={() => { setSelectedYear(y); setShowYearPicker(false); }}
+                            >
+                              <Text style={[styles.mobileDatePickerItemText, selectedYear === y && styles.mobileDatePickerItemTextSelected]}>{y}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      )}
+                    </View>
+                  </View>
+                </View>
+
+                {/* Subtasks */}
+                <View style={styles.mobileFormField}>
+                  <Text style={styles.mobileFormLabel}>Unteraufgaben</Text>
+                  <View style={styles.mobileSubtaskInputRow}>
+                    <TextInput
+                      style={[styles.mobileFormInput, { flex: 1 }]}
+                      value={newSubtaskInput}
+                      onChangeText={setNewSubtaskInput}
+                      placeholder="Unteraufgabe hinzufügen..."
+                      placeholderTextColor="#999"
+                      onSubmitEditing={addSubtask}
+                    />
+                    <TouchableOpacity style={styles.mobileAddSubtaskButton} onPress={addSubtask}>
+                      <Text style={styles.mobileAddSubtaskButtonText}>+</Text>
+                    </TouchableOpacity>
+                  </View>
+                  {newSubtasks.map((subtask, index) => (
+                    <View key={index} style={styles.mobileSubtaskPreviewItem}>
+                      <Text style={styles.mobileSubtaskPreviewText}>• {subtask}</Text>
+                      <TouchableOpacity onPress={() => removeSubtask(index)}>
+                        <Text style={styles.mobileSubtaskRemoveText}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              </ScrollView>
+
+              <View style={styles.mobileModalFooter}>
+                {editingTask && (
+                  <TouchableOpacity style={styles.mobileDeleteButton} onPress={() => deleteTask(editingTask.id)}>
+                    <Text style={styles.mobileDeleteButtonText}>Löschen</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity style={styles.mobileCancelButton} onPress={() => setShowTaskModal(false)}>
+                  <Text style={styles.mobileCancelButtonText}>Abbrechen</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.mobileSaveButton} onPress={saveTask}>
+                  <Text style={styles.mobileSaveButtonText}>Speichern</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </View>
+    );
+  }
+
+  // Desktop View
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Desktop Sidebar */}
+      <Sidebar navigation={navigation} activeScreen="tasks" profile={profile} />
+
+      <Pressable
+        style={[styles.mainContent, { backgroundColor: colors.background }]}
+        onPress={() => expandedTaskId && setExpandedTaskId(null)}
+      >
+        {/* Header Banner */}
+        <View style={[styles.headerBanner, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+          <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.surfaceSecondary }]} onPress={() => navigation.navigate('AdvisorDashboard')}>
+            <Text style={[styles.backButtonText, { color: colors.text }]}>← Zurück</Text>
+          </TouchableOpacity>
+          <View style={styles.headerBannerCenter}>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>Aufgaben & Erinnerungen</Text>
+            <Text style={[styles.headerSubtitle, { color: colors.textMuted }]}>To-Dos und Reminder im Überblick</Text>
+          </View>
+          <View style={{ width: 100 }} />
+        </View>
 
         {/* Content - 60/40 Split */}
         <View style={styles.splitContainer}>
           {/* Left Side - Tasks */}
           <View style={[styles.leftPanel, expandedTaskId && { zIndex: 10 }]}>
             <View style={styles.panelHeader}>
-              <Text style={styles.panelTitle}>Aufgaben</Text>
-              <TouchableOpacity style={styles.addButton} onPress={openNewTaskModal}>
-                <Text style={styles.addButtonText}>+ Neue Aufgabe</Text>
+              <Text style={[styles.panelTitle, { color: colors.text }]}>Aufgaben</Text>
+              <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.primary }]} onPress={openNewTaskModal}>
+                <Text style={[styles.addButtonText, { color: colors.primaryText }]}>+ Neue Aufgabe</Text>
               </TouchableOpacity>
             </View>
 
@@ -971,7 +1389,7 @@ export function TasksRemindersScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, flexDirection: 'row', backgroundColor: '#f8fafc' },
-  containerMobile: { flexDirection: 'column' },
+  containerMobile: { flex: 1, flexDirection: 'column', backgroundColor: '#f8fafc' },
 
   // Sidebar Overlay (Mobile)
   sidebarOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 100, flexDirection: 'row' },
@@ -1383,17 +1801,605 @@ const styles = StyleSheet.create({
   reminderDaysText: { fontSize: 11, color: '#b45309', fontWeight: '600' },
   
   // Overdue Styles
-  reminderCardOverdue: { 
+  reminderCardOverdue: {
     borderColor: '#fecaca',
     backgroundColor: '#fef2f2',
   },
   reminderTitleOverdue: { color: '#dc2626' },
-  reminderOverdueBadge: { 
-    backgroundColor: '#fecaca', 
-    paddingVertical: 2, 
-    paddingHorizontal: 6, 
+  reminderOverdueBadge: {
+    backgroundColor: '#fecaca',
+    paddingVertical: 2,
+    paddingHorizontal: 6,
     borderRadius: 4,
     marginLeft: 4,
   },
   reminderOverdueText: { fontSize: 11, color: '#dc2626', fontWeight: '600' },
+
+  // ==================== Mobile Styles ====================
+  mobileMainContent: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+
+  // Mobile Tabs
+  mobileTabs: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  mobileTab: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 14,
+    gap: 8,
+  },
+  mobileTabActive: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#1a1a1a',
+  },
+  mobileTabText: {
+    fontSize: 15,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  mobileTabTextActive: {
+    color: '#1a1a1a',
+    fontWeight: '600',
+  },
+  mobileTabBadge: {
+    backgroundColor: '#e2e8f0',
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+  },
+  mobileTabBadgeActive: {
+    backgroundColor: '#1a1a1a',
+  },
+  mobileTabBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  mobileTabBadgeTextActive: {
+    color: '#fff',
+  },
+
+  // Mobile Scroll
+  mobileScrollView: {
+    flex: 1,
+  },
+  mobileScrollContent: {
+    padding: 12,
+    paddingBottom: 100,
+  },
+
+  // Mobile Task Card - Compact
+  mobileTaskCard: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  mobileTaskCardOverdue: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#fecaca',
+  },
+  mobileTaskCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  mobileTaskCardContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 10,
+    gap: 6,
+  },
+  mobileCheckbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: '#cbd5e1',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mobileCheckboxChecked: {
+    backgroundColor: '#3b82f6',
+    borderColor: '#3b82f6',
+  },
+  mobileCheckboxIcon: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  mobileTaskDateBadge: {
+    backgroundColor: '#fef3c7',
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 4,
+  },
+  mobileTaskDateBadgeOverdue: {
+    backgroundColor: '#fecaca',
+  },
+  mobileTaskDateText: {
+    fontSize: 11,
+    color: '#b45309',
+    fontWeight: '600',
+  },
+  mobileTaskDateTextOverdue: {
+    color: '#dc2626',
+  },
+  mobileTaskTitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1a1a1a',
+    flexShrink: 1,
+  },
+  mobileTaskTitleCompleted: {
+    textDecorationLine: 'line-through',
+    color: '#94a3b8',
+  },
+  mobileTaskDescription: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 1,
+    marginLeft: 32,
+  },
+  mobileTaskTitleSubtaskCount: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  mobileSubtaskBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f1f5f9',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+    marginRight: 8,
+    gap: 4,
+  },
+  mobileSubtaskBadgeText: {
+    fontSize: 11,
+    color: '#64748b',
+    fontWeight: '600',
+  },
+  mobileSubtaskBadgeArrow: {
+    fontSize: 8,
+    color: '#64748b',
+  },
+  mobileCollapseButton: {
+    padding: 6,
+    marginRight: 4,
+  },
+  mobileCollapseButtonText: {
+    fontSize: 10,
+    color: '#64748b',
+  },
+  mobileTaskEditButton: {
+    padding: 6,
+  },
+  mobileTaskEditIcon: {
+    fontSize: 14,
+    color: '#94a3b8',
+  },
+
+  // Mobile Subtasks List (expandable)
+  mobileSubtasksList: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+  },
+  mobileSubtaskItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  mobileSubtaskCheckbox: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: '#cbd5e1',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  mobileSubtaskCheckboxChecked: {
+    backgroundColor: '#3b82f6',
+    borderColor: '#3b82f6',
+  },
+  mobileSubtaskCheckIcon: {
+    color: '#fff',
+    fontSize: 10,
+  },
+  mobileSubtaskTitle: {
+    fontSize: 13,
+    color: '#475569',
+  },
+  mobileSubtaskTitleCompleted: {
+    textDecorationLine: 'line-through',
+    color: '#94a3b8',
+  },
+
+  // Mobile Reminder Card - Compact
+  mobileReminderCard: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  mobileReminderCardOverdue: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#fecaca',
+  },
+  mobileReminderCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  mobileReminderDaysBadge: {
+    backgroundColor: '#fef3c7',
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 4,
+    marginLeft: 'auto',
+  },
+  mobileReminderDaysBadgeOverdue: {
+    backgroundColor: '#fecaca',
+  },
+  mobileReminderDaysText: {
+    fontSize: 11,
+    color: '#b45309',
+    fontWeight: '600',
+  },
+  mobileReminderDaysTextOverdue: {
+    color: '#dc2626',
+  },
+  mobileReminderTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1a1a1a',
+    marginLeft: 10,
+  },
+  mobileReminderTitleCompleted: {
+    textDecorationLine: 'line-through',
+    color: '#94a3b8',
+  },
+  mobileReminderFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+    marginLeft: 32,
+  },
+  mobileReminderPlayer: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  mobileReminderBadge: {
+    backgroundColor: '#eff6ff',
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 4,
+  },
+  mobileReminderBadgeText: {
+    fontSize: 10,
+    color: '#3b82f6',
+    fontWeight: '500',
+  },
+
+  // Mobile Reminder Section
+  mobileReminderSection: {
+    marginBottom: 20,
+  },
+  mobileReminderSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  mobileReminderSectionHeaderToday: {
+    backgroundColor: '#fef2f2',
+  },
+  mobileReminderSectionHeaderLater: {
+    backgroundColor: '#f0fdf4',
+  },
+  mobileReminderSectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1a1a1a',
+  },
+  mobileReminderSectionBadge: {
+    backgroundColor: '#1a1a1a',
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+  },
+  mobileReminderSectionBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  // Mobile Empty State
+  mobileEmptyState: {
+    alignItems: 'center',
+    padding: 40,
+  },
+  mobileEmptyStateText: {
+    fontSize: 14,
+    color: '#64748b',
+  },
+
+  // Mobile Completed Section
+  mobileCompletedSection: {
+    marginTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+    paddingTop: 16,
+  },
+  mobileCompletedHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  mobileCompletedHeaderText: {
+    fontSize: 14,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  mobileCompletedHeaderIcon: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  mobileCompletedList: {
+    opacity: 0.6,
+  },
+
+  // Mobile Floating Button
+  mobileFloatingButton: {
+    position: 'absolute',
+    bottom: 24,
+    right: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#1a1a1a',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  mobileFloatingButtonText: {
+    color: '#fff',
+    fontSize: 22,
+    fontWeight: '500',
+    marginTop: -2,
+  },
+
+  // Mobile Modal
+  mobileModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  mobileModalBackdrop: {
+    flex: 1,
+  },
+  mobileModalContainer: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '90%',
+  },
+  mobileModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  mobileModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  mobileModalCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f1f5f9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mobileModalCloseButtonText: {
+    fontSize: 16,
+    color: '#64748b',
+  },
+  mobileModalBody: {
+    padding: 20,
+    maxHeight: 400,
+  },
+  mobileModalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+  },
+
+  // Mobile Form
+  mobileFormField: {
+    marginBottom: 16,
+  },
+  mobileFormLabel: {
+    fontSize: 13,
+    color: '#64748b',
+    marginBottom: 6,
+    fontWeight: '500',
+  },
+  mobileFormInput: {
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 15,
+    backgroundColor: '#fff',
+  },
+  mobileTextArea: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+
+  // Mobile Date Picker
+  mobileDatePickerRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  mobileDatePickerField: {
+    flex: 1,
+    position: 'relative',
+  },
+  mobileDateDropdownButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    padding: 12,
+    backgroundColor: '#fff',
+  },
+  mobileDateDropdownText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  mobileDateDropdownArrow: {
+    fontSize: 10,
+    color: '#64748b',
+  },
+  mobileDatePickerList: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    maxHeight: 150,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    marginTop: 4,
+    zIndex: 100,
+  },
+  mobileDatePickerItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  mobileDatePickerItemSelected: {
+    backgroundColor: '#1a1a1a',
+  },
+  mobileDatePickerItemText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  mobileDatePickerItemTextSelected: {
+    color: '#fff',
+  },
+
+  // Mobile Subtask Input
+  mobileSubtaskInputRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  mobileAddSubtaskButton: {
+    width: 44,
+    height: 44,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mobileAddSubtaskButtonText: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  mobileSubtaskPreviewItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#f8fafc',
+    borderRadius: 6,
+    marginTop: 8,
+  },
+  mobileSubtaskPreviewText: {
+    fontSize: 13,
+    color: '#475569',
+  },
+  mobileSubtaskRemoveText: {
+    fontSize: 16,
+    color: '#ef4444',
+  },
+
+  // Mobile Buttons
+  mobileDeleteButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#ef4444',
+    marginRight: 'auto',
+  },
+  mobileDeleteButtonText: {
+    fontSize: 14,
+    color: '#ef4444',
+    fontWeight: '500',
+  },
+  mobileCancelButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  mobileCancelButtonText: {
+    fontSize: 14,
+    color: '#64748b',
+  },
+  mobileSaveButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#1a1a1a',
+  },
+  mobileSaveButtonText: {
+    fontSize: 14,
+    color: '#fff',
+    fontWeight: '500',
+  },
 });

@@ -3,8 +3,10 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Pressable 
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 import { MobileHeader } from '../../components/MobileHeader';
+import { MobileSidebar } from '../../components/MobileSidebar';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface AdvisorProfile {
   first_name: string;
@@ -18,6 +20,7 @@ const WEEKDAYS_DE = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 
 export function AdvisorHomeScreen({ navigation }: any) {
   const isMobile = useIsMobile();
   const { session, loading: authLoading } = useAuth();
+  const { colors, isDark } = useTheme();
   const [profile, setProfile] = useState<AdvisorProfile | null>(null);
   const currentWeekday = WEEKDAYS_DE[new Date().getDay()];
   const [playerCount, setPlayerCount] = useState(0);
@@ -204,16 +207,16 @@ export function AdvisorHomeScreen({ navigation }: any) {
     setNetworkContactsCount(count || 0);
   };
 
-  const DashboardCard = ({ 
-    id, 
-    children, 
-    style, 
+  const DashboardCard = ({
+    id,
+    children,
+    style,
     onPress,
     hoverStyle
-  }: { 
+  }: {
     id: string;
-    children: React.ReactNode; 
-    style?: any; 
+    children: React.ReactNode;
+    style?: any;
     onPress?: () => void;
     hoverStyle?: any;
   }) => (
@@ -224,7 +227,7 @@ export function AdvisorHomeScreen({ navigation }: any) {
       style={[
         styles.card,
         style,
-        hoveredCard === id && (hoverStyle || styles.cardHovered)
+        hoveredCard === id && (hoverStyle || { backgroundColor: colors.surfaceSecondary })
       ]}
     >
       {children}
@@ -237,25 +240,26 @@ export function AdvisorHomeScreen({ navigation }: any) {
   // Mobile View
   if (isMobile) {
     return (
-      <View style={styles.containerMobile}>
-        {showMobileSidebar && (
-          <Pressable style={styles.sidebarOverlay} onPress={() => setShowMobileSidebar(false)}>
-            <Pressable style={styles.sidebarMobile} onPress={(e) => e.stopPropagation()}>
-              <Sidebar navigation={navigation} activeScreen="dashboard" profile={profile} onNavigate={() => setShowMobileSidebar(false)} embedded />
-            </Pressable>
-          </Pressable>
-        )}
+      <View style={[styles.containerMobile, { backgroundColor: colors.background }]}>
+        <MobileSidebar
+          visible={showMobileSidebar}
+          onClose={() => setShowMobileSidebar(false)}
+          navigation={navigation}
+          activeScreen="dashboard"
+          profile={profile}
+        />
 
-        <View style={styles.mainContentMobile}>
+        <View style={[styles.mainContentMobile, { backgroundColor: colors.background }]}>
           <MobileHeader
             title="Dashboard"
             onMenuPress={() => setShowMobileSidebar(true)}
+            onProfilePress={() => navigation.navigate('MyProfile')}
             profileInitials={profileInitials}
           />
 
           {/* Mobile Greeting */}
-          <View style={styles.mobileGreetingBanner}>
-            <Text style={styles.mobileGreetingText}>
+          <View style={[styles.mobileGreetingBanner, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+            <Text style={[styles.mobileGreetingText, { color: colors.text }]}>
               Schönen {currentWeekday}, {profile?.first_name || 'User'}!
             </Text>
           </View>
@@ -265,102 +269,106 @@ export function AdvisorHomeScreen({ navigation }: any) {
               {/* KMH-Spieler */}
               <DashboardCard
                 id="players"
-                style={styles.mobileCard}
+                style={[styles.mobileCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
                 onPress={() => navigation.navigate('PlayerOverview')}
-                hoverStyle={styles.lightCardHovered}
+                hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
               >
                 <View style={styles.mobileCardContent}>
-                  <View style={styles.mobileCardIcon}><Text style={styles.mobileCardIconText}>👤</Text></View>
+                  <View style={[styles.mobileCardIcon, { backgroundColor: colors.surfaceSecondary }]}><Text style={styles.mobileCardIconText}>👤</Text></View>
                   <View style={styles.mobileCardText}>
-                    <Text style={styles.mobileCardTitle}>KMH-Spieler</Text>
-                    <Text style={styles.mobileCardSubtitle}>Verwaltung aller Spieler</Text>
+                    <Text style={[styles.mobileCardTitle, { color: colors.text }]}>KMH-Spieler</Text>
+                    <Text style={[styles.mobileCardSubtitle, { color: colors.textSecondary }]}>Verwaltung aller Spieler</Text>
                   </View>
-                  <Text style={styles.mobileCardCount}>{playerCount}</Text>
+                  <Text style={[styles.mobileCardCount, { color: colors.text }]}>{playerCount}</Text>
                 </View>
               </DashboardCard>
 
               {/* Transfers */}
               <DashboardCard
                 id="transfers"
-                style={styles.mobileCard}
+                style={[styles.mobileCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
                 onPress={() => navigation.navigate('Transfers')}
-                hoverStyle={styles.lightCardHovered}
+                hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
               >
                 <View style={styles.mobileCardContent}>
-                  <View style={styles.mobileCardIcon}><Text style={styles.mobileCardIconText}>🔄</Text></View>
+                  <View style={[styles.mobileCardIcon, { backgroundColor: colors.surfaceSecondary }]}><Text style={styles.mobileCardIconText}>🔄</Text></View>
                   <View style={styles.mobileCardText}>
-                    <Text style={styles.mobileCardTitle}>Transfers</Text>
-                    <Text style={styles.mobileCardSubtitle}>Auslaufende Verträge</Text>
+                    <Text style={[styles.mobileCardTitle, { color: colors.text }]}>Transfers</Text>
+                    <Text style={[styles.mobileCardSubtitle, { color: colors.textSecondary }]}>Auslaufende Verträge</Text>
                   </View>
-                  <Text style={styles.mobileCardCount}>{transferCount}</Text>
+                  <Text style={[styles.mobileCardCount, { color: colors.text }]}>{transferCount}</Text>
                 </View>
               </DashboardCard>
 
               {/* Scouting */}
               <DashboardCard
                 id="scouting"
-                style={styles.mobileCardDark}
+                style={[styles.mobileCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
                 onPress={() => navigation.navigate('Scouting')}
-                hoverStyle={styles.darkCardHovered}
+                hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
               >
                 <View style={styles.mobileCardContent}>
-                  <View style={styles.mobileCardIconDark}><Text style={styles.mobileCardIconText}>🔍</Text></View>
+                  <View style={[styles.mobileCardIcon, { backgroundColor: colors.surfaceSecondary }]}><Text style={styles.mobileCardIconText}>🔍</Text></View>
                   <View style={styles.mobileCardText}>
-                    <Text style={styles.mobileCardTitleDark}>Scouting</Text>
-                    <Text style={styles.mobileCardSubtitleDark}>Talente im Blick</Text>
+                    <Text style={[styles.mobileCardTitle, { color: colors.text }]}>Scouting</Text>
+                    <Text style={[styles.mobileCardSubtitle, { color: colors.textSecondary }]}>Talente im Blick</Text>
                   </View>
-                  <Text style={styles.mobileCardCountDark}>{scoutingCount}</Text>
+                  <Text style={[styles.mobileCardCount, { color: colors.text }]}>{scoutingCount}</Text>
                 </View>
               </DashboardCard>
 
               {/* Football Network */}
               <DashboardCard
                 id="network"
-                style={styles.mobileCard}
+                style={[styles.mobileCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
                 onPress={() => navigation.navigate('FootballNetwork')}
-                hoverStyle={styles.lightCardHovered}
+                hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
               >
                 <View style={styles.mobileCardContent}>
-                  <View style={styles.mobileCardIcon}><Text style={styles.mobileCardIconText}>💼</Text></View>
+                  <View style={[styles.mobileCardIcon, { backgroundColor: colors.surfaceSecondary }]}><Text style={styles.mobileCardIconText}>💼</Text></View>
                   <View style={styles.mobileCardText}>
-                    <Text style={styles.mobileCardTitle}>Football Network</Text>
-                    <Text style={styles.mobileCardSubtitle}>Kontakte & Entscheider</Text>
+                    <Text style={[styles.mobileCardTitle, { color: colors.text }]}>Football Network</Text>
+                    <Text style={[styles.mobileCardSubtitle, { color: colors.textSecondary }]}>Kontakte & Entscheider</Text>
                   </View>
-                  <Text style={styles.mobileCardCount}>{networkContactsCount}</Text>
-                </View>
-              </DashboardCard>
-
-              {/* Aufgaben */}
-              <DashboardCard
-                id="aufgaben"
-                style={styles.mobileCardDark}
-                onPress={() => navigation.navigate('Tasks')}
-                hoverStyle={styles.darkCardHovered}
-              >
-                <View style={styles.mobileCardContent}>
-                  <View style={styles.mobileCardIconDark}><Text style={styles.mobileCardIconText}>✓</Text></View>
-                  <View style={styles.mobileCardText}>
-                    <Text style={styles.mobileCardTitleDark}>Aufgaben</Text>
-                    <Text style={styles.mobileCardSubtitleDark}>To-Dos & Erinnerungen</Text>
-                  </View>
-                  <Text style={styles.mobileCardCountDark}>{tasksAndRemindersCount}</Text>
+                  <Text style={[styles.mobileCardCount, { color: colors.text }]}>{networkContactsCount}</Text>
                 </View>
               </DashboardCard>
 
               {/* Spieltage */}
               <DashboardCard
                 id="termine"
-                style={styles.mobileCardDark}
+                style={[styles.mobileCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
                 onPress={() => navigation.navigate('Calendar')}
-                hoverStyle={styles.darkCardHovered}
+                hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
               >
                 <View style={styles.mobileCardContent}>
-                  <View style={styles.mobileCardIconDark}><Text style={styles.mobileCardIconText}>📅</Text></View>
+                  <View style={[styles.mobileCardIcon, { backgroundColor: colors.surfaceSecondary }]}><Text style={styles.mobileCardIconText}>📅</Text></View>
                   <View style={styles.mobileCardText}>
-                    <Text style={styles.mobileCardTitleDark}>Spieltage</Text>
-                    <Text style={styles.mobileCardSubtitleDark}>Spiele & Termine</Text>
+                    <Text style={[styles.mobileCardTitle, { color: colors.text }]}>Spieltage</Text>
+                    <Text style={[styles.mobileCardSubtitle, { color: colors.textSecondary }]}>Spiele & Termine</Text>
                   </View>
-                  <Text style={styles.mobileCardCountDark}>{todayGamesCount}</Text>
+                  <View style={[styles.mobileCardBadgeRed, { backgroundColor: colors.error }]}>
+                    <Text style={styles.mobileCardBadgeRedText}>{todayGamesCount}</Text>
+                  </View>
+                </View>
+              </DashboardCard>
+
+              {/* Aufgaben */}
+              <DashboardCard
+                id="aufgaben"
+                style={[styles.mobileCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
+                onPress={() => navigation.navigate('Tasks')}
+                hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
+              >
+                <View style={styles.mobileCardContent}>
+                  <View style={[styles.mobileCardIcon, { backgroundColor: colors.surfaceSecondary }]}><Text style={styles.mobileCardIconText}>✓</Text></View>
+                  <View style={styles.mobileCardText}>
+                    <Text style={[styles.mobileCardTitle, { color: colors.text }]}>Aufgaben</Text>
+                    <Text style={[styles.mobileCardSubtitle, { color: colors.textSecondary }]}>To-Dos & Erinnerungen</Text>
+                  </View>
+                  <View style={[styles.mobileCardBadgeRed, { backgroundColor: colors.error }]}>
+                    <Text style={styles.mobileCardBadgeRedText}>{tasksAndRemindersCount}</Text>
+                  </View>
                 </View>
               </DashboardCard>
 
@@ -368,17 +376,17 @@ export function AdvisorHomeScreen({ navigation }: any) {
               {profile?.role === 'admin' && (
                 <DashboardCard
                   id="admin"
-                  style={styles.mobileCardDark}
+                  style={[styles.mobileCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
                   onPress={() => navigation.navigate('AdminPanel')}
-                  hoverStyle={styles.darkCardHovered}
+                  hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
                 >
                   <View style={styles.mobileCardContent}>
-                    <View style={styles.mobileCardIconDark}><Text style={styles.mobileCardIconText}>⚙️</Text></View>
+                    <View style={[styles.mobileCardIcon, { backgroundColor: colors.surfaceSecondary }]}><Text style={styles.mobileCardIconText}>⚙️</Text></View>
                     <View style={styles.mobileCardText}>
-                      <Text style={styles.mobileCardTitleDark}>Administration</Text>
-                      <Text style={styles.mobileCardSubtitleDark}>Benutzer & Rechte</Text>
+                      <Text style={[styles.mobileCardTitle, { color: colors.text }]}>Administration</Text>
+                      <Text style={[styles.mobileCardSubtitle, { color: colors.textSecondary }]}>Benutzer & Rechte</Text>
                     </View>
-                    {pendingRequestsCount > 0 && <Text style={styles.mobileCardCountDark}>{pendingRequestsCount}</Text>}
+                    {pendingRequestsCount > 0 && <Text style={[styles.mobileCardCount, { color: colors.text }]}>{pendingRequestsCount}</Text>}
                   </View>
                 </DashboardCard>
               )}
@@ -391,19 +399,19 @@ export function AdvisorHomeScreen({ navigation }: any) {
 
   // Desktop View
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Sidebar */}
       <Sidebar navigation={navigation} activeScreen="dashboard" profile={profile} />
 
       {/* Main Content */}
-      <View style={styles.mainContent}>
+      <View style={[styles.mainContent, { backgroundColor: colors.background }]}>
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.greeting}>
+            <Text style={[styles.greeting, { color: colors.text }]}>
               Einen schönen {currentWeekday}, {profile?.first_name || 'User'}.
             </Text>
-            <Text style={styles.subGreeting}>
+            <Text style={[styles.subGreeting, { color: colors.textMuted }]}>
               Willkommen im Karl M. Herzog Sportmanagement!
             </Text>
           </View>
@@ -414,8 +422,8 @@ export function AdvisorHomeScreen({ navigation }: any) {
             {profile?.photo_url ? (
               <Image source={{ uri: profile.photo_url }} style={styles.profileAvatar} />
             ) : (
-              <View style={styles.profileAvatarPlaceholder}>
-                <Text style={styles.profileAvatarText}>
+              <View style={[styles.profileAvatarPlaceholder, { backgroundColor: colors.primary }]}>
+                <Text style={[styles.profileAvatarText, { color: colors.primaryText }]}>
                   {profile?.first_name?.[0] || ''}{profile?.last_name?.[0] || ''}
                 </Text>
               </View>
@@ -436,22 +444,22 @@ export function AdvisorHomeScreen({ navigation }: any) {
                     {/* KMH-Spieler - Large Card */}
                     <DashboardCard
                       id="players"
-                      style={styles.mainCard}
+                      style={[styles.mainCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
                       onPress={() => navigation.navigate('PlayerOverview')}
-                      hoverStyle={styles.mainCardHovered}
+                      hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
                     >
-                      <Text style={styles.playerCountTopRight}>{playerCount}</Text>
+                      <Text style={[styles.playerCountTopRight, { color: colors.text }]}>{playerCount}</Text>
                       <Text style={styles.mainCardBackgroundEmoji}>👤</Text>
                       <View style={styles.mainCardContent}>
                         <View style={styles.mainCardLeft}>
-                          <Text style={styles.mainCardTitle}>KMH-Spieler</Text>
-                          <Text style={styles.mainCardSubtitle}>
+                          <Text style={[styles.mainCardTitle, { color: colors.text }]}>KMH-Spieler</Text>
+                          <Text style={[styles.mainCardSubtitle, { color: colors.textMuted }]}>
                             Verwaltung aller Daten unserer{'\n'}
                             aktiven Spieler und Trainer.
                           </Text>
                           <View style={styles.mainCardFooter}>
-                            <Text style={styles.mainCardLink}>Zur Übersicht</Text>
-                            <Text style={styles.mainCardArrow}>→</Text>
+                            <Text style={[styles.mainCardLink, { color: colors.text }]}>Zur Übersicht</Text>
+                            <Text style={[styles.mainCardArrow, { color: colors.text }]}>→</Text>
                           </View>
                         </View>
                       </View>
@@ -460,19 +468,19 @@ export function AdvisorHomeScreen({ navigation }: any) {
                     {/* Transfers Card */}
                     <DashboardCard
                       id="transfers"
-                      style={styles.transferCard}
+                      style={[styles.transferCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
                       onPress={() => navigation.navigate('Transfers')}
-                      hoverStyle={styles.lightCardHovered}
+                      hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
                     >
                       <View style={styles.transferHeader}>
-                        <View style={styles.transferIcon}>
+                        <View style={[styles.transferIcon, { backgroundColor: colors.surfaceSecondary }]}>
                           <Text style={styles.transferIconText}>🔄</Text>
                         </View>
-                        <Text style={styles.transferCount}>{transferCount}</Text>
+                        <Text style={[styles.transferCount, { color: colors.text }]}>{transferCount}</Text>
                       </View>
                       <View style={styles.transferFooter}>
-                        <Text style={styles.transferTitle}>Transfers</Text>
-                        <Text style={styles.transferSubtitle}>Auslaufende Verträge & mögliche Wechsel</Text>
+                        <Text style={[styles.transferTitle, { color: colors.text }]}>Transfers</Text>
+                        <Text style={[styles.transferSubtitle, { color: colors.textMuted }]}>Auslaufende Verträge & mögliche Wechsel</Text>
                       </View>
                     </DashboardCard>
                   </View>
@@ -480,78 +488,78 @@ export function AdvisorHomeScreen({ navigation }: any) {
                   {/* Football Network Card */}
                   <DashboardCard
                     id="network"
-                    style={styles.networkCardWide}
+                    style={[styles.networkCardWide, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
                     onPress={() => navigation.navigate('FootballNetwork')}
-                    hoverStyle={styles.lightCardHovered}
+                    hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
                   >
                     <View style={styles.networkWideTop}>
-                      <View style={styles.networkWideIcon}>
+                      <View style={[styles.networkWideIcon, { backgroundColor: colors.surfaceSecondary }]}>
                         <Text style={styles.networkWideIconText}>💼</Text>
                       </View>
                       <View style={styles.networkWideTitleContainer}>
-                        <Text style={styles.networkWideTitle}>Football Network</Text>
-                        <Text style={styles.networkWideSubtitle}>Kontakte zu Vereinen und Entscheidern</Text>
+                        <Text style={[styles.networkWideTitle, { color: colors.text }]}>Football Network</Text>
+                        <Text style={[styles.networkWideSubtitle, { color: colors.textMuted }]}>Kontakte zu Vereinen und Entscheidern</Text>
                       </View>
                     </View>
-                    <Text style={styles.networkWideCount}>{networkContactsCount}</Text>
+                    <Text style={[styles.networkWideCount, { color: colors.text }]}>{networkContactsCount}</Text>
                   </DashboardCard>
                 </View>
 
                 {/* Scouting - Säule */}
                 <DashboardCard
                   id="scouting"
-                  style={styles.scoutingCardTall}
+                  style={[styles.scoutingCardTallLight, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
                   onPress={() => navigation.navigate('Scouting')}
-                  hoverStyle={styles.darkCardHovered}
+                  hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
                 >
-                  <Text style={styles.scoutingTallCount}>{scoutingCount}</Text>
+                  <Text style={[styles.scoutingTallCountLight, { color: colors.text }]}>{scoutingCount}</Text>
                   <View style={styles.scoutingVerticalTextContainer}>
-                    <Text style={styles.scoutingVerticalText}>S{'\n'}C{'\n'}O{'\n'}U{'\n'}T{'\n'}I{'\n'}N{'\n'}G</Text>
+                    <Text style={[styles.scoutingVerticalTextLight, { color: colors.text }]}>S{'\n'}C{'\n'}O{'\n'}U{'\n'}T{'\n'}I{'\n'}N{'\n'}G</Text>
                   </View>
                   <View style={styles.scoutingTallFooter}>
-                    <Text style={styles.scoutingTallSubtitle}>Talente{'\n'}im Blick</Text>
+                    <Text style={[styles.scoutingTallSubtitleLight, { color: colors.textMuted }]}>Talente{'\n'}im Blick</Text>
                   </View>
                 </DashboardCard>
               </View>
 
-              {/* Row 2 - Aufgaben & Spieltage */}
+              {/* Row 2 - Spieltage & Aufgaben */}
               <View style={styles.row}>
                 <DashboardCard
-                  id="aufgaben"
-                  style={[styles.darkBottomCard, { marginRight: 16 }]}
-                  onPress={() => navigation.navigate('Tasks')}
-                  hoverStyle={styles.darkCardHovered}
+                  id="termine"
+                  style={[styles.lightBottomCard, { marginRight: 16, backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
+                  onPress={() => navigation.navigate('Calendar')}
+                  hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
                 >
-                  <View style={styles.darkBottomCardContent}>
-                    <View style={styles.darkBottomCardIcon}>
-                      <Text style={styles.darkBottomCardIconText}>✓</Text>
+                  <View style={styles.lightBottomCardContent}>
+                    <View style={[styles.lightBottomCardIcon, { backgroundColor: colors.surfaceSecondary }]}>
+                      <Text style={styles.lightBottomCardIconText}>📅</Text>
                     </View>
-                    <View style={styles.darkBottomCardText}>
-                      <Text style={styles.darkBottomCardTitle}>Aufgaben & Erinnerungen</Text>
-                      <Text style={styles.darkBottomCardSubtitle}>Deine To-Dos & Erinnerungen</Text>
+                    <View style={styles.lightBottomCardText}>
+                      <Text style={[styles.lightBottomCardTitle, { color: colors.text }]}>Spieltage</Text>
+                      <Text style={[styles.lightBottomCardSubtitle, { color: colors.textMuted }]}>Lehrgänge, Spiele & Turniere</Text>
                     </View>
-                    <View style={styles.darkBottomCardBadge}>
-                      <Text style={styles.darkBottomCardBadgeText}>{tasksAndRemindersCount}</Text>
+                    <View style={[styles.redBadge, { backgroundColor: colors.error }]}>
+                      <Text style={styles.redBadgeText}>{todayGamesCount}</Text>
                     </View>
                   </View>
                 </DashboardCard>
 
                 <DashboardCard
-                  id="termine"
-                  style={styles.darkBottomCard}
-                  onPress={() => navigation.navigate('Calendar')}
-                  hoverStyle={styles.darkCardHovered}
+                  id="aufgaben"
+                  style={[styles.lightBottomCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
+                  onPress={() => navigation.navigate('Tasks')}
+                  hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
                 >
-                  <View style={styles.darkBottomCardContent}>
-                    <View style={styles.darkBottomCardIcon}>
-                      <Text style={styles.darkBottomCardIconText}>📅</Text>
+                  <View style={styles.lightBottomCardContent}>
+                    <View style={[styles.lightBottomCardIcon, { backgroundColor: colors.surfaceSecondary }]}>
+                      <Text style={styles.lightBottomCardIconText}>✓</Text>
                     </View>
-                    <View style={styles.darkBottomCardText}>
-                      <Text style={styles.darkBottomCardTitle}>Spieltage</Text>
-                      <Text style={styles.darkBottomCardSubtitle}>Lehrgänge, Spiele & Turniere</Text>
+                    <View style={styles.lightBottomCardText}>
+                      <Text style={[styles.lightBottomCardTitle, { color: colors.text }]}>Aufgaben & Erinnerungen</Text>
+                      <Text style={[styles.lightBottomCardSubtitle, { color: colors.textMuted }]}>Deine To-Dos & Erinnerungen</Text>
                     </View>
-                    <View style={styles.darkBottomCardBadge}>
-                      <Text style={styles.darkBottomCardBadgeText}>{todayGamesCount}</Text>
+                    <View style={[styles.redBadge, { backgroundColor: colors.error }]}>
+                      <Text style={styles.redBadgeText}>{tasksAndRemindersCount}</Text>
                     </View>
                   </View>
                 </DashboardCard>
@@ -562,21 +570,21 @@ export function AdvisorHomeScreen({ navigation }: any) {
                 <View style={styles.adminRow}>
                   <DashboardCard
                     id="admin"
-                    style={styles.adminCard}
+                    style={[styles.adminCardLight, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
                     onPress={() => navigation.navigate('AdminPanel')}
-                    hoverStyle={styles.darkCardHovered}
+                    hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
                   >
-                    <View style={styles.darkBottomCardContent}>
-                      <View style={styles.darkBottomCardIcon}>
-                        <Text style={styles.darkBottomCardIconText}>⚙️</Text>
+                    <View style={styles.lightBottomCardContent}>
+                      <View style={[styles.lightBottomCardIcon, { backgroundColor: colors.surfaceSecondary }]}>
+                        <Text style={styles.lightBottomCardIconText}>⚙️</Text>
                       </View>
-                      <View style={styles.darkBottomCardText}>
-                        <Text style={styles.darkBottomCardTitle}>Administration</Text>
-                        <Text style={styles.darkBottomCardSubtitle}>Benutzer & Rechte verwalten</Text>
+                      <View style={styles.lightBottomCardText}>
+                        <Text style={[styles.lightBottomCardTitle, { color: colors.text }]}>Administration</Text>
+                        <Text style={[styles.lightBottomCardSubtitle, { color: colors.textMuted }]}>Benutzer & Rechte verwalten</Text>
                       </View>
                       {pendingRequestsCount > 0 && (
-                        <View style={styles.darkBottomCardBadge}>
-                          <Text style={styles.darkBottomCardBadgeText}>{pendingRequestsCount}</Text>
+                        <View style={[styles.lightBottomCardBadge, { backgroundColor: colors.primary }]}>
+                          <Text style={[styles.lightBottomCardBadgeText, { color: colors.primaryText }]}>{pendingRequestsCount}</Text>
                         </View>
                       )}
                     </View>
@@ -975,7 +983,39 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     minHeight: 120,
   },
-  // Scouting Card - Tall (Säule) - Dark
+  // Scouting Card - Tall (Säule) - Light
+  scoutingCardTallLight: {
+    width: 130,
+    backgroundColor: '#fff',
+    padding: 16,
+    justifyContent: 'flex-start',
+    position: 'relative',
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  scoutingTallCountLight: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  scoutingVerticalTextLight: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#1a1a1a',
+    lineHeight: 34,
+    letterSpacing: 4,
+  },
+  scoutingTallSubtitleLight: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#888',
+    lineHeight: 17,
+  },
+
+  // Scouting Card - Tall (Säule) - Dark (deprecated)
   scoutingCardTall: {
     width: 130,
     backgroundColor: '#1a1a1a',
@@ -1200,7 +1240,102 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // Admin Card - Dark, full width
+  // Light Bottom Cards (Aufgaben, Spieltage, Admin)
+  lightBottomCard: {
+    flex: 1,
+    backgroundColor: '#fff',
+    padding: 16,
+    justifyContent: 'center',
+    minHeight: 70,
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  lightBottomCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  lightBottomCardIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  lightBottomCardIconText: {
+    fontSize: 16,
+  },
+  lightBottomCardText: {
+    flex: 1,
+  },
+  lightBottomCardTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1a1a1a',
+  },
+  lightBottomCardSubtitle: {
+    fontSize: 11,
+    color: '#888',
+    marginTop: 2,
+  },
+  lightBottomCardBadge: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
+    minWidth: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+  },
+  lightBottomCardBadgeText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+
+  // Red Badge styles (for Spieltage & Aufgaben)
+  redBadge: {
+    backgroundColor: '#ef4444',
+    borderRadius: 16,
+    minWidth: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+  },
+  redBadgeText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  mobileCardBadgeRed: {
+    backgroundColor: '#ef4444',
+    borderRadius: 16,
+    minWidth: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+  },
+  mobileCardBadgeRedText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+
+  // Admin Card - Light, full width
+  adminCardLight: {
+    flex: 1,
+    backgroundColor: '#fff',
+    padding: 16,
+    justifyContent: 'center',
+    minHeight: 70,
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+
+  // Admin Card - Dark, full width (deprecated)
   adminCard: {
     flex: 1,
     backgroundColor: '#1a1a1a',

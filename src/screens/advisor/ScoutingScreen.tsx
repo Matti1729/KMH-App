@@ -3,8 +3,10 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal,
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 import { MobileHeader } from '../../components/MobileHeader';
+import { MobileSidebar } from '../../components/MobileSidebar';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const POSITIONS = ['TW', 'IV', 'LV', 'RV', 'DM', 'ZM', 'OM', 'LA', 'RA', 'ST'];
 
@@ -198,6 +200,7 @@ type MobileStatusTab = 'gesichtet' | 'in_beobachtung' | 'kontaktiert' | 'archiv'
 export function ScoutingScreen({ navigation }: any) {
   const isMobile = useIsMobile();
   const { session, loading: authLoading } = useAuth();
+  const { colors, isDark } = useTheme();
   const dataLoadedRef = useRef(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [activeTab, setActiveTab] = useState<ActiveTab>('spieler');
@@ -1273,29 +1276,29 @@ export function ScoutingScreen({ navigation }: any) {
   };
 
   const renderPlayerCard = (player: ScoutedPlayer) => {
-    const isDragging = draggedPlayerId === player.id;
-    
+    const isDraggingCard = draggedPlayerId === player.id;
+
     const cardContent = (
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.cardContent}
-        onPress={() => { 
-          setSelectedPlayer(player); 
+        onPress={() => {
+          setSelectedPlayer(player);
           setEditData({
             first_name: player.first_name, last_name: player.last_name, birth_date: player.birth_date,
             position: player.position, club: player.club, rating: player.rating, status: player.status,
             notes: player.notes, photo_url: player.photo_url, transfermarkt_url: player.transfermarkt_url,
             agent_name: player.agent_name, phone: player.phone, additional_info: player.additional_info,
             current_status: player.current_status,
-          }); 
-          setEditClubSearchText(player.club || ''); 
-          setShowPlayerDetailModal(true); 
+          });
+          setEditClubSearchText(player.club || '');
+          setShowPlayerDetailModal(true);
         }}
       >
         <View style={styles.cardHeader}>
           {getClubLogo(player.club) && <Image source={{ uri: getClubLogo(player.club)! }} style={styles.clubLogoCard} />}
           <View style={styles.cardInfo}>
-            <Text style={styles.playerName}>{player.last_name}, {player.first_name} <Text style={styles.playerYearInline}>({getYearFromDate(player.birth_date)})</Text></Text>
-            <Text style={styles.playerClubName}>{player.club || '-'}</Text>
+            <Text style={[styles.playerName, { color: colors.text }]}>{player.last_name}, {player.first_name} <Text style={[styles.playerYearInline, { color: colors.textSecondary }]}>({getYearFromDate(player.birth_date)})</Text></Text>
+            <Text style={[styles.playerClubName, { color: colors.textSecondary }]}>{player.club || '-'}</Text>
           </View>
           <View style={styles.cardRight}>
             <View style={styles.positionBadgesRow}>
@@ -1308,8 +1311,8 @@ export function ScoutingScreen({ navigation }: any) {
         </View>
         {/* IST-Stand */}
         {player.current_status && (
-          <View style={styles.currentStatusRow}>
-            <Text style={styles.currentStatusText}>💬 {player.current_status}</Text>
+          <View style={[styles.currentStatusRow, { borderTopColor: colors.border }]}>
+            <Text style={[styles.currentStatusText, { color: colors.textSecondary }]}>💬 {player.current_status}</Text>
           </View>
         )}
       </TouchableOpacity>
@@ -1318,40 +1321,40 @@ export function ScoutingScreen({ navigation }: any) {
     if (Platform.OS === 'web') {
       return (
         <div key={player.id} data-player-id={player.id} draggable onDragStart={(e) => onDragStart(e, player.id)} onDragEnd={onDragEnd}
-          style={{ backgroundColor: '#fff', borderRadius: 10, marginBottom: 10, boxShadow: '0 2px 4px rgba(0,0,0,0.05)', cursor: 'grab', opacity: isDragging ? 0.4 : 1 }}>
+          style={{ backgroundColor: colors.cardBackground, borderRadius: 10, marginBottom: 10, boxShadow: isDark ? '0 2px 4px rgba(0,0,0,0.3)' : '0 2px 4px rgba(0,0,0,0.05)', cursor: 'grab', opacity: isDraggingCard ? 0.4 : 1 }}>
           {cardContent}
         </div>
       );
     }
-    return <View key={player.id} style={styles.playerCard}>{cardContent}</View>;
+    return <View key={player.id} style={[styles.playerCard, { backgroundColor: colors.cardBackground }]}>{cardContent}</View>;
   };
 
   const renderKanbanColumn = (status: typeof SCOUTING_STATUS[0]) => {
     const players = getPlayersByStatus(status.id);
     const isDropTarget = dragOverStatus === status.id;
-    
+
     if (Platform.OS === 'web') {
       return (
         <div key={status.id} onDragOver={(e) => onDragOver(e, status.id)} onDragLeave={(e) => onDragLeave(e, status.id)} onDrop={(e) => onDrop(e, status.id)}
-          style={{ 
+          style={{
             flex: 1,
             minWidth: 250,
-            backgroundColor: isDropTarget ? '#dbeafe' : '#f1f5f9', 
-            borderRadius: 12, 
-            padding: 12, 
-            border: isDropTarget ? '2px dashed #3b82f6' : '2px solid transparent', 
-            transition: 'background-color 0.2s', 
+            backgroundColor: isDropTarget ? '#dbeafe' : (isDark ? colors.surfaceSecondary : '#f1f5f9'),
+            borderRadius: 12,
+            padding: 12,
+            border: isDropTarget ? '2px dashed #3b82f6' : '2px solid transparent',
+            transition: 'background-color 0.2s',
             display: 'flex',
             flexDirection: 'column',
             maxHeight: 'calc(100vh - 250px)',
           }}>
-          <View style={styles.kanbanHeader}>
+          <View style={[styles.kanbanHeader, { borderBottomColor: colors.border }]}>
             <View style={styles.kanbanHeaderTop}>
               <View style={[styles.statusDot, { backgroundColor: status.color }]} />
-              <Text style={styles.kanbanTitle}>{status.label}</Text>
-              <View style={styles.countBadge}><Text style={styles.countText}>{players.length}</Text></View>
+              <Text style={[styles.kanbanTitle, { color: colors.textSecondary }]}>{status.label}</Text>
+              <View style={[styles.countBadge, { backgroundColor: colors.border }]}><Text style={[styles.countText, { color: colors.textSecondary }]}>{players.length}</Text></View>
             </View>
-            <Text style={styles.kanbanDescription}>{status.description}</Text>
+            <Text style={[styles.kanbanDescription, { color: colors.textMuted }]}>{status.description}</Text>
           </View>
           <div style={{ flex: 1, overflowY: 'scroll', paddingRight: 4 }}>
             {players.map(player => renderPlayerCard(player))}
@@ -1360,14 +1363,14 @@ export function ScoutingScreen({ navigation }: any) {
       );
     }
     return (
-      <View style={[styles.kanbanColumn, isDropTarget && styles.kanbanColumnDropTarget]} key={status.id}>
-        <View style={styles.kanbanHeader}>
+      <View style={[styles.kanbanColumn, { backgroundColor: isDark ? colors.surfaceSecondary : '#f1f5f9' }, isDropTarget && styles.kanbanColumnDropTarget]} key={status.id}>
+        <View style={[styles.kanbanHeader, { borderBottomColor: colors.border }]}>
           <View style={styles.kanbanHeaderTop}>
             <View style={[styles.statusDot, { backgroundColor: status.color }]} />
-            <Text style={styles.kanbanTitle}>{status.label}</Text>
-            <View style={styles.countBadge}><Text style={styles.countText}>{players.length}</Text></View>
+            <Text style={[styles.kanbanTitle, { color: colors.textSecondary }]}>{status.label}</Text>
+            <View style={[styles.countBadge, { backgroundColor: colors.border }]}><Text style={[styles.countText, { color: colors.textSecondary }]}>{players.length}</Text></View>
           </View>
-          <Text style={styles.kanbanDescription}>{status.description}</Text>
+          <Text style={[styles.kanbanDescription, { color: colors.textMuted }]}>{status.description}</Text>
         </View>
         <ScrollView style={styles.kanbanContent} showsVerticalScrollIndicator={false}>
           {players.map(player => renderPlayerCard(player))}
@@ -1377,41 +1380,41 @@ export function ScoutingScreen({ navigation }: any) {
   };
 
   const renderListView = () => (
-    <View style={styles.tableContainer}>
-      <View style={styles.tableHeader}>
-        <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Name</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 0.8 }]}>Pos.</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 1.4 }]}>Verein</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 1.2 }]}>Berater</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 0.7 }]}>Rating</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Scout</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 1.1 }]}>Status</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 0.3 }]}>TM</Text>
+    <View style={[styles.tableContainer, { backgroundColor: colors.cardBackground }]}>
+      <View style={[styles.tableHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+        <Text style={[styles.tableHeaderCell, { flex: 2, color: colors.textSecondary }]}>Name</Text>
+        <Text style={[styles.tableHeaderCell, { flex: 0.8, color: colors.textSecondary }]}>Pos.</Text>
+        <Text style={[styles.tableHeaderCell, { flex: 1.4, color: colors.textSecondary }]}>Verein</Text>
+        <Text style={[styles.tableHeaderCell, { flex: 1.2, color: colors.textSecondary }]}>Berater</Text>
+        <Text style={[styles.tableHeaderCell, { flex: 0.7, color: colors.textSecondary }]}>Rating</Text>
+        <Text style={[styles.tableHeaderCell, { flex: 1, color: colors.textSecondary }]}>Scout</Text>
+        <Text style={[styles.tableHeaderCell, { flex: 1.1, color: colors.textSecondary }]}>Status</Text>
+        <Text style={[styles.tableHeaderCell, { flex: 0.3, color: colors.textSecondary }]}>TM</Text>
       </View>
       <ScrollView>
         {filteredPlayers.map(player => (
-          <TouchableOpacity key={player.id} style={styles.tableRow} onPress={() => { 
-            setSelectedPlayer(player); 
+          <TouchableOpacity key={player.id} style={[styles.tableRow, { borderBottomColor: colors.border }]} onPress={() => {
+            setSelectedPlayer(player);
             setEditData({ first_name: player.first_name, last_name: player.last_name, birth_date: player.birth_date,
               position: player.position, club: player.club, rating: player.rating, status: player.status,
-              notes: player.notes, photo_url: player.photo_url, transfermarkt_url: player.transfermarkt_url, 
+              notes: player.notes, photo_url: player.photo_url, transfermarkt_url: player.transfermarkt_url,
               agent_name: player.agent_name, phone: player.phone, additional_info: player.additional_info,
-              current_status: player.current_status }); 
-            setEditClubSearchText(player.club || ''); 
-            setShowPlayerDetailModal(true); 
+              current_status: player.current_status });
+            setEditClubSearchText(player.club || '');
+            setShowPlayerDetailModal(true);
           }}>
-            <Text style={[styles.tableCell, styles.tableCellText, { flex: 2 }]}>{player.last_name}, {player.first_name} <Text style={{ color: '#64748b', fontWeight: '400' }}>({getYearFromDate(player.birth_date)})</Text></Text>
+            <Text style={[styles.tableCell, styles.tableCellText, { flex: 2, color: colors.text }]}>{player.last_name}, {player.first_name} <Text style={{ color: colors.textSecondary, fontWeight: '400' }}>({getYearFromDate(player.birth_date)})</Text></Text>
             <View style={[styles.tableCell, { flex: 0.8, flexDirection: 'row', flexWrap: 'wrap', gap: 4 }]}>
               {parsePositions(player.position).map((pos, idx) => (
                 <View key={idx} style={styles.positionBadgeSmall}><Text style={styles.positionTextSmall}>{pos}</Text></View>
               ))}
             </View>
-            <Text style={[styles.tableCell, { flex: 1.4 }]} numberOfLines={1}>{player.club}</Text>
-            <Text style={[styles.tableCell, { flex: 1.2 }]} numberOfLines={1}>{player.agent_name || '-'}</Text>
+            <Text style={[styles.tableCell, { flex: 1.4, color: colors.text }]} numberOfLines={1}>{player.club}</Text>
+            <Text style={[styles.tableCell, { flex: 1.2, color: colors.text }]} numberOfLines={1}>{player.agent_name || '-'}</Text>
             <View style={[styles.tableCell, { flex: 0.7, flexDirection: 'row' }]}>
-              {player.rating ? <View style={styles.ratingBadgeList}><Text style={styles.ratingTextList}>⭐ {player.rating}/10</Text></View> : <Text style={styles.tableCell}>-</Text>}
+              {player.rating ? <View style={styles.ratingBadgeList}><Text style={styles.ratingTextList}>⭐ {player.rating}/10</Text></View> : <Text style={[styles.tableCell, { color: colors.text }]}>-</Text>}
             </View>
-            <Text style={[styles.tableCell, { flex: 1 }]} numberOfLines={1}>{player.scout_name}</Text>
+            <Text style={[styles.tableCell, { flex: 1, color: colors.text }]} numberOfLines={1}>{player.scout_name}</Text>
             <Text style={[styles.tableCell, { flex: 1.1, color: SCOUTING_STATUS.find(s => s.id === player.status)?.color }]}>
               {SCOUTING_STATUS.find(s => s.id === player.status)?.label}
             </Text>
@@ -1472,34 +1475,34 @@ export function ScoutingScreen({ navigation }: any) {
     };
     
     return (
-      <Pressable style={styles.gamesContainer} onPress={closeGamesDropdowns}>
+      <Pressable style={[styles.gamesContainer, { backgroundColor: colors.cardBackground }]} onPress={closeGamesDropdowns}>
         {/* Search Results */}
         {gamesViewMode === 'search' && (
           <ScrollView>
             {/* Events Results */}
             {searchResultsEvents.length > 0 && (
               <>
-                <View style={styles.searchResultsHeader}>
-                  <Text style={styles.searchResultsTitle}>Events ({searchResultsEvents.length})</Text>
+                <View style={[styles.searchResultsHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+                  <Text style={[styles.searchResultsTitle, { color: colors.text }]}>Events ({searchResultsEvents.length})</Text>
                 </View>
-                <View style={styles.tableHeader}>
-                  <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Datum</Text>
-                  <Text style={[styles.tableHeaderCell, { flex: 0.8 }]}>Art</Text>
-                  <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Beschreibung</Text>
-                  <Text style={[styles.tableHeaderCell, { flex: 0.6 }]}>Mannschaft</Text>
-                  <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Scout</Text>
+                <View style={[styles.tableHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+                  <Text style={[styles.tableHeaderCell, { flex: 1, color: colors.textSecondary }]}>Datum</Text>
+                  <Text style={[styles.tableHeaderCell, { flex: 0.8, color: colors.textSecondary }]}>Art</Text>
+                  <Text style={[styles.tableHeaderCell, { flex: 2, color: colors.textSecondary }]}>Beschreibung</Text>
+                  <Text style={[styles.tableHeaderCell, { flex: 0.6, color: colors.textSecondary }]}>Mannschaft</Text>
+                  <Text style={[styles.tableHeaderCell, { flex: 1, color: colors.textSecondary }]}>Scout</Text>
                 </View>
                 {searchResultsEvents.map(game => (
-                  <TouchableOpacity 
-                    key={game.id} 
-                    style={styles.tableRow} 
+                  <TouchableOpacity
+                    key={game.id}
+                    style={[styles.tableRow, { borderBottomColor: colors.border }]}
                     onPress={() => openGameDetail(game)}
                   >
-                    <Text style={[styles.tableCell, { flex: 1 }]}>{formatGameDate(game.date)}</Text>
-                    <Text style={[styles.tableCell, { flex: 0.8, color: '#6b7280' }]}>{game.game_type || '-'}</Text>
-                    <Text style={[styles.tableCell, { flex: 2, fontWeight: '600' }]}>{game.description || '-'}</Text>
-                    <Text style={[styles.tableCell, { flex: 0.6 }]}>{game.age_group || '-'}</Text>
-                    <Text style={[styles.tableCell, { flex: 1 }]}>{game.scout_name || '-'}</Text>
+                    <Text style={[styles.tableCell, { flex: 1, color: colors.text }]}>{formatGameDate(game.date)}</Text>
+                    <Text style={[styles.tableCell, { flex: 0.8, color: colors.textSecondary }]}>{game.game_type || '-'}</Text>
+                    <Text style={[styles.tableCell, { flex: 2, fontWeight: '600', color: colors.text }]}>{game.description || '-'}</Text>
+                    <Text style={[styles.tableCell, { flex: 0.6, color: colors.text }]}>{game.age_group || '-'}</Text>
+                    <Text style={[styles.tableCell, { flex: 1, color: colors.text }]}>{game.scout_name || '-'}</Text>
                   </TouchableOpacity>
                 ))}
               </>
@@ -1508,43 +1511,43 @@ export function ScoutingScreen({ navigation }: any) {
             {/* Players Results */}
             {searchResultsPlayers.length > 0 && (
               <>
-                <View style={[styles.searchResultsHeader, searchResultsEvents.length > 0 && { marginTop: 16 }]}>
-                  <Text style={styles.searchResultsTitle}>Spieler ({searchResultsPlayers.length})</Text>
+                <View style={[styles.searchResultsHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }, searchResultsEvents.length > 0 && { marginTop: 16 }]}>
+                  <Text style={[styles.searchResultsTitle, { color: colors.text }]}>Spieler ({searchResultsPlayers.length})</Text>
                 </View>
-                <View style={styles.tableHeader}>
-                  <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Name</Text>
-                  <Text style={[styles.tableHeaderCell, { flex: 0.7 }]}>Position</Text>
-                  <Text style={[styles.tableHeaderCell, { flex: 0.8 }]}>Verein</Text>
-                  <Text style={[styles.tableHeaderCell, { flex: 0.45 }]}>Jahrgang</Text>
-                  <Text style={[styles.tableHeaderCell, { flex: 0.55 }]}>Einschätzung</Text>
-                  <Text style={[styles.tableHeaderCell, { flex: 0.4 }]}>Notiz</Text>
-                  <Text style={[styles.tableHeaderCell, { flex: 0.9 }]}>Event</Text>
+                <View style={[styles.tableHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+                  <Text style={[styles.tableHeaderCell, { flex: 1, color: colors.textSecondary }]}>Name</Text>
+                  <Text style={[styles.tableHeaderCell, { flex: 0.7, color: colors.textSecondary }]}>Position</Text>
+                  <Text style={[styles.tableHeaderCell, { flex: 0.8, color: colors.textSecondary }]}>Verein</Text>
+                  <Text style={[styles.tableHeaderCell, { flex: 0.45, color: colors.textSecondary }]}>Jahrgang</Text>
+                  <Text style={[styles.tableHeaderCell, { flex: 0.55, color: colors.textSecondary }]}>Einschätzung</Text>
+                  <Text style={[styles.tableHeaderCell, { flex: 0.4, color: colors.textSecondary }]}>Notiz</Text>
+                  <Text style={[styles.tableHeaderCell, { flex: 0.9, color: colors.textSecondary }]}>Event</Text>
                   <Text style={[styles.tableHeaderCell, { flex: 1.2 }]}></Text>
                 </View>
                 {searchResultsPlayers.map(player => {
                   const inDatabase = isPlayerInDatabase(player);
                   return (
-                    <View key={player.id} style={styles.tableRow}>
-                      <Text style={[styles.tableCell, styles.tableCellText, { flex: 1 }]}>
+                    <View key={player.id} style={[styles.tableRow, { borderBottomColor: colors.border }]}>
+                      <Text style={[styles.tableCell, styles.tableCellText, { flex: 1, color: colors.text }]}>
                         {player.last_name}{player.first_name ? `, ${player.first_name}` : ''}
                       </Text>
                       <View style={[styles.tableCell, { flex: 0.7 }]}>
                         {player.position ? (
                           <View style={styles.positionBadgeSmall}><Text style={styles.positionTextSmall}>{player.position}</Text></View>
                         ) : (
-                          <Text>-</Text>
+                          <Text style={{ color: colors.text }}>-</Text>
                         )}
                       </View>
-                      <Text style={[styles.tableCell, { flex: 0.8 }]}>{player.team_name || '-'}</Text>
-                      <Text style={[styles.tableCell, { flex: 0.45 }]}>{player.birth_year || '-'}</Text>
+                      <Text style={[styles.tableCell, { flex: 0.8, color: colors.text }]}>{player.team_name || '-'}</Text>
+                      <Text style={[styles.tableCell, { flex: 0.45, color: colors.text }]}>{player.birth_year || '-'}</Text>
                       <View style={[styles.tableCell, { flex: 0.55 }]}>
                         {player.rating ? (
                           <View style={styles.ratingBadgeTight}><Text style={styles.ratingTextTight}>⭐ {player.rating}/10</Text></View>
                         ) : (
-                          <Text>-</Text>
+                          <Text style={{ color: colors.text }}>-</Text>
                         )}
                       </View>
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         style={[styles.tableCell, { flex: 0.4 }]}
                         onPress={() => {
                           if (player.notes) {
@@ -1554,9 +1557,9 @@ export function ScoutingScreen({ navigation }: any) {
                           }
                         }}
                       >
-                        <Text style={{ color: player.notes ? '#3b82f6' : '#9ca3af' }}>{player.notes ? '📝' : '-'}</Text>
+                        <Text style={{ color: player.notes ? '#3b82f6' : colors.textMuted }}>{player.notes ? '📝' : '-'}</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         style={[styles.tableCell, { flex: 0.9 }]}
                         onPress={() => player.game && openGameDetail(player.game)}
                       >
@@ -1568,7 +1571,7 @@ export function ScoutingScreen({ navigation }: any) {
                             <Text style={styles.addedToDatabaseBtnText}>wurde zur Spieler-Datenbank hinzugefügt</Text>
                           </View>
                         ) : (
-                          <TouchableOpacity 
+                          <TouchableOpacity
                             style={styles.addToDatabaseBtn}
                             onPress={() => addSearchPlayerToDatabase(player)}
                           >
@@ -1584,7 +1587,7 @@ export function ScoutingScreen({ navigation }: any) {
 
             {totalResults === 0 && (
               <View style={styles.emptyArchiv}>
-                <Text style={styles.emptyArchivText}>
+                <Text style={[styles.emptyArchivText, { color: colors.textMuted }]}>
                   {gamesSearchQuery ? `Keine Ergebnisse für "${gamesSearchQuery}"` : 'Keine Ergebnisse für die ausgewählten Filter'}
                 </Text>
               </View>
@@ -1595,30 +1598,30 @@ export function ScoutingScreen({ navigation }: any) {
         {/* Games List (upcoming or archive) */}
         {gamesViewMode !== 'search' && (
           <>
-            <View style={styles.tableHeader}>
-              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Datum</Text>
-              <Text style={[styles.tableHeaderCell, { flex: 0.8 }]}>Art</Text>
-              <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Beschreibung</Text>
-              <Text style={[styles.tableHeaderCell, { flex: 0.6 }]}>Mannschaft</Text>
-              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Scout</Text>
+            <View style={[styles.tableHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+              <Text style={[styles.tableHeaderCell, { flex: 1, color: colors.textSecondary }]}>Datum</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 0.8, color: colors.textSecondary }]}>Art</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 2, color: colors.textSecondary }]}>Beschreibung</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 0.6, color: colors.textSecondary }]}>Mannschaft</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 1, color: colors.textSecondary }]}>Scout</Text>
             </View>
             <ScrollView>
               {gamesToShow.map(game => (
-                <TouchableOpacity 
-                  key={game.id} 
-                  style={[styles.tableRow, isGameToday(game.date) && styles.tableRowToday]} 
+                <TouchableOpacity
+                  key={game.id}
+                  style={[styles.tableRow, { borderBottomColor: colors.border }, isGameToday(game.date) && styles.tableRowToday]}
                   onPress={() => openGameDetail(game)}
                 >
-                  <Text style={[styles.tableCell, { flex: 1 }, isGameToday(game.date) && styles.tableCellToday]}>{formatGameDate(game.date)}</Text>
-                  <Text style={[styles.tableCell, { flex: 0.8, color: isGameToday(game.date) ? '#166534' : '#6b7280' }]}>{game.game_type || '-'}</Text>
-                  <Text style={[styles.tableCell, { flex: 2, fontWeight: '600' }, isGameToday(game.date) && styles.tableCellToday]}>{game.description || `${game.home_team} vs ${game.away_team}`}</Text>
-                  <Text style={[styles.tableCell, { flex: 0.6 }, isGameToday(game.date) && styles.tableCellToday]}>{game.age_group || '-'}</Text>
-                  <Text style={[styles.tableCell, { flex: 1 }, isGameToday(game.date) && styles.tableCellToday]}>{game.scout_name || '-'}</Text>
+                  <Text style={[styles.tableCell, { flex: 1, color: colors.text }, isGameToday(game.date) && styles.tableCellToday]}>{formatGameDate(game.date)}</Text>
+                  <Text style={[styles.tableCell, { flex: 0.8, color: isGameToday(game.date) ? '#166534' : colors.textSecondary }]}>{game.game_type || '-'}</Text>
+                  <Text style={[styles.tableCell, { flex: 2, fontWeight: '600', color: colors.text }, isGameToday(game.date) && styles.tableCellToday]}>{game.description || `${game.home_team} vs ${game.away_team}`}</Text>
+                  <Text style={[styles.tableCell, { flex: 0.6, color: colors.text }, isGameToday(game.date) && styles.tableCellToday]}>{game.age_group || '-'}</Text>
+                  <Text style={[styles.tableCell, { flex: 1, color: colors.text }, isGameToday(game.date) && styles.tableCellToday]}>{game.scout_name || '-'}</Text>
                 </TouchableOpacity>
               ))}
               {gamesToShow.length === 0 && (
                 <View style={styles.emptyArchiv}>
-                  <Text style={styles.emptyArchivText}>
+                  <Text style={[styles.emptyArchivText, { color: colors.textMuted }]}>
                     {gamesViewMode === 'upcoming' ? 'Keine anstehenden Termine' : 'Keine archivierten Termine'}
                   </Text>
                 </View>
@@ -1876,14 +1879,14 @@ export function ScoutingScreen({ navigation }: any) {
     return (
       <TouchableOpacity
         key={player.id}
-        style={styles.mobilePlayerCard}
+        style={[styles.mobilePlayerCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
         onPress={() => openPlayerDetailModal(player)}
       >
         {/* Row 1: Name with year (left) | Position badges (right) */}
         <View style={styles.mobilePlayerCardRow}>
-          <Text style={styles.mobilePlayerCardName}>
+          <Text style={[styles.mobilePlayerCardName, { color: colors.text }]}>
             {player.last_name}, {player.first_name}
-            {birthYear ? <Text style={styles.mobilePlayerCardYear}> ({birthYear})</Text> : null}
+            {birthYear ? <Text style={[styles.mobilePlayerCardYear, { color: colors.textSecondary }]}> ({birthYear})</Text> : null}
           </Text>
           <View style={styles.positionBadgesRow}>
             {parsePositions(player.position).map((pos, idx) => (
@@ -1897,7 +1900,7 @@ export function ScoutingScreen({ navigation }: any) {
         <View style={styles.mobilePlayerCardRow}>
           <View style={styles.mobilePlayerCardClubRow}>
             {logo && <Image source={{ uri: logo }} style={styles.mobilePlayerCardLogo} />}
-            <Text style={styles.mobilePlayerCardClub} numberOfLines={1}>{player.club || '-'}</Text>
+            <Text style={[styles.mobilePlayerCardClub, { color: colors.textSecondary }]} numberOfLines={1}>{player.club || '-'}</Text>
           </View>
           {player.rating ? (
             <View style={styles.ratingBadgeSmall}>
@@ -1907,7 +1910,7 @@ export function ScoutingScreen({ navigation }: any) {
         </View>
         {/* Row 4: Current status note */}
         {player.current_status && (
-          <Text style={styles.mobilePlayerCardStatus} numberOfLines={2}>💬 {player.current_status}</Text>
+          <Text style={[styles.mobilePlayerCardStatus, { color: colors.textSecondary, borderTopColor: colors.border }]} numberOfLines={2}>💬 {player.current_status}</Text>
         )}
       </TouchableOpacity>
     );
@@ -1922,25 +1925,25 @@ export function ScoutingScreen({ navigation }: any) {
     return (
       <TouchableOpacity
         key={game.id}
-        style={styles.mobileGameCard}
+        style={[styles.mobileGameCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
         onPress={() => openGameDetail(game)}
       >
         <View style={styles.mobileGameCardHeader}>
-          <Text style={styles.mobileGameCardDate}>{dateStr}</Text>
-          {game.age_group && <Text style={styles.mobileGameCardJahrgang}>{game.age_group}</Text>}
+          <Text style={[styles.mobileGameCardDate, { color: colors.text }]}>{dateStr}</Text>
+          {game.age_group && <Text style={[styles.mobileGameCardJahrgang, { color: colors.textSecondary, backgroundColor: colors.surfaceSecondary }]}>{game.age_group}</Text>}
         </View>
         <View style={styles.mobileGameCardTeams}>
           <View style={styles.mobileGameCardTeam}>
             {homeLogo && <Image source={{ uri: homeLogo }} style={styles.mobileGameCardLogo} />}
-            <Text style={styles.mobileGameCardTeamName} numberOfLines={1}>{game.home_team}</Text>
+            <Text style={[styles.mobileGameCardTeamName, { color: colors.text }]} numberOfLines={1}>{game.home_team}</Text>
           </View>
-          <Text style={styles.mobileGameCardVs}>vs</Text>
+          <Text style={[styles.mobileGameCardVs, { color: colors.textMuted }]}>vs</Text>
           <View style={styles.mobileGameCardTeam}>
             {awayLogo && <Image source={{ uri: awayLogo }} style={styles.mobileGameCardLogo} />}
-            <Text style={styles.mobileGameCardTeamName} numberOfLines={1}>{game.away_team}</Text>
+            <Text style={[styles.mobileGameCardTeamName, { color: colors.text }]} numberOfLines={1}>{game.away_team}</Text>
           </View>
         </View>
-        {game.location && <Text style={styles.mobileGameCardVenue}>📍 {game.location}</Text>}
+        {game.location && <Text style={[styles.mobileGameCardVenue, { color: colors.textSecondary }]}>📍 {game.location}</Text>}
       </TouchableOpacity>
     );
   };
@@ -1965,36 +1968,37 @@ export function ScoutingScreen({ navigation }: any) {
     }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     return (
-      <Pressable style={styles.mobileContainer} onPress={closeAllDropdowns}>
+      <Pressable style={[styles.mobileContainer, { backgroundColor: colors.background }]} onPress={closeAllDropdowns}>
         {/* Mobile Sidebar Overlay */}
-        {showMobileSidebar && (
-          <Pressable style={styles.sidebarOverlay} onPress={() => setShowMobileSidebar(false)}>
-            <Pressable style={styles.sidebarMobile} onPress={(e) => e.stopPropagation()}>
-              <Sidebar navigation={navigation} activeScreen="scouting" profile={profile} onNavigate={() => setShowMobileSidebar(false)} embedded />
-            </Pressable>
-          </Pressable>
-        )}
+        <MobileSidebar
+          visible={showMobileSidebar}
+          onClose={() => setShowMobileSidebar(false)}
+          navigation={navigation}
+          activeScreen="scouting"
+          profile={profile}
+        />
 
         <MobileHeader
           title="Scouting"
           onMenuPress={() => setShowMobileSidebar(true)}
+          onProfilePress={() => navigation.navigate('MyProfile')}
           profileInitials={profileInitials}
         />
 
         {/* Main Tabs: Spieler / Termine */}
-        <View style={styles.mobileTabs}>
-          <TouchableOpacity style={[styles.mobileTab, activeTab === 'spieler' && styles.mobileTabActive]} onPress={() => setActiveTab('spieler')}>
-            <Text style={[styles.mobileTabText, activeTab === 'spieler' && styles.mobileTabTextActive]}>Spieler</Text>
+        <View style={[styles.mobileTabs, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+          <TouchableOpacity style={[styles.mobileTab, activeTab === 'spieler' && styles.mobileTabActive, activeTab === 'spieler' && { borderBottomColor: colors.primary }]} onPress={() => setActiveTab('spieler')}>
+            <Text style={[styles.mobileTabText, { color: colors.textSecondary }, activeTab === 'spieler' && styles.mobileTabTextActive, activeTab === 'spieler' && { color: colors.text }]}>Spieler</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.mobileTab, activeTab === 'spiele' && styles.mobileTabActive]} onPress={() => setActiveTab('spiele')}>
-            <Text style={[styles.mobileTabText, activeTab === 'spiele' && styles.mobileTabTextActive]}>Termine</Text>
+          <TouchableOpacity style={[styles.mobileTab, activeTab === 'spiele' && styles.mobileTabActive, activeTab === 'spiele' && { borderBottomColor: colors.primary }]} onPress={() => setActiveTab('spiele')}>
+            <Text style={[styles.mobileTabText, { color: colors.textSecondary }, activeTab === 'spiele' && styles.mobileTabTextActive, activeTab === 'spiele' && { color: colors.text }]}>Termine</Text>
           </TouchableOpacity>
         </View>
 
         {activeTab === 'spieler' ? (
           <>
             {/* Status Tabs */}
-            <View style={styles.mobileStatusTabs}>
+            <View style={[styles.mobileStatusTabs, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
               {SCOUTING_STATUS.map(status => {
                 const count = getPlayersByStatus(status.id).length;
                 const isActive = mobileStatusTab === status.id;
@@ -2028,12 +2032,12 @@ export function ScoutingScreen({ navigation }: any) {
             </View>
 
             {/* Search */}
-            <View style={styles.mobileSearchContainer}>
+            <View style={[styles.mobileSearchContainer, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
               <Text style={styles.mobileSearchIcon}>🔍</Text>
               <TextInput
-                style={styles.mobileSearchInput}
+                style={[styles.mobileSearchInput, { color: colors.text }]}
                 placeholder="Spieler, Verein suchen..."
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={colors.textMuted}
                 value={searchText}
                 onChangeText={setSearchText}
               />
@@ -2077,12 +2081,12 @@ export function ScoutingScreen({ navigation }: any) {
         ) : (
           <>
             {/* Games Search */}
-            <View style={styles.mobileSearchContainer}>
+            <View style={[styles.mobileSearchContainer, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
               <Text style={styles.mobileSearchIcon}>🔍</Text>
               <TextInput
-                style={styles.mobileSearchInput}
+                style={[styles.mobileSearchInput, { color: colors.text }]}
                 placeholder="Spiel, Verein suchen..."
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={colors.textMuted}
                 value={gamesSearchQuery}
                 onChangeText={(text) => {
                   setGamesSearchQuery(text);
@@ -2135,21 +2139,21 @@ export function ScoutingScreen({ navigation }: any) {
         {/* Add Game Modal for Mobile */}
         <Modal visible={showAddGameModal} transparent animationType="slide">
           <View style={styles.mobileModalOverlay}>
-            <View style={styles.mobileModalContent}>
-              <View style={styles.mobileModalHeader}>
-                <Text style={styles.mobileModalTitle}>Neues Spiel anlegen</Text>
+            <View style={[styles.mobileModalContent, { backgroundColor: colors.surface }]}>
+              <View style={[styles.mobileModalHeader, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.mobileModalTitle, { color: colors.text }]}>Neues Spiel anlegen</Text>
                 <TouchableOpacity onPress={() => setShowAddGameModal(false)}>
-                  <Text style={styles.mobileModalClose}>✕</Text>
+                  <Text style={[styles.mobileModalClose, { color: colors.textSecondary }]}>✕</Text>
                 </TouchableOpacity>
               </View>
               <ScrollView style={styles.mobileModalScroll}>
                 <View style={{ padding: 16 }}>
                   <View style={{ marginBottom: 16 }}>
-                    <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>Datum *</Text>
+                    <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>Datum *</Text>
                     <TextInput
-                      style={{ borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 12, fontSize: 15 }}
+                      style={{ borderWidth: 1, borderColor: colors.inputBorder, borderRadius: 8, padding: 12, fontSize: 15, backgroundColor: colors.inputBackground, color: colors.text }}
                       placeholder="TT.MM.JJJJ"
-                      placeholderTextColor="#9ca3af"
+                      placeholderTextColor={colors.textMuted}
                       value={newGame.date ? formatDateShort(newGame.date) : ''}
                       onChangeText={(text) => {
                         const parts = text.split('.');
@@ -2162,51 +2166,51 @@ export function ScoutingScreen({ navigation }: any) {
                     />
                   </View>
                   <View style={{ marginBottom: 16 }}>
-                    <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>Heimmannschaft *</Text>
+                    <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>Heimmannschaft *</Text>
                     <TextInput
-                      style={{ borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 12, fontSize: 15 }}
+                      style={{ borderWidth: 1, borderColor: colors.inputBorder, borderRadius: 8, padding: 12, fontSize: 15, backgroundColor: colors.inputBackground, color: colors.text }}
                       placeholder="Vereinsname"
-                      placeholderTextColor="#9ca3af"
+                      placeholderTextColor={colors.textMuted}
                       value={newGame.home_team || ''}
                       onChangeText={(text) => setNewGame({ ...newGame, home_team: text })}
                     />
                   </View>
                   <View style={{ marginBottom: 16 }}>
-                    <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>Gastmannschaft *</Text>
+                    <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>Gastmannschaft *</Text>
                     <TextInput
-                      style={{ borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 12, fontSize: 15 }}
+                      style={{ borderWidth: 1, borderColor: colors.inputBorder, borderRadius: 8, padding: 12, fontSize: 15, backgroundColor: colors.inputBackground, color: colors.text }}
                       placeholder="Vereinsname"
-                      placeholderTextColor="#9ca3af"
+                      placeholderTextColor={colors.textMuted}
                       value={newGame.away_team || ''}
                       onChangeText={(text) => setNewGame({ ...newGame, away_team: text })}
                     />
                   </View>
                   <View style={{ marginBottom: 16 }}>
-                    <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>Spielort</Text>
+                    <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>Spielort</Text>
                     <TextInput
-                      style={{ borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 12, fontSize: 15 }}
+                      style={{ borderWidth: 1, borderColor: colors.inputBorder, borderRadius: 8, padding: 12, fontSize: 15, backgroundColor: colors.inputBackground, color: colors.text }}
                       placeholder="Adresse oder Stadion"
-                      placeholderTextColor="#9ca3af"
+                      placeholderTextColor={colors.textMuted}
                       value={newGame.location || ''}
                       onChangeText={(text) => setNewGame({ ...newGame, location: text })}
                     />
                   </View>
                   <View style={{ marginBottom: 16 }}>
-                    <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>Jahrgang</Text>
+                    <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>Jahrgang</Text>
                     <TextInput
-                      style={{ borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 12, fontSize: 15 }}
+                      style={{ borderWidth: 1, borderColor: colors.inputBorder, borderRadius: 8, padding: 12, fontSize: 15, backgroundColor: colors.inputBackground, color: colors.text }}
                       placeholder="z.B. U19, U17"
-                      placeholderTextColor="#9ca3af"
+                      placeholderTextColor={colors.textMuted}
                       value={newGame.age_group || ''}
                       onChangeText={(text) => setNewGame({ ...newGame, age_group: text })}
                     />
                   </View>
                   <View style={{ marginBottom: 16 }}>
-                    <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>Notizen</Text>
+                    <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>Notizen</Text>
                     <TextInput
-                      style={{ borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 12, fontSize: 15, minHeight: 80 }}
+                      style={{ borderWidth: 1, borderColor: colors.inputBorder, borderRadius: 8, padding: 12, fontSize: 15, minHeight: 80, backgroundColor: colors.inputBackground, color: colors.text }}
                       placeholder="Weitere Infos..."
-                      placeholderTextColor="#9ca3af"
+                      placeholderTextColor={colors.textMuted}
                       multiline
                       value={newGame.notes || ''}
                       onChangeText={(text) => setNewGame({ ...newGame, notes: text })}
@@ -2214,7 +2218,7 @@ export function ScoutingScreen({ navigation }: any) {
                   </View>
                 </View>
               </ScrollView>
-              <View style={styles.mobileModalButtons}>
+              <View style={[styles.mobileModalButtons, { borderTopColor: colors.border }]}>
                 <TouchableOpacity style={styles.mobileModalCancelBtn} onPress={() => setShowAddGameModal(false)}>
                   <Text style={styles.mobileModalCancelText}>Abbrechen</Text>
                 </TouchableOpacity>
@@ -2229,17 +2233,17 @@ export function ScoutingScreen({ navigation }: any) {
         {/* Add Player Modal */}
         <Modal visible={showAddPlayerModal} transparent animationType="slide">
           <View style={styles.mobileModalOverlay}>
-            <View style={styles.mobileModalContent}>
-              <View style={styles.mobileModalHeader}>
-                <Text style={styles.mobileModalTitle}>Neuen Spieler anlegen</Text>
+            <View style={[styles.mobileModalContent, { backgroundColor: colors.surface }]}>
+              <View style={[styles.mobileModalHeader, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.mobileModalTitle, { color: colors.text }]}>Neuen Spieler anlegen</Text>
                 <TouchableOpacity onPress={closeAddPlayerModal}>
-                  <Text style={styles.mobileModalClose}>✕</Text>
+                  <Text style={[styles.mobileModalClose, { color: colors.textSecondary }]}>✕</Text>
                 </TouchableOpacity>
               </View>
               <ScrollView style={styles.mobileModalScroll}>
                 {renderPlayerForm(newPlayer, setNewPlayer, newPlayerClubSearch, setNewPlayerClubSearch, showNewPlayerClubDropdown, setShowNewPlayerClubDropdown)}
               </ScrollView>
-              <View style={styles.mobileModalButtons}>
+              <View style={[styles.mobileModalButtons, { borderTopColor: colors.border }]}>
                 <TouchableOpacity style={styles.mobileModalCancelBtn} onPress={closeAddPlayerModal}>
                   <Text style={styles.mobileModalCancelText}>Abbrechen</Text>
                 </TouchableOpacity>
@@ -2256,24 +2260,24 @@ export function ScoutingScreen({ navigation }: any) {
         {selectedPlayer && (
           <Modal visible={showPlayerDetailModal} transparent animationType="slide">
             <View style={styles.mobileModalOverlay}>
-              <View style={[styles.mobileModalContent, { maxHeight: '95%' }]}>
-                <View style={styles.mobileModalHeader}>
+              <View style={[styles.mobileModalContent, { maxHeight: '95%', backgroundColor: colors.surface }]}>
+                <View style={[styles.mobileModalHeader, { borderBottomColor: colors.border }]}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.mobileModalTitle}>
+                    <Text style={[styles.mobileModalTitle, { color: colors.text }]}>
                       {selectedPlayer.last_name}, {selectedPlayer.first_name}
                       {selectedPlayer.birth_date && (
-                        <Text style={{ fontSize: 14, fontWeight: '400', color: '#64748b' }}> ({new Date(selectedPlayer.birth_date).getFullYear()})</Text>
+                        <Text style={{ fontSize: 14, fontWeight: '400', color: colors.textSecondary }}> ({new Date(selectedPlayer.birth_date).getFullYear()})</Text>
                       )}
                     </Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
                       {getClubLogo(selectedPlayer.club) && (
                         <Image source={{ uri: getClubLogo(selectedPlayer.club)! }} style={{ width: 18, height: 18, marginRight: 6 }} />
                       )}
-                      <Text style={{ fontSize: 14, color: '#64748b' }}>{selectedPlayer.club || '-'}</Text>
+                      <Text style={{ fontSize: 14, color: colors.textSecondary }}>{selectedPlayer.club || '-'}</Text>
                     </View>
                   </View>
                   <TouchableOpacity onPress={() => { setShowPlayerDetailModal(false); setIsEditing(false); }}>
-                    <Text style={styles.mobileModalClose}>✕</Text>
+                    <Text style={[styles.mobileModalClose, { color: colors.textSecondary }]}>✕</Text>
                   </TouchableOpacity>
                 </View>
                 <ScrollView style={styles.mobileModalScroll}>
@@ -2282,8 +2286,8 @@ export function ScoutingScreen({ navigation }: any) {
                   ) : (
                     <View style={{ padding: 16 }}>
                       {/* Status-Auswahl */}
-                      <View style={styles.mobileDetailBox}>
-                        <Text style={styles.mobileDetailLabel}>Status</Text>
+                      <View style={[styles.mobileDetailBox, { backgroundColor: colors.surfaceSecondary }]}>
+                        <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Status</Text>
                         <View style={styles.statusSelector}>
                           {SCOUTING_STATUS.map(status => (
                             <View
@@ -2314,10 +2318,10 @@ export function ScoutingScreen({ navigation }: any) {
                       </View>
 
                       {/* Position | Einschätzung */}
-                      <View style={styles.mobileDetailBox}>
+                      <View style={[styles.mobileDetailBox, { backgroundColor: colors.surfaceSecondary }]}>
                         <View style={{ flexDirection: 'row', gap: 16 }}>
                           <View style={{ flex: 1 }}>
-                            <Text style={styles.mobileDetailLabel}>Position</Text>
+                            <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Position</Text>
                             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
                               {parsePositions(selectedPlayer.position).map((pos, idx) => (
                                 <View key={idx} style={styles.positionBadge}><Text style={styles.positionText}>{pos}</Text></View>
@@ -2325,57 +2329,57 @@ export function ScoutingScreen({ navigation }: any) {
                             </View>
                           </View>
                           <View style={{ flex: 1 }}>
-                            <Text style={styles.mobileDetailLabel}>Einschätzung</Text>
+                            <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Einschätzung</Text>
                             {selectedPlayer.rating ? (
                               <View style={[styles.ratingBadge, { alignSelf: 'flex-start' }]}><Text style={styles.ratingText}>⭐ {selectedPlayer.rating}/10</Text></View>
                             ) : (
-                              <Text style={styles.mobileDetailValue}>-</Text>
+                              <Text style={[styles.mobileDetailValue, { color: colors.text }]}>-</Text>
                             )}
                           </View>
                         </View>
                       </View>
 
                       {/* Kontakt | Scout */}
-                      <View style={styles.mobileDetailBox}>
+                      <View style={[styles.mobileDetailBox, { backgroundColor: colors.surfaceSecondary }]}>
                         <View style={{ flexDirection: 'row', gap: 16 }}>
                           <View style={{ flex: 1 }}>
-                            <Text style={styles.mobileDetailLabel}>Kontakt</Text>
-                            <Text style={styles.mobileDetailValue}>{selectedPlayer.phone || '-'}</Text>
+                            <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Kontakt</Text>
+                            <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{selectedPlayer.phone || '-'}</Text>
                           </View>
                           <View style={{ flex: 1 }}>
-                            <Text style={styles.mobileDetailLabel}>Scout</Text>
-                            <Text style={styles.mobileDetailValue}>{selectedPlayer.scout_name || '-'}</Text>
+                            <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Scout</Text>
+                            <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{selectedPlayer.scout_name || '-'}</Text>
                           </View>
                         </View>
                       </View>
 
                       {/* Weitere Infos + IST-Stand */}
-                      <View style={styles.mobileDetailBox}>
+                      <View style={[styles.mobileDetailBox, { backgroundColor: colors.surfaceSecondary }]}>
                         {selectedPlayer.transfermarkt_url && (
                           <TouchableOpacity onPress={() => openTransfermarkt(selectedPlayer.transfermarkt_url!)} style={{ marginBottom: 12 }}>
-                            <Text style={styles.mobileDetailLabel}>Transfermarkt</Text>
+                            <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Transfermarkt</Text>
                             <Image source={TransfermarktLogo} style={{ width: 100, height: 20, resizeMode: 'contain' }} />
                           </TouchableOpacity>
                         )}
                         <View style={{ marginBottom: 12 }}>
-                          <Text style={styles.mobileDetailLabel}>Weitere Infos</Text>
-                          <Text style={styles.mobileDetailValue}>{selectedPlayer.additional_info || '-'}</Text>
+                          <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Weitere Infos</Text>
+                          <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{selectedPlayer.additional_info || '-'}</Text>
                         </View>
                         <View>
-                          <Text style={styles.mobileDetailLabel}>IST-Stand</Text>
-                          <Text style={styles.mobileDetailValue}>{selectedPlayer.current_status || '-'}</Text>
+                          <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>IST-Stand</Text>
+                          <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{selectedPlayer.current_status || '-'}</Text>
                         </View>
                       </View>
 
                       {/* Fußballerische Einschätzung */}
-                      <View style={[styles.mobileDetailBox, { marginBottom: 0 }]}>
-                        <Text style={styles.mobileDetailLabel}>Fußballerische Einschätzung</Text>
-                        <Text style={styles.mobileDetailValue}>{selectedPlayer.notes || '-'}</Text>
+                      <View style={[styles.mobileDetailBox, { marginBottom: 0, backgroundColor: colors.surfaceSecondary }]}>
+                        <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Fußballerische Einschätzung</Text>
+                        <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{selectedPlayer.notes || '-'}</Text>
                       </View>
                     </View>
                   )}
                 </ScrollView>
-                <View style={styles.mobileModalButtons}>
+                <View style={[styles.mobileModalButtons, { borderTopColor: colors.border }]}>
                   {isEditing ? (
                     <>
                       <TouchableOpacity style={[styles.mobileModalCancelBtn, { backgroundColor: '#fee2e2' }]} onPress={() => setShowDeleteConfirm(true)}>
@@ -2410,11 +2414,11 @@ export function ScoutingScreen({ navigation }: any) {
         {selectedGame && (
           <Modal visible={showGameDetailModal} transparent animationType="slide">
             <View style={styles.mobileModalOverlay}>
-              <View style={[styles.mobileModalContent, { maxHeight: '95%' }]}>
-                <View style={styles.mobileModalHeader}>
-                  <Text style={styles.mobileModalTitle}>{selectedGame.home_team} vs {selectedGame.away_team}</Text>
+              <View style={[styles.mobileModalContent, { maxHeight: '95%', backgroundColor: colors.surface }]}>
+                <View style={[styles.mobileModalHeader, { borderBottomColor: colors.border }]}>
+                  <Text style={[styles.mobileModalTitle, { color: colors.text }]}>{selectedGame.home_team} vs {selectedGame.away_team}</Text>
                   <TouchableOpacity onPress={() => setShowGameDetailModal(false)}>
-                    <Text style={styles.mobileModalClose}>✕</Text>
+                    <Text style={[styles.mobileModalClose, { color: colors.textSecondary }]}>✕</Text>
                   </TouchableOpacity>
                 </View>
                 <ScrollView style={styles.mobileModalScroll}>
@@ -2424,52 +2428,52 @@ export function ScoutingScreen({ navigation }: any) {
                         {getClubLogo(selectedGame.home_team) && (
                           <Image source={{ uri: getClubLogo(selectedGame.home_team)! }} style={{ width: 48, height: 48, marginBottom: 8 }} />
                         )}
-                        <Text style={{ fontSize: 14, fontWeight: '500', textAlign: 'center' }}>{selectedGame.home_team}</Text>
+                        <Text style={{ fontSize: 14, fontWeight: '500', textAlign: 'center', color: colors.text }}>{selectedGame.home_team}</Text>
                       </View>
-                      <Text style={{ fontSize: 18, color: '#94a3b8', marginHorizontal: 16 }}>vs</Text>
+                      <Text style={{ fontSize: 18, color: colors.textMuted, marginHorizontal: 16 }}>vs</Text>
                       <View style={{ alignItems: 'center', flex: 1 }}>
                         {getClubLogo(selectedGame.away_team) && (
                           <Image source={{ uri: getClubLogo(selectedGame.away_team)! }} style={{ width: 48, height: 48, marginBottom: 8 }} />
                         )}
-                        <Text style={{ fontSize: 14, fontWeight: '500', textAlign: 'center' }}>{selectedGame.away_team}</Text>
+                        <Text style={{ fontSize: 14, fontWeight: '500', textAlign: 'center', color: colors.text }}>{selectedGame.away_team}</Text>
                       </View>
                     </View>
 
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginBottom: 16 }}>
                       <View style={{ minWidth: 100 }}>
-                        <Text style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Datum</Text>
-                        <Text style={{ fontSize: 14, color: '#1a1a1a' }}>{selectedGame.date ? formatGameDate(selectedGame.date) : '-'}</Text>
+                        <Text style={{ fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>Datum</Text>
+                        <Text style={{ fontSize: 14, color: colors.text }}>{selectedGame.date ? formatGameDate(selectedGame.date) : '-'}</Text>
                       </View>
                       {selectedGame.age_group && (
                         <View style={{ minWidth: 80 }}>
-                          <Text style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Jahrgang</Text>
-                          <Text style={{ fontSize: 14, color: '#1a1a1a' }}>{selectedGame.age_group}</Text>
+                          <Text style={{ fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>Jahrgang</Text>
+                          <Text style={{ fontSize: 14, color: colors.text }}>{selectedGame.age_group}</Text>
                         </View>
                       )}
                       {selectedGame.game_type && (
                         <View style={{ minWidth: 80 }}>
-                          <Text style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Art</Text>
-                          <Text style={{ fontSize: 14, color: '#1a1a1a' }}>{selectedGame.game_type}</Text>
+                          <Text style={{ fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>Art</Text>
+                          <Text style={{ fontSize: 14, color: colors.text }}>{selectedGame.game_type}</Text>
                         </View>
                       )}
                     </View>
 
                     {selectedGame.location && (
                       <View style={{ marginBottom: 16 }}>
-                        <Text style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Spielort</Text>
-                        <Text style={{ fontSize: 14, color: '#1a1a1a' }}>📍 {selectedGame.location}</Text>
+                        <Text style={{ fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>Spielort</Text>
+                        <Text style={{ fontSize: 14, color: colors.text }}>📍 {selectedGame.location}</Text>
                       </View>
                     )}
 
                     {selectedGame.notes && (
                       <View style={{ marginBottom: 16 }}>
-                        <Text style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Notizen</Text>
-                        <Text style={{ fontSize: 14, color: '#1a1a1a' }}>{selectedGame.notes}</Text>
+                        <Text style={{ fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>Notizen</Text>
+                        <Text style={{ fontSize: 14, color: colors.text }}>{selectedGame.notes}</Text>
                       </View>
                     )}
                   </View>
                 </ScrollView>
-                <View style={styles.mobileModalButtons}>
+                <View style={[styles.mobileModalButtons, { borderTopColor: colors.border }]}>
                   <TouchableOpacity style={[styles.mobileModalCancelBtn, { backgroundColor: '#fee2e2' }]} onPress={() => deleteScoutingGame(selectedGame.id)}>
                     <Text style={[styles.mobileModalCancelText, { color: '#dc2626' }]}>Löschen</Text>
                   </TouchableOpacity>
@@ -2624,38 +2628,41 @@ export function ScoutingScreen({ navigation }: any) {
 
   // Desktop View
   return (
-    <Pressable style={[styles.container, isMobile && styles.containerMobile]} onPress={closeAllDropdowns}>
+    <Pressable style={[styles.container, isMobile && styles.containerMobile, { backgroundColor: colors.background }]} onPress={closeAllDropdowns}>
       {/* Mobile Sidebar Overlay */}
-      {isMobile && showMobileSidebar && (
-        <Pressable style={styles.sidebarOverlay} onPress={() => setShowMobileSidebar(false)}>
-          <Pressable style={styles.sidebarMobile} onPress={(e) => e.stopPropagation()}>
-            <Sidebar navigation={navigation} activeScreen="scouting" profile={profile} onNavigate={() => setShowMobileSidebar(false)} embedded />
-          </Pressable>
-        </Pressable>
+      {isMobile && (
+        <MobileSidebar
+          visible={showMobileSidebar}
+          onClose={() => setShowMobileSidebar(false)}
+          navigation={navigation}
+          activeScreen="scouting"
+          profile={profile}
+        />
       )}
 
       {/* Desktop Sidebar */}
       {!isMobile && <Sidebar navigation={navigation} activeScreen="scouting" profile={profile} />}
 
-      <View style={styles.mainContent}>
+      <View style={[styles.mainContent, { backgroundColor: colors.background }]}>
         {/* Mobile Header */}
         {isMobile && (
           <MobileHeader
             title="Scouting"
             onMenuPress={() => setShowMobileSidebar(true)}
+            onProfilePress={() => navigation.navigate('MyProfile')}
             profileInitials={profileInitials}
           />
         )}
 
         {/* Header Banner - nur auf Desktop */}
         {!isMobile && (
-          <View style={styles.headerBanner}>
+          <View style={[styles.headerBanner, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
             <TouchableOpacity style={styles.filterButton} onPress={() => navigation.navigate('AdvisorDashboard')}>
               <Text style={styles.filterButtonText}>← Zurück</Text>
             </TouchableOpacity>
             <View style={styles.headerBannerCenter}>
-              <Text style={styles.title}>Scouting Area</Text>
-              <Text style={styles.subtitle}>Manage Talente, Berichte und Spieltermine.</Text>
+              <Text style={[styles.title, { color: colors.text }]}>Scouting Area</Text>
+              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Manage Talente, Berichte und Spieltermine.</Text>
             </View>
             <View style={styles.headerTabs}>
               <TouchableOpacity style={[styles.filterButton, activeTab === 'spieler' && styles.filterButtonActive]} onPress={() => setActiveTab('spieler')}>
@@ -2680,13 +2687,13 @@ export function ScoutingScreen({ navigation }: any) {
           </View>
         )}
 
-        <View style={styles.toolbar}>
-          <View style={styles.searchContainer}>
+        <View style={[styles.toolbar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+          <View style={[styles.searchContainer, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
             <Text style={styles.searchIcon}>🔍</Text>
-            <TextInput 
-              style={styles.searchInput} 
-              placeholder={activeTab === 'spieler' ? "Spieler, Verein suchen..." : "Spieler, Verein, Event suchen..."} 
-              placeholderTextColor="#9ca3af" 
+            <TextInput
+              style={[styles.searchInput, { color: colors.text }]}
+              placeholder={activeTab === 'spieler' ? "Spieler, Verein suchen..." : "Spieler, Verein, Event suchen..."}
+              placeholderTextColor={colors.textMuted} 
               value={activeTab === 'spieler' ? searchText : gamesSearchQuery} 
               onChangeText={(text) => {
                 if (activeTab === 'spieler') {
@@ -2922,17 +2929,17 @@ export function ScoutingScreen({ navigation }: any) {
       {/* Add Player Modal */}
       <Modal visible={showAddPlayerModal} transparent animationType="fade">
         <View style={styles.modalOverlayTop}>
-          <View style={[styles.modalContent, { overflow: 'visible' }]}>
+          <View style={[styles.modalContent, { overflow: 'visible', backgroundColor: colors.surface }]}>
             <View style={styles.detailHeader}>
-              <Text style={styles.modalTitle}>Neuen Spieler hinzufügen</Text>
-              <TouchableOpacity onPress={closeAddPlayerModal} style={styles.closeButton}>
-                <Text style={styles.closeButtonText}>✕</Text>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Neuen Spieler hinzufügen</Text>
+              <TouchableOpacity onPress={closeAddPlayerModal} style={[styles.closeButton, { backgroundColor: colors.surfaceSecondary }]}>
+                <Text style={[styles.closeButtonText, { color: colors.textSecondary }]}>✕</Text>
               </TouchableOpacity>
             </View>
             {renderPlayerForm(newPlayer, setNewPlayer, newPlayerClubSearch, setNewPlayerClubSearch, showNewPlayerClubDropdown, setShowNewPlayerClubDropdown)}
-            <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.cancelButton} onPress={closeAddPlayerModal}>
-                <Text style={styles.cancelButtonText}>Abbrechen</Text>
+            <View style={[styles.modalButtons, { borderTopColor: colors.border }]}>
+              <TouchableOpacity style={[styles.cancelButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={closeAddPlayerModal}>
+                <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.saveButton} onPress={addScoutedPlayer}><Text style={styles.saveButtonText}>Hinzufügen</Text></TouchableOpacity>
             </View>
@@ -2943,17 +2950,17 @@ export function ScoutingScreen({ navigation }: any) {
       {/* Add Game Modal */}
       <Modal visible={showAddGameModal} transparent animationType="fade">
         <Pressable style={styles.modalOverlay} onPress={closeAllGameDropdowns}>
-          <Pressable style={[styles.modalContent, { overflow: 'visible', maxWidth: 500 }]} onPress={closeAllGameDropdowns}>
+          <Pressable style={[styles.modalContent, { overflow: 'visible', maxWidth: 500, backgroundColor: colors.surface }]} onPress={closeAllGameDropdowns}>
             <View style={styles.detailHeader}>
-              <Text style={styles.modalTitle}>Neues Spiel anlegen</Text>
-              <TouchableOpacity onPress={() => { setShowAddGameModal(false); closeAllGameDropdowns(); }} style={styles.closeButton}>
-                <Text style={styles.closeButtonText}>✕</Text>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Neues Spiel anlegen</Text>
+              <TouchableOpacity onPress={() => { setShowAddGameModal(false); closeAllGameDropdowns(); }} style={[styles.closeButton, { backgroundColor: colors.surfaceSecondary }]}>
+                <Text style={[styles.closeButtonText, { color: colors.textSecondary }]}>✕</Text>
               </TouchableOpacity>
             </View>
             
             {/* Datum mit Dropdown */}
             <View style={[styles.formField, { zIndex: 400 }]}>
-              <Text style={styles.formLabel}>Datum *</Text>
+              <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Datum *</Text>
               <View style={styles.datePickerRow}>
                 <View style={{ position: 'relative', flex: 1 }}>
                   <TouchableOpacity 
@@ -3190,19 +3197,19 @@ export function ScoutingScreen({ navigation }: any) {
       {selectedGame && (
         <Modal visible={showGameDetailModal} transparent animationType="fade">
           <Pressable style={styles.modalOverlay} onPress={closeAllEditDropdowns}>
-            <Pressable style={[styles.modalContentLarge, { maxWidth: 1100, width: '95%', height: '85%', overflow: 'visible' }]} onPress={closeAllEditDropdowns}>
+            <Pressable style={[styles.modalContentLarge, { maxWidth: 1100, width: '95%', height: '85%', overflow: 'visible', backgroundColor: colors.surface }]} onPress={closeAllEditDropdowns}>
               {/* Header with Description */}
-              <View style={[styles.gameDetailHeader, { zIndex: 100 }]}>
+              <View style={[styles.gameDetailHeader, { zIndex: 100, borderBottomColor: colors.border }]}>
                 <View style={styles.gameDetailHeaderLeft}>
                   {isEditingGame ? (
-                    <TextInput 
-                      style={styles.gameDetailTitleInput} 
-                      value={editGameData.description || ''} 
+                    <TextInput
+                      style={[styles.gameDetailTitleInput, { color: colors.text }]}
+                      value={editGameData.description || ''}
                       onChangeText={(t) => setEditGameData({...editGameData, description: t})}
-                      placeholder="Beschreibung" placeholderTextColor="#999"
+                      placeholder="Beschreibung" placeholderTextColor={colors.textMuted}
                     />
                   ) : (
-                    <Text style={styles.gameDetailTitle}>{selectedGame.description || 'Scouting-Termin'}</Text>
+                    <Text style={[styles.gameDetailTitle, { color: colors.text }]}>{selectedGame.description || 'Scouting-Termin'}</Text>
                   )}
                   <View style={[styles.gameDetailMeta, { zIndex: 50 }]}>
                     {isEditingGame ? (
@@ -3739,24 +3746,24 @@ export function ScoutingScreen({ navigation }: any) {
       {selectedPlayer && (
         <Modal visible={showPlayerDetailModal} transparent animationType="fade">
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalContentLarge, { overflow: 'visible' }]}>
+            <View style={[styles.modalContentLarge, { overflow: 'visible', backgroundColor: colors.surface }]}>
               <View style={styles.detailHeader}>
                 <View style={styles.detailHeaderLeft}>
-                  <Text style={styles.detailName}>
+                  <Text style={[styles.detailName, { color: colors.text }]}>
                     {selectedPlayer.last_name}, {selectedPlayer.first_name}
                     {selectedPlayer.birth_date && (
-                      <Text style={{ fontSize: 14, fontWeight: '400', color: '#64748b' }}> ({new Date(selectedPlayer.birth_date).getFullYear()})</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '400', color: colors.textSecondary }}> ({new Date(selectedPlayer.birth_date).getFullYear()})</Text>
                     )}
                   </Text>
                   <View style={styles.detailClubRow}>
                     {getClubLogo(selectedPlayer.club) && (
                       <Image source={{ uri: getClubLogo(selectedPlayer.club)! }} style={styles.detailClubLogo} />
                     )}
-                    <Text style={styles.detailClub}>{selectedPlayer.club || '-'}</Text>
+                    <Text style={[styles.detailClub, { color: colors.textSecondary }]}>{selectedPlayer.club || '-'}</Text>
                   </View>
                 </View>
-                <TouchableOpacity onPress={() => { setShowPlayerDetailModal(false); setIsEditing(false); setShowEditClubDropdown(false); }} style={styles.closeButton}>
-                  <Text style={styles.closeButtonText}>✕</Text>
+                <TouchableOpacity onPress={() => { setShowPlayerDetailModal(false); setIsEditing(false); setShowEditClubDropdown(false); }} style={[styles.closeButton, { backgroundColor: colors.surfaceSecondary }]}>
+                  <Text style={[styles.closeButtonText, { color: colors.textSecondary }]}>✕</Text>
                 </TouchableOpacity>
               </View>
 
@@ -3769,8 +3776,8 @@ export function ScoutingScreen({ navigation }: any) {
                     {/* Left Column: Status + Grunddaten */}
                     <View style={styles.detailColumnLeft}>
                       {/* Status-Auswahl */}
-                      <View style={[styles.detailInfo, { marginBottom: 12 }]}>
-                        <Text style={[styles.detailLabelSmall, { marginBottom: 6 }]}>Status</Text>
+                      <View style={[styles.detailInfo, { marginBottom: 12, backgroundColor: colors.surfaceSecondary }]}>
+                        <Text style={[styles.detailLabelSmall, { marginBottom: 6, color: colors.textSecondary }]}>Status</Text>
                         <View style={styles.statusSelector}>
                           {SCOUTING_STATUS.map(status => (
                             <View
@@ -3800,9 +3807,9 @@ export function ScoutingScreen({ navigation }: any) {
                         </View>
                       </View>
 
-                      <View style={[styles.detailInfo, { marginBottom: 0, flex: 1 }]}>
+                      <View style={[styles.detailInfo, { marginBottom: 0, flex: 1, backgroundColor: colors.surfaceSecondary }]}>
                         <View style={styles.detailRowVertical}>
-                          <Text style={styles.detailLabelSmall}>Position</Text>
+                          <Text style={[styles.detailLabelSmall, { color: colors.textSecondary }]}>Position</Text>
                           <View style={styles.positionBadgesRowDetail}>
                             {parsePositions(selectedPlayer.position).map((pos, idx) => (
                               <View key={idx} style={styles.positionBadgeLarge}><Text style={styles.positionTextLarge}>{pos}</Text></View>
@@ -3810,63 +3817,63 @@ export function ScoutingScreen({ navigation }: any) {
                           </View>
                         </View>
                         <View style={styles.detailRowVertical}>
-                          <Text style={styles.detailLabelSmall}>Einschätzung</Text>
+                          <Text style={[styles.detailLabelSmall, { color: colors.textSecondary }]}>Einschätzung</Text>
                           {selectedPlayer.rating ? (
                             <View style={styles.ratingBadgeLarge}><Text style={styles.ratingTextLarge}>⭐ {selectedPlayer.rating}/10</Text></View>
                           ) : (
-                            <Text style={styles.detailValueLarge}>-</Text>
+                            <Text style={[styles.detailValueLarge, { color: colors.text }]}>-</Text>
                           )}
                         </View>
                         <View style={[styles.detailRowVertical, { marginBottom: 0 }]}>
-                          <Text style={styles.detailLabelSmall}>Kontakt</Text>
-                          <Text style={styles.detailValueLarge}>{selectedPlayer.phone || '-'}</Text>
+                          <Text style={[styles.detailLabelSmall, { color: colors.textSecondary }]}>Kontakt</Text>
+                          <Text style={[styles.detailValueLarge, { color: colors.text }]}>{selectedPlayer.phone || '-'}</Text>
                         </View>
                       </View>
                     </View>
 
                     {/* Right Column: Transfermarkt + Scout */}
                     <View style={styles.detailColumnRight}>
-                      <View style={styles.detailInfo}>
+                      <View style={[styles.detailInfo, { backgroundColor: colors.surfaceSecondary }]}>
                         <View style={styles.detailRowVertical}>
-                          <Text style={styles.detailLabelSmall}>Transfermarkt</Text>
+                          <Text style={[styles.detailLabelSmall, { color: colors.textSecondary }]}>Transfermarkt</Text>
                           {selectedPlayer.transfermarkt_url ? (
                             <TouchableOpacity onPress={() => openTransfermarkt(selectedPlayer.transfermarkt_url!)} style={styles.tmLinkRowDetail}>
                               <Image source={TransfermarktLogo} style={styles.tmLogoDetail} />
                             </TouchableOpacity>
                           ) : (
-                            <Text style={styles.detailValueLarge}>-</Text>
+                            <Text style={[styles.detailValueLarge, { color: colors.text }]}>-</Text>
                           )}
                         </View>
                         <View style={styles.detailRowVertical}>
-                          <Text style={styles.detailLabelSmall}>Scout</Text>
-                          <Text style={styles.detailValueLarge}>{selectedPlayer.scout_name || '-'}</Text>
+                          <Text style={[styles.detailLabelSmall, { color: colors.textSecondary }]}>Scout</Text>
+                          <Text style={[styles.detailValueLarge, { color: colors.text }]}>{selectedPlayer.scout_name || '-'}</Text>
                         </View>
                       </View>
                       {/* Weitere Infos */}
-                      <View style={styles.detailInfoScout}>
+                      <View style={[styles.detailInfoScout, { backgroundColor: colors.surfaceSecondary }]}>
                         <View style={styles.detailRowVertical}>
-                          <Text style={styles.detailLabelSmall}>Weitere Infos</Text>
-                          <Text style={styles.detailValueLarge}>{selectedPlayer.additional_info || '-'}</Text>
+                          <Text style={[styles.detailLabelSmall, { color: colors.textSecondary }]}>Weitere Infos</Text>
+                          <Text style={[styles.detailValueLarge, { color: colors.text }]}>{selectedPlayer.additional_info || '-'}</Text>
                         </View>
                         <View style={[styles.detailRowVertical, { marginBottom: 0 }]}>
-                          <Text style={styles.detailLabelSmall}>IST-Stand</Text>
-                          <Text style={styles.detailValueLarge}>{selectedPlayer.current_status || '-'}</Text>
+                          <Text style={[styles.detailLabelSmall, { color: colors.textSecondary }]}>IST-Stand</Text>
+                          <Text style={[styles.detailValueLarge, { color: colors.text }]}>{selectedPlayer.current_status || '-'}</Text>
                         </View>
                       </View>
                     </View>
                   </View>
 
                   {/* Fußballerische Einschätzung in eigener Säule */}
-                  <View style={[styles.detailInfo, { marginTop: 12, marginBottom: 0 }]}>
+                  <View style={[styles.detailInfo, { marginTop: 12, marginBottom: 0, backgroundColor: colors.surfaceSecondary }]}>
                     <View style={[styles.detailRowVertical, { marginBottom: 0 }]}>
-                      <Text style={styles.detailLabelSmall}>Fußballerische Einschätzung</Text>
-                      <Text style={styles.detailValueLarge}>{selectedPlayer.notes || '-'}</Text>
+                      <Text style={[styles.detailLabelSmall, { color: colors.textSecondary }]}>Fußballerische Einschätzung</Text>
+                      <Text style={[styles.detailValueLarge, { color: colors.text }]}>{selectedPlayer.notes || '-'}</Text>
                     </View>
                   </View>
                 </ScrollView>
               )}
 
-              <View style={styles.modalButtons}>
+              <View style={[styles.modalButtons, { borderTopColor: colors.border }]}>
                 {isEditing ? (
                   <>
                     <TouchableOpacity style={styles.deleteButton} onPress={() => setShowDeleteConfirm(true)}><Text style={styles.deleteButtonText}>Löschen</Text></TouchableOpacity>
@@ -3888,9 +3895,9 @@ export function ScoutingScreen({ navigation }: any) {
       {/* Entscheidungs-Modal */}
       <Modal visible={showDecisionModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={styles.decisionModalContent}>
-            <Text style={styles.decisionModalTitle}>Entscheidung treffen</Text>
-            <Text style={styles.decisionModalSubtitle}>{selectedPlayer?.last_name}, {selectedPlayer?.first_name}</Text>
+          <View style={[styles.decisionModalContent, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.decisionModalTitle, { color: colors.text }]}>Entscheidung treffen</Text>
+            <Text style={[styles.decisionModalSubtitle, { color: colors.textSecondary }]}>{selectedPlayer?.last_name}, {selectedPlayer?.first_name}</Text>
             
             <View style={styles.decisionButtonsContainer}>
               <TouchableOpacity style={styles.transferButton} onPress={() => { setShowDecisionModal(false); setShowTransferModal(true); }}>
@@ -3916,9 +3923,9 @@ export function ScoutingScreen({ navigation }: any) {
       {/* Archiv-Modal */}
       <Modal visible={showArchiveModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Spieler archivieren</Text>
-            <Text style={styles.modalSubtitle}>{selectedPlayer?.last_name}, {selectedPlayer?.first_name}</Text>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Spieler archivieren</Text>
+            <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>{selectedPlayer?.last_name}, {selectedPlayer?.first_name}</Text>
 
             <View style={styles.formField}>
               <Text style={styles.formLabel}>Grund für Archivierung</Text>

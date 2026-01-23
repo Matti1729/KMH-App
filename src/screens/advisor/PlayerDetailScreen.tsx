@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, Image, Linking, Modal, Pressable, Platform, useWindowDimensions, RefreshControl } from 'react-native';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import * as Print from 'expo-print';
@@ -225,6 +226,7 @@ const fetchTransfermarktStats = async (transfermarktUrl: string): Promise<Transf
 export function PlayerDetailScreen({ route, navigation }: any) {
   const { playerId } = route.params;
   const { profile } = useAuth();
+  const { colors, isDark } = useTheme();
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
   const [player, setPlayer] = useState<Player | null>(null);
@@ -1804,8 +1806,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
 
   const renderField = (label: string, field: keyof Player, placeholder?: string) => (
     <View style={styles.infoRow}>
-      <Text style={styles.label}>{label}</Text>
-      {editing ? <TextInput style={styles.input} value={editData?.[field]?.toString() || ''} onChangeText={(text) => updateField(field, text)} placeholder={placeholder || label} placeholderTextColor="#999" /> : <Text style={styles.value}>{player?.[field]?.toString() || '-'}</Text>}
+      <Text style={[styles.label, { color: colors.textMuted }]}>{label}</Text>
+      {editing ? <TextInput style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={editData?.[field]?.toString() || ''} onChangeText={(text) => updateField(field, text)} placeholder={placeholder || label} placeholderTextColor={colors.textMuted} /> : <Text style={[styles.value, { color: colors.text }]}>{player?.[field]?.toString() || '-'}</Text>}
     </View>
   );
 
@@ -1815,43 +1817,43 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     const teamLevel = teamMatch ? teamMatch[0] : '';
     const clubName = player?.club || '';
     const displayName = `${clubName}${teamLevel ? ' ' + teamLevel : ''}`.trim();
-    
+
     if (editing) {
       return (
         <View style={styles.infoRow}>
-          <Text style={styles.label}>Spielplan (fussball.de)</Text>
+          <Text style={[styles.label, { color: colors.textMuted }]}>Spielplan (fussball.de)</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
             value={editData?.fussball_de_url || ''}
             onChangeText={(text) => updateField('fussball_de_url', text)}
             placeholder="z.B. https://www.fussball.de/mannschaft/..."
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.textMuted}
           />
-          <Text style={styles.spielplanHint}>
-            💡 Gehe auf fussball.de → Suche die Mannschaft → Kopiere die URL
+          <Text style={[styles.spielplanHint, { color: colors.textSecondary }]}>
+            Gehe auf fussball.de, suche die Mannschaft, kopiere die URL
           </Text>
         </View>
       );
     }
-    
+
     if (!player?.fussball_de_url) {
       return (
         <View style={styles.infoRow}>
-          <Text style={styles.label}>Spielplan</Text>
-          <Text style={styles.valueGray}>Keine URL hinterlegt</Text>
+          <Text style={[styles.label, { color: colors.textMuted }]}>Spielplan</Text>
+          <Text style={[styles.valueGray, { color: colors.textMuted }]}>Keine URL hinterlegt</Text>
         </View>
       );
     }
 
     return (
       <View style={styles.infoRow}>
-        <Text style={styles.label}>Spielplan</Text>
+        <Text style={[styles.label, { color: colors.textMuted }]}>Spielplan</Text>
         <TouchableOpacity
-          style={[styles.spielplanButton, isMobile && styles.spielplanButtonMobile]}
+          style={[styles.spielplanButton, isMobile && styles.spielplanButtonMobile, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
           onPress={openSpielplan}
         >
-          <Text style={[styles.spielplanButtonText, isMobile && styles.spielplanButtonTextMobile]}>
-            📅 Spielplan {displayName}
+          <Text style={[styles.spielplanButtonText, isMobile && styles.spielplanButtonTextMobile, { color: colors.text }]}>
+            Spielplan {displayName}
           </Text>
         </TouchableOpacity>
       </View>
@@ -1863,43 +1865,43 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     const logoUrl = getClubLogo(clubSearch);
     const contractExpired = isContractExpired(player?.contract_end || '');
     const displayClub = contractExpired ? 'Vereinslos' : player?.club;
-    
+
     return (
       <View style={[styles.infoRow, { zIndex: 200 }]}>
-        <Text style={styles.label}>Verein</Text>
+        <Text style={[styles.label, { color: colors.textMuted }]}>Verein</Text>
         {editing ? (
           <View style={styles.autocompleteContainer}>
             <View style={styles.clubInputRow}>
               {logoUrl && <Image source={{ uri: logoUrl }} style={styles.clubLogoInput} />}
-              <TextInput 
-                style={[styles.input, styles.clubInput]} 
-                value={clubSearch} 
-                onChangeText={(text) => { 
-                  setClubSearch(text); 
-                  updateField('club', text); 
+              <TextInput
+                style={[styles.input, styles.clubInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+                value={clubSearch}
+                onChangeText={(text) => {
+                  setClubSearch(text);
+                  updateField('club', text);
                   setShowClubSuggestions(true);
                   setShowFutureClubSuggestions(false);
-                }} 
+                }}
                 onFocus={() => { setShowClubSuggestions(true); setShowFutureClubSuggestions(false); }}
                 onBlur={() => setTimeout(() => setShowClubSuggestions(false), 200)}
-                placeholder="z.B. Borussia Dortmund" 
-                placeholderTextColor="#999"
+                placeholder="z.B. Borussia Dortmund"
+                placeholderTextColor={colors.textMuted}
               />
             </View>
             {showClubSuggestions && filteredClubs.length > 0 && (
-              <View style={styles.suggestionsList}>
+              <View style={[styles.suggestionsList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <ScrollView style={styles.suggestionsScroll} nestedScrollEnabled keyboardShouldPersistTaps="handled">
                   {filteredClubs.map((club) => (
-                    <TouchableOpacity 
-                      key={club} 
-                      style={styles.suggestionItem}
-                      onPress={() => { 
-                        setClubSearch(club); 
-                        updateField('club', club); 
-                        setShowClubSuggestions(false); 
+                    <TouchableOpacity
+                      key={club}
+                      style={[styles.suggestionItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}
+                      onPress={() => {
+                        setClubSearch(club);
+                        updateField('club', club);
+                        setShowClubSuggestions(false);
                       }}
                     >
-                      <Text style={styles.suggestionText}>{club}</Text>
+                      <Text style={[styles.suggestionText, { color: colors.text }]}>{club}</Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -1913,7 +1915,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
             ) : getClubLogo(player?.club || '') ? (
               <Image source={{ uri: getClubLogo(player?.club || '')! }} style={styles.clubLogoSmall} />
             ) : null}
-            <Text style={[styles.value, contractExpired && styles.clubTextRed]}>{displayClub || '-'}</Text>
+            <Text style={[styles.value, { color: colors.text }, contractExpired && styles.clubTextRed]}>{displayClub || '-'}</Text>
           </View>
         )}
       </View>
@@ -1923,46 +1925,46 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const renderFutureClubField = () => {
     const showField = editing || player?.future_club;
     if (!showField) return null;
-    
+
     const filteredClubs = getFilteredClubs(futureClubSearch);
     const logoUrl = getClubLogo(futureClubSearch || player?.future_club || '');
-    
+
     return (
       <View style={[styles.infoRow, { zIndex: 100 }]}>
-        <Text style={styles.label}>Zukünftiger Verein</Text>
+        <Text style={[styles.label, { color: colors.textMuted }]}>Zukünftiger Verein</Text>
         {editing ? (
           <View style={styles.autocompleteContainer}>
             <View style={styles.clubInputRow}>
               {logoUrl && <Image source={{ uri: logoUrl }} style={styles.clubLogoInput} />}
-              <TextInput 
-                style={[styles.input, styles.clubInput]} 
-                value={futureClubSearch} 
-                onChangeText={(text) => { 
-                  setFutureClubSearch(text); 
-                  updateField('future_club', text); 
+              <TextInput
+                style={[styles.input, styles.clubInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+                value={futureClubSearch}
+                onChangeText={(text) => {
+                  setFutureClubSearch(text);
+                  updateField('future_club', text);
                   setShowFutureClubSuggestions(true);
                   setShowClubSuggestions(false);
                 }}
                 onFocus={() => { setShowFutureClubSuggestions(true); setShowClubSuggestions(false); }}
                 onBlur={() => setTimeout(() => setShowFutureClubSuggestions(false), 200)}
-                placeholder="z.B. Bayern München" 
-                placeholderTextColor="#999"
+                placeholder="z.B. Bayern München"
+                placeholderTextColor={colors.textMuted}
               />
             </View>
             {showFutureClubSuggestions && filteredClubs.length > 0 && (
-              <View style={styles.suggestionsList}>
+              <View style={[styles.suggestionsList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <ScrollView style={styles.suggestionsScroll} nestedScrollEnabled keyboardShouldPersistTaps="handled">
                   {filteredClubs.map((club) => (
-                    <TouchableOpacity 
-                      key={club} 
-                      style={styles.suggestionItem}
-                      onPress={() => { 
-                        setFutureClubSearch(club); 
-                        updateField('future_club', club); 
-                        setShowFutureClubSuggestions(false); 
+                    <TouchableOpacity
+                      key={club}
+                      style={[styles.suggestionItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}
+                      onPress={() => {
+                        setFutureClubSearch(club);
+                        updateField('future_club', club);
+                        setShowFutureClubSuggestions(false);
                       }}
                     >
-                      <Text style={styles.suggestionText}>{club}</Text>
+                      <Text style={[styles.suggestionText, { color: colors.text }]}>{club}</Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -2009,7 +2011,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         ) : (
           <View style={styles.clubRowSmall}>
             {logoUrl && <Image source={{ uri: logoUrl }} style={styles.clubLogoSmall} />}
-            <Text style={styles.value}>{player?.future_club || '-'}</Text>
+            <Text style={[styles.value, { color: colors.text }]}>{player?.future_club || '-'}</Text>
           </View>
         )}
       </View>
@@ -2018,17 +2020,17 @@ export function PlayerDetailScreen({ route, navigation }: any) {
 
   const renderFieldWithDocuments = (label: string, field: keyof Player, docField: 'provision_documents' | 'transfer_commission_documents') => (
     <View style={styles.infoRow}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, { color: colors.textMuted }]}>{label}</Text>
       {editing ? (
         <View>
-          <TextInput style={styles.input} value={editData?.[field]?.toString() || ''} onChangeText={(text) => updateField(field, text)} placeholder={label} placeholderTextColor="#999" />
-          <TouchableOpacity style={styles.smallUploadButton} onPress={() => uploadDocument(docField)}>
-            <Text style={styles.smallUploadButtonText}>+ PDF</Text>
+          <TextInput style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={editData?.[field]?.toString() || ''} onChangeText={(text) => updateField(field, text)} placeholder={label} placeholderTextColor={colors.textMuted} />
+          <TouchableOpacity style={[styles.smallUploadButton, { backgroundColor: colors.primary }]} onPress={() => uploadDocument(docField)}>
+            <Text style={[styles.smallUploadButtonText, { color: colors.primaryText }]}>+ PDF</Text>
           </TouchableOpacity>
           {(editData?.[docField] || []).map((doc: any, index: number) => (
-            <View key={index} style={styles.smallDocItem}>
+            <View key={index} style={[styles.smallDocItem, { backgroundColor: colors.surfaceSecondary }]}>
               <TouchableOpacity onPress={() => openDocument(doc.url)} style={styles.documentLink}>
-                <Text style={styles.smallDocName}>📄 {doc.name}</Text>
+                <Text style={[styles.smallDocName, { color: colors.text }]}>📄 {doc.name}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => deleteDocumentFromField(doc.path, docField)} style={styles.documentDelete}>
                 <Text style={styles.documentDeleteText}>✕</Text>
@@ -2038,7 +2040,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         </View>
       ) : (
         <View>
-          <Text style={styles.value}>{player?.[field]?.toString() || '-'}</Text>
+          <Text style={[styles.value, { color: colors.text }]}>{player?.[field]?.toString() || '-'}</Text>
           {(player?.[docField] || []).map((doc: any, index: number) => (
             <TouchableOpacity key={index} onPress={() => openDocument(doc.url)}>
               <Text style={styles.docLink}>📄 {doc.name}</Text>
@@ -2051,17 +2053,17 @@ export function PlayerDetailScreen({ route, navigation }: any) {
 
   const renderPhoneField = (label: string, phoneField: keyof Player, codeField: keyof Player) => (
     <View style={styles.infoRow}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, { color: colors.textMuted }]}>{label}</Text>
       {editing ? (
         <View style={styles.phoneContainer}>
           <View style={styles.phoneCodePicker}>
-            <select style={{ padding: 10, fontSize: 14, borderRadius: 8, border: '1px solid #ddd', width: '100%' }} value={editData?.[codeField]?.toString() || '+49'} onChange={(e) => updateField(codeField, e.target.value)}>
+            <select style={{ padding: 10, fontSize: 14, borderRadius: 8, border: `1px solid ${colors.inputBorder}`, width: '100%', backgroundColor: colors.inputBackground, color: colors.text }} value={editData?.[codeField]?.toString() || '+49'} onChange={(e) => updateField(codeField, e.target.value)}>
               {COUNTRY_CODES.map((c) => (<option key={c.code} value={c.code}>{c.code} ({c.country})</option>))}
             </select>
           </View>
-          <TextInput style={[styles.input, styles.phoneInput]} value={editData?.[phoneField]?.toString() || ''} onChangeText={(text) => updateField(phoneField, text)} placeholder="z.B. 123456789" placeholderTextColor="#999" keyboardType="phone-pad" />
+          <TextInput style={[styles.input, styles.phoneInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={editData?.[phoneField]?.toString() || ''} onChangeText={(text) => updateField(phoneField, text)} placeholder="z.B. 123456789" placeholderTextColor={colors.textMuted} keyboardType="phone-pad" />
         </View>
-      ) : (<Text style={styles.value}>{player?.[phoneField] ? `${player?.[codeField] || '+49'} ${player?.[phoneField]}` : '-'}</Text>)}
+      ) : (<Text style={[styles.value, { color: colors.text }]}>{player?.[phoneField] ? `${player?.[codeField] || '+49'} ${player?.[phoneField]}` : '-'}</Text>)}
     </View>
   );
 
@@ -2070,30 +2072,30 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     const currentDay = dateParts?.day || 1;
     const currentMonth = dateParts?.month ?? 0;
     const currentYear = dateParts?.year || 2000;
-    
+
     const isActiveDay = activeDatePicker === field && activeDatePart === 'day';
     const isActiveMonth = activeDatePicker === field && activeDatePart === 'month';
     const isActiveYear = activeDatePicker === field && activeDatePart === 'year';
-    
+
     return (
       <View style={[styles.infoRow, { zIndex: activeDatePicker === field ? 500 : 1 }]}>
-        <Text style={styles.label}>{label}</Text>
+        <Text style={[styles.label, { color: colors.textMuted }]}>{label}</Text>
         {editing ? (
           <View style={styles.datePickerRow}>
             <View style={{ position: 'relative', flex: 1 }}>
-              <TouchableOpacity 
-                style={styles.dateDropdownButton} 
+              <TouchableOpacity
+                style={[styles.dateDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker(field); setActiveDatePart('day'); }}
               >
-                <Text style={currentDay ? styles.dateDropdownText : styles.dateDropdownPlaceholder}>{currentDay || 'Tag'}</Text>
-                <Text>▼</Text>
+                <Text style={[currentDay ? styles.dateDropdownText : styles.dateDropdownPlaceholder, { color: currentDay ? colors.text : colors.textMuted }]}>{currentDay || 'Tag'}</Text>
+                <Text style={{ color: colors.textMuted }}>▼</Text>
               </TouchableOpacity>
               {isActiveDay && (
-                <View style={styles.pickerList}>
+                <View style={[styles.pickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
                     {DAYS.map((d) => (
-                      <TouchableOpacity key={d} style={[styles.pickerItem, currentDay === d && styles.pickerItemSelected]} onPress={() => { updateField(field, buildDateFromParts(d, currentMonth, currentYear)); setActiveDatePart(null); }}>
-                        <Text style={[styles.pickerItemText, currentDay === d && styles.pickerItemTextSelected]}>{d}</Text>
+                      <TouchableOpacity key={d} style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, currentDay === d && { backgroundColor: colors.primary }]} onPress={() => { updateField(field, buildDateFromParts(d, currentMonth, currentYear)); setActiveDatePart(null); }}>
+                        <Text style={[styles.pickerItemText, { color: colors.text }, currentDay === d && { color: colors.primaryText }]}>{d}</Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -2101,19 +2103,19 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               )}
             </View>
             <View style={{ position: 'relative', flex: 2 }}>
-              <TouchableOpacity 
-                style={styles.dateDropdownButton} 
+              <TouchableOpacity
+                style={[styles.dateDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker(field); setActiveDatePart('month'); }}
               >
-                <Text style={MONTHS[currentMonth] ? styles.dateDropdownText : styles.dateDropdownPlaceholder}>{MONTHS[currentMonth] || 'Monat'}</Text>
-                <Text>▼</Text>
+                <Text style={[MONTHS[currentMonth] ? styles.dateDropdownText : styles.dateDropdownPlaceholder, { color: MONTHS[currentMonth] ? colors.text : colors.textMuted }]}>{MONTHS[currentMonth] || 'Monat'}</Text>
+                <Text style={{ color: colors.textMuted }}>▼</Text>
               </TouchableOpacity>
               {isActiveMonth && (
-                <View style={styles.pickerList}>
+                <View style={[styles.pickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
                     {MONTHS.map((m, idx) => (
-                      <TouchableOpacity key={m} style={[styles.pickerItem, currentMonth === idx && styles.pickerItemSelected]} onPress={() => { updateField(field, buildDateFromParts(currentDay, idx, currentYear)); setActiveDatePart(null); }}>
-                        <Text style={[styles.pickerItemText, currentMonth === idx && styles.pickerItemTextSelected]}>{m}</Text>
+                      <TouchableOpacity key={m} style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, currentMonth === idx && { backgroundColor: colors.primary }]} onPress={() => { updateField(field, buildDateFromParts(currentDay, idx, currentYear)); setActiveDatePart(null); }}>
+                        <Text style={[styles.pickerItemText, { color: colors.text }, currentMonth === idx && { color: colors.primaryText }]}>{m}</Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -2121,19 +2123,19 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               )}
             </View>
             <View style={{ position: 'relative', flex: 1 }}>
-              <TouchableOpacity 
-                style={styles.dateDropdownButton} 
+              <TouchableOpacity
+                style={[styles.dateDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker(field); setActiveDatePart('year'); }}
               >
-                <Text style={currentYear ? styles.dateDropdownText : styles.dateDropdownPlaceholder}>{currentYear || 'Jahr'}</Text>
-                <Text>▼</Text>
+                <Text style={[currentYear ? styles.dateDropdownText : styles.dateDropdownPlaceholder, { color: currentYear ? colors.text : colors.textMuted }]}>{currentYear || 'Jahr'}</Text>
+                <Text style={{ color: colors.textMuted }}>▼</Text>
               </TouchableOpacity>
               {isActiveYear && (
-                <View style={styles.pickerList}>
+                <View style={[styles.pickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
                     {YEARS.map((y) => (
-                      <TouchableOpacity key={y} style={[styles.pickerItem, currentYear === y && styles.pickerItemSelected]} onPress={() => { updateField(field, buildDateFromParts(currentDay, currentMonth, y)); setActiveDatePart(null); }}>
-                        <Text style={[styles.pickerItemText, currentYear === y && styles.pickerItemTextSelected]}>{y}</Text>
+                      <TouchableOpacity key={y} style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, currentYear === y && { backgroundColor: colors.primary }]} onPress={() => { updateField(field, buildDateFromParts(currentDay, currentMonth, y)); setActiveDatePart(null); }}>
+                        <Text style={[styles.pickerItemText, { color: colors.text }, currentYear === y && { color: colors.primaryText }]}>{y}</Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -2141,7 +2143,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               )}
             </View>
           </View>
-        ) : <Text style={styles.value}>{player?.[field] ? formatDate(player[field] as string) : '-'}</Text>}
+        ) : <Text style={[styles.value, { color: colors.text }]}>{player?.[field] ? formatDate(player[field] as string) : '-'}</Text>}
       </View>
     );
   };
@@ -2152,30 +2154,30 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     const currentDay = dateParts?.day || 1;
     const currentMonth = dateParts?.month ?? 0;
     const currentYear = dateParts?.year || 2000;
-    
+
     const isActiveDay = activeDatePicker === 'birth_date' && activeDatePart === 'day';
     const isActiveMonth = activeDatePicker === 'birth_date' && activeDatePart === 'month';
     const isActiveYear = activeDatePicker === 'birth_date' && activeDatePart === 'year';
-    
+
     return (
       <View style={[styles.infoRow, { zIndex: activeDatePicker === 'birth_date' ? 500 : 1 }]}>
-        <Text style={styles.label}>Geburtsdatum</Text>
+        <Text style={[styles.label, { color: colors.textMuted }]}>Geburtsdatum</Text>
         {editing ? (
           <View style={styles.datePickerRow}>
             <View style={{ position: 'relative', flex: 1 }}>
-              <TouchableOpacity 
-                style={styles.dateDropdownButton} 
+              <TouchableOpacity
+                style={[styles.dateDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker('birth_date'); setActiveDatePart('day'); }}
               >
-                <Text style={currentDay ? styles.dateDropdownText : styles.dateDropdownPlaceholder}>{currentDay || 'Tag'}</Text>
-                <Text>▼</Text>
+                <Text style={[currentDay ? styles.dateDropdownText : styles.dateDropdownPlaceholder, { color: currentDay ? colors.text : colors.textMuted }]}>{currentDay || 'Tag'}</Text>
+                <Text style={{ color: colors.textMuted }}>▼</Text>
               </TouchableOpacity>
               {isActiveDay && (
-                <View style={styles.pickerList}>
+                <View style={[styles.pickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
                     {DAYS.map((d) => (
-                      <TouchableOpacity key={d} style={[styles.pickerItem, currentDay === d && styles.pickerItemSelected]} onPress={() => { updateField('birth_date', buildDateFromParts(d, currentMonth, currentYear)); setActiveDatePart(null); }}>
-                        <Text style={[styles.pickerItemText, currentDay === d && styles.pickerItemTextSelected]}>{d}</Text>
+                      <TouchableOpacity key={d} style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, currentDay === d && { backgroundColor: colors.primary }]} onPress={() => { updateField('birth_date', buildDateFromParts(d, currentMonth, currentYear)); setActiveDatePart(null); }}>
+                        <Text style={[styles.pickerItemText, { color: colors.text }, currentDay === d && { color: colors.primaryText }]}>{d}</Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -2183,19 +2185,19 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               )}
             </View>
             <View style={{ position: 'relative', flex: 2 }}>
-              <TouchableOpacity 
-                style={styles.dateDropdownButton} 
+              <TouchableOpacity
+                style={[styles.dateDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker('birth_date'); setActiveDatePart('month'); }}
               >
-                <Text style={MONTHS[currentMonth] ? styles.dateDropdownText : styles.dateDropdownPlaceholder}>{MONTHS[currentMonth] || 'Monat'}</Text>
-                <Text>▼</Text>
+                <Text style={[MONTHS[currentMonth] ? styles.dateDropdownText : styles.dateDropdownPlaceholder, { color: MONTHS[currentMonth] ? colors.text : colors.textMuted }]}>{MONTHS[currentMonth] || 'Monat'}</Text>
+                <Text style={{ color: colors.textMuted }}>▼</Text>
               </TouchableOpacity>
               {isActiveMonth && (
-                <View style={styles.pickerList}>
+                <View style={[styles.pickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
                     {MONTHS.map((m, idx) => (
-                      <TouchableOpacity key={m} style={[styles.pickerItem, currentMonth === idx && styles.pickerItemSelected]} onPress={() => { updateField('birth_date', buildDateFromParts(currentDay, idx, currentYear)); setActiveDatePart(null); }}>
-                        <Text style={[styles.pickerItemText, currentMonth === idx && styles.pickerItemTextSelected]}>{m}</Text>
+                      <TouchableOpacity key={m} style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, currentMonth === idx && { backgroundColor: colors.primary }]} onPress={() => { updateField('birth_date', buildDateFromParts(currentDay, idx, currentYear)); setActiveDatePart(null); }}>
+                        <Text style={[styles.pickerItemText, { color: colors.text }, currentMonth === idx && { color: colors.primaryText }]}>{m}</Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -2203,19 +2205,19 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               )}
             </View>
             <View style={{ position: 'relative', flex: 1 }}>
-              <TouchableOpacity 
-                style={styles.dateDropdownButton} 
+              <TouchableOpacity
+                style={[styles.dateDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker('birth_date'); setActiveDatePart('year'); }}
               >
-                <Text style={currentYear ? styles.dateDropdownText : styles.dateDropdownPlaceholder}>{currentYear || 'Jahr'}</Text>
-                <Text>▼</Text>
+                <Text style={[currentYear ? styles.dateDropdownText : styles.dateDropdownPlaceholder, { color: currentYear ? colors.text : colors.textMuted }]}>{currentYear || 'Jahr'}</Text>
+                <Text style={{ color: colors.textMuted }}>▼</Text>
               </TouchableOpacity>
               {isActiveYear && (
-                <View style={styles.pickerList}>
+                <View style={[styles.pickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
                     {YEARS.map((y) => (
-                      <TouchableOpacity key={y} style={[styles.pickerItem, currentYear === y && styles.pickerItemSelected]} onPress={() => { updateField('birth_date', buildDateFromParts(currentDay, currentMonth, y)); setActiveDatePart(null); }}>
-                        <Text style={[styles.pickerItemText, currentYear === y && styles.pickerItemTextSelected]}>{y}</Text>
+                      <TouchableOpacity key={y} style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, currentYear === y && { backgroundColor: colors.primary }]} onPress={() => { updateField('birth_date', buildDateFromParts(currentDay, currentMonth, y)); setActiveDatePart(null); }}>
+                        <Text style={[styles.pickerItemText, { color: colors.text }, currentYear === y && { color: colors.primaryText }]}>{y}</Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -2225,7 +2227,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           </View>
         ) : (
           <View style={styles.birthdayRow}>
-            <Text style={styles.value}>{player?.birth_date ? formatDate(player.birth_date) : '-'}</Text>
+            <Text style={[styles.value, { color: colors.text }]}>{player?.birth_date ? formatDate(player.birth_date) : '-'}</Text>
             {birthday && <Text style={styles.birthdayIcon}>🎉</Text>}
           </View>
         )}
@@ -2338,40 +2340,40 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   );
 
   const renderPositionDropdown = () => {
-    const displayPositions = selectedPositions.length > 0 
+    const displayPositions = selectedPositions.length > 0
       ? selectedPositions.map(p => shortToPosition(p)).join(', ')
       : '-';
-    
+
     return (
       <View style={[styles.infoRow, { zIndex: 300 }]}>
-        <Text style={styles.label}>Position</Text>
+        <Text style={[styles.label, { color: colors.textMuted }]}>Position</Text>
         {editing ? (
           <View style={{ position: 'relative' }}>
-            <TouchableOpacity 
-              style={styles.dropdownButton} 
-              onPress={() => { 
+            <TouchableOpacity
+              style={[styles.dropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
+              onPress={() => {
                 closeAllDropdowns();
-                setShowPositionPicker(!showPositionPicker); 
+                setShowPositionPicker(!showPositionPicker);
               }}
             >
-              <Text style={styles.dropdownButtonText}>
+              <Text style={[styles.dropdownButtonText, { color: colors.text }]}>
                 {selectedPositions.length > 0 ? selectedPositions.map(p => positionToShort(p)).join(', ') : 'Positionen wählen'}
               </Text>
-              <Text>{showPositionPicker ? '▲' : '▼'}</Text>
+              <Text style={{ color: colors.textMuted }}>{showPositionPicker ? '▲' : '▼'}</Text>
             </TouchableOpacity>
             {showPositionPicker && (
-              <View style={styles.pickerList}>
+              <View style={[styles.pickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
                   {POSITION_SHORTS.map((short) => {
                     const fullName = POSITION_MAP[short];
                     const isSelected = selectedPositions.includes(fullName);
                     return (
-                      <TouchableOpacity 
-                        key={short} 
-                        style={[styles.pickerItem, isSelected && styles.pickerItemSelected]} 
+                      <TouchableOpacity
+                        key={short}
+                        style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, isSelected && { backgroundColor: colors.primary }]}
                         onPress={() => togglePosition(fullName)}
                       >
-                        <Text style={[styles.pickerItemText, isSelected && styles.pickerItemTextSelected]}>
+                        <Text style={[styles.pickerItemText, { color: colors.text }, isSelected && { color: colors.primaryText }]}>
                           {isSelected ? '✓ ' : ''}{short}
                         </Text>
                       </TouchableOpacity>
@@ -2382,47 +2384,47 @@ export function PlayerDetailScreen({ route, navigation }: any) {
             )}
           </View>
         ) : (
-          <Text style={styles.value}>{displayPositions}</Text>
+          <Text style={[styles.value, { color: colors.text }]}>{displayPositions}</Text>
         )}
       </View>
     );
   };
 
   const renderSecondaryPositionDropdown = () => {
-    const displayPositions = selectedSecondaryPositions.length > 0 
+    const displayPositions = selectedSecondaryPositions.length > 0
       ? selectedSecondaryPositions.map(p => shortToPosition(p)).join(', ')
       : '-';
-    
+
     return (
       <View style={[styles.infoRow, { zIndex: 290 }]}>
-        <Text style={styles.label}>Nebenposition</Text>
+        <Text style={[styles.label, { color: colors.textMuted }]}>Nebenposition</Text>
         {editing ? (
           <View style={{ position: 'relative' }}>
-            <TouchableOpacity 
-              style={styles.dropdownButton} 
-              onPress={() => { 
+            <TouchableOpacity
+              style={[styles.dropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
+              onPress={() => {
                 closeAllDropdowns();
-                setShowSecondaryPositionPicker(!showSecondaryPositionPicker); 
+                setShowSecondaryPositionPicker(!showSecondaryPositionPicker);
               }}
             >
-              <Text style={styles.dropdownButtonText}>
+              <Text style={[styles.dropdownButtonText, { color: colors.text }]}>
                 {selectedSecondaryPositions.length > 0 ? selectedSecondaryPositions.map(p => positionToShort(p)).join(', ') : 'Nebenpositionen wählen'}
               </Text>
-              <Text>{showSecondaryPositionPicker ? '▲' : '▼'}</Text>
+              <Text style={{ color: colors.textMuted }}>{showSecondaryPositionPicker ? '▲' : '▼'}</Text>
             </TouchableOpacity>
             {showSecondaryPositionPicker && (
-              <View style={styles.pickerList}>
+              <View style={[styles.pickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
                   {POSITION_SHORTS.map((short) => {
                     const fullName = POSITION_MAP[short];
                     const isSelected = selectedSecondaryPositions.includes(fullName);
                     return (
-                      <TouchableOpacity 
-                        key={short} 
-                        style={[styles.pickerItem, isSelected && styles.pickerItemSelected]} 
+                      <TouchableOpacity
+                        key={short}
+                        style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, isSelected && { backgroundColor: colors.primary }]}
                         onPress={() => toggleSecondaryPosition(fullName)}
                       >
-                        <Text style={[styles.pickerItemText, isSelected && styles.pickerItemTextSelected]}>
+                        <Text style={[styles.pickerItemText, { color: colors.text }, isSelected && { color: colors.primaryText }]}>
                           {isSelected ? '✓ ' : ''}{short}
                         </Text>
                       </TouchableOpacity>
@@ -2433,7 +2435,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
             )}
           </View>
         ) : (
-          <Text style={styles.value}>{displayPositions}</Text>
+          <Text style={[styles.value, { color: colors.text }]}>{displayPositions}</Text>
         )}
       </View>
     );
@@ -2441,64 +2443,64 @@ export function PlayerDetailScreen({ route, navigation }: any) {
 
   const renderPositionSelector = (label: string, selected: string[], toggle: (pos: string) => void) => (
     <View style={styles.infoRow}>
-      <Text style={styles.label}>{label}</Text>
-      {editing ? (<View style={styles.chipGrid}>{POSITIONS.map((pos) => (<TouchableOpacity key={pos} style={[styles.chip, selected.includes(pos) && styles.chipSelected]} onPress={() => toggle(pos)}><Text style={[styles.chipText, selected.includes(pos) && styles.chipTextSelected]}>{selected.includes(pos) ? '✓ ' : ''}{pos}</Text></TouchableOpacity>))}</View>) : <Text style={styles.value}>{selected.length > 0 ? selected.join(', ') : '-'}</Text>}
+      <Text style={[styles.label, { color: colors.textMuted }]}>{label}</Text>
+      {editing ? (<View style={styles.chipGrid}>{POSITIONS.map((pos) => (<TouchableOpacity key={pos} style={[styles.chip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selected.includes(pos) && { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={() => toggle(pos)}><Text style={[styles.chipText, { color: colors.text }, selected.includes(pos) && { color: colors.primaryText }]}>{selected.includes(pos) ? '✓ ' : ''}{pos}</Text></TouchableOpacity>))}</View>) : <Text style={[styles.value, { color: colors.text }]}>{selected.length > 0 ? selected.join(', ') : '-'}</Text>}
     </View>
   );
 
   const renderTransfermarktField = () => (
     <View style={styles.infoRow}>
-      <Text style={styles.label}>Transfermarkt</Text>
+      <Text style={[styles.label, { color: colors.textMuted }]}>Transfermarkt</Text>
       {editing ? (
-        <TextInput 
-          style={styles.input} 
-          value={editData?.transfermarkt_url || ''} 
-          onChangeText={(text) => updateField('transfermarkt_url', text)} 
-          placeholder="https://www.transfermarkt.de/spieler/..." 
-          placeholderTextColor="#999"
+        <TextInput
+          style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+          value={editData?.transfermarkt_url || ''}
+          onChangeText={(text) => updateField('transfermarkt_url', text)}
+          placeholder="https://www.transfermarkt.de/spieler/..."
+          placeholderTextColor={colors.textMuted}
         />
       ) : player?.transfermarkt_url ? (
         <TouchableOpacity onPress={() => Linking.openURL(player.transfermarkt_url)}>
           <Image source={TransfermarktIcon} style={styles.tmLinkIcon} />
         </TouchableOpacity>
       ) : (
-        <Text style={styles.value}>-</Text>
+        <Text style={[styles.value, { color: colors.text }]}>-</Text>
       )}
     </View>
   );
 
   const renderStrengthsField = () => (
     <View style={styles.infoRow}>
-      <Text style={styles.label}>Stärken</Text>
+      <Text style={[styles.label, { color: colors.textMuted }]}>Stärken</Text>
       {editing ? (
-        <TextInput 
-          style={[styles.input, styles.smallTextArea]} 
-          value={editData?.strengths || ''} 
-          onChangeText={(text) => updateField('strengths', text)} 
-          placeholder="z.B. gutes 1v1; Kopfballstark; Schnelligkeit" 
-          placeholderTextColor="#999"
+        <TextInput
+          style={[styles.input, styles.smallTextArea, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+          value={editData?.strengths || ''}
+          onChangeText={(text) => updateField('strengths', text)}
+          placeholder="z.B. gutes 1v1; Kopfballstark; Schnelligkeit"
+          placeholderTextColor={colors.textMuted}
           multiline
         />
       ) : (
-        <Text style={styles.value}>{player?.strengths || '-'}</Text>
+        <Text style={[styles.value, { color: colors.text }]}>{player?.strengths || '-'}</Text>
       )}
     </View>
   );
 
   const renderPotentialsField = () => (
     <View style={styles.infoRow}>
-      <Text style={styles.label}>Potentiale</Text>
+      <Text style={[styles.label, { color: colors.textMuted }]}>Potentiale</Text>
       {editing ? (
-        <TextInput 
-          style={[styles.input, styles.smallTextArea]} 
-          value={editData?.potentials || ''} 
-          onChangeText={(text) => updateField('potentials', text)} 
-          placeholder="z.B. Defensivarbeit, Spieleröffnung" 
-          placeholderTextColor="#999"
+        <TextInput
+          style={[styles.input, styles.smallTextArea, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+          value={editData?.potentials || ''}
+          onChangeText={(text) => updateField('potentials', text)}
+          placeholder="z.B. Defensivarbeit, Spieleröffnung"
+          placeholderTextColor={colors.textMuted}
           multiline
         />
       ) : (
-        <Text style={styles.value}>{player?.potentials || '-'}</Text>
+        <Text style={[styles.value, { color: colors.text }]}>{player?.potentials || '-'}</Text>
       )}
     </View>
   );
@@ -2536,44 +2538,44 @@ export function PlayerDetailScreen({ route, navigation }: any) {
 
   const renderNationalitySelector = () => (
     <View style={[styles.infoRow, { zIndex: 280 }]}>
-      <Text style={styles.label}>Nationalität</Text>
-      {editing ? (<View style={{ position: 'relative' }}><TouchableOpacity style={styles.dropdownButton} onPress={() => { closeAllDropdowns(); setShowNationalityPicker(!showNationalityPicker); }}><Text style={styles.dropdownButtonText}>{selectedNationalities.length > 0 ? selectedNationalities.join(', ') : 'Nationalität wählen...'}</Text><Text>{showNationalityPicker ? '▲' : '▼'}</Text></TouchableOpacity>{showNationalityPicker && (<View style={styles.pickerList}><ScrollView style={styles.pickerScroll} nestedScrollEnabled>{COUNTRIES.map((country) => (<TouchableOpacity key={country} style={[styles.pickerItem, selectedNationalities.includes(country) && styles.pickerItemSelected]} onPress={() => toggleNationality(country)}><Text style={[styles.pickerItemText, selectedNationalities.includes(country) && styles.pickerItemTextSelected]}>{selectedNationalities.includes(country) ? '✓ ' : ''}{country}</Text></TouchableOpacity>))}</ScrollView></View>)}</View>) : <Text style={styles.value}>{selectedNationalities.length > 0 ? selectedNationalities.join(', ') : '-'}</Text>}
+      <Text style={[styles.label, { color: colors.textMuted }]}>Nationalität</Text>
+      {editing ? (<View style={{ position: 'relative' }}><TouchableOpacity style={[styles.dropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => { closeAllDropdowns(); setShowNationalityPicker(!showNationalityPicker); }}><Text style={[styles.dropdownButtonText, { color: colors.text }]}>{selectedNationalities.length > 0 ? selectedNationalities.join(', ') : 'Nationalität wählen...'}</Text><Text style={{ color: colors.textMuted }}>{showNationalityPicker ? '▲' : '▼'}</Text></TouchableOpacity>{showNationalityPicker && (<View style={[styles.pickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}><ScrollView style={styles.pickerScroll} nestedScrollEnabled>{COUNTRIES.map((country) => (<TouchableOpacity key={country} style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, selectedNationalities.includes(country) && { backgroundColor: colors.primary }]} onPress={() => toggleNationality(country)}><Text style={[styles.pickerItemText, { color: colors.text }, selectedNationalities.includes(country) && { color: colors.primaryText }]}>{selectedNationalities.includes(country) ? '✓ ' : ''}{country}</Text></TouchableOpacity>))}</ScrollView></View>)}</View>) : <Text style={[styles.value, { color: colors.text }]}>{selectedNationalities.length > 0 ? selectedNationalities.join(', ') : '-'}</Text>}
     </View>
   );
 
   const renderStrongFootSelector = () => (
     <View style={styles.infoRow}>
-      <Text style={styles.label}>Starker Fuß</Text>
-      {editing ? (<View style={styles.footSelector}>{['Links', 'Rechts', 'Beidfüßig'].map((foot) => (<TouchableOpacity key={foot} style={[styles.footOption, editData?.strong_foot === foot && styles.footOptionSelected]} onPress={() => updateField('strong_foot', foot)}><Text style={[styles.footOptionText, editData?.strong_foot === foot && styles.footOptionTextSelected]}>{foot}</Text></TouchableOpacity>))}</View>) : <Text style={styles.value}>{player?.strong_foot || '-'}</Text>}
+      <Text style={[styles.label, { color: colors.textMuted }]}>Starker Fuß</Text>
+      {editing ? (<View style={styles.footSelector}>{['Links', 'Rechts', 'Beidfüßig'].map((foot) => (<TouchableOpacity key={foot} style={[styles.footOption, { backgroundColor: colors.surfaceSecondary }, editData?.strong_foot === foot && { backgroundColor: colors.primary }]} onPress={() => updateField('strong_foot', foot)}><Text style={[styles.footOptionText, { color: colors.text }, editData?.strong_foot === foot && { color: colors.primaryText }]}>{foot}</Text></TouchableOpacity>))}</View>) : <Text style={[styles.value, { color: colors.text }]}>{player?.strong_foot || '-'}</Text>}
     </View>
   );
 
   const renderHeightSelector = () => (
     <View style={[styles.infoRow, { zIndex: 270 }]}>
-      <Text style={styles.label}>Größe</Text>
-      {editing ? (<View style={{ position: 'relative' }}><TouchableOpacity style={styles.dropdownButton} onPress={() => { closeAllDropdowns(); setShowHeightPicker(!showHeightPicker); }}><Text style={styles.dropdownButtonText}>{editData?.height ? `${editData.height} cm` : 'Größe wählen...'}</Text><Text>{showHeightPicker ? '▲' : '▼'}</Text></TouchableOpacity>{showHeightPicker && (<View style={styles.pickerList}><ScrollView style={styles.pickerScroll} nestedScrollEnabled>{HEIGHTS.map((h) => (<TouchableOpacity key={h} style={[styles.pickerItem, editData?.height === h && styles.pickerItemSelected]} onPress={() => { updateField('height', h); setShowHeightPicker(false); }}><Text style={[styles.pickerItemText, editData?.height === h && styles.pickerItemTextSelected]}>{h} cm</Text></TouchableOpacity>))}</ScrollView></View>)}</View>) : <Text style={styles.value}>{player?.height ? `${player.height} cm` : '-'}</Text>}
+      <Text style={[styles.label, { color: colors.textMuted }]}>Größe</Text>
+      {editing ? (<View style={{ position: 'relative' }}><TouchableOpacity style={[styles.dropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => { closeAllDropdowns(); setShowHeightPicker(!showHeightPicker); }}><Text style={[styles.dropdownButtonText, { color: colors.text }]}>{editData?.height ? `${editData.height} cm` : 'Größe wählen...'}</Text><Text style={{ color: colors.textMuted }}>{showHeightPicker ? '▲' : '▼'}</Text></TouchableOpacity>{showHeightPicker && (<View style={[styles.pickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}><ScrollView style={styles.pickerScroll} nestedScrollEnabled>{HEIGHTS.map((h) => (<TouchableOpacity key={h} style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, editData?.height === h && { backgroundColor: colors.primary }]} onPress={() => { updateField('height', h); setShowHeightPicker(false); }}><Text style={[styles.pickerItemText, { color: colors.text }, editData?.height === h && { color: colors.primaryText }]}>{h} cm</Text></TouchableOpacity>))}</ScrollView></View>)}</View>) : <Text style={[styles.value, { color: colors.text }]}>{player?.height ? `${player.height} cm` : '-'}</Text>}
     </View>
   );
 
   const renderU23Status = () => {
     const u23Status = calculateU23Status(player?.birth_date || '');
-    return (<View style={styles.infoRow}><Text style={styles.label}>U23-Spieler</Text><View style={[styles.statusBadge, isMobile && styles.statusBadgeMobile, u23Status.isU23 ? styles.statusBadgeGreen : styles.statusBadgeRed]}><Text style={[styles.statusBadgeText, isMobile && styles.statusBadgeTextMobile, u23Status.isU23 ? styles.statusTextGreen : styles.statusTextRed]}>{u23Status.isU23 ? `Ja (${u23Status.seasonsText})` : 'Nein'}</Text></View></View>);
+    return (<View style={styles.infoRow}><Text style={[styles.label, { color: colors.textMuted }]}>U23-Spieler</Text><View style={[styles.statusBadge, isMobile && styles.statusBadgeMobile, u23Status.isU23 ? styles.statusBadgeGreen : styles.statusBadgeRed]}><Text style={[styles.statusBadgeText, isMobile && styles.statusBadgeTextMobile, u23Status.isU23 ? styles.statusTextGreen : styles.statusTextRed]}>{u23Status.isU23 ? `Ja (${u23Status.seasonsText})` : 'Nein'}</Text></View></View>);
   };
 
   const renderInternatField = () => {
     if (!isYouthPlayer(player?.birth_date || '')) return null;
     return (
       <View style={styles.infoRow}>
-        <Text style={styles.label}>Internat</Text>
+        <Text style={[styles.label, { color: colors.textMuted }]}>Internat</Text>
         {editing ? (
           <View style={styles.footSelector}>
             {['Ja', 'Nein'].map((opt) => (
-              <TouchableOpacity key={opt} style={[styles.footOption, (editData?.internat ? 'Ja' : 'Nein') === opt && styles.footOptionSelected]} onPress={() => updateField('internat', opt === 'Ja')}>
-                <Text style={[styles.footOptionText, (editData?.internat ? 'Ja' : 'Nein') === opt && styles.footOptionTextSelected]}>{opt}</Text>
+              <TouchableOpacity key={opt} style={[styles.footOption, { backgroundColor: colors.surfaceSecondary }, (editData?.internat ? 'Ja' : 'Nein') === opt && { backgroundColor: colors.primary }]} onPress={() => updateField('internat', opt === 'Ja')}>
+                <Text style={[styles.footOptionText, { color: colors.text }, (editData?.internat ? 'Ja' : 'Nein') === opt && { color: colors.primaryText }]}>{opt}</Text>
               </TouchableOpacity>
             ))}
           </View>
-        ) : <Text style={styles.value}>{player?.internat ? 'Ja' : 'Nein'}</Text>}
+        ) : <Text style={[styles.value, { color: colors.text }]}>{player?.internat ? 'Ja' : 'Nein'}</Text>}
       </View>
     );
   };
@@ -2583,8 +2585,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     if (!hasAnySocial && !editing) return null;
     return (
       <View style={styles.infoRow}>
-        <Text style={styles.label}>Social Media</Text>
-        {editing ? (<View><View style={styles.socialInputRow}><Image source={InstagramIcon} style={styles.socialIconSmall} /><TextInput style={[styles.input, styles.socialInput]} value={editData?.instagram || ''} onChangeText={(text) => updateField('instagram', text)} placeholder="z.B. @maxmustermann" placeholderTextColor="#999" /></View><View style={styles.socialInputRow}><Image source={LinkedInIcon} style={styles.socialIconSmall} /><TextInput style={[styles.input, styles.socialInput]} value={editData?.linkedin || ''} onChangeText={(text) => updateField('linkedin', text)} placeholder="z.B. linkedin.com/in/maxmustermann" placeholderTextColor="#999" /></View><View style={styles.socialInputRow}><Image source={TikTokIcon} style={styles.socialIconSmall} /><TextInput style={[styles.input, styles.socialInput]} value={editData?.tiktok || ''} onChangeText={(text) => updateField('tiktok', text)} placeholder="z.B. @maxmustermann" placeholderTextColor="#999" /></View></View>
+        <Text style={[styles.label, { color: colors.textMuted }]}>Social Media</Text>
+        {editing ? (<View><View style={styles.socialInputRow}><Image source={InstagramIcon} style={styles.socialIconSmall} /><TextInput style={[styles.input, styles.socialInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={editData?.instagram || ''} onChangeText={(text) => updateField('instagram', text)} placeholder="z.B. @maxmustermann" placeholderTextColor={colors.textMuted} /></View><View style={styles.socialInputRow}><Image source={LinkedInIcon} style={styles.socialIconSmall} /><TextInput style={[styles.input, styles.socialInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={editData?.linkedin || ''} onChangeText={(text) => updateField('linkedin', text)} placeholder="z.B. linkedin.com/in/maxmustermann" placeholderTextColor={colors.textMuted} /></View><View style={styles.socialInputRow}><Image source={TikTokIcon} style={styles.socialIconSmall} /><TextInput style={[styles.input, styles.socialInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={editData?.tiktok || ''} onChangeText={(text) => updateField('tiktok', text)} placeholder="z.B. @maxmustermann" placeholderTextColor={colors.textMuted} /></View></View>
         ) : (<View style={styles.socialIconsRow}>{player?.instagram && <TouchableOpacity onPress={() => Linking.openURL(player.instagram.startsWith('http') ? player.instagram : `https://instagram.com/${player.instagram.replace('@', '')}`)}><Image source={InstagramIcon} style={styles.socialIcon} /></TouchableOpacity>}{player?.linkedin && <TouchableOpacity onPress={() => Linking.openURL(player.linkedin.startsWith('http') ? player.linkedin : `https://linkedin.com/in/${player.linkedin}`)}><Image source={LinkedInIcon} style={styles.socialIcon} /></TouchableOpacity>}{player?.tiktok && <TouchableOpacity onPress={() => Linking.openURL(player.tiktok.startsWith('http') ? player.tiktok : `https://tiktok.com/@${player.tiktok.replace('@', '')}`)}><Image source={TikTokIcon} style={styles.socialIcon} /></TouchableOpacity>}</View>)}
       </View>
     );
@@ -2592,8 +2594,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
 
   const renderDocuments = () => (
     <View style={styles.infoRow}>
-      <Text style={styles.label}>Vertragsunterlagen</Text>
-      {editing && (<TouchableOpacity style={styles.uploadButton} onPress={() => uploadDocument('contract_documents')}><Text style={styles.uploadButtonText}>+ PDF hochladen</Text></TouchableOpacity>)}
+      <Text style={[styles.label, { color: colors.textMuted }]}>Vertragsunterlagen</Text>
+      {editing && (<TouchableOpacity style={[styles.uploadButton, { backgroundColor: colors.primary }]} onPress={() => uploadDocument('contract_documents')}><Text style={[styles.uploadButtonText, { color: colors.primaryText }]}>+ PDF hochladen</Text></TouchableOpacity>)}
       <View style={styles.documentList}>
         {(player?.contract_documents || []).map((doc: any, index: number) => (
           <View key={index} style={styles.documentItem}>
@@ -2635,8 +2637,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   if (loading || !accessChecked) {
     return (
       <View style={styles.modalOverlayContainer}>
-        <View style={styles.modalContainer}>
-          <Text style={styles.loadingText}>Laden...</Text>
+        <View style={[styles.modalContainer, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.loadingText, { color: colors.text }]}>Laden...</Text>
         </View>
       </View>
     );
@@ -2647,44 +2649,44 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     return (
       <View style={styles.modalOverlayContainer}>
         <TouchableOpacity style={styles.modalBackdrop} onPress={() => navigation.goBack()} activeOpacity={1} />
-        <View style={[styles.modalContainer, { padding: 40, alignItems: 'center', justifyContent: 'center', maxWidth: 450 }]}>
+        <View style={[styles.modalContainer, { padding: 40, alignItems: 'center', justifyContent: 'center', maxWidth: 450, backgroundColor: colors.surface }]}>
           <Text style={{ fontSize: 64, marginBottom: 20 }}>🔒</Text>
-          <Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 12, textAlign: 'center' }}>Kein Zugriff</Text>
-          <Text style={{ fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 8 }}>Du hast keine Berechtigung, dieses Spielerprofil einzusehen.</Text>
-          <Text style={{ fontSize: 14, color: '#999', textAlign: 'center', marginBottom: 24 }}>Beantrage Zuständigkeit um Zugriff zu erhalten.</Text>
-          
+          <Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 12, textAlign: 'center', color: colors.text }}>Kein Zugriff</Text>
+          <Text style={{ fontSize: 16, color: colors.textSecondary, textAlign: 'center', marginBottom: 8 }}>Du hast keine Berechtigung, dieses Spielerprofil einzusehen.</Text>
+          <Text style={{ fontSize: 14, color: colors.textMuted, textAlign: 'center', marginBottom: 24 }}>Beantrage Zuständigkeit um Zugriff zu erhalten.</Text>
+
           {pendingRequest?.status === 'pending' && (
-            <View style={{ backgroundColor: '#fef3c7', padding: 12, borderRadius: 8, marginBottom: 16 }}>
-              <Text style={{ fontSize: 14, color: '#92400e', textAlign: 'center' }}>⏳ Deine Anfrage wird geprüft...</Text>
+            <View style={{ backgroundColor: isDark ? '#78350f' : '#fef3c7', padding: 12, borderRadius: 8, marginBottom: 16 }}>
+              <Text style={{ fontSize: 14, color: isDark ? '#fef3c7' : '#92400e', textAlign: 'center' }}>⏳ Deine Anfrage wird geprüft...</Text>
             </View>
           )}
-          
+
           {pendingRequest?.status === 'rejected' && (
-            <View style={{ backgroundColor: '#fee2e2', padding: 12, borderRadius: 8, marginBottom: 16 }}>
-              <Text style={{ fontSize: 14, color: '#991b1b', textAlign: 'center' }}>❌ Deine Anfrage wurde abgelehnt</Text>
+            <View style={{ backgroundColor: isDark ? '#7f1d1d' : '#fee2e2', padding: 12, borderRadius: 8, marginBottom: 16 }}>
+              <Text style={{ fontSize: 14, color: isDark ? '#fecaca' : '#991b1b', textAlign: 'center' }}>❌ Deine Anfrage wurde abgelehnt</Text>
             </View>
           )}
-          
+
           {(!pendingRequest || pendingRequest.status === 'rejected') && !accessRequested && (
-            <TouchableOpacity 
-              style={{ backgroundColor: '#000', paddingVertical: 14, paddingHorizontal: 32, borderRadius: 10, marginBottom: 12 }} 
+            <TouchableOpacity
+              style={{ backgroundColor: colors.primary, paddingVertical: 14, paddingHorizontal: 32, borderRadius: 10, marginBottom: 12 }}
               onPress={requestAccess}
             >
-              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>Zugriff anfragen</Text>
+              <Text style={{ color: colors.primaryText, fontSize: 16, fontWeight: '600' }}>Zugriff anfragen</Text>
             </TouchableOpacity>
           )}
-          
+
           {accessRequested && (
-            <View style={{ backgroundColor: '#d1fae5', padding: 12, borderRadius: 8, marginBottom: 16 }}>
-              <Text style={{ fontSize: 14, color: '#065f46', textAlign: 'center' }}>✓ Anfrage wurde gesendet</Text>
+            <View style={{ backgroundColor: isDark ? '#064e3b' : '#d1fae5', padding: 12, borderRadius: 8, marginBottom: 16 }}>
+              <Text style={{ fontSize: 14, color: isDark ? '#a7f3d0' : '#065f46', textAlign: 'center' }}>✓ Anfrage wurde gesendet</Text>
             </View>
           )}
-          
-          <TouchableOpacity 
-            style={{ backgroundColor: '#f0f0f0', paddingVertical: 12, paddingHorizontal: 32, borderRadius: 8 }} 
+
+          <TouchableOpacity
+            style={{ backgroundColor: colors.surfaceSecondary, paddingVertical: 12, paddingHorizontal: 32, borderRadius: 8 }}
             onPress={() => navigation.goBack()}
           >
-            <Text style={{ color: '#666', fontSize: 16, fontWeight: '600' }}>Zurück</Text>
+            <Text style={{ color: colors.textSecondary, fontSize: 16, fontWeight: '600' }}>Zurück</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -2696,8 +2698,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     return (
       <View style={styles.modalOverlayContainer}>
         <TouchableOpacity style={styles.modalBackdrop} onPress={() => navigation.goBack()} activeOpacity={1} />
-        <View style={styles.modalContainer}>
-          <Text style={styles.loadingText}>Spieler nicht gefunden</Text>
+        <View style={[styles.modalContainer, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.loadingText, { color: colors.text }]}>Spieler nicht gefunden</Text>
         </View>
       </View>
     );
@@ -2714,28 +2716,28 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   return (
     <View style={[styles.modalOverlayContainer, isMobile && styles.modalOverlayContainerMobile]}>
       {!isMobile && <TouchableOpacity style={styles.modalBackdrop} onPress={() => navigation.goBack()} activeOpacity={1} />}
-      <View style={[styles.modalContainer, isMobile && styles.modalContainerMobile]}>
-        <View style={[styles.header, isMobile && styles.headerMobile]}>
-          <Text style={[styles.headerTitle, isMobile && styles.headerTitleMobile]}>Spielerprofil</Text>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={isMobile ? undefined : styles.closeButton}><Text style={isMobile ? styles.closeButtonTextMobile : styles.closeButtonText}>✕</Text></TouchableOpacity>
+      <View style={[styles.modalContainer, isMobile && styles.modalContainerMobile, { backgroundColor: colors.background }]}>
+        <View style={[styles.header, isMobile && styles.headerMobile, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+          <Text style={[styles.headerTitle, isMobile && styles.headerTitleMobile, { color: colors.text }]}>Spielerprofil</Text>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={[isMobile ? undefined : styles.closeButton, !isMobile && { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}><Text style={[isMobile ? styles.closeButtonTextMobile : styles.closeButtonText, { color: colors.textSecondary }]}>✕</Text></TouchableOpacity>
         </View>
         <ScrollView
-          style={[styles.content, isMobile && styles.contentMobile]}
+          style={[styles.content, isMobile && styles.contentMobile, { backgroundColor: colors.background }]}
           onScrollBeginDrag={() => closeAllDropdowns()}
-          refreshControl={isMobile ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} /> : undefined}
+          refreshControl={isMobile ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.text} /> : undefined}
         >
         <Pressable onPress={() => closeAllDropdowns()}>
         {/* Redesigned Top Section */}
-        <View style={[styles.topSection, isMobile && styles.topSectionMobile]}>
+        <View style={[styles.topSection, isMobile && styles.topSectionMobile, { backgroundColor: colors.cardBackground }]}>
           <View style={[styles.topLeft, isMobile && styles.topLeftMobile]}>
             {editing ? (
               <TouchableOpacity onPress={uploadPhoto} style={styles.photoContainer}>
                 {editData?.photo_url ? (
                   <Image source={{ uri: editData.photo_url }} style={styles.photo} />
                 ) : (
-                  <View style={styles.photoPlaceholder}>
+                  <View style={[styles.photoPlaceholder, { backgroundColor: colors.surfaceSecondary }]}>
                     <Text style={styles.photoPlaceholderText}>📷</Text>
-                    <Text style={styles.photoUploadHint}>Foto{'\n'}hochladen</Text>
+                    <Text style={[styles.photoUploadHint, { color: colors.textSecondary }]}>Foto{'\n'}hochladen</Text>
                   </View>
                 )}
                 <View style={styles.photoEditBadge}>
@@ -2743,8 +2745,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 </View>
               </TouchableOpacity>
             ) : (
-              <View style={[styles.photoContainer, isMobile && styles.photoContainerMobile]}>
-                {player.photo_url ? <Image source={{ uri: player.photo_url }} style={styles.photo} /> : <View style={styles.photoPlaceholder}><Text style={styles.photoPlaceholderText}>Foto</Text></View>}
+              <View style={[styles.photoContainer, isMobile && styles.photoContainerMobile, { borderColor: colors.border }]}>
+                {player.photo_url ? <Image source={{ uri: player.photo_url }} style={styles.photo} /> : <View style={[styles.photoPlaceholder, { backgroundColor: colors.surfaceSecondary }]}><Text style={[styles.photoPlaceholderText, { color: colors.textMuted }]}>Foto</Text></View>}
               </View>
             )}
           </View>
@@ -2752,15 +2754,15 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           <View style={[styles.topCenter, isMobile && styles.topCenterMobile]}>
             {editing ? (
               <>
-                <TextInput style={styles.nameInput} value={editData.first_name} onChangeText={(text) => updateField('first_name', text)} placeholder="Vorname" placeholderTextColor="#999" />
-                <TextInput style={styles.nameInput} value={editData.last_name} onChangeText={(text) => updateField('last_name', text)} placeholder="Nachname" placeholderTextColor="#999" />
+                <TextInput style={[styles.nameInput, { color: colors.text, borderBottomColor: colors.text }]} value={editData.first_name} onChangeText={(text) => updateField('first_name', text)} placeholder="Vorname" placeholderTextColor={colors.textMuted} />
+                <TextInput style={[styles.nameInput, { color: colors.text, borderBottomColor: colors.text }]} value={editData.last_name} onChangeText={(text) => updateField('last_name', text)} placeholder="Nachname" placeholderTextColor={colors.textMuted} />
               </>
             ) : (
               <>
-                <Text style={[styles.playerFirstName, isMobile && styles.playerFirstNameMobile]}>{player.first_name}</Text>
-                <Text style={[styles.playerLastName, isMobile && styles.playerLastNameMobile]}>{player.last_name}</Text>
+                <Text style={[styles.playerFirstName, isMobile && styles.playerFirstNameMobile, { color: colors.textSecondary }]}>{player.first_name}</Text>
+                <Text style={[styles.playerLastName, isMobile && styles.playerLastNameMobile, { color: colors.text }]}>{player.last_name}</Text>
                 <View style={styles.ageRow}>
-                  <Text style={[styles.ageText, isMobile && styles.ageTextMobile]}>{calculateAge(player.birth_date)} Jahre</Text>
+                  <Text style={[styles.ageText, isMobile && styles.ageTextMobile, { color: colors.textSecondary }]}>{calculateAge(player.birth_date)} Jahre</Text>
                   {birthday && <Text style={styles.birthdayIconLarge}>🎉</Text>}
                 </View>
               </>
@@ -2774,7 +2776,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               ) : getClubLogo(player.club) ? (
                 <Image source={{ uri: getClubLogo(player.club)! }} style={[styles.clubLogoHeader, isMobile && styles.clubLogoHeaderMobile]} />
               ) : (
-                <Text style={styles.clubNameHeaderNoLogo}>{displayClub || '-'}</Text>
+                <Text style={[styles.clubNameHeaderNoLogo, { color: colors.text }]}>{displayClub || '-'}</Text>
               )}
               {player.future_club && !editing && futureClubLogo && (
                 <View style={styles.futureClubHeader}>
@@ -2796,8 +2798,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           /* Mobile: Cards in gewünschter Reihenfolge */
           <View style={styles.singleColumnContainer}>
             {/* 1. Allgemein */}
-            <View style={[styles.card, styles.cardMobile, { zIndex: 400, overflow: 'visible' }]}>
-              <Text style={styles.cardTitle}>Allgemein</Text>
+            <View style={[styles.card, styles.cardMobile, { zIndex: 400, overflow: 'visible', backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+              <Text style={[styles.cardTitle, { color: colors.text, borderBottomColor: colors.border }]}>Allgemein</Text>
               <View style={[styles.splitContainer, styles.splitContainerMobile, { overflow: 'visible' }]}>
                 <View style={[styles.splitColumn, { overflow: 'visible', zIndex: 400 }]}>
                   {renderTransfermarktField()}
@@ -2814,8 +2816,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               </View>
             </View>
             {/* 2. Vertrag */}
-            <View style={[styles.card, styles.cardMobile, { zIndex: 100, overflow: 'visible' }]}>
-              <Text style={styles.cardTitle}>Vertrag</Text>
+            <View style={[styles.card, styles.cardMobile, { zIndex: 100, overflow: 'visible', backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+              <Text style={[styles.cardTitle, { color: colors.text, borderBottomColor: colors.border }]}>Vertrag</Text>
               <View style={[styles.splitContainer, styles.splitContainerMobile, { overflow: 'visible' }]}>
                 <View style={[styles.splitColumn, { overflow: 'visible', zIndex: 100 }]}>
                   {renderClubField()}
@@ -2838,8 +2840,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               </View>
             </View>
             {/* 3. Beratung */}
-            <View style={[styles.card, styles.cardMobile]}>
-              <Text style={styles.cardTitle}>Beratung</Text>
+            <View style={[styles.card, styles.cardMobile, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+              <Text style={[styles.cardTitle, { color: colors.text, borderBottomColor: colors.border }]}>Beratung</Text>
               <View style={styles.beratungContainerMobile}>
                 <View style={styles.beratungColumnMobile}>
                   <View style={styles.infoRow}>
@@ -2857,8 +2859,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               </View>
             </View>
             {/* 4. Privat */}
-            <View style={[styles.card, styles.cardMobile]}>
-              <Text style={styles.cardTitle}>Privat</Text>
+            <View style={[styles.card, styles.cardMobile, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+              <Text style={[styles.cardTitle, { color: colors.text, borderBottomColor: colors.border }]}>Privat</Text>
               <View style={[styles.splitContainer, styles.splitContainerMobile]}>
                 <View style={[styles.splitColumn, { zIndex: 10 }]}>
                   {renderBirthDateField()}
@@ -2876,8 +2878,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               </View>
             </View>
             {/* 5. Familie */}
-            <View style={[styles.card, styles.cardMobile]}>
-              <Text style={styles.cardTitle}>Familie</Text>
+            <View style={[styles.card, styles.cardMobile, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+              <Text style={[styles.cardTitle, { color: colors.text, borderBottomColor: colors.border }]}>Familie</Text>
               <View style={styles.familyContainerMobileTwoCol}>
                 <View style={styles.familyColumnMobile}>
                   <Text style={styles.sectionSubtitle}>Vater</Text>
@@ -2898,8 +2900,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               </View>
             </View>
             {/* 6. Verletzungen */}
-            <View style={[styles.card, styles.cardMobile]}>
-              <Text style={styles.cardTitle}>Verletzungen & Krankheiten</Text>
+            <View style={[styles.card, styles.cardMobile, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+              <Text style={[styles.cardTitle, { color: colors.text, borderBottomColor: colors.border }]}>Verletzungen & Krankheiten</Text>
               <View style={styles.infoRow}>{editing ? <TextInput style={[styles.input, styles.textArea]} value={editData.injuries || ''} onChangeText={(text) => updateField('injuries', text)} placeholder="Verletzungshistorie..." placeholderTextColor="#999" multiline /> : <Text style={styles.value}>{player.injuries || '-'}</Text>}</View>
             </View>
           </View>
@@ -2908,8 +2910,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           <>
           <View style={styles.twoColumnContainer}>
             <View style={[styles.halfColumn, { zIndex: 400 }]}>
-              <View style={[styles.card, { zIndex: 400, overflow: 'visible' }]}>
-                <Text style={styles.cardTitle}>Allgemein</Text>
+              <View style={[styles.card, { zIndex: 400, overflow: 'visible', backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+                <Text style={[styles.cardTitle, { color: colors.text, borderBottomColor: colors.border }]}>Allgemein</Text>
                 <View style={[styles.splitContainer, { overflow: 'visible' }]}>
                   <View style={[styles.splitColumn, { overflow: 'visible', zIndex: 400 }]}>
                     {renderTransfermarktField()}
@@ -2926,10 +2928,10 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                   </View>
                 </View>
               </View>
-              <View style={styles.card}>
-                <Text style={styles.cardTitle}>Beratung</Text>
+              <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+                <Text style={[styles.cardTitle, { color: colors.text, borderBottomColor: colors.border }]}>Beratung</Text>
                 <View style={styles.infoRow}>
-                  <Text style={styles.label}>Listung</Text>
+                  <Text style={[styles.label, { color: colors.textMuted }]}>Listung</Text>
                   {editing ? (<View style={styles.chipGrid}>{LISTINGS.map((opt) => (<TouchableOpacity key={opt} style={[styles.chip, editData?.listing === opt && styles.chipSelected]} onPress={() => updateField('listing', editData?.listing === opt ? null : opt)}><Text style={[styles.chipText, editData?.listing === opt && styles.chipTextSelected]}>{editData?.listing === opt ? '✓ ' : ''}{opt}</Text></TouchableOpacity>))}</View>
                   ) : player?.listing ? (<View style={[styles.listingBadge, player.listing === 'Karl Herzog Sportmanagement' ? styles.listingKMH : styles.listingPM]}><Text style={styles.listingBadgeText}>{player.listing}</Text></View>) : <Text style={styles.value}>-</Text>}
                 </View>
@@ -2938,8 +2940,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 {renderFieldWithDocuments('Provision', 'provision', 'provision_documents')}
                 {renderFieldWithDocuments('Weg-Vermittlung', 'transfer_commission', 'transfer_commission_documents')}
               </View>
-              <View style={styles.card}>
-                <Text style={styles.cardTitle}>Privat</Text>
+              <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+                <Text style={[styles.cardTitle, { color: colors.text, borderBottomColor: colors.border }]}>Privat</Text>
                 <View style={styles.splitContainer}>
                   <View style={[styles.splitColumn, { zIndex: 10 }]}>
                     {renderBirthDateField()}
@@ -2958,8 +2960,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               </View>
             </View>
             <View style={[styles.halfColumn, { zIndex: 100 }]}>
-              <View style={[styles.card, { zIndex: 100, overflow: 'visible' }]}>
-                <Text style={styles.cardTitle}>Vertrag</Text>
+              <View style={[styles.card, { zIndex: 100, overflow: 'visible', backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+                <Text style={[styles.cardTitle, { color: colors.text, borderBottomColor: colors.border }]}>Vertrag</Text>
                 <View style={[styles.splitContainer, { overflow: 'visible' }]}>
                   <View style={[styles.splitColumn, { overflow: 'visible', zIndex: 100 }]}>
                     {renderClubField()}
@@ -2981,69 +2983,69 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                   </View>
                 </View>
               </View>
-              <View style={styles.card}>
-                <Text style={styles.cardTitle}>Familie</Text>
+              <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+                <Text style={[styles.cardTitle, { color: colors.text, borderBottomColor: colors.border }]}>Familie</Text>
                 <View style={styles.familyContainer}>
                   <View style={styles.familyColumn}>
-                    <Text style={styles.sectionSubtitle}>Vater</Text>
+                    <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>Vater</Text>
                     {renderField('Name', 'father_name')}
                     {renderPhoneField('Telefon', 'father_phone', 'father_phone_country_code')}
                     {renderField('Job', 'father_job')}
-                    <Text style={styles.sectionSubtitle}>Mutter</Text>
+                    <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>Mutter</Text>
                     {renderField('Name', 'mother_name')}
                     {renderPhoneField('Telefon', 'mother_phone', 'mother_phone_country_code')}
                     {renderField('Job', 'mother_job')}
                   </View>
                   <View style={styles.familyColumn}>
-                    <Text style={styles.sectionSubtitle}>Geschwister</Text>
+                    <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>Geschwister</Text>
                     {renderField('Name', 'siblings')}
-                    <View style={styles.infoRow}><Text style={styles.label}> </Text><Text style={styles.value}> </Text></View>
-                    <View style={styles.infoRow}><Text style={styles.label}> </Text><Text style={styles.value}> </Text></View>
-                    <Text style={styles.sectionSubtitle}>Sonstiges</Text>
-                    <View style={styles.infoRow}>{editing ? <TextInput style={[styles.input, styles.smallTextArea]} value={editData.other_notes || ''} onChangeText={(text) => updateField('other_notes', text)} placeholder="Sonstiges..." placeholderTextColor="#999" multiline /> : <Text style={styles.value}>{player.other_notes || '-'}</Text>}</View>
+                    <View style={styles.infoRow}><Text style={[styles.label, { color: colors.textMuted }]}> </Text><Text style={[styles.value, { color: colors.text }]}> </Text></View>
+                    <View style={styles.infoRow}><Text style={[styles.label, { color: colors.textMuted }]}> </Text><Text style={[styles.value, { color: colors.text }]}> </Text></View>
+                    <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>Sonstiges</Text>
+                    <View style={styles.infoRow}>{editing ? <TextInput style={[styles.input, styles.smallTextArea, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={editData.other_notes || ''} onChangeText={(text) => updateField('other_notes', text)} placeholder="Sonstiges..." placeholderTextColor={colors.textMuted} multiline /> : <Text style={[styles.value, { color: colors.text }]}>{player.other_notes || '-'}</Text>}</View>
                   </View>
                 </View>
               </View>
             </View>
           </View>
-          <View style={styles.cardFullWidth}>
-            <Text style={styles.cardTitle}>Verletzungen & Krankheiten</Text>
-            <View style={styles.infoRow}>{editing ? <TextInput style={[styles.input, styles.textArea]} value={editData.injuries || ''} onChangeText={(text) => updateField('injuries', text)} placeholder="Verletzungshistorie..." placeholderTextColor="#999" multiline /> : <Text style={styles.value}>{player.injuries || '-'}</Text>}</View>
+          <View style={[styles.cardFullWidth, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+            <Text style={[styles.cardTitle, { color: colors.text, borderBottomColor: colors.border }]}>Verletzungen & Krankheiten</Text>
+            <View style={styles.infoRow}>{editing ? <TextInput style={[styles.input, styles.textArea, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={editData.injuries || ''} onChangeText={(text) => updateField('injuries', text)} placeholder="Verletzungshistorie..." placeholderTextColor={colors.textMuted} multiline /> : <Text style={[styles.value, { color: colors.text }]}>{player.injuries || '-'}</Text>}</View>
           </View>
           </>
         )}
         </Pressable>
       </ScrollView>
-      <View style={isMobile ? styles.bottomButtonsMobile : styles.bottomButtons}>
+      <View style={[isMobile ? styles.bottomButtonsMobile : styles.bottomButtons, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
         <View style={isMobile ? styles.bottomButtonsRowMobile : styles.bottomButtonsLeft}>
           <TouchableOpacity
-            style={[styles.transferButton, isMobile && styles.buttonMobile, player?.in_transfer_list && { backgroundColor: '#dc3545' }]}
+            style={[styles.transferButton, isMobile && styles.buttonMobile, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, player?.in_transfer_list && { backgroundColor: '#dc3545', borderColor: '#dc3545' }]}
             onPress={toggleTransferList}
           >
-            <Text style={[styles.transferButtonText, isMobile && styles.buttonTextMobile]}>
+            <Text style={[styles.transferButtonText, isMobile && styles.buttonTextMobile, { color: player?.in_transfer_list ? '#fff' : colors.textSecondary }]}>
               {player?.in_transfer_list ? 'Von Transfer entfernen' : 'Zu Transfer hinzufügen'}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.pdfProfileButton, isMobile && styles.buttonMobile]} onPress={() => setShowPDFProfileModal(true)}>
-            <Text style={[styles.pdfProfileButtonText, isMobile && styles.buttonTextMobile]}>📄 PDF</Text>
+          <TouchableOpacity style={[styles.pdfProfileButton, isMobile && styles.buttonMobile, { backgroundColor: colors.primary }]} onPress={() => setShowPDFProfileModal(true)}>
+            <Text style={[styles.pdfProfileButtonText, isMobile && styles.buttonTextMobile, { color: colors.primaryText }]}>📄 PDF</Text>
           </TouchableOpacity>
         </View>
         <View style={isMobile ? styles.bottomButtonsRowMobile : styles.bottomButtonsRight}>
         {editing ? (
           <>
-            <TouchableOpacity style={[styles.deleteButton, isMobile && styles.buttonMobile]} onPress={() => setShowDeleteModal(true)}>
+            <TouchableOpacity style={[styles.deleteButton, isMobile && styles.buttonMobile, { backgroundColor: colors.surfaceSecondary }]} onPress={() => setShowDeleteModal(true)}>
               <Text style={[styles.deleteButtonText, isMobile && styles.buttonTextMobile]}>Löschen</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.cancelButton, isMobile && styles.buttonMobile]} onPress={() => { setEditing(false); setEditData(player); setClubSearch(player.club || ''); setFutureClubSearch(player.future_club || ''); fetchPlayer(); }}>
-              <Text style={[styles.cancelButtonText, isMobile && styles.buttonTextMobile]}>Abbrechen</Text>
+            <TouchableOpacity style={[styles.cancelButton, isMobile && styles.buttonMobile, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => { setEditing(false); setEditData(player); setClubSearch(player.club || ''); setFutureClubSearch(player.future_club || ''); fetchPlayer(); }}>
+              <Text style={[styles.cancelButtonText, isMobile && styles.buttonTextMobile, { color: colors.textSecondary }]}>Abbrechen</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.saveButton, isMobile && styles.buttonMobile]} onPress={handleSave}>
+            <TouchableOpacity style={[styles.saveButton, isMobile && styles.buttonMobile, { backgroundColor: colors.surfaceSecondary }]} onPress={handleSave}>
               <Text style={[styles.saveButtonText, isMobile && styles.buttonTextMobile]}>Speichern</Text>
             </TouchableOpacity>
           </>
         ) : (
-          <TouchableOpacity style={[styles.editButton, isMobile && styles.buttonMobile]} onPress={() => setEditing(true)}>
-            <Text style={[styles.editButtonText, isMobile && styles.buttonTextMobile]}>Bearbeiten</Text>
+          <TouchableOpacity style={[styles.editButton, isMobile && styles.buttonMobile, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setEditing(true)}>
+            <Text style={[styles.editButtonText, isMobile && styles.buttonTextMobile, { color: colors.textSecondary }]}>Bearbeiten</Text>
           </TouchableOpacity>
         )}
         </View>

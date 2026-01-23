@@ -3,8 +3,10 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal,
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 import { MobileHeader } from '../../components/MobileHeader';
+import { MobileSidebar } from '../../components/MobileSidebar';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { getRelevantTermine, convertToDbFormat, getLastUpdateDisplay, getDFBTermineCount, getHallenTermineCount } from '../../services/dfbTermine';
 import { 
   syncAllPlayerGames, 
@@ -77,6 +79,7 @@ const JAHRGAENGE = ['U13', 'U14', 'U15', 'U16', 'U17', 'U18', 'U19', 'U20', 'U21
 export function TermineScreen({ navigation }: any) {
   const isMobile = useIsMobile();
   const { session, loading: authLoading } = useAuth();
+  const { colors, isDark } = useTheme();
   const dataLoadedRef = useRef(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
@@ -100,6 +103,7 @@ export function TermineScreen({ navigation }: any) {
   const [showTermineArchiv, setShowTermineArchiv] = useState(false);
   const [termineJahrgangFilter, setTermineJahrgangFilter] = useState<string[]>([]);
   const [showTermineJahrgangDropdown, setShowTermineJahrgangDropdown] = useState(false);
+  const [selectedTermineIds, setSelectedTermineIds] = useState<string[]>([]);
   const [selectedResponsibilities, setSelectedResponsibilities] = useState<string[]>([]);
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [showResponsibilityDropdown, setShowResponsibilityDropdown] = useState(false);
@@ -785,6 +789,70 @@ export function TermineScreen({ navigation }: any) {
     return filteredGames.every(g => g.selected);
   };
 
+  // Termine Selection Functions
+  const toggleTerminSelection = (terminId: string) => {
+    setSelectedTermineIds(prev =>
+      prev.includes(terminId)
+        ? prev.filter(id => id !== terminId)
+        : [...prev, terminId]
+    );
+  };
+
+  const getSelectedTermineCount = () => selectedTermineIds.length;
+
+  const exportSelectedTermineToCalendar = () => {
+    const selectedTermine = termine.filter(t => selectedTermineIds.includes(t.id));
+    if (selectedTermine.length === 0) {
+      Alert.alert('Hinweis', 'Bitte wähle mindestens einen Termin aus.');
+      return;
+    }
+
+    let icsContent = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//KMH App//Termine//DE
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+`;
+
+    selectedTermine.forEach(termin => {
+      const dateStr = termin.datum.split('T')[0].replace(/-/g, '');
+      const endDateStr = termin.datum_ende ? termin.datum_ende.split('T')[0].replace(/-/g, '') : dateStr;
+
+      // Zeit extrahieren falls vorhanden
+      let timeStr = '120000';
+      if (termin.datum.includes('T')) {
+        const timePart = termin.datum.split('T')[1];
+        if (timePart) {
+          timeStr = timePart.replace(/:/g, '').substring(0, 6) || '120000';
+        }
+      }
+
+      icsContent += `BEGIN:VEVENT
+DTSTART:${dateStr}T${timeStr}
+DTEND:${endDateStr}T235900
+SUMMARY:${termin.titel}
+LOCATION:${termin.ort || ''}
+DESCRIPTION:${termin.art}${termin.jahrgang ? ' - ' + termin.jahrgang : ''}
+UID:${termin.id}@kmh-app
+END:VEVENT
+`;
+    });
+
+    icsContent += 'END:VCALENDAR';
+
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `termine_${new Date().toISOString().split('T')[0]}.ics`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    Alert.alert('Erfolg', `${selectedTermine.length} Termine wurden exportiert.`);
+  };
+
   // Filter Logic
   const availableResponsibilities = useMemo(() => {
     const responsibilities = new Set<string>();
@@ -978,29 +1046,29 @@ export function TermineScreen({ navigation }: any) {
             {/* Spiele unserer Spieler */}
             <DashboardCard
               id="spiele"
-              style={styles.mobileCard}
+              style={[styles.mobileCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
               onPress={() => setViewMode('spiele')}
               hoverStyle={styles.lightCardHovered}
             >
               <View style={styles.mobileCardContent}>
-                <View style={styles.mobileCardIcon}><Text style={styles.mobileCardIconText}>⚽</Text></View>
+                <View style={[styles.mobileCardIcon, { backgroundColor: colors.surfaceSecondary }]}><Text style={styles.mobileCardIconText}>⚽</Text></View>
                 <View style={styles.mobileCardText}>
-                  <Text style={styles.mobileCardTitle}>Spiele unserer Spieler</Text>
-                  <Text style={styles.mobileCardSubtitle}>
+                  <Text style={[styles.mobileCardTitle, { color: colors.text }]}>Spiele unserer Spieler</Text>
+                  <Text style={[styles.mobileCardSubtitle, { color: colors.textSecondary }]}>
                     {playerGames.length > 0
                       ? `${playerGames.length} Spiele in 5 Wochen`
                       : 'Partien im Überblick'
                     }
                   </Text>
                 </View>
-                <Text style={styles.mobileCardCount}>{getTodayGamesCount()}</Text>
+                <Text style={[styles.mobileCardCount, { color: colors.text }]}>{getTodayGamesCount()}</Text>
               </View>
             </DashboardCard>
 
             {/* Weitere Termine */}
             <DashboardCard
               id="termine"
-              style={styles.mobileCardDark}
+              style={[styles.mobileCardDark, { backgroundColor: isDark ? colors.surfaceSecondary : '#1a1a1a' }]}
               onPress={() => setViewMode('termine')}
               hoverStyle={styles.darkCardHovered}
             >
@@ -1023,34 +1091,34 @@ export function TermineScreen({ navigation }: any) {
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <View style={styles.gridContainer}>
           <View style={styles.row}>
-            <DashboardCard id="spiele" style={styles.mainCard} onPress={() => setViewMode('spiele')} hoverStyle={styles.mainCardHovered}>
-              <Text style={styles.todayCountTopRight}>{getTodayGamesCount()}</Text>
+            <DashboardCard id="spiele" style={[styles.mainCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]} onPress={() => setViewMode('spiele')} hoverStyle={styles.mainCardHovered}>
+              <Text style={[styles.todayCountTopRight, { color: colors.text }]}>{getTodayGamesCount()}</Text>
               <View style={styles.mainCardContent}>
                 <View style={styles.mainCardLeft}>
-                  <Text style={styles.mainCardTitle}>Spiele unserer Spieler</Text>
-                  <Text style={styles.mainCardSubtitle}>
+                  <Text style={[styles.mainCardTitle, { color: colors.text }]}>Spiele unserer Spieler</Text>
+                  <Text style={[styles.mainCardSubtitle, { color: colors.textSecondary }]}>
                     {playerGames.length > 0
                       ? `${playerGames.length} Spiele in den nächsten 5 Wochen`
                       : 'Alle Partien deiner Mandanten\nim Überblick'
                     }
                   </Text>
                   <View style={styles.mainCardFooter}>
-                    <Text style={styles.mainCardLink}>Zur Übersicht</Text>
-                    <Text style={styles.mainCardArrow}>→</Text>
+                    <Text style={[styles.mainCardLink, { color: colors.text }]}>Zur Übersicht</Text>
+                    <Text style={[styles.mainCardArrow, { color: colors.text }]}>→</Text>
                   </View>
                 </View>
                 <View style={styles.mainCardRight}>
                 </View>
               </View>
             </DashboardCard>
-            <DashboardCard id="termine" style={styles.termineCardFull} onPress={() => setViewMode('termine')} hoverStyle={styles.lightCardHovered}>
-              <Text style={styles.todayCountTopRight}>{getTodayTermineCount()}</Text>
+            <DashboardCard id="termine" style={[styles.termineCardFull, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]} onPress={() => setViewMode('termine')} hoverStyle={styles.lightCardHovered}>
+              <Text style={[styles.todayCountTopRight, { color: colors.text }]}>{getTodayTermineCount()}</Text>
               <View style={styles.termineHeader}>
-                <View style={styles.termineIcon}><Text style={styles.termineIconText}>📋</Text></View>
+                <View style={[styles.termineIcon, { backgroundColor: colors.surfaceSecondary }]}><Text style={styles.termineIconText}>📋</Text></View>
               </View>
               <View style={styles.termineFooter}>
-                <Text style={styles.termineTitle}>Weitere Termine</Text>
-                <Text style={styles.termineSubtitle}>Lehrgänge, Sichtungen und Turniere</Text>
+                <Text style={[styles.termineTitle, { color: colors.text }]}>Weitere Termine</Text>
+                <Text style={[styles.termineSubtitle, { color: colors.textSecondary }]}>Lehrgänge, Sichtungen und Turniere</Text>
               </View>
             </DashboardCard>
           </View>
@@ -1106,64 +1174,64 @@ export function TermineScreen({ navigation }: any) {
       const activeFilterCount = selectedPlayers.length + selectedResponsibilities.length;
 
       return (
-        <View style={styles.mobileGamesContainer}>
+        <View style={[styles.mobileGamesContainer, { backgroundColor: colors.background }]}>
           {/* Toolbar mit Zurück, Filter und Sync */}
-          <View style={styles.mobileGamesToolbar}>
-            <TouchableOpacity style={styles.mobileGamesToolbarBtn} onPress={() => setViewMode('dashboard')}>
-              <Text style={styles.mobileGamesToolbarBtnText}>← Zurück</Text>
+          <View style={[styles.mobileGamesToolbar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+            <TouchableOpacity style={[styles.mobileGamesToolbarBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setViewMode('dashboard')}>
+              <Text style={[styles.mobileGamesToolbarBtnText, { color: colors.textSecondary }]}>← Zurück</Text>
             </TouchableOpacity>
 
             <View style={{ flex: 1 }} />
 
             {/* Alle auswählen / abwählen */}
             <TouchableOpacity
-              style={[styles.mobileGamesIconBtn, areAllFilteredSelected() && styles.mobileGamesToolbarBtnActive]}
+              style={[styles.mobileGamesIconBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, areAllFilteredSelected() && styles.mobileGamesToolbarBtnActive]}
               onPress={toggleSelectAllFiltered}
             >
-              <Ionicons name={areAllFilteredSelected() ? "checkbox" : "checkbox-outline"} size={18} color={areAllFilteredSelected() ? "#fff" : "#64748b"} />
+              <Ionicons name={areAllFilteredSelected() ? "checkbox" : "checkbox-outline"} size={18} color={areAllFilteredSelected() ? "#fff" : colors.textSecondary} />
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.mobileGamesIconBtn, activeFilterCount > 0 && styles.mobileGamesToolbarBtnActive]}
+              style={[styles.mobileGamesIconBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, activeFilterCount > 0 && styles.mobileGamesToolbarBtnActive]}
               onPress={() => setShowPlayerDropdown(true)}
             >
-              <Ionicons name="filter" size={18} color={activeFilterCount > 0 ? "#fff" : "#64748b"} />
+              <Ionicons name="filter" size={18} color={activeFilterCount > 0 ? "#fff" : colors.textSecondary} />
               {activeFilterCount > 0 && (
                 <Text style={styles.mobileGamesFilterCount}>{activeFilterCount}</Text>
               )}
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.mobileGamesIconBtn, syncingGames && { opacity: 0.6 }]}
+              style={[styles.mobileGamesIconBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, syncingGames && { opacity: 0.6 }]}
               onPress={handleSyncGames}
               disabled={syncingGames}
             >
-              <Text style={styles.mobileGamesIconBtnText}>{syncingGames ? '⏳' : '↻'}</Text>
+              <Text style={[styles.mobileGamesIconBtnText, { color: colors.textSecondary }]}>{syncingGames ? '⏳' : '↻'}</Text>
             </TouchableOpacity>
           </View>
 
           {/* Filter Modal */}
           <Modal visible={showPlayerDropdown} transparent animationType="slide">
-            <View style={styles.mobileGamesFilterModal}>
-              <View style={styles.mobileGamesFilterHeader}>
-                <Text style={styles.mobileGamesFilterTitle}>Filter</Text>
+            <View style={[styles.mobileGamesFilterModal, { backgroundColor: colors.surface }]}>
+              <View style={[styles.mobileGamesFilterHeader, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.mobileGamesFilterTitle, { color: colors.text }]}>Filter</Text>
                 <TouchableOpacity onPress={() => setShowPlayerDropdown(false)}>
-                  <Text style={styles.mobileGamesFilterClose}>✕</Text>
+                  <Text style={[styles.mobileGamesFilterClose, { color: colors.textSecondary }]}>✕</Text>
                 </TouchableOpacity>
               </View>
               <ScrollView style={styles.mobileGamesFilterContent}>
                 {/* Spieler Filter */}
-                <Text style={styles.mobileGamesFilterSectionTitle}>Spieler</Text>
+                <Text style={[styles.mobileGamesFilterSectionTitle, { color: colors.text }]}>Spieler</Text>
                 <View style={styles.mobileGamesFilterChips}>
                   {availablePlayers.map(player => {
                     const isSelected = selectedPlayers.includes(player.id);
                     return (
                       <TouchableOpacity
                         key={player.id}
-                        style={[styles.mobileGamesFilterChip, isSelected && styles.mobileGamesFilterChipActive]}
+                        style={[styles.mobileGamesFilterChip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, isSelected && styles.mobileGamesFilterChipActive]}
                         onPress={() => togglePlayer(player.id)}
                       >
-                        <Text style={[styles.mobileGamesFilterChipText, isSelected && styles.mobileGamesFilterChipTextActive]}>
+                        <Text style={[styles.mobileGamesFilterChipText, { color: colors.textSecondary }, isSelected && styles.mobileGamesFilterChipTextActive]}>
                           {player.name}
                         </Text>
                       </TouchableOpacity>
@@ -1172,17 +1240,17 @@ export function TermineScreen({ navigation }: any) {
                 </View>
 
                 {/* Zuständigkeit Filter */}
-                <Text style={styles.mobileGamesFilterSectionTitle}>Zuständigkeit</Text>
+                <Text style={[styles.mobileGamesFilterSectionTitle, { color: colors.text }]}>Zuständigkeit</Text>
                 <View style={styles.mobileGamesFilterChips}>
                   {availableResponsibilities.map(resp => {
                     const isSelected = selectedResponsibilities.includes(resp);
                     return (
                       <TouchableOpacity
                         key={resp}
-                        style={[styles.mobileGamesFilterChip, isSelected && styles.mobileGamesFilterChipActive]}
+                        style={[styles.mobileGamesFilterChip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, isSelected && styles.mobileGamesFilterChipActive]}
                         onPress={() => toggleResponsibility(resp)}
                       >
-                        <Text style={[styles.mobileGamesFilterChipText, isSelected && styles.mobileGamesFilterChipTextActive]}>
+                        <Text style={[styles.mobileGamesFilterChipText, { color: colors.textSecondary }, isSelected && styles.mobileGamesFilterChipTextActive]}>
                           {resp}
                         </Text>
                       </TouchableOpacity>
@@ -1190,18 +1258,18 @@ export function TermineScreen({ navigation }: any) {
                   })}
                 </View>
               </ScrollView>
-              <View style={styles.mobileGamesFilterFooter}>
+              <View style={[styles.mobileGamesFilterFooter, { borderTopColor: colors.border }]}>
                 <TouchableOpacity
-                  style={styles.mobileGamesFilterClearBtn}
+                  style={[styles.mobileGamesFilterClearBtn, { backgroundColor: colors.surfaceSecondary }]}
                   onPress={() => { setSelectedPlayers([]); setSelectedResponsibilities([]); }}
                 >
-                  <Text style={styles.mobileGamesFilterClearText}>Alle löschen</Text>
+                  <Text style={[styles.mobileGamesFilterClearText, { color: colors.textSecondary }]}>Alle löschen</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={styles.mobileGamesFilterApplyBtn}
+                  style={[styles.mobileGamesFilterApplyBtn, { backgroundColor: colors.primary }]}
                   onPress={() => setShowPlayerDropdown(false)}
                 >
-                  <Text style={styles.mobileGamesFilterApplyText}>Anwenden</Text>
+                  <Text style={[styles.mobileGamesFilterApplyText, { color: colors.primaryText }]}>Anwenden</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1209,9 +1277,9 @@ export function TermineScreen({ navigation }: any) {
 
           {/* Sync Progress */}
           {syncingGames && syncProgress && (
-            <View style={styles.mobileSyncProgress}>
+            <View style={[styles.mobileSyncProgress, { backgroundColor: colors.surfaceSecondary }]}>
               <View style={[styles.mobileSyncProgressFill, { width: `${(syncProgress.current / syncProgress.total) * 100}%` }]} />
-              <Text style={styles.mobileSyncProgressText}>{syncProgress.playerName}</Text>
+              <Text style={[styles.mobileSyncProgressText, { color: colors.text }]}>{syncProgress.playerName}</Text>
             </View>
           )}
 
@@ -1220,12 +1288,12 @@ export function TermineScreen({ navigation }: any) {
             {filteredGames.length === 0 ? (
               <View style={styles.mobileGamesEmpty}>
                 <Text style={styles.mobileGamesEmptyIcon}>⚽</Text>
-                <Text style={styles.mobileGamesEmptyTitle}>
+                <Text style={[styles.mobileGamesEmptyTitle, { color: colors.textSecondary }]}>
                   {playerGames.length === 0 ? 'Noch keine Spiele geladen' : 'Keine Spiele gefunden'}
                 </Text>
                 {playerGames.length === 0 && (
-                  <TouchableOpacity style={styles.mobileGamesEmptyButton} onPress={handleSyncGames}>
-                    <Text style={styles.mobileGamesEmptyButtonText}>Jetzt aktualisieren</Text>
+                  <TouchableOpacity style={[styles.mobileGamesEmptyButton, { backgroundColor: colors.primary }]} onPress={handleSyncGames}>
+                    <Text style={[styles.mobileGamesEmptyButtonText, { color: colors.primaryText }]}>Jetzt aktualisieren</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -1244,32 +1312,32 @@ export function TermineScreen({ navigation }: any) {
                 return (
                   <TouchableOpacity
                     key={game.id}
-                    style={[styles.mobileGameCard, isToday && styles.mobileGameCardToday]}
+                    style={[styles.mobileGameCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }, isToday && styles.mobileGameCardToday]}
                     onPress={() => toggleGameSelection(game.id, game.selected)}
                     activeOpacity={0.7}
                   >
                     {/* Header: Mannschaft • Art + Datum */}
                     <View style={styles.mobileGameCardHeader}>
-                      <Text style={styles.mobileGameCardLeague}>{ageCategory} • {gameArt}</Text>
-                      <Text style={styles.mobileGameCardDate}>
+                      <Text style={[styles.mobileGameCardLeague, { color: colors.textSecondary }]}>{ageCategory} • {gameArt}</Text>
+                      <Text style={[styles.mobileGameCardDate, { color: colors.text }]}>
                         {isToday ? 'Heute' : formatGameDate(game.date)}{game.time ? `, ${game.time}` : ''}
                       </Text>
                     </View>
 
                     {/* Teams in einer Zeile */}
                     <View style={styles.mobileGameCardMatch}>
-                      <Text style={styles.mobileGameCardTeamName} numberOfLines={1}>{homeTeam}</Text>
+                      <Text style={[styles.mobileGameCardTeamName, { color: colors.text }]} numberOfLines={1}>{homeTeam}</Text>
                       {homeLogo && <Image source={{ uri: homeLogo }} style={styles.mobileGameCardLogoInner} />}
-                      <Text style={styles.mobileGameCardSeparator}>-</Text>
+                      <Text style={[styles.mobileGameCardSeparator, { color: colors.textSecondary }]}>-</Text>
                       {awayLogo && <Image source={{ uri: awayLogo }} style={styles.mobileGameCardLogo} />}
-                      <Text style={styles.mobileGameCardTeamName} numberOfLines={1}>{awayTeam}</Text>
+                      <Text style={[styles.mobileGameCardTeamName, { color: colors.text }]} numberOfLines={1}>{awayTeam}</Text>
                     </View>
 
                     {/* Players + Checkbox */}
-                    <View style={styles.mobileGameCardPlayers}>
+                    <View style={[styles.mobileGameCardPlayers, { borderTopColor: colors.border }]}>
                       <Text style={styles.mobileGameCardPlayersLabel}>👤</Text>
-                      <Text style={styles.mobileGameCardPlayersText}>{playerNames}</Text>
-                      <View style={[styles.mobileGameCardCheckbox, game.selected && styles.mobileGameCardCheckboxSelected]}>
+                      <Text style={[styles.mobileGameCardPlayersText, { color: colors.textSecondary }]}>{playerNames}</Text>
+                      <View style={[styles.mobileGameCardCheckbox, { backgroundColor: colors.surface, borderColor: colors.border }, game.selected && styles.mobileGameCardCheckboxSelected]}>
                         {game.selected && <Text style={styles.mobileGameCardCheckmark}>✓</Text>}
                       </View>
                     </View>
@@ -1291,15 +1359,15 @@ export function TermineScreen({ navigation }: any) {
 
     // Desktop View
     return (
-      <View style={styles.scoutingMainContent}>
+      <View style={[styles.scoutingMainContent, { backgroundColor: colors.background }]}>
         {/* Header Banner */}
-        <Pressable style={styles.scoutingHeaderBanner} onPress={closeAllGameDropdowns}>
-          <TouchableOpacity style={styles.backButton} onPress={() => setViewMode('dashboard')}>
-            <Text style={styles.backButtonText}>← Zurück</Text>
+        <Pressable style={[styles.scoutingHeaderBanner, { backgroundColor: colors.surface, borderBottomColor: colors.border }]} onPress={closeAllGameDropdowns}>
+          <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setViewMode('dashboard')}>
+            <Text style={[styles.backButtonText, { color: colors.textSecondary }]}>← Zurück</Text>
           </TouchableOpacity>
           <View style={styles.scoutingHeaderBannerCenter}>
-            <Text style={styles.scoutingTitle}>Spiele unserer Spieler</Text>
-            <Text style={styles.scoutingSubtitle}>
+            <Text style={[styles.scoutingTitle, { color: colors.text }]}>Spiele unserer Spieler</Text>
+            <Text style={[styles.scoutingSubtitle, { color: colors.textSecondary }]}>
               {playersWithUrl.length} Spieler • {playerGames.length} Spiele geladen
             </Text>
           </View>
@@ -1309,14 +1377,14 @@ export function TermineScreen({ navigation }: any) {
                 <Text style={styles.exportButtonText}>📅 {getSelectedGamesCount()} exportieren</Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity 
-              style={[styles.scoutingFilterButton, syncingGames && { opacity: 0.6 }]} 
+            <TouchableOpacity
+              style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, syncingGames && { opacity: 0.6 }]}
               onPress={handleSyncGames}
               disabled={syncingGames}
             >
-              <Text style={styles.scoutingFilterButtonText}>
-                {syncingGames 
-                  ? (syncProgress ? `⏳ ${syncProgress.current}/${syncProgress.total}` : '⏳ Lädt...') 
+              <Text style={[styles.scoutingFilterButtonText, { color: colors.textSecondary }]}>
+                {syncingGames
+                  ? (syncProgress ? `⏳ ${syncProgress.current}/${syncProgress.total}` : '⏳ Lädt...')
                   : 'Aktualisieren'}
               </Text>
             </TouchableOpacity>
@@ -1325,9 +1393,9 @@ export function TermineScreen({ navigation }: any) {
 
         {/* Sync Progress */}
         {syncingGames && syncProgress && (
-          <View style={styles.syncProgressBar}>
+          <View style={[styles.syncProgressBar, { backgroundColor: colors.surfaceSecondary }]}>
             <View style={[styles.syncProgressFill, { width: `${(syncProgress.current / syncProgress.total) * 100}%` }]} />
-            <Text style={styles.syncProgressText}>
+            <Text style={[styles.syncProgressText, { color: colors.text }]}>
               Lade Spiele für: {syncProgress.playerName}
             </Text>
           </View>
@@ -1336,45 +1404,45 @@ export function TermineScreen({ navigation }: any) {
         {/* Sync Result */}
         {gameSyncResult && !syncingGames && (
           <View style={[styles.syncResultBanner, gameSyncResult.errors.length > 0 ? styles.syncResultWarning : styles.syncResultSuccess]}>
-            <Text style={styles.syncResultText}>
+            <Text style={[styles.syncResultText, { color: colors.text }]}>
               ✓ {gameSyncResult.added} neue Spiele • {gameSyncResult.updated} aktualisiert
               {gameSyncResult.errors.length > 0 && ` • ${gameSyncResult.errors.length} Fehler`}
             </Text>
             <TouchableOpacity onPress={() => setGameSyncResult(null)}>
-              <Text style={styles.syncResultClose}>✕</Text>
+              <Text style={[styles.syncResultClose, { color: colors.textSecondary }]}>✕</Text>
             </TouchableOpacity>
           </View>
         )}
 
         {/* Toolbar */}
-        <Pressable style={styles.scoutingToolbar} onPress={closeAllGameDropdowns}>
-          <Pressable style={styles.spieleSearchContainer} onPress={closeAllGameDropdowns}>
+        <Pressable style={[styles.scoutingToolbar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]} onPress={closeAllGameDropdowns}>
+          <Pressable style={[styles.spieleSearchContainer, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={closeAllGameDropdowns}>
             <Text style={styles.scoutingSearchIcon}>🔍</Text>
-            <TextInput 
-              style={styles.scoutingSearchInput} 
+            <TextInput
+              style={[styles.scoutingSearchInput, { color: colors.text }]}
               placeholder="Spieler, Verein suchen..." 
-              placeholderTextColor="#9ca3af"
-              value={gamesSearchText} 
+              placeholderTextColor={colors.textMuted}
+              value={gamesSearchText}
               onChangeText={setGamesSearchText}
               onFocus={closeAllGameDropdowns}
             />
           </Pressable>
-          
+
           <View style={styles.scoutingFilterContainer}>
             {/* Spieler Filter */}
             <View style={[styles.scoutingDropdownContainer, { zIndex: 40 }]}>
-              <TouchableOpacity 
-                style={[styles.scoutingFilterButton, selectedPlayers.length > 0 && styles.scoutingFilterButtonActive]} 
+              <TouchableOpacity
+                style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedPlayers.length > 0 && styles.scoutingFilterButtonActive]}
                 onPress={(e) => { e.stopPropagation(); setShowPlayerDropdown(!showPlayerDropdown); setShowResponsibilityDropdown(false); }}
               >
-                <Text style={[styles.scoutingFilterButtonText, selectedPlayers.length > 0 && styles.scoutingFilterButtonTextActive]}>
+                <Text style={[styles.scoutingFilterButtonText, { color: colors.textSecondary }, selectedPlayers.length > 0 && styles.scoutingFilterButtonTextActive]}>
                   {getPlayerFilterLabel()} ▼
                 </Text>
               </TouchableOpacity>
               {showPlayerDropdown && (
-                <Pressable style={styles.scoutingFilterDropdownMulti} onPress={(e) => e.stopPropagation()}>
-                  <View style={styles.scoutingFilterDropdownHeader}>
-                    <Text style={styles.scoutingFilterDropdownTitle}>Spieler wählen</Text>
+                <Pressable style={[styles.scoutingFilterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
+                  <View style={[styles.scoutingFilterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+                    <Text style={[styles.scoutingFilterDropdownTitle, { color: colors.textSecondary }]}>Spieler wählen</Text>
                     {selectedPlayers.length > 0 && (
                       <TouchableOpacity onPress={() => setSelectedPlayers([])}>
                         <Text style={styles.scoutingFilterClearText}>Alle löschen</Text>
@@ -1383,24 +1451,24 @@ export function TermineScreen({ navigation }: any) {
                   </View>
                   <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
                     {availablePlayers.length === 0 ? (
-                      <Text style={styles.scoutingNoDataText}>Keine Spieler mit Spielen</Text>
+                      <Text style={[styles.scoutingNoDataText, { color: colors.textMuted }]}>Keine Spieler mit Spielen</Text>
                     ) : (
                       availablePlayers.map(player => {
                         const isSelected = selectedPlayers.includes(player.id);
                         const count = playerGames.filter(g => g.player_id === player.id).length;
                         return (
-                          <TouchableOpacity key={player.id} style={styles.scoutingFilterCheckboxItem} onPress={() => togglePlayer(player.id)}>
-                            <View style={[styles.scoutingCheckbox, isSelected && styles.scoutingCheckboxSelected]}>
+                          <TouchableOpacity key={player.id} style={[styles.scoutingFilterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => togglePlayer(player.id)}>
+                            <View style={[styles.scoutingCheckbox, { borderColor: colors.border }, isSelected && styles.scoutingCheckboxSelected]}>
                               {isSelected && <Text style={styles.scoutingCheckmark}>✓</Text>}
                             </View>
-                            <Text style={styles.scoutingFilterCheckboxText}>{player.name}</Text>
-                            <Text style={styles.scoutingFilterCountBadge}>{count}</Text>
+                            <Text style={[styles.scoutingFilterCheckboxText, { color: colors.text }]}>{player.name}</Text>
+                            <Text style={[styles.scoutingFilterCountBadge, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
                           </TouchableOpacity>
                         );
                       })
                     )}
                   </ScrollView>
-                  <TouchableOpacity style={styles.scoutingFilterDoneButton} onPress={() => setShowPlayerDropdown(false)}>
+                  <TouchableOpacity style={[styles.scoutingFilterDoneButton, { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border }]} onPress={() => setShowPlayerDropdown(false)}>
                     <Text style={styles.scoutingFilterDoneText}>Fertig</Text>
                   </TouchableOpacity>
                 </Pressable>
@@ -1409,18 +1477,18 @@ export function TermineScreen({ navigation }: any) {
 
             {/* Zuständigkeit Filter */}
             <View style={[styles.scoutingDropdownContainer, { zIndex: 30 }]}>
-              <TouchableOpacity 
-                style={[styles.scoutingFilterButton, selectedResponsibilities.length > 0 && styles.scoutingFilterButtonActive]} 
+              <TouchableOpacity
+                style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedResponsibilities.length > 0 && styles.scoutingFilterButtonActive]}
                 onPress={(e) => { e.stopPropagation(); setShowResponsibilityDropdown(!showResponsibilityDropdown); setShowPlayerDropdown(false); }}
               >
-                <Text style={[styles.scoutingFilterButtonText, selectedResponsibilities.length > 0 && styles.scoutingFilterButtonTextActive]}>
+                <Text style={[styles.scoutingFilterButtonText, { color: colors.textSecondary }, selectedResponsibilities.length > 0 && styles.scoutingFilterButtonTextActive]}>
                   {getResponsibilityFilterLabel()} ▼
                 </Text>
               </TouchableOpacity>
               {showResponsibilityDropdown && (
-                <Pressable style={styles.scoutingFilterDropdownMulti} onPress={(e) => e.stopPropagation()}>
-                  <View style={styles.scoutingFilterDropdownHeader}>
-                    <Text style={styles.scoutingFilterDropdownTitle}>Zuständigkeit wählen</Text>
+                <Pressable style={[styles.scoutingFilterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
+                  <View style={[styles.scoutingFilterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+                    <Text style={[styles.scoutingFilterDropdownTitle, { color: colors.textSecondary }]}>Zuständigkeit wählen</Text>
                     {selectedResponsibilities.length > 0 && (
                       <TouchableOpacity onPress={() => setSelectedResponsibilities([])}>
                         <Text style={styles.scoutingFilterClearText}>Alle löschen</Text>
@@ -1429,7 +1497,7 @@ export function TermineScreen({ navigation }: any) {
                   </View>
                   <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
                     {availableResponsibilities.length === 0 ? (
-                      <Text style={styles.scoutingNoDataText}>Keine Zuständigkeiten</Text>
+                      <Text style={[styles.scoutingNoDataText, { color: colors.textMuted }]}>Keine Zuständigkeiten</Text>
                     ) : (
                       availableResponsibilities.map(resp => {
                         const isSelected = selectedResponsibilities.includes(resp);
@@ -1439,18 +1507,18 @@ export function TermineScreen({ navigation }: any) {
                           return respStr.split(/,\s*|&\s*/).map(s => s.trim()).includes(resp);
                         }).length;
                         return (
-                          <TouchableOpacity key={resp} style={styles.scoutingFilterCheckboxItem} onPress={() => toggleResponsibility(resp)}>
-                            <View style={[styles.scoutingCheckbox, isSelected && styles.scoutingCheckboxSelected]}>
+                          <TouchableOpacity key={resp} style={[styles.scoutingFilterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => toggleResponsibility(resp)}>
+                            <View style={[styles.scoutingCheckbox, { borderColor: colors.border }, isSelected && styles.scoutingCheckboxSelected]}>
                               {isSelected && <Text style={styles.scoutingCheckmark}>✓</Text>}
                             </View>
-                            <Text style={styles.scoutingFilterCheckboxText}>{resp}</Text>
-                            <Text style={styles.scoutingFilterCountBadge}>{count}</Text>
+                            <Text style={[styles.scoutingFilterCheckboxText, { color: colors.text }]}>{resp}</Text>
+                            <Text style={[styles.scoutingFilterCountBadge, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
                           </TouchableOpacity>
                         );
                       })
                     )}
                   </ScrollView>
-                  <TouchableOpacity style={styles.scoutingFilterDoneButton} onPress={() => setShowResponsibilityDropdown(false)}>
+                  <TouchableOpacity style={[styles.scoutingFilterDoneButton, { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border }]} onPress={() => setShowResponsibilityDropdown(false)}>
                     <Text style={styles.scoutingFilterDoneText}>Fertig</Text>
                   </TouchableOpacity>
                 </Pressable>
@@ -1461,23 +1529,23 @@ export function TermineScreen({ navigation }: any) {
 
         {/* Tabelle */}
         <Pressable style={styles.scoutingContent} onPress={closeAllGameDropdowns}>
-          <View style={styles.scoutingGamesContainer}>
-            <View style={styles.scoutingTableHeader}>
-              <TouchableOpacity 
-                style={[styles.scoutingTableHeaderCell, { width: 40 }]} 
+          <View style={[styles.scoutingGamesContainer, { backgroundColor: colors.cardBackground }]}>
+            <View style={[styles.scoutingTableHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+              <TouchableOpacity
+                style={[styles.scoutingTableHeaderCell, { width: 40 }]}
                 onPress={toggleSelectAllFiltered}
               >
-                <View style={[styles.gameCheckbox, areAllFilteredSelected() && styles.gameCheckboxSelected]}>
+                <View style={[styles.gameCheckbox, { backgroundColor: colors.surface, borderColor: colors.border }, areAllFilteredSelected() && styles.gameCheckboxSelected]}>
                   {areAllFilteredSelected() && <Text style={styles.gameCheckmark}>✓</Text>}
                 </View>
               </TouchableOpacity>
-              <Text style={[styles.scoutingTableHeaderCell, { flex: 0.8 }]}>Datum</Text>
-              <Text style={[styles.scoutingTableHeaderCell, { flex: 0.5 }]}>Zeit</Text>
-              <Text style={[styles.scoutingTableHeaderCell, { flex: 0.6 }]}>Mannschaft</Text>
-              <Text style={[styles.scoutingTableHeaderCell, { flex: 2 }]}>Spiel</Text>
-              <Text style={[styles.scoutingTableHeaderCell, { flex: 0.8 }]}>Art</Text>
-              <Text style={[styles.scoutingTableHeaderCell, { flex: 1 }]}>Spieler</Text>
-              <Text style={[styles.scoutingTableHeaderCell, { flex: 1 }]}>Zuständigkeit</Text>
+              <Text style={[styles.scoutingTableHeaderCell, { flex: 0.8, color: colors.textSecondary }]}>Datum</Text>
+              <Text style={[styles.scoutingTableHeaderCell, { flex: 0.5, color: colors.textSecondary }]}>Zeit</Text>
+              <Text style={[styles.scoutingTableHeaderCell, { flex: 0.6, color: colors.textSecondary }]}>Mannschaft</Text>
+              <Text style={[styles.scoutingTableHeaderCell, { flex: 2, color: colors.textSecondary }]}>Spiel</Text>
+              <Text style={[styles.scoutingTableHeaderCell, { flex: 0.8, color: colors.textSecondary }]}>Art</Text>
+              <Text style={[styles.scoutingTableHeaderCell, { flex: 1, color: colors.textSecondary }]}>Spieler</Text>
+              <Text style={[styles.scoutingTableHeaderCell, { flex: 1, color: colors.textSecondary }]}>Zuständigkeit</Text>
             </View>
             <ScrollView onScrollBeginDrag={closeAllGameDropdowns}>
               {filteredGames.length === 0 ? (
@@ -1485,8 +1553,8 @@ export function TermineScreen({ navigation }: any) {
                   {playersWithUrl.length === 0 ? (
                     <>
                       <Text style={styles.scoutingEmptyIcon}>👤</Text>
-                      <Text style={styles.scoutingEmptyTitle}>Keine Spieler mit fussball.de URL</Text>
-                      <Text style={styles.scoutingEmptyText}>
+                      <Text style={[styles.scoutingEmptyTitle, { color: colors.text }]}>Keine Spieler mit fussball.de URL</Text>
+                      <Text style={[styles.scoutingEmptyText, { color: colors.textSecondary }]}>
                         Trage zuerst im Spielerprofil die fussball.de URL ein.{'\n'}
                         Die URL findest du auf fussball.de bei der Mannschaft deines Spielers.
                       </Text>
@@ -1494,8 +1562,8 @@ export function TermineScreen({ navigation }: any) {
                   ) : playerGames.length === 0 ? (
                     <>
                       <Text style={styles.scoutingEmptyIcon}>⚽</Text>
-                      <Text style={styles.scoutingEmptyTitle}>Noch keine Spiele geladen</Text>
-                      <Text style={styles.scoutingEmptyText}>
+                      <Text style={[styles.scoutingEmptyTitle, { color: colors.text }]}>Noch keine Spiele geladen</Text>
+                      <Text style={[styles.scoutingEmptyText, { color: colors.textSecondary }]}>
                         Klicke auf "Aktualisieren" um die Spielpläne{'\n'}von fussball.de zu synchronisieren.
                       </Text>
                       <TouchableOpacity style={styles.emptyStateButton} onPress={handleSyncGames}>
@@ -1505,15 +1573,15 @@ export function TermineScreen({ navigation }: any) {
                   ) : (
                     <>
                       <Text style={styles.scoutingEmptyIcon}>🔍</Text>
-                      <Text style={styles.scoutingEmptyTitle}>Keine Spiele gefunden</Text>
-                      <Text style={styles.scoutingEmptyText}>Ändere die Filterkriterien</Text>
+                      <Text style={[styles.scoutingEmptyTitle, { color: colors.text }]}>Keine Spiele gefunden</Text>
+                      <Text style={[styles.scoutingEmptyText, { color: colors.textSecondary }]}>Ändere die Filterkriterien</Text>
                     </>
                   )}
                 </View>
               ) : (
                 filteredGames.map(game => {
                   const isToday = isGameToday(game.date);
-                  
+
                   // Art aus dem League-Feld ableiten
                   const getGameArt = (league: string): string => {
                     if (!league) return 'Sonstiges';
@@ -1524,27 +1592,28 @@ export function TermineScreen({ navigation }: any) {
                     if (l.includes('freundschaft') || l.includes('friendly') || l.includes('testspiel') || l.includes('turnier')) return 'Freundschaftsspiel';
                     return 'Sonstiges';
                   };
-                  
+
                   return (
                     <View key={game.id} style={[
                       styles.scoutingTableRow,
+                      { borderBottomColor: colors.border },
                       isToday && styles.gameRowToday
                     ]}>
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         style={[styles.scoutingTableCell, { width: 40 }]}
                         onPress={() => toggleGameSelection(game.id, game.selected)}
                       >
-                        <View style={[styles.gameCheckbox, game.selected && styles.gameCheckboxSelected]}>
+                        <View style={[styles.gameCheckbox, { backgroundColor: colors.surface, borderColor: colors.border }, game.selected && styles.gameCheckboxSelected]}>
                           {game.selected && <Text style={styles.gameCheckmark}>✓</Text>}
                         </View>
                       </TouchableOpacity>
-                      <Text style={[styles.scoutingTableCell, { flex: 0.8 }, isToday && styles.textBold]}>
+                      <Text style={[styles.scoutingTableCell, { flex: 0.8, color: colors.text }, isToday && styles.textBold]}>
                         {formatGameDate(game.date)}
                       </Text>
-                      <Text style={[styles.scoutingTableCell, { flex: 0.5 }]}>
+                      <Text style={[styles.scoutingTableCell, { flex: 0.5, color: colors.text }]}>
                         {game.time || '-'}
                       </Text>
-                      <Text style={[styles.scoutingTableCell, { flex: 0.6 }]} numberOfLines={1}>
+                      <Text style={[styles.scoutingTableCell, { flex: 0.6, color: colors.text }]} numberOfLines={1}>
                         {(() => {
                           // Altersklasse aus Spielerprofil-Liga extrahieren (z.B. "U17 Bundesliga")
                           const playerLeague = (game as any).playerLeague || game.player?.league || '';
@@ -1557,20 +1626,20 @@ export function TermineScreen({ navigation }: any) {
                           return 'Herren';
                         })()}
                       </Text>
-                      <Text style={[styles.scoutingTableCell, { flex: 2 }]} numberOfLines={1}>
+                      <Text style={[styles.scoutingTableCell, { flex: 2, color: colors.text }]} numberOfLines={1}>
                         {(() => {
                           const pl = (game as any).playerLeague || game.player?.league || '';
                           const isHerren = !pl.match(/\bU[\s-]?\d{2}\b/i);
                           return `${cleanTeamName(game.home_team, isHerren)} - ${cleanTeamName(game.away_team, isHerren)}`;
                         })()}
                       </Text>
-                      <Text style={[styles.scoutingTableCell, { flex: 0.8 }]} numberOfLines={1}>
+                      <Text style={[styles.scoutingTableCell, { flex: 0.8, color: colors.text }]} numberOfLines={1}>
                         {getGameArt(game.league)}
                       </Text>
-                      <Text style={[styles.scoutingTableCell, { flex: 1, fontWeight: '600' }]} numberOfLines={2}>
+                      <Text style={[styles.scoutingTableCell, { flex: 1, fontWeight: '600', color: colors.text }]} numberOfLines={2}>
                         {(game as any).playerNames?.join(', ') || game.player_name}
                       </Text>
-                      <Text style={[styles.scoutingTableCell, { flex: 1 }]} numberOfLines={1}>
+                      <Text style={[styles.scoutingTableCell, { flex: 1, color: colors.text }]} numberOfLines={1}>
                         {(game as any).playerResponsibilities?.map((r: string) => formatResponsibilityInitials(r)).join(', ') || formatResponsibilityInitials(game.player?.responsibility)}
                       </Text>
                     </View>
@@ -1587,7 +1656,7 @@ export function TermineScreen({ navigation }: any) {
   const renderWeitereTermine = () => {
     // Alle Termine holen
     const allTermine = getSortedTermine();
-    
+
     // Vergangene Termine für Archiv
     const archivTermine = allTermine
       .filter(t => isTerminPast(t.datum, t.datum_ende))
@@ -1605,7 +1674,7 @@ export function TermineScreen({ navigation }: any) {
         if (termineJahrgangFilter.length === 0) return true;
         return termineJahrgangFilter.includes(t.jahrgang || '');
       });
-    
+
     // Aktuelle/zukünftige Termine
     const filteredTermine = allTermine
       .filter(t => !isTerminPast(t.datum, t.datum_ende))
@@ -1623,15 +1692,15 @@ export function TermineScreen({ navigation }: any) {
         if (termineJahrgangFilter.length === 0) return true;
         return termineJahrgangFilter.includes(t.jahrgang || '');
       });
-    
+
     const dfbCount = getLocalDFBCount();
     const hallenCount = getLocalHallenCount();
-    
+
     // Verfügbare Jahrgänge aus allen Terminen
     const availableJahrgaenge = Array.from(new Set(allTermine.map(t => t.jahrgang).filter(Boolean))) as string[];
-    
+
     const displayTermine = showTermineArchiv ? archivTermine : filteredTermine;
-    
+
     const getJahrgangFilterLabel = () => {
       if (termineJahrgangFilter.length === 0) return 'Jahrgang';
       if (termineJahrgangFilter.length === 1) return termineJahrgangFilter[0];
@@ -1639,57 +1708,264 @@ export function TermineScreen({ navigation }: any) {
     };
 
     const toggleJahrgangFilter = (jg: string) => {
-      setTermineJahrgangFilter(prev => 
+      setTermineJahrgangFilter(prev =>
         prev.includes(jg) ? prev.filter(j => j !== jg) : [...prev, jg]
       );
     };
-    
+
+    // Mobile View
+    if (isMobile) {
+      const activeFilterCount = termineJahrgangFilter.length;
+      const areAllDisplayedTermineSelected = displayTermine.length > 0 && displayTermine.every(t => selectedTermineIds.includes(t.id));
+
+      const toggleSelectAllTermine = () => {
+        if (areAllDisplayedTermineSelected) {
+          // Alle abwählen
+          setSelectedTermineIds(prev => prev.filter(id => !displayTermine.some(t => t.id === id)));
+        } else {
+          // Alle auswählen
+          setSelectedTermineIds(prev => [...new Set([...prev, ...displayTermine.map(t => t.id)])]);
+        }
+      };
+
+      return (
+        <View style={[styles.mobileTermineContainer, { backgroundColor: colors.background }]}>
+          {/* Toolbar */}
+          <View style={[styles.mobileTermineToolbar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+            <TouchableOpacity style={[styles.mobileGamesToolbarBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setViewMode('dashboard')}>
+              <Text style={[styles.mobileGamesToolbarBtnText, { color: colors.textSecondary }]}>← Zurück</Text>
+            </TouchableOpacity>
+
+            <View style={{ flex: 1 }} />
+
+            <TouchableOpacity
+              style={[styles.mobileGamesIconBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, areAllDisplayedTermineSelected && styles.mobileGamesToolbarBtnActive]}
+              onPress={toggleSelectAllTermine}
+            >
+              <Ionicons name={areAllDisplayedTermineSelected ? "checkbox" : "checkbox-outline"} size={18} color={areAllDisplayedTermineSelected ? "#fff" : colors.textSecondary} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.mobileGamesIconBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, activeFilterCount > 0 && styles.mobileGamesToolbarBtnActive]}
+              onPress={() => setShowTermineJahrgangDropdown(true)}
+            >
+              <Ionicons name="filter" size={18} color={activeFilterCount > 0 ? "#fff" : colors.textSecondary} />
+              {activeFilterCount > 0 && (
+                <Text style={styles.mobileGamesFilterCount}>{activeFilterCount}</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.mobileGamesIconBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setShowSyncModal(true)}>
+              <Text style={[styles.mobileGamesIconBtnText, { color: colors.textSecondary }]}>↻</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Anstehend / Archiv Toggle */}
+          <View style={[styles.mobileTermineToggle, { backgroundColor: colors.surfaceSecondary }]}>
+            <TouchableOpacity
+              style={[styles.mobileTermineToggleBtn, !showTermineArchiv && [styles.mobileTermineToggleBtnActive, { backgroundColor: colors.surface }]]}
+              onPress={() => setShowTermineArchiv(false)}
+            >
+              <Text style={[styles.mobileTermineToggleBtnText, { color: colors.textSecondary }, !showTermineArchiv && { color: colors.text }]}>
+                Anstehend ({filteredTermine.length})
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.mobileTermineToggleBtn, showTermineArchiv && [styles.mobileTermineToggleBtnActive, { backgroundColor: colors.surface }]]}
+              onPress={() => setShowTermineArchiv(true)}
+            >
+              <Text style={[styles.mobileTermineToggleBtnText, { color: colors.textSecondary }, showTermineArchiv && { color: colors.text }]}>
+                Archiv ({archivTermine.length})
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Filter Modal */}
+          <Modal visible={showTermineJahrgangDropdown} transparent animationType="slide">
+            <View style={[styles.mobileGamesFilterModal, { backgroundColor: colors.surface }]}>
+              <View style={[styles.mobileGamesFilterHeader, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.mobileGamesFilterTitle, { color: colors.text }]}>Filter</Text>
+                <TouchableOpacity onPress={() => setShowTermineJahrgangDropdown(false)}>
+                  <Text style={[styles.mobileGamesFilterClose, { color: colors.textSecondary }]}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.mobileGamesFilterContent}>
+                <Text style={[styles.mobileGamesFilterSectionTitle, { color: colors.text }]}>Jahrgang</Text>
+                <View style={styles.mobileGamesFilterChips}>
+                  {availableJahrgaenge.sort().map(jg => {
+                    const isSelected = termineJahrgangFilter.includes(jg);
+                    return (
+                      <TouchableOpacity
+                        key={jg}
+                        style={[styles.mobileGamesFilterChip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, isSelected && styles.mobileGamesFilterChipActive]}
+                        onPress={() => toggleJahrgangFilter(jg)}
+                      >
+                        <Text style={[styles.mobileGamesFilterChipText, { color: colors.textSecondary }, isSelected && styles.mobileGamesFilterChipTextActive]}>
+                          {jg}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+              <View style={[styles.mobileGamesFilterFooter, { borderTopColor: colors.border }]}>
+                <TouchableOpacity
+                  style={[styles.mobileGamesFilterClearBtn, { backgroundColor: colors.surfaceSecondary }]}
+                  onPress={() => setTermineJahrgangFilter([])}
+                >
+                  <Text style={[styles.mobileGamesFilterClearText, { color: colors.textSecondary }]}>Alle löschen</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.mobileGamesFilterApplyBtn, { backgroundColor: colors.primary }]}
+                  onPress={() => setShowTermineJahrgangDropdown(false)}
+                >
+                  <Text style={[styles.mobileGamesFilterApplyText, { color: colors.primaryText }]}>Anwenden</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+
+          {/* Termine Liste */}
+          <ScrollView style={styles.mobileTermineList} contentContainerStyle={styles.mobileTermineListContent}>
+            {loading ? (
+              <View style={styles.mobileGamesEmpty}>
+                <Text style={[styles.mobileGamesEmptyTitle, { color: colors.textSecondary }]}>Laden...</Text>
+              </View>
+            ) : displayTermine.length === 0 ? (
+              <View style={styles.mobileGamesEmpty}>
+                <Text style={styles.mobileGamesEmptyIcon}>📋</Text>
+                <Text style={[styles.mobileGamesEmptyTitle, { color: colors.textSecondary }]}>
+                  {showTermineArchiv ? 'Keine vergangenen Termine' : 'Keine Termine vorhanden'}
+                </Text>
+                {!showTermineArchiv && (
+                  <TouchableOpacity style={[styles.mobileGamesEmptyButton, { backgroundColor: colors.primary }]} onPress={() => setShowSyncModal(true)}>
+                    <Text style={[styles.mobileGamesEmptyButtonText, { color: colors.primaryText }]}>Termine laden</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ) : (
+              displayTermine.map(termin => {
+                const isRunning = isTerminCurrentlyRunning(termin);
+                const isPast = showTermineArchiv;
+                const isNM = isNationalmannschaft(termin);
+                const isHT = isHallenturnier(termin);
+                const time = formatTime(termin.datum);
+                const isSelected = selectedTermineIds.includes(termin.id);
+
+                return (
+                  <TouchableOpacity
+                    key={termin.id}
+                    style={[
+                      styles.mobileTerminCard,
+                      { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
+                      isRunning && !isPast && styles.mobileTerminCardRunning,
+                      isPast && { backgroundColor: colors.surfaceSecondary }
+                    ]}
+                    onPress={() => toggleTerminSelection(termin.id)}
+                    onLongPress={() => openEditModal(termin)}
+                    activeOpacity={0.7}
+                  >
+                    {/* Header: Jahrgang • Art + Datum */}
+                    <View style={styles.mobileTerminCardHeader}>
+                      <Text style={[styles.mobileTerminCardCategory, { color: isPast ? colors.textMuted : colors.textSecondary }]}>
+                        {termin.jahrgang || ''}{termin.jahrgang && ' • '}{isNM ? 'Nationalmannschaft' : isHT ? 'Hallenturnier' : getDisplayArt(termin.art)}
+                      </Text>
+                      <Text style={[styles.mobileTerminCardDate, { color: isPast ? colors.textMuted : colors.textSecondary }]}>
+                        {formatDate(termin)}{time ? `, ${time}` : ''}
+                      </Text>
+                    </View>
+
+                    {/* Mitte: Turniername */}
+                    <View style={styles.mobileTerminCardCenter}>
+                      <Text style={[styles.mobileTerminCardTitle, { color: isPast ? colors.textSecondary : colors.text }]} numberOfLines={2}>
+                        {termin.titel}
+                      </Text>
+                    </View>
+
+                    {/* Footer: Ort + Checkbox */}
+                    <View style={[styles.mobileTerminCardFooter, { borderTopColor: colors.border }]}>
+                      {termin.ort ? (
+                        <>
+                          <Text style={styles.mobileTerminCardOrtLabel}>📍</Text>
+                          <Text style={[styles.mobileTerminCardOrt, { color: isPast ? colors.textMuted : colors.textSecondary }]} numberOfLines={1}>
+                            {termin.ort}
+                          </Text>
+                        </>
+                      ) : (
+                        <View style={{ flex: 1 }} />
+                      )}
+                      <View style={[styles.mobileGameCardCheckbox, { backgroundColor: colors.surface, borderColor: colors.border }, isSelected && styles.mobileGameCardCheckboxSelected]}>
+                        {isSelected && <Text style={styles.mobileGameCardCheckmark}>✓</Text>}
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </ScrollView>
+
+          {/* Floating Export Button */}
+          {getSelectedTermineCount() > 0 && (
+            <TouchableOpacity style={styles.mobileGamesFloatingExport} onPress={exportSelectedTermineToCalendar}>
+              <Text style={styles.mobileGamesFloatingExportText}>📅 {getSelectedTermineCount()}</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Floating Add Button */}
+          <TouchableOpacity style={[styles.mobileTermineAddBtn, { backgroundColor: colors.primary }, getSelectedTermineCount() > 0 && { bottom: 80 }]} onPress={openAddModal}>
+            <Text style={[styles.mobileTermineAddBtnText, { color: colors.primaryText }]}>+</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    // Desktop View
     return (
-      <View style={styles.scoutingMainContent}>
-        <View style={styles.scoutingHeaderBanner}>
-          <TouchableOpacity style={styles.backButton} onPress={() => setViewMode('dashboard')}>
-            <Text style={styles.backButtonText}>← Zurück</Text>
+      <View style={[styles.scoutingMainContent, { backgroundColor: colors.background }]}>
+        <View style={[styles.scoutingHeaderBanner, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+          <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setViewMode('dashboard')}>
+            <Text style={[styles.backButtonText, { color: colors.textSecondary }]}>← Zurück</Text>
           </TouchableOpacity>
           <View style={styles.scoutingHeaderBannerCenter}>
-            <Text style={styles.scoutingTitle}>Weitere Termine</Text>
-            <Text style={styles.scoutingSubtitle}>{dfbCount} Lehrgänge & Sichtungen • {hallenCount} Turniere</Text>
+            <Text style={[styles.scoutingTitle, { color: colors.text }]}>Weitere Termine</Text>
+            <Text style={[styles.scoutingSubtitle, { color: colors.textSecondary }]}>{dfbCount} Lehrgänge & Sichtungen • {hallenCount} Turniere</Text>
           </View>
           <View style={styles.termineHeaderButtons}>
-            <TouchableOpacity onPress={() => setShowSyncModal(true)} style={styles.scoutingFilterButton}>
-              <Text style={styles.scoutingFilterButtonText}>Aktualisieren</Text>
+            <TouchableOpacity onPress={() => setShowSyncModal(true)} style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
+              <Text style={[styles.scoutingFilterButtonText, { color: colors.textSecondary }]}>Aktualisieren</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Suchleiste mit Jahrgang-Filter, Archiv und Neuer Termin */}
-        <Pressable style={styles.scoutingToolbar} onPress={() => setShowTermineJahrgangDropdown(false)}>
-          <View style={styles.spieleSearchContainer}>
+        <Pressable style={[styles.scoutingToolbar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]} onPress={() => setShowTermineJahrgangDropdown(false)}>
+          <View style={[styles.spieleSearchContainer, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
             <Text style={styles.scoutingSearchIcon}>🔍</Text>
-            <TextInput 
-              style={styles.scoutingSearchInput} 
-              placeholder="Event, Ort, Art suchen..." 
-              placeholderTextColor="#9ca3af"
-              value={termineSearchText} 
+            <TextInput
+              style={[styles.scoutingSearchInput, { color: colors.text }]}
+              placeholder="Event, Ort, Art suchen..."
+              placeholderTextColor={colors.textMuted}
+              value={termineSearchText}
               onChangeText={setTermineSearchText}
               onFocus={() => setShowTermineJahrgangDropdown(false)}
             />
           </View>
-          
+
           <View style={styles.scoutingFilterContainer}>
             {/* Jahrgang Filter */}
             <View style={[styles.scoutingDropdownContainer, { zIndex: 40 }]}>
-              <TouchableOpacity 
-                style={[styles.scoutingFilterButton, termineJahrgangFilter.length > 0 && styles.scoutingFilterButtonActive]} 
+              <TouchableOpacity
+                style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, termineJahrgangFilter.length > 0 && styles.scoutingFilterButtonActive]}
                 onPress={(e) => { e.stopPropagation(); setShowTermineJahrgangDropdown(!showTermineJahrgangDropdown); }}
               >
-                <Text style={[styles.scoutingFilterButtonText, termineJahrgangFilter.length > 0 && styles.scoutingFilterButtonTextActive]}>
+                <Text style={[styles.scoutingFilterButtonText, { color: colors.textSecondary }, termineJahrgangFilter.length > 0 && styles.scoutingFilterButtonTextActive]}>
                   {getJahrgangFilterLabel()} ▼
                 </Text>
               </TouchableOpacity>
               {showTermineJahrgangDropdown && (
-                <Pressable style={styles.scoutingFilterDropdownMulti} onPress={(e) => e.stopPropagation()}>
-                  <View style={styles.scoutingFilterDropdownHeader}>
-                    <Text style={styles.scoutingFilterDropdownTitle}>Jahrgang wählen</Text>
+                <Pressable style={[styles.scoutingFilterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
+                  <View style={[styles.scoutingFilterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+                    <Text style={[styles.scoutingFilterDropdownTitle, { color: colors.textSecondary }]}>Jahrgang wählen</Text>
                     {termineJahrgangFilter.length > 0 && (
                       <TouchableOpacity onPress={() => setTermineJahrgangFilter([])}>
                         <Text style={styles.scoutingFilterClearText}>Alle löschen</Text>
@@ -1698,24 +1974,24 @@ export function TermineScreen({ navigation }: any) {
                   </View>
                   <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
                     {availableJahrgaenge.length === 0 ? (
-                      <Text style={styles.scoutingNoDataText}>Keine Jahrgänge vorhanden</Text>
+                      <Text style={[styles.scoutingNoDataText, { color: colors.textMuted }]}>Keine Jahrgänge vorhanden</Text>
                     ) : (
                       availableJahrgaenge.sort().map(jg => {
                         const isSelected = termineJahrgangFilter.includes(jg);
                         const count = displayTermine.filter(t => t.jahrgang === jg).length;
                         return (
-                          <TouchableOpacity key={jg} style={styles.scoutingFilterCheckboxItem} onPress={() => toggleJahrgangFilter(jg)}>
-                            <View style={[styles.scoutingCheckbox, isSelected && styles.scoutingCheckboxSelected]}>
+                          <TouchableOpacity key={jg} style={[styles.scoutingFilterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => toggleJahrgangFilter(jg)}>
+                            <View style={[styles.scoutingCheckbox, { borderColor: colors.border }, isSelected && styles.scoutingCheckboxSelected]}>
                               {isSelected && <Text style={styles.scoutingCheckmark}>✓</Text>}
                             </View>
-                            <Text style={styles.scoutingFilterCheckboxText}>{jg}</Text>
-                            <Text style={styles.scoutingFilterCountBadge}>{count}</Text>
+                            <Text style={[styles.scoutingFilterCheckboxText, { color: colors.text }]}>{jg}</Text>
+                            <Text style={[styles.scoutingFilterCountBadge, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
                           </TouchableOpacity>
                         );
                       })
                     )}
                   </ScrollView>
-                  <TouchableOpacity style={styles.scoutingFilterDoneButton} onPress={() => setShowTermineJahrgangDropdown(false)}>
+                  <TouchableOpacity style={[styles.scoutingFilterDoneButton, { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border }]} onPress={() => setShowTermineJahrgangDropdown(false)}>
                     <Text style={styles.scoutingFilterDoneText}>Fertig</Text>
                   </TouchableOpacity>
                 </Pressable>
@@ -1723,56 +1999,56 @@ export function TermineScreen({ navigation }: any) {
             </View>
 
             {/* Anstehend / Archiv Toggle + Neuer Termin */}
-            <TouchableOpacity 
-              onPress={() => setShowTermineArchiv(false)} 
-              style={[styles.scoutingFilterButton, !showTermineArchiv && styles.scoutingFilterButtonActive]}
+            <TouchableOpacity
+              onPress={() => setShowTermineArchiv(false)}
+              style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, !showTermineArchiv && styles.scoutingFilterButtonActive]}
             >
-              <Text style={[styles.scoutingFilterButtonText, !showTermineArchiv && styles.scoutingFilterButtonTextActive]}>
+              <Text style={[styles.scoutingFilterButtonText, { color: colors.textSecondary }, !showTermineArchiv && styles.scoutingFilterButtonTextActive]}>
                 Anstehend ({filteredTermine.length})
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              onPress={() => setShowTermineArchiv(true)} 
-              style={[styles.scoutingFilterButton, showTermineArchiv && styles.scoutingFilterButtonActive]}
+            <TouchableOpacity
+              onPress={() => setShowTermineArchiv(true)}
+              style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, showTermineArchiv && styles.scoutingFilterButtonActive]}
             >
-              <Text style={[styles.scoutingFilterButtonText, showTermineArchiv && styles.scoutingFilterButtonTextActive]}>
+              <Text style={[styles.scoutingFilterButtonText, { color: colors.textSecondary }, showTermineArchiv && styles.scoutingFilterButtonTextActive]}>
                 Archiv ({archivTermine.length})
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={openAddModal} style={styles.scoutingFilterButton}>
-              <Text style={styles.scoutingFilterButtonText}>+ Neuer Termin</Text>
+            <TouchableOpacity onPress={openAddModal} style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
+              <Text style={[styles.scoutingFilterButtonText, { color: colors.textSecondary }]}>+ Neuer Termin</Text>
             </TouchableOpacity>
           </View>
         </Pressable>
 
         <View style={styles.scoutingContent}>
-          <View style={styles.scoutingGamesContainer}>
-            <View style={styles.termineTableHeader}>
+          <View style={[styles.scoutingGamesContainer, { backgroundColor: colors.cardBackground }]}>
+            <View style={[styles.termineTableHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
               <SortableHeader field="datum" label="Datum" style={styles.termineColDatum} />
-              <View style={styles.termineColZeit}><Text style={styles.termineTableHeaderText}>Zeit</Text></View>
+              <View style={styles.termineColZeit}><Text style={[styles.termineTableHeaderText, { color: colors.textSecondary }]}>Zeit</Text></View>
               <SortableHeader field="art" label="Art" style={styles.termineColArt} />
               <SortableHeader field="titel" label="Beschreibung" style={styles.termineColTitel} />
               <SortableHeader field="jahrgang" label="Jahrgang" style={styles.termineColJahrgang} />
               <SortableHeader field="ort" label="Ort" style={styles.termineColOrt} />
               <SortableHeader field="uebernahme" label="Übernahme" style={styles.termineColUebernahme} />
             </View>
-            
+
             <ScrollView>
               {loading ? (
-                <Text style={styles.loadingText}>Laden...</Text>
+                <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Laden...</Text>
               ) : displayTermine.length === 0 ? (
                 <View style={styles.scoutingEmptyState}>
-                  <Text style={styles.scoutingEmptyText}>
-                    {termineSearchText || termineJahrgangFilter.length > 0 
-                      ? 'Keine Treffer gefunden' 
-                      : showTermineArchiv 
-                        ? 'Keine vergangenen Termine' 
+                  <Text style={[styles.scoutingEmptyText, { color: colors.textSecondary }]}>
+                    {termineSearchText || termineJahrgangFilter.length > 0
+                      ? 'Keine Treffer gefunden'
+                      : showTermineArchiv
+                        ? 'Keine vergangenen Termine'
                         : 'Keine Termine vorhanden'
                     }
                   </Text>
                   {!termineSearchText && !showTermineArchiv && termineJahrgangFilter.length === 0 && (
-                    <TouchableOpacity onPress={() => setShowSyncModal(true)} style={[styles.scoutingFilterButton, { marginTop: 16 }]}>
-                      <Text style={styles.scoutingFilterButtonText}>DFB & Hallen-Termine laden</Text>
+                    <TouchableOpacity onPress={() => setShowSyncModal(true)} style={[styles.scoutingFilterButton, { marginTop: 16, backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
+                      <Text style={[styles.scoutingFilterButtonText, { color: colors.textSecondary }]}>DFB & Hallen-Termine laden</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -1783,37 +2059,38 @@ export function TermineScreen({ navigation }: any) {
                   const isNM = isNationalmannschaft(termin);
                   const isHT = isHallenturnier(termin);
                   const time = formatTime(termin.datum);
-                  
+
                   return (
-                    <TouchableOpacity 
-                      key={termin.id} 
+                    <TouchableOpacity
+                      key={termin.id}
                       style={[
-                        styles.termineTableRow, 
+                        styles.termineTableRow,
+                        { backgroundColor: colors.cardBackground, borderBottomColor: colors.border },
                         isRunning && !isPast && styles.termineTableRowRunning,
-                        isPast && styles.termineTableRowArchiv
-                      ]} 
+                        isPast && { backgroundColor: colors.surfaceSecondary }
+                      ]}
                       onPress={() => openEditModal(termin)}
                     >
-                      <Text style={[styles.termineTableCell, styles.termineColDatum, isPast && styles.termineCellArchiv]}>{formatDate(termin)}</Text>
-                      <Text style={[styles.termineTableCell, styles.termineColZeit, isPast && styles.termineCellArchiv]}>{time || '-'}</Text>
+                      <Text style={[styles.termineTableCell, styles.termineColDatum, { color: isPast ? colors.textMuted : colors.text }]}>{formatDate(termin)}</Text>
+                      <Text style={[styles.termineTableCell, styles.termineColZeit, { color: isPast ? colors.textMuted : colors.text }]}>{time || '-'}</Text>
                       <View style={styles.termineColArt}>
                         <View style={[
-                          styles.artBadge, 
+                          styles.artBadge,
                           isNM ? styles.artNationalmannschaft : isHT ? styles.artHallenturnier : styles.artSonstige,
                           isPast && styles.artBadgeArchiv
                         ]}>
                           <Text style={[
-                            styles.artBadgeText, 
+                            styles.artBadgeText,
                             isNM ? styles.artNationalmannschaftText : isHT ? styles.artHallenturnierText : null
                           ]}>
                             {isNM ? 'Nationalmannschaft' : isHT ? 'Hallenturnier' : getDisplayArt(termin.art)}
                           </Text>
                         </View>
                       </View>
-                      <Text style={[styles.termineTableCell, styles.termineColTitel, isPast && styles.termineCellArchiv]} numberOfLines={1}>{termin.titel}</Text>
-                      <Text style={[styles.termineTableCell, styles.termineColJahrgang, isPast && styles.termineCellArchiv]}>{termin.jahrgang || '-'}</Text>
-                      <Text style={[styles.termineTableCell, styles.termineColOrt, isPast && styles.termineCellArchiv]} numberOfLines={1}>{termin.ort || '-'}</Text>
-                      <Text style={[styles.termineTableCell, styles.termineColUebernahme, isPast && styles.termineCellArchiv]}>{getAdvisorName(termin.uebernahme_advisor_id)}</Text>
+                      <Text style={[styles.termineTableCell, styles.termineColTitel, { color: isPast ? colors.textMuted : colors.text }]} numberOfLines={1}>{termin.titel}</Text>
+                      <Text style={[styles.termineTableCell, styles.termineColJahrgang, { color: isPast ? colors.textMuted : colors.text }]}>{termin.jahrgang || '-'}</Text>
+                      <Text style={[styles.termineTableCell, styles.termineColOrt, { color: isPast ? colors.textMuted : colors.text }]} numberOfLines={1}>{termin.ort || '-'}</Text>
+                      <Text style={[styles.termineTableCell, styles.termineColUebernahme, { color: isPast ? colors.textMuted : colors.text }]}>{getAdvisorName(termin.uebernahme_advisor_id)}</Text>
                     </TouchableOpacity>
                   );
                 })
@@ -1826,14 +2103,14 @@ export function TermineScreen({ navigation }: any) {
   };
 
   const renderKalenderPlaceholder = () => (
-    <View style={styles.placeholderContainer}>
+    <View style={[styles.placeholderContainer, { backgroundColor: colors.background }]}>
       <TouchableOpacity onPress={() => setViewMode('dashboard')} style={styles.backButtonTop}>
-        <Ionicons name="arrow-back" size={20} color="#666" />
+        <Ionicons name="arrow-back" size={20} color={colors.textSecondary} />
       </TouchableOpacity>
       <View style={styles.placeholderContent}>
         <Text style={styles.placeholderIcon}>📅</Text>
-        <Text style={styles.placeholderTitle}>Kalenderansicht</Text>
-        <Text style={styles.placeholderText}>Übersichtliche Monatsansicht mit allen Terminen{'\n'}und Export-Funktion.</Text>
+        <Text style={[styles.placeholderTitle, { color: colors.text }]}>Kalenderansicht</Text>
+        <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>Übersichtliche Monatsansicht mit allen Terminen{'\n'}und Export-Funktion.</Text>
         <View style={styles.comingSoonLarge}><Text style={styles.comingSoonLargeText}>COMING SOON</Text></View>
       </View>
     </View>
@@ -1843,65 +2120,253 @@ export function TermineScreen({ navigation }: any) {
     const showModal = isEdit ? showEditModal : showAddModal;
     const datumParts = parseDateToParts(formDatum);
     const datumEndeParts = parseDateToParts(formDatumEnde);
-    
+
+    // Mobile Modal
+    if (isMobile) {
+      return (
+        <Modal visible={showModal} transparent animationType="slide">
+          <View style={styles.mobileModalOverlay}>
+            <View style={[styles.mobileModalContent, { backgroundColor: colors.surface }]}>
+              <View style={[styles.mobileModalHeader, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.mobileModalTitle, { color: colors.text }]}>{isEdit ? 'Termin bearbeiten' : 'Neuer Termin'}</Text>
+                <TouchableOpacity onPress={() => { isEdit ? setShowEditModal(false) : setShowAddModal(false); resetForm(); closeAllModalDropdowns(); }}>
+                  <Text style={[styles.mobileModalClose, { color: colors.textSecondary }]}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.mobileModalScroll} nestedScrollEnabled>
+                {/* Datum Von */}
+                <Text style={[styles.mobileFormLabel, { color: colors.textSecondary }]}>Datum von *</Text>
+                <View style={[styles.mobileFormRow, { zIndex: 100 }]}>
+                  <View style={[styles.mobileFormThird, styles.dropdownWrapper]}>
+                    <TouchableOpacity style={[styles.mobileDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => { closeAllModalDropdowns(); setShowDatumDropdown(showDatumDropdown === 'day' ? null : 'day'); }}>
+                      <Text style={[styles.mobileDropdownButtonText, { color: colors.text }]}>{datumParts?.day || 'Tag'}</Text>
+                      <Text style={[styles.dropdownArrow, { color: colors.textMuted }]}>▼</Text>
+                    </TouchableOpacity>
+                    {showDatumDropdown === 'day' && (
+                      <ScrollView style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]} nestedScrollEnabled>{DAYS.map(d => (
+                        <TouchableOpacity key={d} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => updateFormDatumPart('day', d)}><Text style={[styles.dropdownItemText, { color: colors.text }]}>{d}</Text></TouchableOpacity>
+                      ))}</ScrollView>
+                    )}
+                  </View>
+                  <View style={[styles.mobileFormThird, styles.dropdownWrapper]}>
+                    <TouchableOpacity style={[styles.mobileDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => { closeAllModalDropdowns(); setShowDatumDropdown(showDatumDropdown === 'month' ? null : 'month'); }}>
+                      <Text style={[styles.mobileDropdownButtonText, { color: colors.text }]}>{datumParts ? MONTHS[datumParts.month] : 'Monat'}</Text>
+                      <Text style={[styles.dropdownArrow, { color: colors.textMuted }]}>▼</Text>
+                    </TouchableOpacity>
+                    {showDatumDropdown === 'month' && (
+                      <ScrollView style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]} nestedScrollEnabled>{MONTHS.map((m, i) => (
+                        <TouchableOpacity key={m} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => updateFormDatumPart('month', i)}><Text style={[styles.dropdownItemText, { color: colors.text }]}>{m}</Text></TouchableOpacity>
+                      ))}</ScrollView>
+                    )}
+                  </View>
+                  <View style={[styles.mobileFormThird, styles.dropdownWrapper]}>
+                    <TouchableOpacity style={[styles.mobileDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => { closeAllModalDropdowns(); setShowDatumDropdown(showDatumDropdown === 'year' ? null : 'year'); }}>
+                      <Text style={[styles.mobileDropdownButtonText, { color: colors.text }]}>{datumParts?.year || 'Jahr'}</Text>
+                      <Text style={[styles.dropdownArrow, { color: colors.textMuted }]}>▼</Text>
+                    </TouchableOpacity>
+                    {showDatumDropdown === 'year' && (
+                      <ScrollView style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]} nestedScrollEnabled>{FORM_YEARS.map(y => (
+                        <TouchableOpacity key={y} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => updateFormDatumPart('year', y)}><Text style={[styles.dropdownItemText, { color: colors.text }]}>{y}</Text></TouchableOpacity>
+                      ))}</ScrollView>
+                    )}
+                  </View>
+                </View>
+
+                {/* Datum Bis */}
+                <Text style={[styles.mobileFormLabel, { color: colors.textSecondary }]}>Datum bis</Text>
+                <View style={[styles.mobileFormRow, { zIndex: 90 }]}>
+                  <View style={[styles.mobileFormThird, styles.dropdownWrapper]}>
+                    <TouchableOpacity style={[styles.mobileDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => { closeAllModalDropdowns(); setShowDatumEndeDropdown(showDatumEndeDropdown === 'day' ? null : 'day'); }}>
+                      <Text style={[styles.mobileDropdownButtonText, { color: colors.text }]}>{datumEndeParts?.day || 'Tag'}</Text>
+                      <Text style={[styles.dropdownArrow, { color: colors.textMuted }]}>▼</Text>
+                    </TouchableOpacity>
+                    {showDatumEndeDropdown === 'day' && (
+                      <ScrollView style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]} nestedScrollEnabled>
+                        <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setFormDatumEnde(''); setShowDatumEndeDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.textMuted }]}>- Leer -</Text></TouchableOpacity>
+                        {DAYS.map(d => (<TouchableOpacity key={d} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => updateFormDatumEndePart('day', d)}><Text style={[styles.dropdownItemText, { color: colors.text }]}>{d}</Text></TouchableOpacity>))}
+                      </ScrollView>
+                    )}
+                  </View>
+                  <View style={[styles.mobileFormThird, styles.dropdownWrapper]}>
+                    <TouchableOpacity style={[styles.mobileDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => { closeAllModalDropdowns(); setShowDatumEndeDropdown(showDatumEndeDropdown === 'month' ? null : 'month'); }}>
+                      <Text style={[styles.mobileDropdownButtonText, { color: colors.text }]}>{datumEndeParts ? MONTHS[datumEndeParts.month] : 'Monat'}</Text>
+                      <Text style={[styles.dropdownArrow, { color: colors.textMuted }]}>▼</Text>
+                    </TouchableOpacity>
+                    {showDatumEndeDropdown === 'month' && (
+                      <ScrollView style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]} nestedScrollEnabled>{MONTHS.map((m, i) => (
+                        <TouchableOpacity key={m} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => updateFormDatumEndePart('month', i)}><Text style={[styles.dropdownItemText, { color: colors.text }]}>{m}</Text></TouchableOpacity>
+                      ))}</ScrollView>
+                    )}
+                  </View>
+                  <View style={[styles.mobileFormThird, styles.dropdownWrapper]}>
+                    <TouchableOpacity style={[styles.mobileDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => { closeAllModalDropdowns(); setShowDatumEndeDropdown(showDatumEndeDropdown === 'year' ? null : 'year'); }}>
+                      <Text style={[styles.mobileDropdownButtonText, { color: colors.text }]}>{datumEndeParts?.year || 'Jahr'}</Text>
+                      <Text style={[styles.dropdownArrow, { color: colors.textMuted }]}>▼</Text>
+                    </TouchableOpacity>
+                    {showDatumEndeDropdown === 'year' && (
+                      <ScrollView style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]} nestedScrollEnabled>{FORM_YEARS.map(y => (
+                        <TouchableOpacity key={y} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => updateFormDatumEndePart('year', y)}><Text style={[styles.dropdownItemText, { color: colors.text }]}>{y}</Text></TouchableOpacity>
+                      ))}</ScrollView>
+                    )}
+                  </View>
+                </View>
+
+                {/* Zeit */}
+                <Text style={[styles.mobileFormLabel, { color: colors.textSecondary }]}>Zeit</Text>
+                <TextInput style={[styles.mobileFormInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={formZeit} onChangeText={setFormZeit} placeholder="HH:MM" placeholderTextColor={colors.textMuted} onFocus={closeAllModalDropdowns} />
+
+                {/* Art */}
+                <Text style={[styles.mobileFormLabel, { color: colors.textSecondary }]}>Art *</Text>
+                <View style={styles.mobileArtSelector}>
+                  {TERMIN_ARTEN.map((art) => (
+                    <TouchableOpacity key={art} style={[styles.mobileArtOption, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, formArt === art && [styles.mobileArtOptionSelected, { backgroundColor: colors.primary, borderColor: colors.primary }]]} onPress={() => setFormArt(art)}>
+                      <Text style={[styles.mobileArtOptionText, { color: colors.textSecondary }, formArt === art && { color: colors.primaryText }]}>{art}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Beschreibung */}
+                <Text style={[styles.mobileFormLabel, { color: colors.textSecondary }]}>Beschreibung *</Text>
+                <TextInput style={[styles.mobileFormInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={formTitel} onChangeText={setFormTitel} placeholder="z.B. Lehrgang, Meeting, ..." placeholderTextColor={colors.textMuted} onFocus={closeAllModalDropdowns} />
+
+                {/* Jahrgang */}
+                <Text style={[styles.mobileFormLabel, { color: colors.textSecondary }]}>Jahrgang</Text>
+                <View style={[styles.dropdownWrapper, { zIndex: 80 }]}>
+                  <TouchableOpacity style={[styles.mobileDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => { closeAllModalDropdowns(); setShowJahrgangDropdown(!showJahrgangDropdown); }}>
+                    <Text style={[styles.mobileDropdownButtonText, { color: colors.text }]}>{formJahrgang || '- Kein Jahrgang -'}</Text>
+                    <Text style={[styles.dropdownArrow, { color: colors.textMuted }]}>▼</Text>
+                  </TouchableOpacity>
+                  {showJahrgangDropdown && (
+                    <ScrollView style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]} nestedScrollEnabled>
+                      <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setFormJahrgang(''); setShowJahrgangDropdown(false); }}><Text style={[styles.dropdownItemText, { color: colors.textMuted }]}>- Kein Jahrgang -</Text></TouchableOpacity>
+                      {JAHRGAENGE.map(jg => (<TouchableOpacity key={jg} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setFormJahrgang(jg); setShowJahrgangDropdown(false); }}><Text style={[styles.dropdownItemText, { color: colors.text }]}>{jg}</Text></TouchableOpacity>))}
+                    </ScrollView>
+                  )}
+                </View>
+
+                {/* Ort */}
+                <Text style={[styles.mobileFormLabel, { color: colors.textSecondary }]}>Ort</Text>
+                <TextInput style={[styles.mobileFormInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={formOrt} onChangeText={setFormOrt} placeholder="z.B. Frankfurt, DFB-Campus..." placeholderTextColor={colors.textMuted} onFocus={closeAllModalDropdowns} />
+
+                {/* Übernahme */}
+                <Text style={[styles.mobileFormLabel, { color: colors.textSecondary }]}>Übernahme durch</Text>
+                <View style={[styles.dropdownWrapper, { zIndex: 70 }]}>
+                  <TouchableOpacity style={[styles.mobileDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => { closeAllModalDropdowns(); setShowUebernahmeDropdown(!showUebernahmeDropdown); }}>
+                    <Text style={[styles.mobileDropdownButtonText, { color: colors.text }]}>
+                      {formUebernahme ? advisors.find(a => a.id === formUebernahme)?.first_name + ' ' + advisors.find(a => a.id === formUebernahme)?.last_name : '- Keine Auswahl -'}
+                    </Text>
+                    <Text style={[styles.dropdownArrow, { color: colors.textMuted }]}>▼</Text>
+                  </TouchableOpacity>
+                  {showUebernahmeDropdown && (
+                    <ScrollView style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]} nestedScrollEnabled>
+                      <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setFormUebernahme(''); setShowUebernahmeDropdown(false); }}><Text style={[styles.dropdownItemText, { color: colors.textMuted }]}>- Keine Auswahl -</Text></TouchableOpacity>
+                      {advisors.map(adv => (<TouchableOpacity key={adv.id} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setFormUebernahme(adv.id); setShowUebernahmeDropdown(false); }}><Text style={[styles.dropdownItemText, { color: colors.text }]}>{adv.first_name} {adv.last_name}</Text></TouchableOpacity>))}
+                    </ScrollView>
+                  )}
+                </View>
+
+                <View style={{ height: 20 }} />
+              </ScrollView>
+
+              {/* Buttons */}
+              <View style={[styles.mobileModalButtons, { borderTopColor: colors.border }]}>
+                {isEdit && (
+                  <TouchableOpacity style={styles.mobileModalDeleteBtn} onPress={() => setShowDeleteConfirm(true)}>
+                    <Text style={styles.mobileModalDeleteText}>Löschen</Text>
+                  </TouchableOpacity>
+                )}
+                <View style={{ flex: 1 }} />
+                <TouchableOpacity style={[styles.mobileModalCancelBtn, { backgroundColor: colors.surfaceSecondary }]} onPress={() => { isEdit ? setShowEditModal(false) : setShowAddModal(false); resetForm(); closeAllModalDropdowns(); }}>
+                  <Text style={[styles.mobileModalCancelText, { color: colors.textSecondary }]}>Abbrechen</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.mobileModalSaveBtn, { backgroundColor: colors.primary }]} onPress={isEdit ? handleUpdateTermin : handleSaveTermin}>
+                  <Text style={[styles.mobileModalSaveText, { color: colors.primaryText }]}>Speichern</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Delete Confirmation Modal */}
+              <Modal visible={showDeleteConfirm} transparent animationType="fade">
+                <View style={styles.modalOverlay}>
+                  <View style={[styles.deleteConfirmModal, { backgroundColor: colors.surface }]}>
+                    <Text style={[styles.deleteConfirmTitle, { color: colors.text }]}>Termin löschen?</Text>
+                    <Text style={[styles.deleteConfirmText, { color: colors.textSecondary }]}>Möchtest du diesen Termin wirklich löschen?</Text>
+                    <Text style={[styles.deleteConfirmTermin, { color: colors.text }]}>{selectedTermin?.titel}</Text>
+                    <View style={styles.deleteConfirmButtons}>
+                      <TouchableOpacity style={[styles.cancelButton, { backgroundColor: colors.surfaceSecondary }]} onPress={() => setShowDeleteConfirm(false)}>
+                        <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.confirmDeleteButton} onPress={handleDeleteTermin}>
+                        <Text style={styles.confirmDeleteButtonText}>Ja, löschen</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              </Modal>
+            </View>
+          </View>
+        </Modal>
+      );
+    }
+
+    // Desktop Modal
     return (
       <Modal visible={showModal} transparent animationType="fade">
         <Pressable style={styles.modalOverlay} onPress={() => { closeAllModalDropdowns(); }}>
-          <Pressable style={styles.modalContent} onPress={() => closeAllModalDropdowns()}>
-            <Text style={styles.modalTitle}>{isEdit ? 'Termin bearbeiten' : 'Neuer Termin'}</Text>
-            
+          <Pressable style={[styles.modalContent, { backgroundColor: colors.surface }]} onPress={() => closeAllModalDropdowns()}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>{isEdit ? 'Termin bearbeiten' : 'Neuer Termin'}</Text>
+
             {/* Datum Von */}
-            <Text style={styles.formLabel}>Datum von *</Text>
+            <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Datum von *</Text>
             <View style={[styles.formRow, { zIndex: 100 }]}>
               <View style={[styles.formThird, styles.dropdownWrapper]}>
-                <TouchableOpacity 
-                  style={styles.dropdownButton} 
+                <TouchableOpacity
+                  style={[styles.dropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                   onPress={(e) => { e.stopPropagation(); closeAllModalDropdowns(); setShowDatumDropdown(showDatumDropdown === 'day' ? null : 'day'); }}
                 >
-                  <Text style={styles.dropdownButtonText}>{datumParts?.day || 'Tag'}</Text>
-                  <Text style={styles.dropdownArrow}>▼</Text>
+                  <Text style={[styles.dropdownButtonText, { color: colors.text }]}>{datumParts?.day || 'Tag'}</Text>
+                  <Text style={[styles.dropdownArrow, { color: colors.textMuted }]}>▼</Text>
                 </TouchableOpacity>
                 {showDatumDropdown === 'day' && (
-                  <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                  <ScrollView style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]} nestedScrollEnabled>
                     {DAYS.map(d => (
-                      <TouchableOpacity key={d} style={styles.dropdownItem} onPress={() => updateFormDatumPart('day', d)}>
-                        <Text style={styles.dropdownItemText}>{d}</Text>
+                      <TouchableOpacity key={d} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => updateFormDatumPart('day', d)}>
+                        <Text style={[styles.dropdownItemText, { color: colors.text }]}>{d}</Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
                 )}
               </View>
               <View style={[styles.formThird, styles.dropdownWrapper]}>
-                <TouchableOpacity 
-                  style={styles.dropdownButton} 
+                <TouchableOpacity
+                  style={[styles.dropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                   onPress={(e) => { e.stopPropagation(); closeAllModalDropdowns(); setShowDatumDropdown(showDatumDropdown === 'month' ? null : 'month'); }}
                 >
-                  <Text style={styles.dropdownButtonText}>{datumParts ? MONTHS[datumParts.month] : 'Monat'}</Text>
-                  <Text style={styles.dropdownArrow}>▼</Text>
+                  <Text style={[styles.dropdownButtonText, { color: colors.text }]}>{datumParts ? MONTHS[datumParts.month] : 'Monat'}</Text>
+                  <Text style={[styles.dropdownArrow, { color: colors.textMuted }]}>▼</Text>
                 </TouchableOpacity>
                 {showDatumDropdown === 'month' && (
-                  <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                  <ScrollView style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]} nestedScrollEnabled>
                     {MONTHS.map((m, i) => (
-                      <TouchableOpacity key={m} style={styles.dropdownItem} onPress={() => updateFormDatumPart('month', i)}>
-                        <Text style={styles.dropdownItemText}>{m}</Text>
+                      <TouchableOpacity key={m} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => updateFormDatumPart('month', i)}>
+                        <Text style={[styles.dropdownItemText, { color: colors.text }]}>{m}</Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
                 )}
               </View>
               <View style={[styles.formThird, styles.dropdownWrapper]}>
-                <TouchableOpacity 
-                  style={styles.dropdownButton} 
+                <TouchableOpacity
+                  style={[styles.dropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                   onPress={(e) => { e.stopPropagation(); closeAllModalDropdowns(); setShowDatumDropdown(showDatumDropdown === 'year' ? null : 'year'); }}
                 >
-                  <Text style={styles.dropdownButtonText}>{datumParts?.year || 'Jahr'}</Text>
-                  <Text style={styles.dropdownArrow}>▼</Text>
+                  <Text style={[styles.dropdownButtonText, { color: colors.text }]}>{datumParts?.year || 'Jahr'}</Text>
+                  <Text style={[styles.dropdownArrow, { color: colors.textMuted }]}>▼</Text>
                 </TouchableOpacity>
                 {showDatumDropdown === 'year' && (
-                  <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                  <ScrollView style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]} nestedScrollEnabled>
                     {FORM_YEARS.map(y => (
-                      <TouchableOpacity key={y} style={styles.dropdownItem} onPress={() => updateFormDatumPart('year', y)}>
-                        <Text style={styles.dropdownItemText}>{y}</Text>
+                      <TouchableOpacity key={y} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => updateFormDatumPart('year', y)}>
+                        <Text style={[styles.dropdownItemText, { color: colors.text }]}>{y}</Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -1910,60 +2375,60 @@ export function TermineScreen({ navigation }: any) {
             </View>
 
             {/* Datum Bis */}
-            <Text style={styles.formLabel}>Datum bis</Text>
+            <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Datum bis</Text>
             <View style={[styles.formRow, { zIndex: 90 }]}>
               <View style={[styles.formThird, styles.dropdownWrapper]}>
-                <TouchableOpacity 
-                  style={styles.dropdownButton} 
+                <TouchableOpacity
+                  style={[styles.dropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                   onPress={(e) => { e.stopPropagation(); closeAllModalDropdowns(); setShowDatumEndeDropdown(showDatumEndeDropdown === 'day' ? null : 'day'); }}
                 >
-                  <Text style={styles.dropdownButtonText}>{datumEndeParts?.day || 'Tag'}</Text>
-                  <Text style={styles.dropdownArrow}>▼</Text>
+                  <Text style={[styles.dropdownButtonText, { color: colors.text }]}>{datumEndeParts?.day || 'Tag'}</Text>
+                  <Text style={[styles.dropdownArrow, { color: colors.textMuted }]}>▼</Text>
                 </TouchableOpacity>
                 {showDatumEndeDropdown === 'day' && (
-                  <ScrollView style={styles.dropdownList} nestedScrollEnabled>
-                    <TouchableOpacity style={styles.dropdownItem} onPress={() => { setFormDatumEnde(''); setShowDatumEndeDropdown(null); }}>
-                      <Text style={[styles.dropdownItemText, { color: '#999' }]}>- Kein Enddatum -</Text>
+                  <ScrollView style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]} nestedScrollEnabled>
+                    <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setFormDatumEnde(''); setShowDatumEndeDropdown(null); }}>
+                      <Text style={[styles.dropdownItemText, { color: colors.textMuted }]}>- Kein Enddatum -</Text>
                     </TouchableOpacity>
                     {DAYS.map(d => (
-                      <TouchableOpacity key={d} style={styles.dropdownItem} onPress={() => updateFormDatumEndePart('day', d)}>
-                        <Text style={styles.dropdownItemText}>{d}</Text>
+                      <TouchableOpacity key={d} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => updateFormDatumEndePart('day', d)}>
+                        <Text style={[styles.dropdownItemText, { color: colors.text }]}>{d}</Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
                 )}
               </View>
               <View style={[styles.formThird, styles.dropdownWrapper]}>
-                <TouchableOpacity 
-                  style={styles.dropdownButton} 
+                <TouchableOpacity
+                  style={[styles.dropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                   onPress={(e) => { e.stopPropagation(); closeAllModalDropdowns(); setShowDatumEndeDropdown(showDatumEndeDropdown === 'month' ? null : 'month'); }}
                 >
-                  <Text style={styles.dropdownButtonText}>{datumEndeParts ? MONTHS[datumEndeParts.month] : 'Monat'}</Text>
-                  <Text style={styles.dropdownArrow}>▼</Text>
+                  <Text style={[styles.dropdownButtonText, { color: colors.text }]}>{datumEndeParts ? MONTHS[datumEndeParts.month] : 'Monat'}</Text>
+                  <Text style={[styles.dropdownArrow, { color: colors.textMuted }]}>▼</Text>
                 </TouchableOpacity>
                 {showDatumEndeDropdown === 'month' && (
-                  <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                  <ScrollView style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]} nestedScrollEnabled>
                     {MONTHS.map((m, i) => (
-                      <TouchableOpacity key={m} style={styles.dropdownItem} onPress={() => updateFormDatumEndePart('month', i)}>
-                        <Text style={styles.dropdownItemText}>{m}</Text>
+                      <TouchableOpacity key={m} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => updateFormDatumEndePart('month', i)}>
+                        <Text style={[styles.dropdownItemText, { color: colors.text }]}>{m}</Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
                 )}
               </View>
               <View style={[styles.formThird, styles.dropdownWrapper]}>
-                <TouchableOpacity 
-                  style={styles.dropdownButton} 
+                <TouchableOpacity
+                  style={[styles.dropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                   onPress={(e) => { e.stopPropagation(); closeAllModalDropdowns(); setShowDatumEndeDropdown(showDatumEndeDropdown === 'year' ? null : 'year'); }}
                 >
-                  <Text style={styles.dropdownButtonText}>{datumEndeParts?.year || 'Jahr'}</Text>
-                  <Text style={styles.dropdownArrow}>▼</Text>
+                  <Text style={[styles.dropdownButtonText, { color: colors.text }]}>{datumEndeParts?.year || 'Jahr'}</Text>
+                  <Text style={[styles.dropdownArrow, { color: colors.textMuted }]}>▼</Text>
                 </TouchableOpacity>
                 {showDatumEndeDropdown === 'year' && (
-                  <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                  <ScrollView style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]} nestedScrollEnabled>
                     {FORM_YEARS.map(y => (
-                      <TouchableOpacity key={y} style={styles.dropdownItem} onPress={() => updateFormDatumEndePart('year', y)}>
-                        <Text style={styles.dropdownItemText}>{y}</Text>
+                      <TouchableOpacity key={y} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => updateFormDatumEndePart('year', y)}>
+                        <Text style={[styles.dropdownItemText, { color: colors.text }]}>{y}</Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -1972,41 +2437,41 @@ export function TermineScreen({ navigation }: any) {
             </View>
 
             {/* Zeit */}
-            <Text style={styles.formLabel}>Zeit</Text>
-            <TextInput style={styles.formInput} value={formZeit} onChangeText={setFormZeit} placeholder="HH:MM" placeholderTextColor="#999" onFocus={closeAllModalDropdowns} />
+            <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Zeit</Text>
+            <TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={formZeit} onChangeText={setFormZeit} placeholder="HH:MM" placeholderTextColor={colors.textMuted} onFocus={closeAllModalDropdowns} />
 
             {/* Art */}
-            <Text style={styles.formLabel}>Art *</Text>
+            <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Art *</Text>
             <Pressable style={styles.artSelector} onPress={closeAllModalDropdowns}>
               {TERMIN_ARTEN.map((art) => (
-                <TouchableOpacity key={art} style={[styles.artOption, formArt === art && styles.artOptionSelected]} onPress={() => setFormArt(art)}>
-                  <Text style={[styles.artOptionText, formArt === art && styles.artOptionTextSelected]}>{art}</Text>
+                <TouchableOpacity key={art} style={[styles.artOption, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, formArt === art && [styles.artOptionSelected, { backgroundColor: colors.primary, borderColor: colors.primary }]]} onPress={() => setFormArt(art)}>
+                  <Text style={[styles.artOptionText, { color: colors.textSecondary }, formArt === art && { color: colors.primaryText }]}>{art}</Text>
                 </TouchableOpacity>
               ))}
             </Pressable>
 
             {/* Beschreibung */}
-            <Text style={styles.formLabel}>Beschreibung *</Text>
-            <TextInput style={styles.formInput} value={formTitel} onChangeText={setFormTitel} placeholder="z.B. Lehrgang, Meeting, ..." placeholderTextColor="#999" onFocus={closeAllModalDropdowns} />
+            <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Beschreibung *</Text>
+            <TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={formTitel} onChangeText={setFormTitel} placeholder="z.B. Lehrgang, Meeting, ..." placeholderTextColor={colors.textMuted} onFocus={closeAllModalDropdowns} />
 
             {/* Jahrgang Dropdown */}
-            <Text style={styles.formLabel}>Jahrgang</Text>
+            <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Jahrgang</Text>
             <View style={[styles.dropdownWrapper, { zIndex: 80 }]}>
-              <TouchableOpacity 
-                style={styles.dropdownButton} 
+              <TouchableOpacity
+                style={[styles.dropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                 onPress={(e) => { e.stopPropagation(); closeAllModalDropdowns(); setShowJahrgangDropdown(!showJahrgangDropdown); }}
               >
-                <Text style={styles.dropdownButtonText}>{formJahrgang || '- Kein Jahrgang -'}</Text>
-                <Text style={styles.dropdownArrow}>▼</Text>
+                <Text style={[styles.dropdownButtonText, { color: colors.text }]}>{formJahrgang || '- Kein Jahrgang -'}</Text>
+                <Text style={[styles.dropdownArrow, { color: colors.textMuted }]}>▼</Text>
               </TouchableOpacity>
               {showJahrgangDropdown && (
-                <ScrollView style={styles.dropdownList} nestedScrollEnabled>
-                  <TouchableOpacity style={styles.dropdownItem} onPress={() => { setFormJahrgang(''); setShowJahrgangDropdown(false); }}>
-                    <Text style={[styles.dropdownItemText, { color: '#999' }]}>- Kein Jahrgang -</Text>
+                <ScrollView style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]} nestedScrollEnabled>
+                  <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setFormJahrgang(''); setShowJahrgangDropdown(false); }}>
+                    <Text style={[styles.dropdownItemText, { color: colors.textMuted }]}>- Kein Jahrgang -</Text>
                   </TouchableOpacity>
                   {JAHRGAENGE.map(jg => (
-                    <TouchableOpacity key={jg} style={styles.dropdownItem} onPress={() => { setFormJahrgang(jg); setShowJahrgangDropdown(false); }}>
-                      <Text style={styles.dropdownItemText}>{jg}</Text>
+                    <TouchableOpacity key={jg} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setFormJahrgang(jg); setShowJahrgangDropdown(false); }}>
+                      <Text style={[styles.dropdownItemText, { color: colors.text }]}>{jg}</Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -2014,31 +2479,31 @@ export function TermineScreen({ navigation }: any) {
             </View>
 
             {/* Ort */}
-            <Text style={styles.formLabel}>Ort</Text>
-            <TextInput style={styles.formInput} value={formOrt} onChangeText={setFormOrt} placeholder="z.B. Frankfurt, DFB-Campus..." placeholderTextColor="#999" onFocus={closeAllModalDropdowns} />
+            <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Ort</Text>
+            <TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={formOrt} onChangeText={setFormOrt} placeholder="z.B. Frankfurt, DFB-Campus..." placeholderTextColor={colors.textMuted} onFocus={closeAllModalDropdowns} />
 
             {/* Übernahme Dropdown */}
-            <Text style={styles.formLabel}>Übernahme durch</Text>
+            <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Übernahme durch</Text>
             <View style={[styles.dropdownWrapper, { zIndex: 70 }]}>
-              <TouchableOpacity 
-                style={styles.dropdownButton} 
+              <TouchableOpacity
+                style={[styles.dropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                 onPress={(e) => { e.stopPropagation(); closeAllModalDropdowns(); setShowUebernahmeDropdown(!showUebernahmeDropdown); }}
               >
-                <Text style={styles.dropdownButtonText}>
-                  {formUebernahme 
-                    ? advisors.find(a => a.id === formUebernahme)?.first_name + ' ' + advisors.find(a => a.id === formUebernahme)?.last_name 
+                <Text style={[styles.dropdownButtonText, { color: colors.text }]}>
+                  {formUebernahme
+                    ? advisors.find(a => a.id === formUebernahme)?.first_name + ' ' + advisors.find(a => a.id === formUebernahme)?.last_name
                     : '- Keine Auswahl -'}
                 </Text>
-                <Text style={styles.dropdownArrow}>▼</Text>
+                <Text style={[styles.dropdownArrow, { color: colors.textMuted }]}>▼</Text>
               </TouchableOpacity>
               {showUebernahmeDropdown && (
-                <ScrollView style={styles.dropdownList} nestedScrollEnabled>
-                  <TouchableOpacity style={styles.dropdownItem} onPress={() => { setFormUebernahme(''); setShowUebernahmeDropdown(false); }}>
-                    <Text style={[styles.dropdownItemText, { color: '#999' }]}>- Keine Auswahl -</Text>
+                <ScrollView style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]} nestedScrollEnabled>
+                  <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setFormUebernahme(''); setShowUebernahmeDropdown(false); }}>
+                    <Text style={[styles.dropdownItemText, { color: colors.textMuted }]}>- Keine Auswahl -</Text>
                   </TouchableOpacity>
                   {advisors.map(adv => (
-                    <TouchableOpacity key={adv.id} style={styles.dropdownItem} onPress={() => { setFormUebernahme(adv.id); setShowUebernahmeDropdown(false); }}>
-                      <Text style={styles.dropdownItemText}>{adv.first_name} {adv.last_name}</Text>
+                    <TouchableOpacity key={adv.id} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setFormUebernahme(adv.id); setShowUebernahmeDropdown(false); }}>
+                      <Text style={[styles.dropdownItemText, { color: colors.text }]}>{adv.first_name} {adv.last_name}</Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -2053,18 +2518,18 @@ export function TermineScreen({ navigation }: any) {
                 </TouchableOpacity>
               )}
               <View style={{ flex: 1 }} />
-              <TouchableOpacity style={styles.cancelButton} onPress={() => { isEdit ? setShowEditModal(false) : setShowAddModal(false); resetForm(); closeAllModalDropdowns(); }}>
-                <Text style={styles.cancelButtonText}>Abbrechen</Text>
+              <TouchableOpacity style={[styles.cancelButton, { backgroundColor: colors.surfaceSecondary }]} onPress={() => { isEdit ? setShowEditModal(false) : setShowAddModal(false); resetForm(); closeAllModalDropdowns(); }}>
+                <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.saveButton} onPress={isEdit ? handleUpdateTermin : handleSaveTermin}>
-                <Text style={styles.saveButtonText}>Speichern</Text>
+              <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.primary }]} onPress={isEdit ? handleUpdateTermin : handleSaveTermin}>
+                <Text style={[styles.saveButtonText, { color: colors.primaryText }]}>Speichern</Text>
               </TouchableOpacity>
             </View>
 
             {/* Delete Confirmation Modal */}
             <Modal visible={showDeleteConfirm} transparent animationType="fade">
               <View style={styles.modalOverlay}>
-                <View style={styles.deleteConfirmModal}>
+                <View style={[styles.deleteConfirmModal, { backgroundColor: colors.surface }]}>
                   <Text style={styles.deleteConfirmTitle}>Termin löschen?</Text>
                   <Text style={styles.deleteConfirmText}>Möchtest du diesen Termin wirklich löschen?</Text>
                   <Text style={styles.deleteConfirmTermin}>{selectedTermin?.titel}</Text>
@@ -2168,38 +2633,41 @@ export function TermineScreen({ navigation }: any) {
   const profileInitials = profile ? `${profile.first_name?.[0] || ''}${profile.last_name?.[0] || ''}` : '?';
 
   return (
-    <View style={[styles.container, isMobile && styles.containerMobile]}>
+    <View style={[styles.container, isMobile && styles.containerMobile, { backgroundColor: colors.background }]}>
       {/* Mobile Sidebar Overlay */}
-      {isMobile && showMobileSidebar && (
-        <Pressable style={styles.sidebarOverlay} onPress={() => setShowMobileSidebar(false)}>
-          <Pressable style={styles.sidebarMobile} onPress={(e) => e.stopPropagation()}>
-            <Sidebar navigation={navigation} activeScreen="termine" profile={profile} onNavigate={() => setShowMobileSidebar(false)} embedded />
-          </Pressable>
-        </Pressable>
+      {isMobile && (
+        <MobileSidebar
+          visible={showMobileSidebar}
+          onClose={() => setShowMobileSidebar(false)}
+          navigation={navigation}
+          activeScreen="termine"
+          profile={profile}
+        />
       )}
 
       {/* Desktop Sidebar */}
       {!isMobile && <Sidebar navigation={navigation} activeScreen="termine" profile={profile} />}
 
-      <View style={styles.mainContent}>
+      <View style={[styles.mainContent, { backgroundColor: colors.background }]}>
         {/* Mobile Header */}
         {isMobile && (
           <MobileHeader
             title={viewMode === 'spiele' ? 'Spiele unserer Spieler' : viewMode === 'termine' ? 'Weitere Termine' : 'Spieltage'}
             onMenuPress={() => setShowMobileSidebar(true)}
+            onProfilePress={() => navigation.navigate('MyProfile')}
             profileInitials={profileInitials}
           />
         )}
 
         {/* Desktop Header */}
         {!isMobile && viewMode === 'dashboard' && (
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.navigate('AdvisorDashboard')} style={styles.backButton}>
-              <Text style={styles.backButtonText}>← Zurück</Text>
+          <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+            <TouchableOpacity onPress={() => navigation.navigate('AdvisorDashboard')} style={[styles.backButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
+              <Text style={[styles.backButtonText, { color: colors.textSecondary }]}>← Zurück</Text>
             </TouchableOpacity>
             <View style={styles.headerCenter}>
-              <Text style={styles.headerTitle}>Spieltage</Text>
-              <Text style={styles.headerSubtitle}>Übersicht über Spieltage unserer Spieler und weitere Lehrgänge und Termine</Text>
+              <Text style={[styles.headerTitle, { color: colors.text }]}>Spieltage</Text>
+              <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Übersicht über Spieltage unserer Spieler und weitere Lehrgänge und Termine</Text>
             </View>
             <View style={{ width: 80 }} />
           </View>
@@ -2626,8 +3094,8 @@ const styles = StyleSheet.create({
   },
   mobileGameCardPlayers: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    alignItems: 'flex-end',
+    gap: 3,
     paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: '#d1d5db',
@@ -2838,4 +3306,288 @@ const styles = StyleSheet.create({
   artHallenturnier: { backgroundColor: '#d1ecf1' },
   artHallenturnierText: { color: '#0c5460' },
   artSonstige: { backgroundColor: '#6c757d' },
+
+  // Mobile Termine Styles
+  mobileTermineContainer: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+  mobileTermineToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    gap: 8,
+  },
+  mobileTermineToggle: {
+    flexDirection: 'row',
+    backgroundColor: '#f1f5f9',
+    borderRadius: 8,
+    padding: 4,
+    marginHorizontal: 12,
+    marginTop: 12,
+  },
+  mobileTermineToggleBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 6,
+  },
+  mobileTermineToggleBtnActive: {
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  mobileTermineToggleBtnText: {
+    fontSize: 13,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  mobileTermineToggleBtnTextActive: {
+    color: '#1a1a1a',
+    fontWeight: '600',
+  },
+  mobileTermineList: {
+    flex: 1,
+  },
+  mobileTermineListContent: {
+    padding: 12,
+    paddingBottom: 80,
+  },
+  mobileTerminCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    minHeight: 80,
+    justifyContent: 'space-between',
+  },
+  mobileTerminCardRunning: {
+    backgroundColor: '#dcfce7',
+    borderColor: '#86efac',
+  },
+  mobileTerminCardArchiv: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#e2e8f0',
+  },
+  mobileTerminCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  mobileTerminCardCategory: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  mobileTerminCardCategoryArchiv: {
+    color: '#94a3b8',
+  },
+  mobileTerminCardDate: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  mobileTerminCardDateArchiv: {
+    color: '#94a3b8',
+  },
+  mobileTerminCardCenter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+  },
+  mobileTerminCardTitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1a1a1a',
+    textAlign: 'center',
+  },
+  mobileTerminCardTitleArchiv: {
+    color: '#64748b',
+  },
+  mobileTerminCardFooter: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 3,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+  },
+  mobileTerminCardOrtLabel: {
+    fontSize: 13,
+  },
+  mobileTerminCardOrt: {
+    fontSize: 13,
+    color: '#64748b',
+    flex: 1,
+  },
+  mobileTerminCardOrtArchiv: {
+    color: '#94a3b8',
+  },
+  mobileTermineAddBtn: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#1a1a1a',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  mobileTermineAddBtnText: {
+    fontSize: 22,
+    color: '#fff',
+    fontWeight: '300',
+  },
+
+  // Mobile Modal Styles
+  mobileModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  mobileModalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '90%',
+  },
+  mobileModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  mobileModalTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#1a1a1a',
+  },
+  mobileModalClose: {
+    fontSize: 20,
+    color: '#64748b',
+    padding: 4,
+  },
+  mobileModalScroll: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  mobileModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 16,
+    gap: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+  },
+  mobileModalDeleteBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    backgroundColor: '#fee2e2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  mobileModalDeleteText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#dc2626',
+  },
+  mobileModalCancelBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+  },
+  mobileModalCancelText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  mobileModalSaveBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    backgroundColor: '#1a1a1a',
+  },
+  mobileModalSaveText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  mobileFormLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748b',
+    marginBottom: 6,
+    marginTop: 16,
+  },
+  mobileFormInput: {
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 15,
+    backgroundColor: '#f8fafc',
+  },
+  mobileFormRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  mobileFormThird: {
+    flex: 1,
+  },
+  mobileDropdownButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    padding: 12,
+    backgroundColor: '#f8fafc',
+  },
+  mobileDropdownButtonText: {
+    fontSize: 15,
+    color: '#1a1a1a',
+  },
+  mobileArtSelector: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  mobileArtOption: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  mobileArtOptionSelected: {
+    backgroundColor: '#1a1a1a',
+    borderColor: '#1a1a1a',
+  },
+  mobileArtOptionText: {
+    fontSize: 13,
+    color: '#64748b',
+  },
+  mobileArtOptionTextSelected: {
+    color: '#fff',
+  },
 });

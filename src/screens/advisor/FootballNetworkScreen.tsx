@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 import { MobileHeader } from '../../components/MobileHeader';
+import { MobileSidebar } from '../../components/MobileSidebar';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -219,18 +220,19 @@ export function FootballNetworkScreen({ navigation }: any) {
   if (isMobile) {
     return (
       <View style={styles.containerMobile}>
-        {showMobileSidebar && (
-          <Pressable style={styles.sidebarOverlay} onPress={() => setShowMobileSidebar(false)}>
-            <Pressable style={styles.sidebarMobile} onPress={(e) => e.stopPropagation()}>
-              <Sidebar navigation={navigation} activeScreen="network" profile={profile} onNavigate={() => setShowMobileSidebar(false)} embedded />
-            </Pressable>
-          </Pressable>
-        )}
+        <MobileSidebar
+          visible={showMobileSidebar}
+          onClose={() => setShowMobileSidebar(false)}
+          navigation={navigation}
+          activeScreen="network"
+          profile={profile}
+        />
 
         <View style={styles.mainContentMobile}>
           <MobileHeader
             title="Network"
             onMenuPress={() => setShowMobileSidebar(true)}
+            onProfilePress={() => navigation.navigate('MyProfile')}
             profileInitials={profileInitials}
           />
 
@@ -618,12 +620,14 @@ export function FootballNetworkScreen({ navigation }: any) {
   return (
     <View style={[styles.container, isMobile && styles.containerMobile]}>
       {/* Mobile Sidebar Overlay */}
-      {isMobile && showMobileSidebar && (
-        <Pressable style={styles.sidebarOverlay} onPress={() => setShowMobileSidebar(false)}>
-          <Pressable style={styles.sidebarMobile} onPress={(e) => e.stopPropagation()}>
-            <Sidebar navigation={navigation} activeScreen="network" profile={profile} onNavigate={() => setShowMobileSidebar(false)} embedded />
-          </Pressable>
-        </Pressable>
+      {isMobile && (
+        <MobileSidebar
+          visible={showMobileSidebar}
+          onClose={() => setShowMobileSidebar(false)}
+          navigation={navigation}
+          activeScreen="network"
+          profile={profile}
+        />
       )}
 
       {/* Desktop Sidebar */}
@@ -635,6 +639,7 @@ export function FootballNetworkScreen({ navigation }: any) {
           <MobileHeader
             title="Network"
             onMenuPress={() => setShowMobileSidebar(true)}
+            onProfilePress={() => navigation.navigate('MyProfile')}
             profileInitials={profileInitials}
           />
         )}

@@ -1,25 +1,29 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface MobileHeaderProps {
   title: string;
   onMenuPress: () => void;
+  onProfilePress?: () => void;
   profileInitials?: string;
 }
 
-export function MobileHeader({ title, onMenuPress, profileInitials }: MobileHeaderProps) {
+export function MobileHeader({ title, onMenuPress, onProfilePress, profileInitials }: MobileHeaderProps) {
+  const { colors } = useTheme();
+
   return (
-    <View style={styles.header}>
-      <TouchableOpacity style={styles.menuButton} onPress={onMenuPress}>
-        <Ionicons name="menu" size={24} color="#1a1a1a" />
+    <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+      <TouchableOpacity style={[styles.menuButton, { backgroundColor: colors.surfaceSecondary }]} onPress={onMenuPress}>
+        <Ionicons name="menu" size={24} color={colors.text} />
       </TouchableOpacity>
 
-      <Text style={styles.title}>{title}</Text>
+      <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
 
-      <View style={styles.profileButton}>
-        <Text style={styles.profileInitials}>{profileInitials || '?'}</Text>
-      </View>
+      <TouchableOpacity style={[styles.profileButton, { backgroundColor: colors.primary }]} onPress={onProfilePress}>
+        <Text style={[styles.profileInitials, { color: colors.primaryText }]}>{profileInitials || '?'}</Text>
+      </TouchableOpacity>
     </View>
   );
 }
