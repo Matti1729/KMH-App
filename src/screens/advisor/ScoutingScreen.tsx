@@ -3869,7 +3869,7 @@ export function ScoutingScreen({ navigation }: any) {
               <View style={styles.modalButtons}>
                 {isEditing ? (
                   <>
-                    <TouchableOpacity style={styles.deleteButton} onPress={() => deleteScoutedPlayer(selectedPlayer.id)}><Text style={styles.deleteButtonText}>Löschen</Text></TouchableOpacity>
+                    <TouchableOpacity style={styles.deleteButton} onPress={() => setShowDeleteConfirm(true)}><Text style={styles.deleteButtonText}>Löschen</Text></TouchableOpacity>
                     <TouchableOpacity style={styles.cancelButton} onPress={() => { setIsEditing(false); setShowEditClubDropdown(false); }}><Text style={styles.cancelButtonText}>Abbrechen</Text></TouchableOpacity>
                     <TouchableOpacity style={styles.saveButton} onPress={updateScoutedPlayer}><Text style={styles.saveButtonText}>Speichern</Text></TouchableOpacity>
                   </>
@@ -3994,6 +3994,26 @@ export function ScoutingScreen({ navigation }: any) {
           </View>
         </View>
       </Modal>
+
+      {/* Delete Confirmation Modal (Desktop) */}
+      {showDeleteConfirm && selectedPlayer && (
+        <Modal visible={showDeleteConfirm} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.deleteConfirmModal}>
+              <Text style={styles.deleteConfirmTitle}>Spieler löschen</Text>
+              <Text style={styles.deleteConfirmText}>Möchten Sie {selectedPlayer.first_name} {selectedPlayer.last_name} wirklich löschen?</Text>
+              <View style={styles.deleteConfirmButtons}>
+                <TouchableOpacity style={styles.deleteConfirmCancelBtn} onPress={() => setShowDeleteConfirm(false)}>
+                  <Text style={styles.deleteConfirmCancelText}>Abbrechen</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.deleteConfirmDeleteBtn} onPress={() => { setShowDeleteConfirm(false); deleteScoutedPlayer(selectedPlayer.id); setShowPlayerDetailModal(false); setIsEditing(false); }}>
+                  <Text style={styles.deleteConfirmDeleteText}>Löschen</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
     </Pressable>
   );
 }

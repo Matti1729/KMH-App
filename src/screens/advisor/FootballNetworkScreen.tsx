@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Pressable } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 import { MobileHeader } from '../../components/MobileHeader';
@@ -11,6 +12,8 @@ const BEREICHE = ['Herren', 'Nachwuchs'];
 const POSITIONS_HERREN = ['Trainer', 'Co-Trainer', 'Torwarttrainer', 'Sportdirektor', 'Präsident', 'Vorstand', 'Geschäftsführer', 'Scout'];
 const POSITIONS_NACHWUCHS = ['NLZ-Leiter', 'Trainer', 'Scout'];
 const ALL_POSITIONS = [...new Set([...POSITIONS_HERREN, ...POSITIONS_NACHWUCHS])];
+const MANNSCHAFTEN_HERREN = ['1. Mannschaft', 'U23'];
+const MANNSCHAFTEN_NACHWUCHS = ['U19', 'U17', 'U16', 'U15', 'U14', 'U13'];
 const COUNTRY_CODES = [
   { code: '+49', country: 'Deutschland' }, { code: '+43', country: 'Österreich' }, { code: '+41', country: 'Schweiz' },
   { code: '+31', country: 'Niederlande' }, { code: '+32', country: 'Belgien' }, { code: '+33', country: 'Frankreich' },
@@ -20,7 +23,7 @@ const COUNTRY_CODES = [
 
 interface Contact {
   id: string; vorname: string; nachname: string; verein: string; liga: string;
-  bereich: string; position: string; telefon_code: string; telefon: string;
+  bereich: string; position: string; mannschaft: string; telefon_code: string; telefon: string;
   email: string; notes?: string; created_at: string;
 }
 
@@ -41,11 +44,18 @@ export function FootballNetworkScreen({ navigation }: any) {
   const [showBereichDropdown, setShowBereichDropdown] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
-  const [newContact, setNewContact] = useState({ vorname: '', nachname: '', verein: '', liga: '', bereich: '', position: '', telefon_code: '+49', telefon: '', email: '', notes: '' });
+  const [newContact, setNewContact] = useState({ vorname: '', nachname: '', verein: '', liga: '', bereich: '', position: '', mannschaft: '', telefon_code: '+49', telefon: '', email: '', notes: '' });
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [vereinSearch, setVereinSearch] = useState('');
   const [ligaSearch, setLigaSearch] = useState('');
   const [profile, setProfile] = useState<{ first_name?: string; last_name?: string; role?: string } | null>(null);
+
+  // Mobile States
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [showContactDetailModal, setShowContactDetailModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showDesktopDetailModal, setShowDesktopDetailModal] = useState(false);
 
   // Daten nur laden wenn Auth bereit ist
   useEffect(() => {
@@ -109,7 +119,7 @@ export function FootballNetworkScreen({ navigation }: any) {
 
   const openEditModal = (contact: Contact) => {
     setEditingContact(contact);
-    setNewContact({ vorname: contact.vorname || '', nachname: contact.nachname || '', verein: contact.verein || '', liga: contact.liga || '', bereich: contact.bereich || '', position: contact.position || '', telefon_code: contact.telefon_code || '+49', telefon: contact.telefon || '', email: contact.email || '', notes: contact.notes || '' });
+    setNewContact({ vorname: contact.vorname || '', nachname: contact.nachname || '', verein: contact.verein || '', liga: contact.liga || '', bereich: contact.bereich || '', position: contact.position || '', mannschaft: contact.mannschaft || '', telefon_code: contact.telefon_code || '+49', telefon: contact.telefon || '', email: contact.email || '', notes: contact.notes || '' });
     setVereinSearch(contact.verein || '');
     setLigaSearch(contact.liga || '');
     setShowAddModal(true);
@@ -117,11 +127,12 @@ export function FootballNetworkScreen({ navigation }: any) {
 
   const closeModal = () => {
     setShowAddModal(false); setEditingContact(null);
-    setNewContact({ vorname: '', nachname: '', verein: '', liga: '', bereich: '', position: '', telefon_code: '+49', telefon: '', email: '', notes: '' });
+    setNewContact({ vorname: '', nachname: '', verein: '', liga: '', bereich: '', position: '', mannschaft: '', telefon_code: '+49', telefon: '', email: '', notes: '' });
     setVereinSearch(''); setLigaSearch(''); setActiveDropdown(null);
   };
 
   const getAvailablePositions = () => newContact.bereich === 'Herren' ? POSITIONS_HERREN : newContact.bereich === 'Nachwuchs' ? POSITIONS_NACHWUCHS : [];
+  const getAvailableMannschaften = () => newContact.bereich === 'Herren' ? MANNSCHAFTEN_HERREN : newContact.bereich === 'Nachwuchs' ? MANNSCHAFTEN_NACHWUCHS : [];
   const filteredClubs = useMemo(() => !vereinSearch.trim() ? clubs : clubs.filter(c => c.toLowerCase().includes(vereinSearch.toLowerCase())), [clubs, vereinSearch]);
   const filteredLeagues = useMemo(() => !ligaSearch.trim() ? LEAGUES : LEAGUES.filter(l => l.toLowerCase().includes(ligaSearch.toLowerCase())), [ligaSearch]);
 
@@ -147,6 +158,451 @@ export function FootballNetworkScreen({ navigation }: any) {
   // Profile initials for header
   const profileInitials = profile ? `${profile.first_name?.[0] || ''}${profile.last_name?.[0] || ''}` : '?';
 
+  // Active filter count for mobile
+  const activeFilterCount = selectedPositions.length + selectedLeagues.length + selectedBereiche.length;
+
+  // Handle contact click for mobile detail modal
+  const handleContactClick = (contact: Contact) => {
+    if (isMobile) {
+      setSelectedContact(contact);
+      setShowContactDetailModal(true);
+    } else {
+      openEditModal(contact);
+    }
+  };
+
+  // Open edit from detail modal
+  const openEditFromDetail = () => {
+    if (selectedContact) {
+      setShowContactDetailModal(false);
+      openEditModal(selectedContact);
+    }
+  };
+
+  // Mobile Contact Card
+  const renderMobileContactCard = (contact: Contact) => {
+    const logoUrl = getClubLogo(contact.verein);
+    return (
+      <TouchableOpacity
+        key={contact.id}
+        style={styles.mobileCard}
+        onPress={() => handleContactClick(contact)}
+      >
+        <View style={styles.mobileCardHeader}>
+          <View style={styles.mobileCardNameRow}>
+            {logoUrl && <Image source={{ uri: logoUrl }} style={styles.mobileCardClubLogo} />}
+            <View style={styles.mobileCardNameContainer}>
+              <Text style={styles.mobileCardName}>{formatName(contact)}</Text>
+              <Text style={styles.mobileCardClub}>{contact.verein || '-'}</Text>
+            </View>
+          </View>
+          <View style={styles.mobileCardBadgesRight}>
+            {(contact.position || contact.mannschaft) && (
+              <View style={styles.mobilePositionBadge}>
+                <Text style={styles.mobilePositionText}>{[contact.position, contact.mannschaft].filter(Boolean).join(' · ')}</Text>
+              </View>
+            )}
+            {contact.bereich && (
+              <View style={[styles.mobileBereichBadge, contact.bereich === 'Nachwuchs' && styles.mobileBereichBadgeNachwuchs]}>
+                <Text style={[styles.mobileBereichText, contact.bereich === 'Nachwuchs' && styles.mobileBereichTextNachwuchs]}>{contact.bereich}</Text>
+              </View>
+            )}
+          </View>
+        </View>
+        <View style={styles.mobileCardDetails}>
+          {contact.telefon && (
+            <View style={styles.mobileCardRow}>
+              <Text style={styles.mobileCardLabel}>Telefon</Text>
+              <Text style={styles.mobileCardValue}>{formatPhone(contact)}</Text>
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  // Mobile View
+  if (isMobile) {
+    return (
+      <View style={styles.containerMobile}>
+        {showMobileSidebar && (
+          <Pressable style={styles.sidebarOverlay} onPress={() => setShowMobileSidebar(false)}>
+            <Pressable style={styles.sidebarMobile} onPress={(e) => e.stopPropagation()}>
+              <Sidebar navigation={navigation} activeScreen="network" profile={profile} onNavigate={() => setShowMobileSidebar(false)} embedded />
+            </Pressable>
+          </Pressable>
+        )}
+
+        <View style={styles.mainContentMobile}>
+          <MobileHeader
+            title="Network"
+            onMenuPress={() => setShowMobileSidebar(true)}
+            profileInitials={profileInitials}
+          />
+
+          {/* Mobile Toolbar */}
+          <View style={styles.mobileToolbar}>
+            <View style={styles.mobileSearchContainer}>
+              <Text style={styles.mobileSearchIcon}>🔍</Text>
+              <TextInput
+                style={styles.mobileSearchInput}
+                placeholder="Name, Verein suchen..."
+                placeholderTextColor="#9ca3af"
+                value={searchText}
+                onChangeText={setSearchText}
+              />
+            </View>
+            <TouchableOpacity
+              style={[styles.mobileFilterButton, activeFilterCount > 0 && styles.mobileFilterButtonActive]}
+              onPress={() => setShowMobileFilters(true)}
+            >
+              <Ionicons name="filter" size={20} color={activeFilterCount > 0 ? "#fff" : "#64748b"} />
+              {activeFilterCount > 0 && (
+                <View style={styles.filterCountBubble}>
+                  <Text style={styles.filterCountText}>{activeFilterCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Contact Count */}
+          <View style={styles.mobileSubheader}>
+            <Text style={styles.mobileSubheaderText}>{filteredContacts.length} Kontakte</Text>
+          </View>
+
+          {/* Contact Cards */}
+          <ScrollView style={styles.mobileCardList} contentContainerStyle={styles.mobileCardListContent}>
+            {filteredContacts.length === 0 ? (
+              <Text style={styles.emptyText}>
+                {contacts.length === 0 ? 'Noch keine Kontakte vorhanden' : 'Keine Kontakte gefunden'}
+              </Text>
+            ) : (
+              filteredContacts.map(contact => renderMobileContactCard(contact))
+            )}
+          </ScrollView>
+
+          {/* FAB Button */}
+          <TouchableOpacity style={styles.fab} onPress={() => setShowAddModal(true)}>
+            <Text style={styles.fabText}>+</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Mobile Filter Modal */}
+        <Modal visible={showMobileFilters} transparent animationType="slide">
+          <View style={styles.mobileFilterModal}>
+            <View style={styles.mobileFilterHeader}>
+              <Text style={styles.mobileFilterTitle}>Filter</Text>
+              <TouchableOpacity onPress={() => setShowMobileFilters(false)}>
+                <Text style={styles.mobileFilterClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.mobileFilterContent}>
+              {/* Bereich Filter */}
+              <Text style={styles.mobileFilterSectionTitle}>Bereich</Text>
+              <View style={styles.mobileChipContainer}>
+                {BEREICHE.map(bereich => {
+                  const isSelected = selectedBereiche.includes(bereich);
+                  return (
+                    <TouchableOpacity
+                      key={bereich}
+                      style={[styles.mobileChip, isSelected && styles.mobileChipSelected]}
+                      onPress={() => toggleBereich(bereich)}
+                    >
+                      <Text style={[styles.mobileChipText, isSelected && styles.mobileChipTextSelected]}>
+                        {bereich}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Position Filter */}
+              <Text style={styles.mobileFilterSectionTitle}>Position</Text>
+              <View style={styles.mobileChipContainer}>
+                {ALL_POSITIONS.map(position => {
+                  const isSelected = selectedPositions.includes(position);
+                  return (
+                    <TouchableOpacity
+                      key={position}
+                      style={[styles.mobileChip, isSelected && styles.mobileChipSelected]}
+                      onPress={() => togglePosition(position)}
+                    >
+                      <Text style={[styles.mobileChipText, isSelected && styles.mobileChipTextSelected]}>
+                        {position}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Liga Filter */}
+              <Text style={styles.mobileFilterSectionTitle}>Liga</Text>
+              <View style={styles.mobileChipContainer}>
+                {LEAGUES.map(league => {
+                  const isSelected = selectedLeagues.includes(league);
+                  return (
+                    <TouchableOpacity
+                      key={league}
+                      style={[styles.mobileChip, isSelected && styles.mobileChipSelected]}
+                      onPress={() => toggleLeague(league)}
+                    >
+                      <Text style={[styles.mobileChipText, isSelected && styles.mobileChipTextSelected]}>
+                        {league}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </ScrollView>
+
+            {/* Filter Actions */}
+            <View style={styles.mobileFilterActions}>
+              <TouchableOpacity
+                style={styles.mobileFilterClearButton}
+                onPress={() => { setSelectedBereiche([]); setSelectedPositions([]); setSelectedLeagues([]); }}
+              >
+                <Text style={styles.mobileFilterClearText}>Zurücksetzen</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.mobileFilterApplyButton} onPress={() => setShowMobileFilters(false)}>
+                <Text style={styles.mobileFilterApplyText}>Anwenden</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Mobile Contact Detail Modal */}
+        <Modal visible={showContactDetailModal} transparent animationType="slide">
+          <Pressable style={styles.modalOverlay} onPress={() => setShowContactDetailModal(false)}>
+            <Pressable style={styles.mobileDetailModal} onPress={(e) => e.stopPropagation()}>
+              {selectedContact && (
+                <>
+                  <View style={styles.mobileDetailHeader}>
+                    <View style={styles.mobileDetailNameRow}>
+                      {getClubLogo(selectedContact.verein) && (
+                        <Image source={{ uri: getClubLogo(selectedContact.verein)! }} style={styles.mobileDetailLogo} />
+                      )}
+                      <View>
+                        <Text style={styles.mobileDetailName}>{formatName(selectedContact)}</Text>
+                        <Text style={styles.mobileDetailClub}>{selectedContact.verein || '-'}</Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity onPress={() => setShowContactDetailModal(false)}>
+                      <Text style={styles.mobileDetailClose}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <ScrollView style={styles.mobileDetailContent}>
+                    <View style={styles.mobileDetailBox}>
+                      <Text style={styles.mobileDetailLabel}>Bereich</Text>
+                      {selectedContact.bereich ? (
+                        <View style={[styles.mobileBereichBadge, selectedContact.bereich === 'Nachwuchs' && styles.mobileBereichBadgeNachwuchs, { alignSelf: 'flex-start' }]}>
+                          <Text style={[styles.mobileBereichText, selectedContact.bereich === 'Nachwuchs' && styles.mobileBereichTextNachwuchs]}>{selectedContact.bereich}</Text>
+                        </View>
+                      ) : <Text style={styles.mobileDetailValue}>-</Text>}
+                    </View>
+
+                    <View style={styles.mobileDetailBox}>
+                      <Text style={styles.mobileDetailLabel}>Position</Text>
+                      {(selectedContact.position || selectedContact.mannschaft) ? (
+                        <View style={[styles.mobilePositionBadge, { alignSelf: 'flex-start' }]}>
+                          <Text style={styles.mobilePositionText}>{[selectedContact.position, selectedContact.mannschaft].filter(Boolean).join(' · ')}</Text>
+                        </View>
+                      ) : <Text style={styles.mobileDetailValue}>-</Text>}
+                    </View>
+
+                    <View style={styles.mobileDetailBox}>
+                      <Text style={styles.mobileDetailLabel}>Telefon</Text>
+                      <Text style={styles.mobileDetailValue}>{formatPhone(selectedContact)}</Text>
+                    </View>
+
+                    <View style={styles.mobileDetailBox}>
+                      <Text style={styles.mobileDetailLabel}>E-Mail</Text>
+                      <Text style={[styles.mobileDetailValue, selectedContact.email && { color: '#3b82f6' }]}>{selectedContact.email || '-'}</Text>
+                    </View>
+
+                    <View style={styles.mobileDetailBox}>
+                      <Text style={styles.mobileDetailLabel}>Liga (Zugehörigkeit 1. Mannschaft)</Text>
+                      <Text style={styles.mobileDetailValue}>{selectedContact.liga || '-'}</Text>
+                    </View>
+
+                    {selectedContact.notes && (
+                      <View style={styles.mobileDetailBox}>
+                        <Text style={styles.mobileDetailLabel}>Weitere Informationen</Text>
+                        <Text style={styles.mobileDetailValue}>{selectedContact.notes}</Text>
+                      </View>
+                    )}
+                  </ScrollView>
+
+                  <View style={styles.mobileDetailFooter}>
+                    <TouchableOpacity style={styles.mobileEditButton} onPress={openEditFromDetail}>
+                      <Text style={styles.mobileEditText}>Bearbeiten</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+            </Pressable>
+          </Pressable>
+        </Modal>
+
+        {/* Add/Edit Modal for Mobile */}
+        <Modal visible={showAddModal} transparent animationType="fade">
+          <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={closeModal}>
+            <TouchableOpacity style={styles.mobileFormModal} activeOpacity={1} onPress={() => setActiveDropdown(null)}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>{editingContact ? 'Kontakt bearbeiten' : 'Neuer Kontakt'}</Text>
+                <TouchableOpacity onPress={closeModal} style={styles.closeButton}><Text style={styles.closeButtonText}>✕</Text></TouchableOpacity>
+              </View>
+              <ScrollView style={styles.modalScroll}>
+                <View style={styles.formField}><Text style={styles.formLabel}>Vorname</Text><TextInput style={styles.formInput} value={newContact.vorname} onChangeText={(t) => setNewContact({...newContact, vorname: t})} placeholder="Vorname" placeholderTextColor="#9ca3af" onFocus={() => setActiveDropdown(null)} /></View>
+                <View style={styles.formField}><Text style={styles.formLabel}>Nachname *</Text><TextInput style={styles.formInput} value={newContact.nachname} onChangeText={(t) => setNewContact({...newContact, nachname: t})} placeholder="Nachname" placeholderTextColor="#9ca3af" onFocus={() => setActiveDropdown(null)} /></View>
+
+                <View style={styles.formField}>
+                  <Text style={styles.formLabel}>Verein</Text>
+                  <TouchableOpacity style={styles.formSelect} onPress={() => setActiveDropdown(activeDropdown === 'verein' ? null : 'verein')}>
+                    <Text style={newContact.verein ? styles.formSelectText : styles.formSelectPlaceholder}>{newContact.verein || 'Verein auswählen...'}</Text>
+                    <Text style={styles.formSelectArrow}>▼</Text>
+                  </TouchableOpacity>
+                  {activeDropdown === 'verein' && (
+                    <View style={styles.dropdownList}>
+                      <TextInput style={styles.dropdownSearch} value={vereinSearch} onChangeText={setVereinSearch} placeholder="Verein suchen..." placeholderTextColor="#9ca3af" autoFocus />
+                      <ScrollView style={styles.dropdownScroll}>
+                        {filteredClubs.map(club => (
+                          <TouchableOpacity key={club} style={styles.dropdownItem} onPress={() => { setNewContact({...newContact, verein: club}); setVereinSearch(''); setActiveDropdown(null); }}>
+                            <View style={styles.clubItemRow}>{getClubLogo(club) && <Image source={{ uri: getClubLogo(club)! }} style={styles.clubLogo} />}<Text style={styles.dropdownItemText}>{club}</Text></View>
+                          </TouchableOpacity>
+                        ))}
+                        {vereinSearch.trim() && !clubs.includes(vereinSearch) && (
+                          <TouchableOpacity style={[styles.dropdownItem, styles.dropdownItemNew]} onPress={() => { setNewContact({...newContact, verein: vereinSearch}); setVereinSearch(''); setActiveDropdown(null); }}>
+                            <Text style={styles.dropdownItemText}>+ "{vereinSearch}" hinzufügen</Text>
+                          </TouchableOpacity>
+                        )}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.formField}>
+                  <Text style={styles.formLabel}>Bereich</Text>
+                  <TouchableOpacity style={styles.formSelect} onPress={() => setActiveDropdown(activeDropdown === 'bereich' ? null : 'bereich')}>
+                    <Text style={newContact.bereich ? styles.formSelectText : styles.formSelectPlaceholder}>{newContact.bereich || 'Bereich auswählen...'}</Text>
+                    <Text style={styles.formSelectArrow}>▼</Text>
+                  </TouchableOpacity>
+                  {activeDropdown === 'bereich' && (
+                    <View style={styles.dropdownList}>
+                      <ScrollView style={styles.dropdownScroll}>
+                        {BEREICHE.map(b => (<TouchableOpacity key={b} style={styles.dropdownItem} onPress={() => { setNewContact({...newContact, bereich: b, position: '', mannschaft: ''}); setActiveDropdown(null); }}><Text style={styles.dropdownItemText}>{b}</Text></TouchableOpacity>))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.formField}>
+                  <Text style={styles.formLabel}>Position</Text>
+                  <TouchableOpacity style={[styles.formSelect, !newContact.bereich && styles.formSelectDisabled]} onPress={() => newContact.bereich && setActiveDropdown(activeDropdown === 'position' ? null : 'position')}>
+                    <Text style={newContact.position ? styles.formSelectText : styles.formSelectPlaceholder}>{newContact.position || (newContact.bereich ? 'Position auswählen...' : 'Erst Bereich wählen')}</Text>
+                    <Text style={styles.formSelectArrow}>▼</Text>
+                  </TouchableOpacity>
+                  {activeDropdown === 'position' && newContact.bereich && (
+                    <View style={styles.dropdownList}>
+                      <ScrollView style={styles.dropdownScroll}>
+                        {getAvailablePositions().map(p => (<TouchableOpacity key={p} style={styles.dropdownItem} onPress={() => { setNewContact({...newContact, position: p}); setActiveDropdown(null); }}><Text style={styles.dropdownItemText}>{p}</Text></TouchableOpacity>))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.formField}>
+                  <Text style={styles.formLabel}>Mannschaft</Text>
+                  <TouchableOpacity style={[styles.formSelect, !newContact.bereich && styles.formSelectDisabled]} onPress={() => newContact.bereich && setActiveDropdown(activeDropdown === 'mannschaft' ? null : 'mannschaft')}>
+                    <Text style={newContact.mannschaft ? styles.formSelectText : styles.formSelectPlaceholder}>{newContact.mannschaft || (newContact.bereich ? 'Mannschaft auswählen...' : 'Erst Bereich wählen')}</Text>
+                    <Text style={styles.formSelectArrow}>▼</Text>
+                  </TouchableOpacity>
+                  {activeDropdown === 'mannschaft' && newContact.bereich && (
+                    <View style={styles.dropdownList}>
+                      <ScrollView style={styles.dropdownScroll}>
+                        {getAvailableMannschaften().map(m => (<TouchableOpacity key={m} style={styles.dropdownItem} onPress={() => { setNewContact({...newContact, mannschaft: m}); setActiveDropdown(null); }}><Text style={styles.dropdownItemText}>{m}</Text></TouchableOpacity>))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.formField}>
+                  <Text style={styles.formLabel}>Liga (Zugehörigkeit 1. Mannschaft)</Text>
+                  <TouchableOpacity style={styles.formSelect} onPress={() => setActiveDropdown(activeDropdown === 'liga' ? null : 'liga')}>
+                    <Text style={newContact.liga ? styles.formSelectText : styles.formSelectPlaceholder}>{newContact.liga || 'Liga auswählen...'}</Text>
+                    <Text style={styles.formSelectArrow}>▼</Text>
+                  </TouchableOpacity>
+                  {activeDropdown === 'liga' && (
+                    <View style={styles.dropdownList}>
+                      <TextInput style={styles.dropdownSearch} value={ligaSearch} onChangeText={setLigaSearch} placeholder="Liga suchen..." placeholderTextColor="#9ca3af" autoFocus />
+                      <ScrollView style={styles.dropdownScroll}>
+                        {filteredLeagues.map(league => (
+                          <TouchableOpacity key={league} style={styles.dropdownItem} onPress={() => { setNewContact({...newContact, liga: league}); setLigaSearch(''); setActiveDropdown(null); }}>
+                            <Text style={styles.dropdownItemText}>{league}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.formField}>
+                  <Text style={styles.formLabel}>Telefon</Text>
+                  <View style={styles.phoneRow}>
+                    <TouchableOpacity style={styles.countryCodeButton} onPress={() => setActiveDropdown(activeDropdown === 'country' ? null : 'country')}>
+                      <Text style={styles.countryCodeText}>{newContact.telefon_code}</Text><Text style={styles.countryCodeArrow}>▼</Text>
+                    </TouchableOpacity>
+                    <TextInput style={[styles.formInput, styles.phoneInput]} value={newContact.telefon} onChangeText={(t) => setNewContact({...newContact, telefon: t})} placeholder="123 456789" placeholderTextColor="#9ca3af" keyboardType="phone-pad" onFocus={() => setActiveDropdown(null)} />
+                  </View>
+                  {activeDropdown === 'country' && (
+                    <View style={[styles.dropdownList, { width: 200 }]}>
+                      <ScrollView style={styles.dropdownScroll}>
+                        {COUNTRY_CODES.map(cc => (<TouchableOpacity key={cc.code} style={styles.dropdownItem} onPress={() => { setNewContact({...newContact, telefon_code: cc.code}); setActiveDropdown(null); }}><Text style={styles.dropdownItemText}>{cc.code} {cc.country}</Text></TouchableOpacity>))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.formField}><Text style={styles.formLabel}>E-Mail</Text><TextInput style={styles.formInput} value={newContact.email} onChangeText={(t) => setNewContact({...newContact, email: t})} placeholder="email@beispiel.de" placeholderTextColor="#9ca3af" keyboardType="email-address" onFocus={() => setActiveDropdown(null)} /></View>
+                <View style={styles.formField}><Text style={styles.formLabel}>Weitere Informationen</Text><TextInput style={[styles.formInput, styles.textArea]} value={newContact.notes} onChangeText={(t) => setNewContact({...newContact, notes: t})} placeholder="Zusätzliche Informationen..." placeholderTextColor="#9ca3af" multiline numberOfLines={3} onFocus={() => setActiveDropdown(null)} /></View>
+              </ScrollView>
+              <View style={styles.modalButtonsSpaced}>
+                {editingContact && (
+                  <TouchableOpacity style={styles.deleteButton} onPress={() => setShowDeleteConfirm(true)}>
+                    <Text style={styles.deleteButtonText}>Löschen</Text>
+                  </TouchableOpacity>
+                )}
+                <View style={styles.modalButtonsRight}>
+                  <TouchableOpacity style={styles.cancelButton} onPress={closeModal}><Text style={styles.cancelButtonText}>Abbrechen</Text></TouchableOpacity>
+                  <TouchableOpacity style={styles.saveButton} onPress={editingContact ? updateContact : addContact}><Text style={styles.saveButtonText}>{editingContact ? 'Speichern' : 'Hinzufügen'}</Text></TouchableOpacity>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Modal>
+
+        {/* Delete Confirmation Modal - Mobile */}
+        <Modal visible={showDeleteConfirm} transparent animationType="fade">
+          <Pressable style={styles.modalOverlay} onPress={() => setShowDeleteConfirm(false)}>
+            <View style={styles.deleteConfirmModal}>
+              <Text style={styles.deleteConfirmTitle}>Kontakt löschen</Text>
+              <Text style={styles.deleteConfirmText}>Möchten Sie {editingContact ? `${editingContact.vorname} ${editingContact.nachname}`.trim() : 'diesen Kontakt'} wirklich löschen?</Text>
+              <View style={styles.deleteConfirmButtons}>
+                <TouchableOpacity style={styles.deleteConfirmCancelBtn} onPress={() => setShowDeleteConfirm(false)}>
+                  <Text style={styles.deleteConfirmCancelText}>Abbrechen</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.deleteConfirmDeleteBtn} onPress={() => { if (editingContact) { deleteContact(editingContact.id); setShowDeleteConfirm(false); setShowContactDetailModal(false); closeModal(); } }}>
+                  <Text style={styles.deleteConfirmDeleteText}>Löschen</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Pressable>
+        </Modal>
+      </View>
+    );
+  }
+
+  // Desktop View
   return (
     <View style={[styles.container, isMobile && styles.containerMobile]}>
       {/* Mobile Sidebar Overlay */}
@@ -229,36 +685,34 @@ export function FootballNetworkScreen({ navigation }: any) {
         <View style={styles.content}>
           <View style={styles.tableContainer}>
             <View style={styles.tableHeader}>
-              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Liga</Text>
-              <Text style={[styles.tableHeaderCell, { flex: 1.2 }]}>Verein</Text>
-              <Text style={[styles.tableHeaderCell, { flex: 0.8 }]}>Bereich</Text>
-              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Position</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 1.3 }]}>Verein</Text>
               <Text style={[styles.tableHeaderCell, { flex: 1.2 }]}>Name</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 0.7 }]}>Bereich</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 0.8, marginRight: -8 }]}>Position</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 0.7 }]}>Mannschaft</Text>
               <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Telefon</Text>
               <Text style={[styles.tableHeaderCell, { flex: 1.2 }]}>E-Mail</Text>
-              <Text style={[styles.tableHeaderCell, { width: 50 }]}></Text>
             </View>
             <ScrollView>
               {filteredContacts.length === 0 ? (
                 <View style={styles.emptyState}><Text style={styles.emptyStateText}>{contacts.length === 0 ? 'Noch keine Kontakte vorhanden' : 'Keine Kontakte gefunden'}</Text></View>
               ) : (
                 filteredContacts.map(contact => (
-                  <TouchableOpacity key={contact.id} style={styles.tableRow} onPress={() => openEditModal(contact)}>
-                    <Text style={[styles.tableCell, styles.tableCellBold, { flex: 1 }]}>{contact.liga || '-'}</Text>
-                    <View style={[styles.tableCellView, { flex: 1.2, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start' }]}>
+                  <TouchableOpacity key={contact.id} style={styles.tableRow} onPress={() => { setSelectedContact(contact); setShowDesktopDetailModal(true); }}>
+                    <View style={[styles.tableCellView, { flex: 1.3, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start' }]}>
                       {getClubLogo(contact.verein) && <Image source={{ uri: getClubLogo(contact.verein)! }} style={styles.tableClubLogo} />}
                       <Text style={[styles.tableCell, styles.tableCellBold]} numberOfLines={1}>{contact.verein || '-'}</Text>
                     </View>
-                    <View style={[styles.tableCellView, { flex: 0.8 }]}>
+                    <Text style={[styles.tableCell, styles.tableCellBold, { flex: 1.2 }]}>{formatName(contact)}</Text>
+                    <View style={[styles.tableCellView, { flex: 0.7 }]}>
                       {contact.bereich ? <View style={[styles.bereichBadge, contact.bereich === 'Nachwuchs' && styles.bereichBadgeNachwuchs]}><Text style={[styles.bereichText, contact.bereich === 'Nachwuchs' && styles.bereichTextNachwuchs]}>{contact.bereich}</Text></View> : <Text style={styles.tableCell}>-</Text>}
                     </View>
-                    <View style={[styles.tableCellView, { flex: 1 }]}>
+                    <View style={[styles.tableCellView, { flex: 0.8, marginRight: -8 }]}>
                       {contact.position ? <View style={styles.positionBadge}><Text style={styles.positionText}>{contact.position}</Text></View> : <Text style={styles.tableCell}>-</Text>}
                     </View>
-                    <Text style={[styles.tableCell, styles.tableCellBold, { flex: 1.2 }]}>{formatName(contact)}</Text>
+                    <Text style={[styles.tableCell, { flex: 0.7 }]}>{contact.mannschaft || '-'}</Text>
                     <Text style={[styles.tableCell, { flex: 1 }]}>{formatPhone(contact)}</Text>
                     <Text style={[styles.tableCell, { flex: 1.2, color: '#3b82f6' }]}>{contact.email || '-'}</Text>
-                    <TouchableOpacity style={[styles.tableCellView, { width: 50, alignItems: 'center' }]} onPress={(e) => { e.stopPropagation(); deleteContact(contact.id); }}><Text style={{ color: '#ef4444' }}>🗑️</Text></TouchableOpacity>
                   </TouchableOpacity>
                 ))
               )}
@@ -266,6 +720,93 @@ export function FootballNetworkScreen({ navigation }: any) {
           </View>
         </View>
       </TouchableOpacity>
+
+      {/* Desktop Detail Modal */}
+      <Modal visible={showDesktopDetailModal} transparent animationType="fade">
+        <Pressable style={styles.modalOverlay} onPress={() => setShowDesktopDetailModal(false)}>
+          <Pressable style={styles.detailModalContent} onPress={(e) => e.stopPropagation()}>
+            {selectedContact && (
+              <>
+                <View style={styles.detailModalHeader}>
+                  <View style={styles.detailModalNameRow}>
+                    {getClubLogo(selectedContact.verein) && (
+                      <Image source={{ uri: getClubLogo(selectedContact.verein)! }} style={styles.detailModalLogo} />
+                    )}
+                    <View>
+                      <Text style={styles.detailModalName}>{formatName(selectedContact)}</Text>
+                      <Text style={styles.detailModalClub}>{selectedContact.verein || '-'}</Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity onPress={() => setShowDesktopDetailModal(false)}>
+                    <Text style={styles.detailModalClose}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.detailModalBody}>
+                  {/* Bereich, Position, Mannschaft - grouped */}
+                  <View style={styles.detailModalBox}>
+                    <View style={styles.detailModalRow}>
+                      <View style={styles.detailModalField}>
+                        <Text style={styles.detailModalLabel}>Bereich</Text>
+                        {selectedContact.bereich ? (
+                          <View style={[styles.bereichBadge, selectedContact.bereich === 'Nachwuchs' && styles.bereichBadgeNachwuchs, { alignSelf: 'flex-start' }]}>
+                            <Text style={[styles.bereichText, selectedContact.bereich === 'Nachwuchs' && styles.bereichTextNachwuchs]}>{selectedContact.bereich}</Text>
+                          </View>
+                        ) : <Text style={styles.detailModalValue}>-</Text>}
+                      </View>
+                      <View style={styles.detailModalField}>
+                        <Text style={styles.detailModalLabel}>Position</Text>
+                        {selectedContact.position ? (
+                          <View style={[styles.positionBadge, { alignSelf: 'flex-start' }]}>
+                            <Text style={styles.positionText}>{selectedContact.position}</Text>
+                          </View>
+                        ) : <Text style={styles.detailModalValue}>-</Text>}
+                      </View>
+                      <View style={styles.detailModalField}>
+                        <Text style={styles.detailModalLabel}>Mannschaft</Text>
+                        <Text style={styles.detailModalValue}>{selectedContact.mannschaft || '-'}</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Telefon, E-Mail - grouped */}
+                  <View style={styles.detailModalBox}>
+                    <View style={styles.detailModalRow}>
+                      <View style={styles.detailModalField}>
+                        <Text style={styles.detailModalLabel}>Telefon</Text>
+                        <Text style={styles.detailModalValue}>{formatPhone(selectedContact)}</Text>
+                      </View>
+                      <View style={styles.detailModalField}>
+                        <Text style={styles.detailModalLabel}>E-Mail</Text>
+                        <Text style={[styles.detailModalValue, selectedContact.email && { color: '#3b82f6' }]}>{selectedContact.email || '-'}</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Liga - separate at bottom */}
+                  <View style={styles.detailModalBox}>
+                    <Text style={styles.detailModalLabel}>Liga (Zugehörigkeit 1. Mannschaft)</Text>
+                    <Text style={styles.detailModalValue}>{selectedContact.liga || '-'}</Text>
+                  </View>
+
+                  {selectedContact.notes && (
+                    <View style={styles.detailModalBox}>
+                      <Text style={styles.detailModalLabel}>Weitere Informationen</Text>
+                      <Text style={styles.detailModalValue}>{selectedContact.notes}</Text>
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.detailModalFooter}>
+                  <TouchableOpacity style={styles.editButton} onPress={() => { setShowDesktopDetailModal(false); openEditModal(selectedContact); }}>
+                    <Text style={styles.editButtonText}>Bearbeiten</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <Modal visible={showAddModal} transparent animationType="fade">
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={closeModal}>
@@ -304,7 +845,52 @@ export function FootballNetworkScreen({ navigation }: any) {
               </View>
 
               <View style={styles.formField}>
-                <Text style={styles.formLabel}>Liga</Text>
+                <Text style={styles.formLabel}>Bereich</Text>
+                <TouchableOpacity style={styles.formSelect} onPress={() => setActiveDropdown(activeDropdown === 'bereich' ? null : 'bereich')}>
+                  <Text style={newContact.bereich ? styles.formSelectText : styles.formSelectPlaceholder}>{newContact.bereich || 'Bereich auswählen...'}</Text>
+                  <Text style={styles.formSelectArrow}>▼</Text>
+                </TouchableOpacity>
+                {activeDropdown === 'bereich' && (
+                  <View style={styles.dropdownList}>
+                    <ScrollView style={styles.dropdownScroll}>
+                      {BEREICHE.map(b => (<TouchableOpacity key={b} style={styles.dropdownItem} onPress={() => { setNewContact({...newContact, bereich: b, position: '', mannschaft: ''}); setActiveDropdown(null); }}><Text style={styles.dropdownItemText}>{b}</Text></TouchableOpacity>))}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.formField}>
+                <Text style={styles.formLabel}>Position</Text>
+                <TouchableOpacity style={[styles.formSelect, !newContact.bereich && styles.formSelectDisabled]} onPress={() => newContact.bereich && setActiveDropdown(activeDropdown === 'position' ? null : 'position')}>
+                  <Text style={newContact.position ? styles.formSelectText : styles.formSelectPlaceholder}>{newContact.position || (newContact.bereich ? 'Position auswählen...' : 'Erst Bereich wählen')}</Text>
+                  <Text style={styles.formSelectArrow}>▼</Text>
+                </TouchableOpacity>
+                {activeDropdown === 'position' && newContact.bereich && (
+                  <View style={styles.dropdownList}>
+                    <ScrollView style={styles.dropdownScroll}>
+                      {getAvailablePositions().map(p => (<TouchableOpacity key={p} style={styles.dropdownItem} onPress={() => { setNewContact({...newContact, position: p}); setActiveDropdown(null); }}><Text style={styles.dropdownItemText}>{p}</Text></TouchableOpacity>))}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.formField}>
+                <Text style={styles.formLabel}>Mannschaft</Text>
+                <TouchableOpacity style={[styles.formSelect, !newContact.bereich && styles.formSelectDisabled]} onPress={() => newContact.bereich && setActiveDropdown(activeDropdown === 'mannschaft' ? null : 'mannschaft')}>
+                  <Text style={newContact.mannschaft ? styles.formSelectText : styles.formSelectPlaceholder}>{newContact.mannschaft || (newContact.bereich ? 'Mannschaft auswählen...' : 'Erst Bereich wählen')}</Text>
+                  <Text style={styles.formSelectArrow}>▼</Text>
+                </TouchableOpacity>
+                {activeDropdown === 'mannschaft' && newContact.bereich && (
+                  <View style={styles.dropdownList}>
+                    <ScrollView style={styles.dropdownScroll}>
+                      {getAvailableMannschaften().map(m => (<TouchableOpacity key={m} style={styles.dropdownItem} onPress={() => { setNewContact({...newContact, mannschaft: m}); setActiveDropdown(null); }}><Text style={styles.dropdownItemText}>{m}</Text></TouchableOpacity>))}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.formField}>
+                <Text style={styles.formLabel}>Liga (Zugehörigkeit 1. Mannschaft)</Text>
                 <TouchableOpacity style={styles.formSelect} onPress={() => setActiveDropdown(activeDropdown === 'liga' ? null : 'liga')}>
                   <Text style={newContact.liga ? styles.formSelectText : styles.formSelectPlaceholder}>{newContact.liga || 'Liga auswählen...'}</Text>
                   <Text style={styles.formSelectArrow}>▼</Text>
@@ -323,36 +909,6 @@ export function FootballNetworkScreen({ navigation }: any) {
                           <Text style={styles.dropdownItemText}>+ "{ligaSearch}" hinzufügen</Text>
                         </TouchableOpacity>
                       )}
-                    </ScrollView>
-                  </View>
-                )}
-              </View>
-
-              <View style={styles.formField}>
-                <Text style={styles.formLabel}>Bereich</Text>
-                <TouchableOpacity style={styles.formSelect} onPress={() => setActiveDropdown(activeDropdown === 'bereich' ? null : 'bereich')}>
-                  <Text style={newContact.bereich ? styles.formSelectText : styles.formSelectPlaceholder}>{newContact.bereich || 'Bereich auswählen...'}</Text>
-                  <Text style={styles.formSelectArrow}>▼</Text>
-                </TouchableOpacity>
-                {activeDropdown === 'bereich' && (
-                  <View style={styles.dropdownList}>
-                    <ScrollView style={styles.dropdownScroll}>
-                      {BEREICHE.map(b => (<TouchableOpacity key={b} style={styles.dropdownItem} onPress={() => { setNewContact({...newContact, bereich: b, position: ''}); setActiveDropdown(null); }}><Text style={styles.dropdownItemText}>{b}</Text></TouchableOpacity>))}
-                    </ScrollView>
-                  </View>
-                )}
-              </View>
-
-              <View style={styles.formField}>
-                <Text style={styles.formLabel}>Position</Text>
-                <TouchableOpacity style={[styles.formSelect, !newContact.bereich && styles.formSelectDisabled]} onPress={() => newContact.bereich && setActiveDropdown(activeDropdown === 'position' ? null : 'position')}>
-                  <Text style={newContact.position ? styles.formSelectText : styles.formSelectPlaceholder}>{newContact.position || (newContact.bereich ? 'Position auswählen...' : 'Erst Bereich wählen')}</Text>
-                  <Text style={styles.formSelectArrow}>▼</Text>
-                </TouchableOpacity>
-                {activeDropdown === 'position' && newContact.bereich && (
-                  <View style={styles.dropdownList}>
-                    <ScrollView style={styles.dropdownScroll}>
-                      {getAvailablePositions().map(p => (<TouchableOpacity key={p} style={styles.dropdownItem} onPress={() => { setNewContact({...newContact, position: p}); setActiveDropdown(null); }}><Text style={styles.dropdownItemText}>{p}</Text></TouchableOpacity>))}
                     </ScrollView>
                   </View>
                 )}
@@ -378,12 +934,37 @@ export function FootballNetworkScreen({ navigation }: any) {
               <View style={styles.formField}><Text style={styles.formLabel}>E-Mail</Text><TextInput style={styles.formInput} value={newContact.email} onChangeText={(t) => setNewContact({...newContact, email: t})} placeholder="email@beispiel.de" placeholderTextColor="#9ca3af" keyboardType="email-address" onFocus={() => setActiveDropdown(null)} /></View>
               <View style={styles.formField}><Text style={styles.formLabel}>Weitere Informationen</Text><TextInput style={[styles.formInput, styles.textArea]} value={newContact.notes} onChangeText={(t) => setNewContact({...newContact, notes: t})} placeholder="Zusätzliche Informationen..." placeholderTextColor="#9ca3af" multiline numberOfLines={3} onFocus={() => setActiveDropdown(null)} /></View>
             </ScrollView>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.cancelButton} onPress={closeModal}><Text style={styles.cancelButtonText}>Abbrechen</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.saveButton} onPress={editingContact ? updateContact : addContact}><Text style={styles.saveButtonText}>{editingContact ? 'Speichern' : 'Hinzufügen'}</Text></TouchableOpacity>
+            <View style={styles.modalButtonsSpaced}>
+              {editingContact && (
+                <TouchableOpacity style={styles.deleteButton} onPress={() => setShowDeleteConfirm(true)}>
+                  <Text style={styles.deleteButtonText}>Löschen</Text>
+                </TouchableOpacity>
+              )}
+              <View style={styles.modalButtonsRight}>
+                <TouchableOpacity style={styles.cancelButton} onPress={closeModal}><Text style={styles.cancelButtonText}>Abbrechen</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.saveButton} onPress={editingContact ? updateContact : addContact}><Text style={styles.saveButtonText}>{editingContact ? 'Speichern' : 'Hinzufügen'}</Text></TouchableOpacity>
+              </View>
             </View>
           </TouchableOpacity>
         </TouchableOpacity>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal visible={showDeleteConfirm} transparent animationType="fade">
+        <Pressable style={styles.modalOverlay} onPress={() => setShowDeleteConfirm(false)}>
+          <View style={styles.deleteConfirmModal}>
+            <Text style={styles.deleteConfirmTitle}>Kontakt löschen</Text>
+            <Text style={styles.deleteConfirmText}>Möchten Sie {editingContact ? `${editingContact.vorname} ${editingContact.nachname}`.trim() : 'diesen Kontakt'} wirklich löschen?</Text>
+            <View style={styles.deleteConfirmButtons}>
+              <TouchableOpacity style={styles.deleteConfirmCancelBtn} onPress={() => setShowDeleteConfirm(false)}>
+                <Text style={styles.deleteConfirmCancelText}>Abbrechen</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.deleteConfirmDeleteBtn} onPress={() => { if (editingContact) { deleteContact(editingContact.id); setShowDeleteConfirm(false); closeModal(); } }}>
+                <Text style={styles.deleteConfirmDeleteText}>Löschen</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Pressable>
       </Modal>
     </View>
   );
@@ -447,6 +1028,25 @@ const styles = StyleSheet.create({
   tableClubLogo: { width: 20, height: 20, borderRadius: 3, marginRight: 8 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 500, maxHeight: '90%' },
+
+  // Desktop Detail Modal
+  detailModalContent: { backgroundColor: '#fff', borderRadius: 16, width: '90%', maxWidth: 550, maxHeight: '90%' },
+  detailModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 24, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  detailModalNameRow: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  detailModalLogo: { width: 48, height: 48, borderRadius: 8, marginRight: 16 },
+  detailModalName: { fontSize: 20, fontWeight: '700', color: '#1a1a1a' },
+  detailModalClub: { fontSize: 14, color: '#64748b', marginTop: 4 },
+  detailModalClose: { fontSize: 24, color: '#64748b', padding: 4 },
+  detailModalBody: { padding: 24 },
+  detailModalBox: { backgroundColor: '#f8fafc', borderRadius: 12, padding: 16, marginBottom: 12 },
+  detailModalRow: { flexDirection: 'row', gap: 24 },
+  detailModalField: { flex: 1 },
+  detailModalFieldFull: { marginBottom: 20 },
+  detailModalLabel: { fontSize: 12, color: '#94a3b8', marginBottom: 6, fontWeight: '500', textTransform: 'uppercase' },
+  detailModalValue: { fontSize: 15, color: '#1a1a1a' },
+  detailModalFooter: { flexDirection: 'row', justifyContent: 'flex-end', padding: 20, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
+  editButton: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
+  editButtonText: { fontSize: 14, fontWeight: '600', color: '#1a1a1a' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 20, fontWeight: '700', color: '#1a1a1a' },
   closeButton: { padding: 8 },
@@ -475,8 +1075,115 @@ const styles = StyleSheet.create({
   countryCodeArrow: { fontSize: 10, color: '#64748b' },
   phoneInput: { flex: 1 },
   modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
+  modalButtonsSpaced: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
+  modalButtonsRight: { flexDirection: 'row', gap: 12 },
   cancelButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0' },
   cancelButtonText: { fontSize: 14, color: '#64748b' },
   saveButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#1a1a1a' },
   saveButtonText: { fontSize: 14, color: '#fff', fontWeight: '500' },
+  deleteButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca' },
+  deleteButtonText: { fontSize: 14, color: '#ef4444', fontWeight: '500' },
+
+  // Delete Confirmation Modal
+  deleteConfirmModal: { backgroundColor: '#fff', borderRadius: 12, padding: 20, width: '85%', maxWidth: 280, alignItems: 'center' },
+  deleteConfirmTitle: { fontSize: 15, fontWeight: '600', color: '#1a1a1a', marginBottom: 8 },
+  deleteConfirmText: { fontSize: 13, color: '#ef4444', textAlign: 'center', marginBottom: 16 },
+  deleteConfirmButtons: { flexDirection: 'row', gap: 12, width: '100%' },
+  deleteConfirmCancelBtn: { flex: 1, paddingVertical: 12, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center' },
+  deleteConfirmCancelText: { fontSize: 14, color: '#64748b', fontWeight: '500' },
+  deleteConfirmDeleteBtn: { flex: 1, paddingVertical: 12, borderRadius: 8, backgroundColor: '#ef4444', alignItems: 'center' },
+  deleteConfirmDeleteText: { fontSize: 14, color: '#fff', fontWeight: '500' },
+
+  // Mobile Styles
+  containerMobile: { flex: 1, backgroundColor: '#f8fafc' },
+  mainContentMobile: { flex: 1 },
+
+  // Mobile Toolbar
+  mobileToolbar: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  mobileSearchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: '#e2e8f0' },
+  mobileSearchIcon: { marginRight: 8, fontSize: 14 },
+  mobileSearchInput: { flex: 1, paddingVertical: 10, fontSize: 14, color: '#1a1a1a' },
+  mobileFilterButton: { width: 44, height: 44, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', justifyContent: 'center', alignItems: 'center' },
+  mobileFilterButtonActive: { backgroundColor: '#1a1a1a', borderColor: '#1a1a1a' },
+  mobileFilterIcon: { fontSize: 18, color: '#64748b' },
+  mobileFilterIconActive: { color: '#fff' },
+  filterCountBubble: { position: 'absolute', top: -4, right: -4, backgroundColor: '#ef4444', borderRadius: 10, width: 18, height: 18, justifyContent: 'center', alignItems: 'center' },
+  filterCountText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+
+  // Mobile Subheader
+  mobileSubheader: { paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#f8fafc' },
+  mobileSubheaderText: { fontSize: 13, color: '#64748b', fontWeight: '500' },
+
+  // Mobile Card List
+  mobileCardList: { flex: 1 },
+  mobileCardListContent: { padding: 16, gap: 12 },
+
+  // Mobile Card
+  mobileCard: { backgroundColor: '#fff', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#e2e8f0' },
+  mobileCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
+  mobileCardNameRow: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  mobileCardClubLogo: { width: 32, height: 32, borderRadius: 6, marginRight: 10 },
+  mobileCardNameContainer: { flex: 1 },
+  mobileCardName: { fontSize: 15, fontWeight: '600', color: '#1a1a1a' },
+  mobileCardClub: { fontSize: 12, color: '#64748b', marginTop: 2 },
+  mobileCardBadges: { flexDirection: 'row', gap: 6 },
+  mobileCardBadgesRight: { alignItems: 'flex-end', gap: 4 },
+  mobileCardDetails: { gap: 8 },
+  mobileCardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  mobileCardLabel: { fontSize: 12, color: '#94a3b8' },
+  mobileCardValue: { fontSize: 13, color: '#1a1a1a', fontWeight: '500' },
+
+  // Mobile Badges
+  mobileBereichBadge: { backgroundColor: '#f0fdf4', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4 },
+  mobileBereichBadgeNachwuchs: { backgroundColor: '#fef3c7' },
+  mobileBereichText: { fontSize: 10, fontWeight: '600', color: '#166534' },
+  mobileBereichTextNachwuchs: { color: '#92400e' },
+  mobilePositionBadge: { backgroundColor: '#e0f2fe', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4 },
+  mobilePositionText: { fontSize: 10, fontWeight: '600', color: '#0369a1' },
+
+  // FAB
+  fab: { position: 'absolute', bottom: 20, right: 20, width: 44, height: 44, borderRadius: 22, backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
+  fabText: { fontSize: 24, color: '#fff', fontWeight: '300', lineHeight: 26 },
+
+  // Mobile Filter Modal
+  mobileFilterModal: { flex: 1, backgroundColor: '#fff', marginTop: 60 },
+  mobileFilterHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  mobileFilterTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a1a' },
+  mobileFilterClose: { fontSize: 24, color: '#64748b' },
+  mobileFilterContent: { flex: 1, padding: 20 },
+  mobileFilterSectionTitle: { fontSize: 14, fontWeight: '600', color: '#1a1a1a', marginBottom: 12, marginTop: 16 },
+  mobileChipContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  mobileChip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0' },
+  mobileChipSelected: { backgroundColor: '#1a1a1a', borderColor: '#1a1a1a' },
+  mobileChipText: { fontSize: 13, color: '#64748b', fontWeight: '500' },
+  mobileChipTextSelected: { color: '#fff' },
+  mobileFilterActions: { flexDirection: 'row', gap: 12, padding: 20, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
+  mobileFilterClearButton: { flex: 1, paddingVertical: 14, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center' },
+  mobileFilterClearText: { fontSize: 14, color: '#64748b', fontWeight: '600' },
+  mobileFilterApplyButton: { flex: 1, paddingVertical: 14, borderRadius: 8, backgroundColor: '#1a1a1a', alignItems: 'center' },
+  mobileFilterApplyText: { fontSize: 14, color: '#fff', fontWeight: '600' },
+
+  // Mobile Detail Modal
+  mobileDetailModal: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '90%', marginTop: 'auto' },
+  mobileDetailHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 20, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  mobileDetailNameRow: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  mobileDetailLogo: { width: 40, height: 40, borderRadius: 8, marginRight: 12 },
+  mobileDetailName: { fontSize: 18, fontWeight: '700', color: '#1a1a1a' },
+  mobileDetailClub: { fontSize: 13, color: '#64748b', marginTop: 2 },
+  mobileDetailClose: { fontSize: 24, color: '#64748b', padding: 4 },
+  mobileDetailContent: { padding: 20 },
+  mobileDetailBox: { backgroundColor: '#f8fafc', borderRadius: 12, padding: 14, marginBottom: 12 },
+  mobileDetailLabel: { fontSize: 11, color: '#94a3b8', marginBottom: 4 },
+  mobileDetailValue: { fontSize: 13, color: '#1a1a1a' },
+  mobileDetailFooter: { flexDirection: 'row', gap: 12, padding: 20, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
+  mobileDeleteButton: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca' },
+  mobileDeleteText: { fontSize: 14, color: '#ef4444', fontWeight: '600' },
+  mobileEditButton: { flex: 1, paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center' },
+  mobileEditText: { fontSize: 14, color: '#1a1a1a', fontWeight: '600' },
+
+  // Mobile Form Modal
+  mobileFormModal: { backgroundColor: '#fff', borderRadius: 16, padding: 20, width: '95%', maxHeight: '95%' },
+
+  // Empty State
+  emptyText: { textAlign: 'center', color: '#64748b', fontSize: 14, paddingVertical: 40 },
 });
