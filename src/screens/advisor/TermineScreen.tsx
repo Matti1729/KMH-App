@@ -219,11 +219,48 @@ export function TermineScreen({ navigation }: any) {
     if (!clubName) return null;
     // Exakte Übereinstimmung
     if (clubLogos[clubName]) return clubLogos[clubName];
-    // Teilübereinstimmung
+
+    const searchName = clubName.toLowerCase();
+
+    // Bekannte Abkürzungen/Varianten normalisieren
+    const normalizeClubName = (name: string): string[] => {
+      const n = name.toLowerCase();
+      const variants = [n];
+      // RB = Rasenball/Rasenballsport
+      if (n.includes('rb ')) {
+        variants.push(n.replace('rb ', 'rasenball '));
+        variants.push(n.replace('rb ', 'rasenballsport '));
+      }
+      if (n.includes('rasenball')) {
+        variants.push(n.replace('rasenballsport ', 'rb ').replace('rasenball ', 'rb '));
+      }
+      // TSG mit/ohne 1899
+      if (n.includes('tsg ') && !n.includes('1899')) {
+        variants.push(n.replace('tsg ', 'tsg 1899 '));
+      }
+      if (n.includes('tsg 1899 ')) {
+        variants.push(n.replace('tsg 1899 ', 'tsg '));
+      }
+      // Barockstadt = SG Barockstadt Fulda
+      if (n.includes('barockstadt')) {
+        variants.push('sg barockstadt fulda');
+        variants.push('barockstadt fulda');
+        variants.push('sg barockstadt');
+      }
+      return variants;
+    };
+
+    const searchVariants = normalizeClubName(clubName);
+
+    // Teilübereinstimmung mit Varianten
     for (const [name, url] of Object.entries(clubLogos)) {
-      if (clubName.toLowerCase().includes(name.toLowerCase()) || 
-          name.toLowerCase().includes(clubName.toLowerCase())) {
-        return url;
+      const dbVariants = normalizeClubName(name);
+      for (const sv of searchVariants) {
+        for (const dv of dbVariants) {
+          if (sv.includes(dv) || dv.includes(sv)) {
+            return url;
+          }
+        }
       }
     }
     return null;
@@ -1024,13 +1061,13 @@ export function TermineScreen({ navigation }: any) {
 
   const renderSpieleUnsererSpieler = () => {
     const isAnyDropdownOpen = showResponsibilityDropdown || showPlayerDropdown;
-    
+
     const handleContainerPress = () => {
       if (isAnyDropdownOpen) {
         closeAllGameDropdowns();
       }
     };
-    
+
     const getResponsibilityFilterLabel = () => {
       if (selectedResponsibilities.length === 0) return 'Zuständigkeit';
       if (selectedResponsibilities.length === 1) return selectedResponsibilities[0];
@@ -1045,7 +1082,191 @@ export function TermineScreen({ navigation }: any) {
       }
       return `${selectedPlayers.length} Spieler`;
     };
-    
+
+    // Helper: Get game type from league
+    const getGameArt = (league: string): string => {
+      if (!league) return 'Sonstiges';
+      const l = league.toLowerCase();
+      if (l.includes('hallenturnier') || l.includes('hallen')) return 'Hallenturnier';
+      if (l.includes('pokal') || l.includes('cup')) return 'Pokalspiel';
+      if (l.includes('nachwuchsliga') || l.includes('bundesliga') || l.includes('meisterschaft') || l.includes('liga') || l.includes('league') || l.includes('dnl')) return 'Punktspiel';
+      if (l.includes('freundschaft') || l.includes('friendly') || l.includes('testspiel') || l.includes('turnier')) return 'Freundschaftsspiel';
+      return 'Sonstiges';
+    };
+
+    // Helper: Get age category
+    const getAgeCategory = (game: any): string => {
+      const playerLeague = game.playerLeague || game.player?.league || '';
+      const ageMatch = playerLeague.match(/\bU[\s-]?(\d{2})\b/i);
+      return ageMatch ? 'U' + ageMatch[1] : 'Herren';
+    };
+
+    // Mobile View
+    if (isMobile) {
+      const activeFilterCount = selectedPlayers.length + selectedResponsibilities.length;
+
+      return (
+        <View style={styles.mobileGamesContainer}>
+          {/* Toolbar mit Zurück, Filter und Sync */}
+          <View style={styles.mobileGamesToolbar}>
+            <TouchableOpacity style={styles.mobileGamesToolbarBtn} onPress={() => setViewMode('dashboard')}>
+              <Text style={styles.mobileGamesToolbarBtnText}>← Zurück</Text>
+            </TouchableOpacity>
+
+            <View style={{ flex: 1 }} />
+
+            <TouchableOpacity
+              style={[styles.mobileGamesIconBtn, activeFilterCount > 0 && styles.mobileGamesToolbarBtnActive]}
+              onPress={() => setShowPlayerDropdown(true)}
+            >
+              <Ionicons name="filter" size={18} color={activeFilterCount > 0 ? "#fff" : "#64748b"} />
+              {activeFilterCount > 0 && (
+                <Text style={styles.mobileGamesFilterCount}>{activeFilterCount}</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.mobileGamesIconBtn, syncingGames && { opacity: 0.6 }]}
+              onPress={handleSyncGames}
+              disabled={syncingGames}
+            >
+              <Text style={styles.mobileGamesIconBtnText}>{syncingGames ? '⏳' : '↻'}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Filter Modal */}
+          <Modal visible={showPlayerDropdown} transparent animationType="slide">
+            <View style={styles.mobileGamesFilterModal}>
+              <View style={styles.mobileGamesFilterHeader}>
+                <Text style={styles.mobileGamesFilterTitle}>Filter</Text>
+                <TouchableOpacity onPress={() => setShowPlayerDropdown(false)}>
+                  <Text style={styles.mobileGamesFilterClose}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.mobileGamesFilterContent}>
+                {/* Spieler Filter */}
+                <Text style={styles.mobileGamesFilterSectionTitle}>Spieler</Text>
+                <View style={styles.mobileGamesFilterChips}>
+                  {availablePlayers.map(player => {
+                    const isSelected = selectedPlayers.includes(player.id);
+                    return (
+                      <TouchableOpacity
+                        key={player.id}
+                        style={[styles.mobileGamesFilterChip, isSelected && styles.mobileGamesFilterChipActive]}
+                        onPress={() => togglePlayer(player.id)}
+                      >
+                        <Text style={[styles.mobileGamesFilterChipText, isSelected && styles.mobileGamesFilterChipTextActive]}>
+                          {player.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* Zuständigkeit Filter */}
+                <Text style={styles.mobileGamesFilterSectionTitle}>Zuständigkeit</Text>
+                <View style={styles.mobileGamesFilterChips}>
+                  {availableResponsibilities.map(resp => {
+                    const isSelected = selectedResponsibilities.includes(resp);
+                    return (
+                      <TouchableOpacity
+                        key={resp}
+                        style={[styles.mobileGamesFilterChip, isSelected && styles.mobileGamesFilterChipActive]}
+                        onPress={() => toggleResponsibility(resp)}
+                      >
+                        <Text style={[styles.mobileGamesFilterChipText, isSelected && styles.mobileGamesFilterChipTextActive]}>
+                          {resp}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+              <View style={styles.mobileGamesFilterFooter}>
+                <TouchableOpacity
+                  style={styles.mobileGamesFilterClearBtn}
+                  onPress={() => { setSelectedPlayers([]); setSelectedResponsibilities([]); }}
+                >
+                  <Text style={styles.mobileGamesFilterClearText}>Alle löschen</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.mobileGamesFilterApplyBtn}
+                  onPress={() => setShowPlayerDropdown(false)}
+                >
+                  <Text style={styles.mobileGamesFilterApplyText}>Anwenden</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+
+          {/* Sync Progress */}
+          {syncingGames && syncProgress && (
+            <View style={styles.mobileSyncProgress}>
+              <View style={[styles.mobileSyncProgressFill, { width: `${(syncProgress.current / syncProgress.total) * 100}%` }]} />
+              <Text style={styles.mobileSyncProgressText}>{syncProgress.playerName}</Text>
+            </View>
+          )}
+
+          {/* Games List */}
+          <ScrollView style={styles.mobileGamesList} contentContainerStyle={styles.mobileGamesListContent}>
+            {filteredGames.length === 0 ? (
+              <View style={styles.mobileGamesEmpty}>
+                <Text style={styles.mobileGamesEmptyIcon}>⚽</Text>
+                <Text style={styles.mobileGamesEmptyTitle}>
+                  {playerGames.length === 0 ? 'Noch keine Spiele geladen' : 'Keine Spiele gefunden'}
+                </Text>
+                {playerGames.length === 0 && (
+                  <TouchableOpacity style={styles.mobileGamesEmptyButton} onPress={handleSyncGames}>
+                    <Text style={styles.mobileGamesEmptyButtonText}>Jetzt aktualisieren</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ) : (
+              filteredGames.map(game => {
+                const isToday = isGameToday(game.date);
+                const ageCategory = getAgeCategory(game);
+                const gameArt = getGameArt(game.league);
+                const isHerren = ageCategory === 'Herren';
+                const homeTeam = cleanTeamName(game.home_team, isHerren);
+                const awayTeam = cleanTeamName(game.away_team, isHerren);
+                const playerNames = (game as any).playerNames?.join(', ') || game.player_name;
+                const homeLogo = getClubLogo(game.home_team);
+                const awayLogo = getClubLogo(game.away_team);
+
+                return (
+                  <View key={game.id} style={[styles.mobileGameCard, isToday && styles.mobileGameCardToday]}>
+                    {/* Header: Mannschaft • Art + Datum */}
+                    <View style={styles.mobileGameCardHeader}>
+                      <Text style={styles.mobileGameCardLeague}>{ageCategory} • {gameArt}</Text>
+                      <Text style={styles.mobileGameCardDate}>
+                        {isToday ? 'Heute' : formatGameDate(game.date)}{game.time ? `, ${game.time}` : ''}
+                      </Text>
+                    </View>
+
+                    {/* Teams in einer Zeile */}
+                    <View style={styles.mobileGameCardMatch}>
+                      <Text style={styles.mobileGameCardTeamName} numberOfLines={1}>{homeTeam}</Text>
+                      {homeLogo && <Image source={{ uri: homeLogo }} style={styles.mobileGameCardLogoInner} />}
+                      <Text style={styles.mobileGameCardSeparator}>-</Text>
+                      {awayLogo && <Image source={{ uri: awayLogo }} style={styles.mobileGameCardLogo} />}
+                      <Text style={styles.mobileGameCardTeamName} numberOfLines={1}>{awayTeam}</Text>
+                    </View>
+
+                    {/* Players */}
+                    <View style={styles.mobileGameCardPlayers}>
+                      <Text style={styles.mobileGameCardPlayersLabel}>👤</Text>
+                      <Text style={styles.mobileGameCardPlayersText}>{playerNames}</Text>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </ScrollView>
+        </View>
+      );
+    }
+
+    // Desktop View
     return (
       <View style={styles.scoutingMainContent}>
         {/* Header Banner */}
@@ -1941,7 +2162,7 @@ export function TermineScreen({ navigation }: any) {
         {/* Mobile Header */}
         {isMobile && (
           <MobileHeader
-            title="Spieltage"
+            title={viewMode === 'spiele' ? 'Spiele unserer Spieler' : viewMode === 'termine' ? 'Weitere Termine' : 'Spieltage'}
             onMenuPress={() => setShowMobileSidebar(true)}
             profileInitials={profileInitials}
           />
@@ -2062,6 +2283,298 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
     color: '#fff',
+  },
+
+  // Mobile Games View
+  mobileGamesContainer: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  mobileGamesToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    gap: 8,
+  },
+  mobileGamesToolbarBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mobileGamesToolbarBtnActive: {
+    backgroundColor: '#1a1a1a',
+    borderColor: '#1a1a1a',
+  },
+  mobileGamesToolbarBtnText: {
+    fontSize: 14,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  mobileGamesIconBtn: {
+    width: 40,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mobileGamesIconBtnText: {
+    fontSize: 18,
+    color: '#64748b',
+  },
+  mobileGamesFilterCount: {
+    fontSize: 11,
+    color: '#fff',
+    fontWeight: '700',
+    marginLeft: 4,
+  },
+  mobileGamesFilterModal: {
+    flex: 1,
+    backgroundColor: '#fff',
+    marginTop: 50,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  mobileGamesFilterHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  mobileGamesFilterTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1a1a1a',
+  },
+  mobileGamesFilterClose: {
+    fontSize: 24,
+    color: '#64748b',
+  },
+  mobileGamesFilterContent: {
+    flex: 1,
+    padding: 16,
+  },
+  mobileGamesFilterSectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1a1a1a',
+    marginBottom: 10,
+    marginTop: 16,
+  },
+  mobileGamesFilterChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  mobileGamesFilterChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  mobileGamesFilterChipActive: {
+    backgroundColor: '#1a1a1a',
+    borderColor: '#1a1a1a',
+  },
+  mobileGamesFilterChipText: {
+    fontSize: 13,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  mobileGamesFilterChipTextActive: {
+    color: '#fff',
+  },
+  mobileGamesFilterFooter: {
+    flexDirection: 'row',
+    padding: 16,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+  },
+  mobileGamesFilterClearBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+  },
+  mobileGamesFilterClearText: {
+    fontSize: 14,
+    color: '#64748b',
+    fontWeight: '600',
+  },
+  mobileGamesFilterApplyBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#1a1a1a',
+    alignItems: 'center',
+  },
+  mobileGamesFilterApplyText: {
+    fontSize: 14,
+    color: '#fff',
+    fontWeight: '600',
+  },
+  mobileSyncProgress: {
+    height: 24,
+    backgroundColor: '#e2e8f0',
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  mobileSyncProgressFill: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: '#10b981',
+  },
+  mobileSyncProgressText: {
+    fontSize: 12,
+    color: '#1a1a1a',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  mobileGamesList: {
+    flex: 1,
+  },
+  mobileGamesListContent: {
+    padding: 12,
+    gap: 8,
+  },
+  mobileGamesEmpty: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  mobileGamesEmptyIcon: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  mobileGamesEmptyTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#64748b',
+    marginBottom: 16,
+  },
+  mobileGamesEmptyButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 8,
+  },
+  mobileGamesEmptyButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  mobileGameCard: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  mobileGameCardToday: {
+    backgroundColor: '#d1fae5',
+    borderColor: '#10b981',
+  },
+  mobileGameCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  mobileGameCardLeague: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  mobileGameCardDate: {
+    fontSize: 12,
+    color: '#1a1a1a',
+    fontWeight: '500',
+  },
+  mobileGameCardMatch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  mobileGameCardLogo: {
+    width: 18,
+    height: 18,
+    borderRadius: 3,
+    marginRight: 4,
+  },
+  mobileGameCardLogoPlaceholder: {
+    width: 18,
+    height: 18,
+    borderRadius: 3,
+    backgroundColor: '#e2e8f0',
+    marginRight: 4,
+  },
+  mobileGameCardLogoInner: {
+    width: 18,
+    height: 18,
+    borderRadius: 3,
+    marginLeft: 4,
+  },
+  mobileGameCardLogoPlaceholderInner: {
+    width: 18,
+    height: 18,
+    borderRadius: 3,
+    backgroundColor: '#e2e8f0',
+    marginLeft: 4,
+  },
+  mobileGameCardTeamName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1a1a1a',
+    flexShrink: 1,
+  },
+  mobileGameCardSeparator: {
+    fontSize: 14,
+    color: '#64748b',
+    marginHorizontal: 6,
+  },
+  mobileGameCardPlayers: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#d1d5db',
+  },
+  mobileGameCardPlayersLabel: {
+    fontSize: 13,
+  },
+  mobileGameCardPlayersText: {
+    fontSize: 13,
+    color: '#64748b',
+    flex: 1,
   },
 
   gridContainer: { maxWidth: 1000, width: '100%' },
