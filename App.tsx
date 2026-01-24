@@ -1,6 +1,6 @@
 import React from 'react';
-import { StatusBar, View } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { StatusBar, View, Platform } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
@@ -15,7 +15,20 @@ function ThemedApp() {
       <StatusBar
         barStyle={isDark ? 'light-content' : 'dark-content'}
         backgroundColor={colors.background}
+        translucent={Platform.OS === 'android'}
       />
+      {/* Extra View for iOS status bar background */}
+      {Platform.OS === 'ios' && (
+        <View style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 50,
+          backgroundColor: colors.background,
+          zIndex: -1
+        }} />
+      )}
       <AuthProvider>
         <RootNavigator />
       </AuthProvider>
