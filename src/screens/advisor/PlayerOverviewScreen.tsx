@@ -6,6 +6,7 @@ import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 import { MobileHeader } from '../../components/MobileHeader';
 import { MobileSidebar } from '../../components/MobileSidebar';
+import { SlideUpModal } from '../../components/SlideUpModal';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -80,6 +81,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
   const [profile, setProfile] = useState<Advisor | null>(null);
   
   const [showRequestModal, setShowRequestModal] = useState(false);
+  const [showPlayerDetailModal, setShowPlayerDetailModal] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
 
   const [searchText, setSearchText] = useState('');
@@ -366,7 +368,12 @@ export function PlayerOverviewScreen({ navigation }: any) {
 
   const handlePlayerClick = (player: Player) => {
     if (hasAccessToPlayer(player.id)) {
-      navigation.navigate('PlayerDetail', { playerId: player.id });
+      if (isMobile) {
+        setSelectedPlayer(player);
+        setShowPlayerDetailModal(true);
+      } else {
+        navigation.navigate('PlayerDetail', { playerId: player.id });
+      }
     } else {
       setSelectedPlayer(player);
       setShowRequestModal(true);
@@ -958,6 +965,90 @@ export function PlayerOverviewScreen({ navigation }: any) {
               </View>
             </View>
           </Modal>
+
+          {/* Player Detail Modal */}
+          {selectedPlayer && (
+            <SlideUpModal visible={showPlayerDetailModal} onClose={() => { setShowPlayerDetailModal(false); setSelectedPlayer(null); }}>
+              <View style={[styles.mobileDetailHeader, { borderBottomColor: colors.border }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.mobileDetailName, { color: colors.text }]}>
+                    {selectedPlayer.last_name}, {selectedPlayer.first_name}
+                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                    {getClubLogo(selectedPlayer.club) && (
+                      <Image source={{ uri: getClubLogo(selectedPlayer.club)! }} style={{ width: 18, height: 18, marginRight: 6 }} />
+                    )}
+                    <Text style={{ fontSize: 14, color: colors.textSecondary }}>{selectedPlayer.club || '-'}</Text>
+                  </View>
+                </View>
+                <TouchableOpacity onPress={() => { setShowPlayerDetailModal(false); setSelectedPlayer(null); }}>
+                  <Text style={[styles.mobileDetailClose, { color: colors.textSecondary }]}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={{ maxHeight: 500 }}>
+                <View style={{ padding: 16 }}>
+                  {/* Grunddaten */}
+                  <View style={[styles.mobileDetailBox, { backgroundColor: colors.surfaceSecondary }]}>
+                    <View style={{ flexDirection: 'row', gap: 16 }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Position</Text>
+                        <Text style={[styles.mobileDetailValue, { color: colors.text }]}>
+                          {selectedPlayer.position ? POSITION_SHORT[selectedPlayer.position] || selectedPlayer.position : '-'}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Jahrgang</Text>
+                        <Text style={[styles.mobileDetailValue, { color: colors.text }]}>
+                          {selectedPlayer.birth_date ? new Date(selectedPlayer.birth_date).getFullYear() : '-'}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Liga */}
+                  <View style={[styles.mobileDetailBox, { backgroundColor: colors.surfaceSecondary }]}>
+                    <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Liga</Text>
+                    <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{selectedPlayer.league || '-'}</Text>
+                  </View>
+
+                  {/* Vertragsende */}
+                  <View style={[styles.mobileDetailBox, { backgroundColor: colors.surfaceSecondary }]}>
+                    <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Vertragsende</Text>
+                    <Text style={[styles.mobileDetailValue, { color: colors.text }]}>
+                      {selectedPlayer.contract_end ? new Date(selectedPlayer.contract_end).toLocaleDateString('de-DE') : '-'}
+                    </Text>
+                  </View>
+
+                  {/* Listung & Zuständigkeit */}
+                  <View style={[styles.mobileDetailBox, { backgroundColor: colors.surfaceSecondary }]}>
+                    <View style={{ flexDirection: 'row', gap: 16 }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Listung</Text>
+                        <Text style={[styles.mobileDetailValue, { color: colors.text }]}>
+                          {selectedPlayer.listing === 'Karl Herzog Sportmanagement' ? 'KMH' : selectedPlayer.listing === 'PM Sportmanagement' ? 'PM' : selectedPlayer.listing || '-'}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Zuständigkeit</Text>
+                        <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{selectedPlayer.responsibility || '-'}</Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              </ScrollView>
+              <View style={[styles.mobileDetailButtons, { borderTopColor: colors.border }]}>
+                <TouchableOpacity
+                  style={[styles.mobileDetailButton, { backgroundColor: colors.primary }]}
+                  onPress={() => {
+                    setShowPlayerDetailModal(false);
+                    navigation.navigate('PlayerDetail', { playerId: selectedPlayer.id });
+                  }}
+                >
+                  <Text style={[styles.mobileDetailButtonText, { color: colors.primaryText }]}>Vollständiges Profil öffnen</Text>
+                </TouchableOpacity>
+              </View>
+            </SlideUpModal>
+          )}
         </View>
       </View>
     );
@@ -1629,4 +1720,15 @@ const styles = StyleSheet.create({
   modalCancelButtonText: { color: '#64748b', fontWeight: '600' },
   modalSaveButton: { flex: 1, padding: 14, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#10b981', alignItems: 'center' },
   modalSaveButtonText: { color: '#10b981', fontWeight: '600' },
+
+  // Player Detail Modal Styles
+  mobileDetailHeader: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1 },
+  mobileDetailName: { fontSize: 18, fontWeight: '700' },
+  mobileDetailClose: { fontSize: 24, padding: 4 },
+  mobileDetailBox: { padding: 12, borderRadius: 8, marginBottom: 12 },
+  mobileDetailLabel: { fontSize: 12, marginBottom: 4 },
+  mobileDetailValue: { fontSize: 15, fontWeight: '500' },
+  mobileDetailButtons: { padding: 16, borderTopWidth: 1 },
+  mobileDetailButton: { padding: 14, borderRadius: 8, alignItems: 'center' },
+  mobileDetailButtonText: { fontSize: 15, fontWeight: '600' },
 });
