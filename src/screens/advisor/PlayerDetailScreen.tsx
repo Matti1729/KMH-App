@@ -3698,7 +3698,7 @@ const styles = StyleSheet.create({
   saveButton: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#10b981', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 10 },
   saveButtonText: { color: '#10b981', fontSize: 16, fontWeight: '600' },
   // Mobile button styles
-  bottomButtonsMobile: { flexDirection: 'row', padding: 10, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#e2e8f0', justifyContent: 'space-between', alignItems: 'center' },
+  bottomButtonsMobile: { flexDirection: 'row', padding: 10, paddingBottom: 30, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#e2e8f0', justifyContent: 'space-between', alignItems: 'center' },
   bottomButtonsRowMobile: { flexDirection: 'row', gap: 6 },
   buttonMobile: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, height: 36 },
   buttonTextMobile: { fontSize: 13 },
@@ -4336,6 +4336,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     gap: 16,
     padding: 20,
+    paddingBottom: 34,
     borderTopWidth: 1,
     borderTopColor: '#e8e8e8',
     backgroundColor: '#fafafa',
