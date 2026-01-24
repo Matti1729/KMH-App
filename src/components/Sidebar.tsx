@@ -137,7 +137,13 @@ export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedde
               hoveredNav === item.id && { backgroundColor: colors.surfaceSecondary },
             ]}
           >
-            <Text style={styles.navIcon}>{item.icon}</Text>
+            {item.id === 'aufgaben' ? (
+              <View style={[styles.checkboxIcon, { borderColor: isDark ? '#fff' : '#64748b' }]}>
+                <Text style={[styles.checkboxIconText, { color: isDark ? '#fff' : '#64748b' }]}>✓</Text>
+              </View>
+            ) : (
+              <Text style={styles.navIcon}>{item.icon}</Text>
+            )}
             <Text style={[
               styles.navLabel,
               { color: colors.textSecondary },
@@ -367,6 +373,19 @@ const styles = StyleSheet.create({
     marginRight: 12,
     width: 24,
     textAlign: 'center',
+  },
+  checkboxIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    marginRight: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxIconText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   navLabel: {
     fontSize: 14,
