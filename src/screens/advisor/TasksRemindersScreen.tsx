@@ -501,23 +501,23 @@ export function TasksRemindersScreen({ navigation }: any) {
           styles.taskCard,
           { backgroundColor: colors.cardBackground, borderColor: colors.border },
           isExpanded && { zIndex: 10, position: 'relative' },
-          isOverdueOrToday && styles.taskCardOverdue
+          isOverdueOrToday && { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : '#fef2f2', borderColor: isDark ? '#f87171' : '#fca5a5', borderWidth: 1.5 }
         ]}
         onPress={(e) => e.stopPropagation()}
       >
         <View style={styles.taskHeader}>
-          <TouchableOpacity 
-            style={[styles.checkbox, task.completed && styles.checkboxChecked]}
+          <TouchableOpacity
+            style={[styles.checkbox, { borderColor: colors.border }, task.completed && styles.checkboxChecked]}
             onPress={() => toggleTaskComplete(task)}
           >
             {task.completed && <Text style={styles.checkboxIcon}>✓</Text>}
           </TouchableOpacity>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.taskContent}
             onPress={() => hasSubtasks ? setExpandedTaskId(isExpanded ? null : task.id) : openEditTaskModal(task)}
           >
             <View style={styles.taskTitleRow}>
-              <Text style={[styles.taskTitle, task.completed && styles.taskTitleCompleted]}>{task.title}</Text>
+              <Text style={[styles.taskTitle, { color: colors.text }, task.completed && styles.taskTitleCompleted]}>{task.title}</Text>
               {task.due_date && (
                 <View style={styles.taskDateBadge}>
                   <Text style={styles.taskDateBadgeText}>{formatDateShort(task.due_date)}</Text>
@@ -525,35 +525,35 @@ export function TasksRemindersScreen({ navigation }: any) {
               )}
             </View>
             {task.description && (
-              <Text style={styles.taskDescriptionPreview} numberOfLines={1}>{task.description}</Text>
+              <Text style={[styles.taskDescriptionPreview, { color: colors.textSecondary }]} numberOfLines={1}>{task.description}</Text>
             )}
             </TouchableOpacity>
             {hasSubtasks && (
-              <View style={styles.subtaskCountBadge}>
-                <Text style={styles.subtaskCountText}>{completedSubtasks}/{totalSubtasks}</Text>
+              <View style={[styles.subtaskCountBadge, { backgroundColor: colors.surfaceSecondary }]}>
+                <Text style={[styles.subtaskCountText, { color: colors.textSecondary }]}>{completedSubtasks}/{totalSubtasks}</Text>
               </View>
             )}
           <TouchableOpacity style={styles.taskEditButton} onPress={() => openEditTaskModal(task)}>
-            <Text style={styles.taskEditIcon}>✎</Text>
+            <Text style={[styles.taskEditIcon, { color: colors.textSecondary }]}>✎</Text>
           </TouchableOpacity>
         </View>
-        
+
         {isExpanded && hasSubtasks && (
-          <View style={styles.taskExpanded}>
+          <View style={[styles.taskExpanded, { borderTopColor: colors.border, backgroundColor: colors.surfaceSecondary }]}>
             <View style={styles.subtasksList}>
               {task.subtasks?.map(subtask => (
-                <Pressable 
-                  key={subtask.id} 
-                  style={styles.subtaskItem}
+                <Pressable
+                  key={subtask.id}
+                  style={[styles.subtaskItem, { borderBottomColor: colors.border }]}
                   onPress={(e) => {
                     e.stopPropagation();
                     toggleSubtaskComplete(subtask);
                   }}
                 >
-                  <View style={[styles.subtaskCheckbox, subtask.completed && styles.subtaskCheckboxChecked]}>
+                  <View style={[styles.subtaskCheckbox, { borderColor: colors.border }, subtask.completed && styles.subtaskCheckboxChecked]}>
                     {subtask.completed && <Text style={styles.subtaskCheckIcon}>✓</Text>}
                   </View>
-                  <Text style={[styles.subtaskTitle, subtask.completed && styles.subtaskTitleCompleted]}>
+                  <Text style={[styles.subtaskTitle, { color: colors.text }, subtask.completed && styles.subtaskTitleCompleted]}>
                     {subtask.title}
                   </Text>
                 </Pressable>
@@ -575,7 +575,7 @@ export function TasksRemindersScreen({ navigation }: any) {
         styles.reminderCard,
         { backgroundColor: colors.cardBackground, borderColor: colors.border },
         reminder.completed && styles.reminderCardCompleted,
-        isOverdue && styles.reminderCardOverdue
+        isOverdue && { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : '#fef2f2', borderColor: isDark ? '#f87171' : '#fca5a5' }
       ]}>
         <TouchableOpacity 
           style={[styles.checkbox, reminder.completed && styles.checkboxChecked]}
@@ -666,11 +666,15 @@ export function TasksRemindersScreen({ navigation }: any) {
     return (
       <View
         key={task.id}
-        style={[styles.mobileTaskCard, isOverdueOrToday && styles.mobileTaskCardOverdue]}
+        style={[
+          styles.mobileTaskCard,
+          { backgroundColor: colors.cardBackground, borderColor: colors.border },
+          isOverdueOrToday && { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : '#fef2f2', borderColor: isDark ? '#f87171' : '#fca5a5' }
+        ]}
       >
         <View style={styles.mobileTaskCardRow}>
           <TouchableOpacity
-            style={[styles.mobileCheckbox, task.completed && styles.mobileCheckboxChecked]}
+            style={[styles.mobileCheckbox, { borderColor: colors.border }, task.completed && styles.mobileCheckboxChecked]}
             onPress={() => toggleTaskComplete(task)}
           >
             {task.completed && <Text style={styles.mobileCheckboxIcon}>✓</Text>}
@@ -680,13 +684,13 @@ export function TasksRemindersScreen({ navigation }: any) {
             onPress={() => hasSubtasks ? setMobileExpandedTaskId(isExpanded ? null : task.id) : openEditTaskModal(task)}
             onLongPress={() => openEditTaskModal(task)}
           >
-            <Text style={[styles.mobileTaskTitle, task.completed && styles.mobileTaskTitleCompleted]} numberOfLines={1}>
+            <Text style={[styles.mobileTaskTitle, { color: colors.text }, task.completed && styles.mobileTaskTitleCompleted]} numberOfLines={1}>
               {task.title}
             </Text>
             {hasSubtasks && (
-              <View style={styles.mobileSubtaskBadge}>
-                <Text style={styles.mobileSubtaskBadgeText}>{completedSubtasks}/{totalSubtasks}</Text>
-                <Text style={styles.mobileSubtaskBadgeArrow}>{isExpanded ? '▲' : '▼'}</Text>
+              <View style={[styles.mobileSubtaskBadge, { backgroundColor: colors.surfaceSecondary }]}>
+                <Text style={[styles.mobileSubtaskBadgeText, { color: colors.textSecondary }]}>{completedSubtasks}/{totalSubtasks}</Text>
+                <Text style={[styles.mobileSubtaskBadgeArrow, { color: colors.textSecondary }]}>{isExpanded ? '▲' : '▼'}</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -698,26 +702,26 @@ export function TasksRemindersScreen({ navigation }: any) {
             </View>
           )}
           <TouchableOpacity style={styles.mobileTaskEditButton} onPress={() => openEditTaskModal(task)}>
-            <Text style={styles.mobileTaskEditIcon}>✎</Text>
+            <Text style={[styles.mobileTaskEditIcon, { color: colors.textSecondary }]}>✎</Text>
           </TouchableOpacity>
         </View>
         {task.description && (
-          <Text style={styles.mobileTaskDescription} numberOfLines={1}>{task.description}</Text>
+          <Text style={[styles.mobileTaskDescription, { color: colors.textSecondary }]} numberOfLines={1}>{task.description}</Text>
         )}
 
         {/* Expandable Subtasks */}
         {isExpanded && hasSubtasks && (
-          <View style={styles.mobileSubtasksList}>
+          <View style={[styles.mobileSubtasksList, { borderTopColor: colors.border, backgroundColor: colors.surfaceSecondary }]}>
             {task.subtasks?.map(subtask => (
               <TouchableOpacity
                 key={subtask.id}
-                style={styles.mobileSubtaskItem}
+                style={[styles.mobileSubtaskItem, { borderBottomColor: colors.border }]}
                 onPress={() => toggleSubtaskComplete(subtask)}
               >
-                <View style={[styles.mobileSubtaskCheckbox, subtask.completed && styles.mobileSubtaskCheckboxChecked]}>
+                <View style={[styles.mobileSubtaskCheckbox, { borderColor: colors.border }, subtask.completed && styles.mobileSubtaskCheckboxChecked]}>
                   {subtask.completed && <Text style={styles.mobileSubtaskCheckIcon}>✓</Text>}
                 </View>
-                <Text style={[styles.mobileSubtaskTitle, subtask.completed && styles.mobileSubtaskTitleCompleted]}>
+                <Text style={[styles.mobileSubtaskTitle, { color: colors.text }, subtask.completed && styles.mobileSubtaskTitleCompleted]}>
                   {subtask.title}
                 </Text>
               </TouchableOpacity>
@@ -737,7 +741,11 @@ export function TasksRemindersScreen({ navigation }: any) {
     return (
       <View
         key={reminder.id}
-        style={[styles.mobileReminderCard, isOverdue && styles.mobileReminderCardOverdue]}
+        style={[
+          styles.mobileReminderCard,
+          { backgroundColor: colors.cardBackground, borderColor: colors.border },
+          isOverdue && { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : '#fef2f2', borderColor: isDark ? '#f87171' : '#fca5a5' }
+        ]}
       >
         <TouchableOpacity
           style={styles.mobileReminderCardHeader}
@@ -745,12 +753,12 @@ export function TasksRemindersScreen({ navigation }: any) {
           activeOpacity={isTransfer ? 0.7 : 1}
         >
           <TouchableOpacity
-            style={[styles.mobileCheckbox, reminder.completed && styles.mobileCheckboxChecked]}
+            style={[styles.mobileCheckbox, { borderColor: colors.border }, reminder.completed && styles.mobileCheckboxChecked]}
             onPress={() => toggleReminderComplete(reminder)}
           >
             {reminder.completed && <Text style={styles.mobileCheckboxIcon}>✓</Text>}
           </TouchableOpacity>
-          <Text style={[styles.mobileReminderTitle, reminder.completed && styles.mobileReminderTitleCompleted]} numberOfLines={1}>
+          <Text style={[styles.mobileReminderTitle, { color: colors.text }, reminder.completed && styles.mobileReminderTitleCompleted]} numberOfLines={1}>
             {reminder.title}
           </Text>
           <View style={[styles.mobileReminderDaysBadge, isOverdue && styles.mobileReminderDaysBadgeOverdue]}>
@@ -762,7 +770,7 @@ export function TasksRemindersScreen({ navigation }: any) {
         </TouchableOpacity>
         {reminder.player_name && (
           <View style={styles.mobileReminderFooter}>
-            <Text style={styles.mobileReminderPlayer}>{reminder.player_name}</Text>
+            <Text style={[styles.mobileReminderPlayer, { color: colors.textSecondary }]}>{reminder.player_name}</Text>
             {isTransfer && (
               <View style={styles.mobileReminderBadge}>
                 <Text style={styles.mobileReminderBadgeText}>Transfer</Text>
@@ -862,9 +870,9 @@ export function TasksRemindersScreen({ navigation }: any) {
               <>
                 {/* Heute & Überfällig */}
                 {todayAndOverdueReminders.length > 0 && (
-                  <View style={styles.mobileReminderSection}>
-                    <View style={[styles.mobileReminderSectionHeader, styles.mobileReminderSectionHeaderToday]}>
-                      <Text style={styles.mobileReminderSectionTitle}>Heute & Überfällig</Text>
+                  <View style={[styles.mobileReminderSection, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.08)' : colors.cardBackground, borderWidth: 1.5, borderColor: isDark ? '#f87171' : '#fca5a5', borderRadius: 12 }]}>
+                    <View style={[styles.mobileReminderSectionHeader, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.25)' : '#fef2f2' }]}>
+                      <Text style={[styles.mobileReminderSectionTitle, { color: colors.text }]}>Heute & Überfällig</Text>
                       <View style={styles.mobileReminderSectionBadge}>
                         <Text style={styles.mobileReminderSectionBadgeText}>{todayAndOverdueReminders.length}</Text>
                       </View>
@@ -875,9 +883,9 @@ export function TasksRemindersScreen({ navigation }: any) {
 
                 {/* Später */}
                 {laterReminders.length > 0 && (
-                  <View style={styles.mobileReminderSection}>
-                    <View style={[styles.mobileReminderSectionHeader, styles.mobileReminderSectionHeaderLater]}>
-                      <Text style={styles.mobileReminderSectionTitle}>In den nächsten Tagen</Text>
+                  <View style={[styles.mobileReminderSection, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.08)' : colors.cardBackground, borderWidth: 1.5, borderColor: isDark ? '#34d399' : '#86efac', borderRadius: 12 }]}>
+                    <View style={[styles.mobileReminderSectionHeader, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#d1fae5' }]}>
+                      <Text style={[styles.mobileReminderSectionTitle, { color: colors.text }]}>In den nächsten Tagen</Text>
                       <View style={styles.mobileReminderSectionBadge}>
                         <Text style={styles.mobileReminderSectionBadgeText}>{laterReminders.length}</Text>
                       </View>
@@ -897,8 +905,8 @@ export function TasksRemindersScreen({ navigation }: any) {
 
           {/* Floating Add Button (nur bei Tasks Tab) */}
           {mobileActiveTab === 'tasks' && (
-            <TouchableOpacity style={styles.mobileFloatingButton} onPress={openNewTaskModal}>
-              <Text style={styles.mobileFloatingButtonText}>+</Text>
+            <TouchableOpacity style={[styles.mobileFloatingButton, { backgroundColor: colors.primary }]} onPress={openNewTaskModal}>
+              <Text style={[styles.mobileFloatingButtonText, { color: colors.primaryText }]}>+</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -1080,8 +1088,8 @@ export function TasksRemindersScreen({ navigation }: any) {
       >
         {/* Header Banner */}
         <View style={[styles.headerBanner, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-          <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.surfaceSecondary }]} onPress={() => navigation.navigate('AdvisorDashboard')}>
-            <Text style={[styles.backButtonText, { color: colors.text }]}>← Zurück</Text>
+          <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => navigation.navigate('AdvisorDashboard')}>
+            <Text style={[styles.backButtonText, { color: colors.textSecondary }]}>← Zurück</Text>
           </TouchableOpacity>
           <View style={styles.headerBannerCenter}>
             <Text style={[styles.headerTitle, { color: colors.text }]}>Aufgaben & Erinnerungen</Text>
@@ -1094,9 +1102,9 @@ export function TasksRemindersScreen({ navigation }: any) {
         <View style={styles.splitContainer}>
           {/* Left Side - Tasks */}
           <View style={[styles.leftPanel, { backgroundColor: colors.surface, borderColor: colors.border }, expandedTaskId && { zIndex: 10 }]}>
-            <View style={styles.panelHeader}>
+            <View style={[styles.panelHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
               <Text style={[styles.panelTitle, { color: colors.text }]}>Aufgaben</Text>
-              <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.primary }]} onPress={openNewTaskModal}>
+              <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={openNewTaskModal}>
                 <Text style={[styles.addButtonText, { color: colors.primaryText }]}>+ Neue Aufgabe</Text>
               </TouchableOpacity>
             </View>
@@ -1114,15 +1122,15 @@ export function TasksRemindersScreen({ navigation }: any) {
 
               {/* Completed Tasks Section */}
               {completedTasks.length > 0 && (
-                <View style={styles.completedSection}>
-                  <TouchableOpacity 
+                <View style={[styles.completedSection, { borderTopColor: colors.border }]}>
+                  <TouchableOpacity
                     style={styles.completedHeader}
                     onPress={() => setShowCompletedTasks(!showCompletedTasks)}
                   >
-                    <Text style={styles.completedHeaderText}>
+                    <Text style={[styles.completedHeaderText, { color: colors.textSecondary }]}>
                       Erledigt ({completedTasks.length})
                     </Text>
-                    <Text style={styles.completedHeaderIcon}>
+                    <Text style={[styles.completedHeaderIcon, { color: colors.textSecondary }]}>
                       {showCompletedTasks ? '▲' : '▼'}
                     </Text>
                   </TouchableOpacity>
@@ -1138,16 +1146,16 @@ export function TasksRemindersScreen({ navigation }: any) {
 
           {/* Right Side - Reminders */}
           <View style={[styles.rightPanel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <View style={styles.panelHeader}>
-              <Text style={styles.panelTitle}>Erinnerungen</Text>
+            <View style={[styles.panelHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+              <Text style={[styles.panelTitle, { color: colors.text }]}>Erinnerungen</Text>
             </View>
 
             <ScrollView style={styles.reminderScrollContainer}>
               <View style={styles.reminderColumns}>
                 {/* Heute (inkl. überfällige) */}
-                <View style={styles.reminderColumn}>
-                  <View style={[styles.reminderColumnHeader, styles.reminderColumnToday]}>
-                    <Text style={styles.reminderColumnTitle}>Heute</Text>
+                <View style={[styles.reminderColumn, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.08)' : colors.cardBackground, borderWidth: 1.5, borderColor: isDark ? '#f87171' : '#fca5a5' }]}>
+                  <View style={[styles.reminderColumnHeader, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.25)' : '#fef2f2', borderBottomColor: colors.border }]}>
+                    <Text style={[styles.reminderColumnTitle, { color: colors.text }]}>Heute</Text>
                     <View style={styles.reminderCountBadge}>
                       <Text style={styles.reminderCountText}>{todayAndOverdueReminders.length}</Text>
                     </View>
@@ -1165,9 +1173,9 @@ export function TasksRemindersScreen({ navigation }: any) {
                 </View>
 
                 {/* In den nächsten Tagen */}
-                <View style={styles.reminderColumn}>
-                  <View style={[styles.reminderColumnHeader, styles.reminderColumnLater]}>
-                    <Text style={styles.reminderColumnTitle}>In den nächsten Tagen</Text>
+                <View style={[styles.reminderColumn, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.08)' : colors.cardBackground, borderWidth: 1.5, borderColor: isDark ? '#34d399' : '#86efac' }]}>
+                  <View style={[styles.reminderColumnHeader, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#d1fae5', borderBottomColor: colors.border }]}>
+                    <Text style={[styles.reminderColumnTitle, { color: colors.text }]}>In den nächsten Tagen</Text>
                     <View style={styles.reminderCountBadge}>
                       <Text style={styles.reminderCountText}>{laterReminders.length}</Text>
                     </View>
@@ -1412,11 +1420,12 @@ const styles = StyleSheet.create({
   headerBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 24,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
     borderBottomWidth: 1,
   },
   headerBannerCenter: { flex: 1, alignItems: 'center' },
-  headerTitle: { fontSize: 28, fontWeight: '700', color: '#1a1a1a' },
+  headerTitle: { fontSize: 24, fontWeight: '700', color: '#1a1a1a' },
   headerSubtitle: { fontSize: 14, color: '#64748b', marginTop: 4 },
   backButton: { 
     paddingVertical: 10, 
@@ -1429,32 +1438,30 @@ const styles = StyleSheet.create({
   backButtonText: { fontSize: 14, color: '#64748b' },
 
   // Split Container
-  splitContainer: { flex: 1, flexDirection: 'row', padding: 16, gap: 16, height: '100%' },
+  splitContainer: { flex: 1, flexDirection: 'row', padding: 24, gap: 16, height: '100%' },
   
   // Panels - beide gleiche Höhe durch flex: 1 in row
   leftPanel: { flex: 6, borderRadius: 12, borderWidth: 1, overflow: 'hidden', height: '100%' },
   rightPanel: { flex: 4, borderRadius: 12, borderWidth: 1, overflow: 'hidden', height: '100%' },
   
-  panelHeader: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    padding: 12, 
-    borderBottomWidth: 1, 
-    borderBottomColor: '#e2e8f0',
-    backgroundColor: '#f8fafc',
+  panelHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 1,
   },
-  panelTitle: { fontSize: 16, fontWeight: '600', color: '#1a1a1a' },
+  panelTitle: { fontSize: 16, fontWeight: '600' },
   panelContent: { flex: 1, padding: 12 },
 
   // Add Button
-  addButton: { 
-    backgroundColor: '#1a1a1a', 
-    paddingVertical: 4, 
-    paddingHorizontal: 10, 
-    borderRadius: 6 
+  addButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    borderWidth: 1,
   },
-  addButtonText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  addButtonText: { fontSize: 12, fontWeight: '600' },
 
   // Priority Section (wie Reminder Columns)
   prioritySection: { backgroundColor: '#f8fafc', borderRadius: 8, overflow: 'hidden' },
@@ -1567,10 +1574,10 @@ const styles = StyleSheet.create({
   priorityBadgeText: { fontSize: 11, fontWeight: '600' },
 
   // Completed Section
-  completedSection: { marginTop: 24, borderTopWidth: 1, borderTopColor: '#e2e8f0', paddingTop: 16 },
+  completedSection: { marginTop: 24, borderTopWidth: 1, paddingTop: 16 },
   completedHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  completedHeaderText: { fontSize: 14, color: '#64748b', fontWeight: '500' },
-  completedHeaderIcon: { fontSize: 12, color: '#64748b' },
+  completedHeaderText: { fontSize: 14, fontWeight: '500' },
+  completedHeaderIcon: { fontSize: 12 },
   completedList: { opacity: 0.6 },
 
   // Empty State
@@ -1581,19 +1588,15 @@ const styles = StyleSheet.create({
   // Reminder Columns
   reminderScrollContainer: { flex: 1 },
   reminderColumns: { flex: 1, flexDirection: 'column', gap: 16, padding: 12 },
-  reminderColumn: { backgroundColor: '#f8fafc', borderRadius: 8, overflow: 'hidden' },
-  reminderColumnHeader: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
+  reminderColumn: { borderRadius: 8, overflow: 'hidden' },
+  reminderColumnHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
   },
-  reminderColumnToday: { backgroundColor: '#fef2f2' },
-  reminderColumnTomorrow: { backgroundColor: '#fefce8' },
-  reminderColumnLater: { backgroundColor: '#f0fdf4' },
-  reminderColumnTitle: { fontSize: 14, fontWeight: '600', color: '#1a1a1a' },
+  reminderColumnTitle: { fontSize: 14, fontWeight: '600' },
   reminderCountBadge: { 
     backgroundColor: '#1a1a1a', 
     paddingVertical: 2, 
@@ -2092,6 +2095,8 @@ const styles = StyleSheet.create({
   // Mobile Reminder Section
   mobileReminderSection: {
     marginBottom: 20,
+    padding: 8,
+    overflow: 'hidden',
   },
   mobileReminderSectionHeader: {
     flexDirection: 'row',
@@ -2102,16 +2107,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 12,
   },
-  mobileReminderSectionHeaderToday: {
-    backgroundColor: '#fef2f2',
-  },
-  mobileReminderSectionHeaderLater: {
-    backgroundColor: '#f0fdf4',
-  },
   mobileReminderSectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1a1a1a',
   },
   mobileReminderSectionBadge: {
     backgroundColor: '#1a1a1a',

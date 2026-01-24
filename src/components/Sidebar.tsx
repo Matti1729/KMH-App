@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Modal, TextInput, TouchableOpacity, Platform, useWindowDimensions, Image } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Modal, TextInput, TouchableOpacity, Platform, useWindowDimensions, Image, ScrollView } from 'react-native';
 import { supabase } from '../config/supabase';
 import { CommonActions } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import * as ImagePicker from 'expo-image-picker';
 
 interface SidebarProps {
   navigation: any;
@@ -34,10 +35,60 @@ export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedde
   const [feedbackType, setFeedbackType] = useState<'bug' | 'feature' | 'other'>('bug');
   const [feedbackText, setFeedbackText] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [feedbackImage, setFeedbackImage] = useState<string | null>(null);
+  const [generatedPrompt, setGeneratedPrompt] = useState<string>('');
+  const [promptCopied, setPromptCopied] = useState(false);
   const { user } = useAuth();
   const { width } = useWindowDimensions();
   const isMobile = width < MOBILE_BREAKPOINT;
   const { colors, isDark } = useTheme();
+
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: false,
+      quality: 0.8,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setFeedbackImage(result.assets[0].uri);
+    }
+  };
+
+  const generateAIPrompt = () => {
+    const typeLabels: Record<string, string> = {
+      bug: 'Bug/Fehler',
+      feature: 'Feature/Verbesserung',
+      other: 'Sonstiges'
+    };
+
+    const prompt = `Ich habe ein ${typeLabels[feedbackType]} in der KMH Sports Agency App gefunden:
+
+**Bereich:** ${activeScreen}
+**Typ:** ${typeLabels[feedbackType]}
+
+**Beschreibung:**
+${feedbackText}
+
+${feedbackImage ? '**Screenshot:** [Screenshot wurde angehängt - bitte separat teilen]' : ''}
+
+Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
+- Dark Mode Kompatibilität
+- Mobile und Desktop Ansichten
+- Bestehende Code-Patterns im Projekt`;
+
+    setGeneratedPrompt(prompt);
+    setPromptCopied(false);
+  };
+
+  const copyPromptToClipboard = async () => {
+    if (Platform.OS === 'web') {
+      await navigator.clipboard.writeText(generatedPrompt);
+    }
+    setPromptCopied(true);
+    setTimeout(() => setPromptCopied(false), 2000);
+  };
 
   const submitFeedback = async () => {
     if (!feedbackText.trim()) {
@@ -66,6 +117,8 @@ export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedde
       }
       setFeedbackText('');
       setFeedbackType('bug');
+      setFeedbackImage(null);
+      setGeneratedPrompt('');
       setShowFeedbackModal(false);
     } catch (err: any) {
       console.error('Feedback error:', err);
@@ -212,86 +265,136 @@ export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedde
     </>
   );
 
-  // Feedback Modal
-  const FeedbackModal = () => (
-    <Modal visible={showFeedbackModal} transparent animationType="fade">
-      <View style={styles.modalOverlay}>
-        <View style={[styles.modalContent, isMobile && styles.modalContentMobile, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.modalTitle, { color: colors.text }]}>Feedback / Bug melden</Text>
-
-          {/* Type Selection */}
-          <View style={[styles.typeContainer, isMobile && styles.typeContainerMobile]}>
-            {[
-              { id: 'bug', label: '🐛 Bug' },
-              { id: 'feature', label: '💡 Idee' },
-              { id: 'other', label: '📝 Sonstiges' },
-            ].map((type) => (
-              <TouchableOpacity
-                key={type.id}
-                style={[
-                  styles.typeButton,
-                  { borderColor: colors.border },
-                  feedbackType === type.id && { backgroundColor: colors.primary, borderColor: colors.primary },
-                ]}
-                onPress={() => setFeedbackType(type.id as any)}
-              >
-                <Text style={[
-                  styles.typeButtonText,
-                  { color: colors.textSecondary },
-                  feedbackType === type.id && { color: colors.primaryText },
-                ]}>{type.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Description */}
-          <Text style={[styles.inputLabel, { color: colors.text }]}>Beschreibung</Text>
-          <TextInput
-            style={[styles.textArea, { borderColor: colors.border, backgroundColor: colors.inputBackground, color: colors.text }]}
-            value={feedbackText}
-            onChangeText={setFeedbackText}
-            placeholder="Beschreibe das Problem oder deinen Vorschlag..."
-            placeholderTextColor={colors.textMuted}
-            multiline
-            numberOfLines={5}
-          />
-
-          <Text style={[styles.hintText, { color: colors.textMuted }]}>
-            Aktueller Bereich: {activeScreen}
-          </Text>
-
-          {/* Buttons */}
-          <View style={styles.modalButtons}>
-            <TouchableOpacity
-              style={[styles.cancelButton, { borderColor: colors.border }]}
-              onPress={() => {
-                setShowFeedbackModal(false);
-                setFeedbackText('');
-              }}
-            >
-              <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.submitButton, { backgroundColor: colors.primary }, submitting && { opacity: 0.6 }]}
-              onPress={submitFeedback}
-              disabled={submitting}
-            >
-              <Text style={[styles.submitButtonText, { color: colors.primaryText }]}>
-                {submitting ? 'Sende...' : 'Absenden'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-
   // Mobile embedded: Nur Content ohne Header/Modal (für externes Overlay)
   if (isMobile && embedded) {
     return (
       <View style={[styles.sidebarEmbedded, { backgroundColor: colors.surface }]}>
         <SidebarContent />
-        <FeedbackModal />
+        <Modal visible={showFeedbackModal} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, isMobile && styles.modalContentMobile, { backgroundColor: colors.surface }]}>
+              <ScrollView style={{ maxHeight: 450 }} showsVerticalScrollIndicator={false}>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>Feedback / Bug melden</Text>
+                <View style={[styles.typeContainer, isMobile && styles.typeContainerMobile]}>
+                  {[
+                    { id: 'bug', label: '🐛 Bug' },
+                    { id: 'feature', label: '💡 Idee' },
+                    { id: 'other', label: '📝 Sonstiges' },
+                  ].map((type) => (
+                    <TouchableOpacity
+                      key={type.id}
+                      style={[
+                        styles.typeButton,
+                        { borderColor: colors.border },
+                        feedbackType === type.id && { backgroundColor: colors.primary, borderColor: colors.primary },
+                      ]}
+                      onPress={() => setFeedbackType(type.id as any)}
+                    >
+                      <Text style={[
+                        styles.typeButtonText,
+                        { color: colors.textSecondary },
+                        feedbackType === type.id && { color: colors.primaryText },
+                      ]}>{type.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <Text style={[styles.inputLabel, { color: colors.text }]}>Beschreibung</Text>
+                <TextInput
+                  style={[styles.textArea, { borderColor: colors.border, backgroundColor: colors.inputBackground, color: colors.text }]}
+                  value={feedbackText}
+                  onChangeText={setFeedbackText}
+                  placeholder="Beschreibe das Problem oder deinen Vorschlag..."
+                  placeholderTextColor={colors.textMuted}
+                  multiline
+                  numberOfLines={5}
+                />
+
+                {/* Screenshot Upload */}
+                <Text style={[styles.inputLabel, { color: colors.text, marginTop: 8 }]}>Screenshot (optional)</Text>
+                <View style={styles.imageUploadContainer}>
+                  <TouchableOpacity
+                    style={[styles.imageUploadButton, { borderColor: colors.border, backgroundColor: colors.inputBackground }]}
+                    onPress={pickImage}
+                  >
+                    <Text style={{ fontSize: 20, marginRight: 8 }}>📷</Text>
+                    <Text style={[styles.imageUploadText, { color: colors.textSecondary }]}>
+                      {feedbackImage ? 'Bild ändern' : 'Bild auswählen'}
+                    </Text>
+                  </TouchableOpacity>
+                  {feedbackImage && (
+                    <View style={styles.imagePreviewContainer}>
+                      <Image source={{ uri: feedbackImage }} style={styles.imagePreview} />
+                      <TouchableOpacity
+                        style={styles.removeImageButton}
+                        onPress={() => setFeedbackImage(null)}
+                      >
+                        <Text style={styles.removeImageText}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+
+                <Text style={[styles.hintText, { color: colors.textMuted }]}>
+                  Aktueller Bereich: {activeScreen}
+                </Text>
+
+                {/* AI Prompt Generator */}
+                {feedbackText.trim().length > 0 && (
+                  <View style={[styles.promptSection, { borderColor: colors.border }]}>
+                    <TouchableOpacity
+                      style={[styles.generatePromptButton, { backgroundColor: isDark ? 'rgba(139, 92, 246, 0.2)' : '#f3e8ff' }]}
+                      onPress={generateAIPrompt}
+                    >
+                      <Text style={{ fontSize: 16, marginRight: 8 }}>🤖</Text>
+                      <Text style={[styles.generatePromptText, { color: isDark ? '#c4b5fd' : '#7c3aed' }]}>
+                        AI-Prompt generieren
+                      </Text>
+                    </TouchableOpacity>
+
+                    {generatedPrompt.length > 0 && (
+                      <View style={[styles.promptContainer, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
+                        <Text style={[styles.promptText, { color: colors.text }]} selectable>
+                          {generatedPrompt}
+                        </Text>
+                        <TouchableOpacity
+                          style={[styles.copyButton, { backgroundColor: promptCopied ? '#22c55e' : colors.primary }]}
+                          onPress={copyPromptToClipboard}
+                        >
+                          <Text style={[styles.copyButtonText, { color: colors.primaryText }]}>
+                            {promptCopied ? '✓ Kopiert!' : '📋 Kopieren'}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </ScrollView>
+
+              <View style={[styles.modalButtons, { borderTopColor: colors.border }]}>
+                <TouchableOpacity
+                  style={[styles.cancelButton, { borderColor: colors.border }]}
+                  onPress={() => {
+                    setShowFeedbackModal(false);
+                    setFeedbackText('');
+                    setFeedbackImage(null);
+                    setGeneratedPrompt('');
+                  }}
+                >
+                  <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.submitButton, { backgroundColor: colors.primary }, submitting && { opacity: 0.6 }]}
+                  onPress={submitFeedback}
+                  disabled={submitting}
+                >
+                  <Text style={[styles.submitButtonText, { color: colors.primaryText }]}>
+                    {submitting ? 'Sende...' : 'Absenden'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     );
   }
@@ -306,7 +409,131 @@ export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedde
   return (
     <View style={[styles.sidebar, { backgroundColor: colors.surface, borderRightColor: colors.border }]}>
       <SidebarContent />
-      <FeedbackModal />
+      <Modal visible={showFeedbackModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, isMobile && styles.modalContentMobile, { backgroundColor: colors.surface }]}>
+            <ScrollView style={{ maxHeight: 500 }} showsVerticalScrollIndicator={false}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Feedback / Bug melden</Text>
+              <View style={[styles.typeContainer, isMobile && styles.typeContainerMobile]}>
+                {[
+                  { id: 'bug', label: '🐛 Bug' },
+                  { id: 'feature', label: '💡 Idee' },
+                  { id: 'other', label: '📝 Sonstiges' },
+                ].map((type) => (
+                  <TouchableOpacity
+                    key={type.id}
+                    style={[
+                      styles.typeButton,
+                      { borderColor: colors.border },
+                      feedbackType === type.id && { backgroundColor: colors.primary, borderColor: colors.primary },
+                    ]}
+                    onPress={() => setFeedbackType(type.id as any)}
+                  >
+                    <Text style={[
+                      styles.typeButtonText,
+                      { color: colors.textSecondary },
+                      feedbackType === type.id && { color: colors.primaryText },
+                    ]}>{type.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>Beschreibung</Text>
+              <TextInput
+                style={[styles.textArea, { borderColor: colors.border, backgroundColor: colors.inputBackground, color: colors.text }]}
+                value={feedbackText}
+                onChangeText={setFeedbackText}
+                placeholder="Beschreibe das Problem oder deinen Vorschlag..."
+                placeholderTextColor={colors.textMuted}
+                multiline
+                numberOfLines={5}
+              />
+
+              {/* Screenshot Upload */}
+              <Text style={[styles.inputLabel, { color: colors.text, marginTop: 8 }]}>Screenshot (optional)</Text>
+              <View style={styles.imageUploadContainer}>
+                <TouchableOpacity
+                  style={[styles.imageUploadButton, { borderColor: colors.border, backgroundColor: colors.inputBackground }]}
+                  onPress={pickImage}
+                >
+                  <Text style={{ fontSize: 20, marginRight: 8 }}>📷</Text>
+                  <Text style={[styles.imageUploadText, { color: colors.textSecondary }]}>
+                    {feedbackImage ? 'Bild ändern' : 'Bild auswählen'}
+                  </Text>
+                </TouchableOpacity>
+                {feedbackImage && (
+                  <View style={styles.imagePreviewContainer}>
+                    <Image source={{ uri: feedbackImage }} style={styles.imagePreview} />
+                    <TouchableOpacity
+                      style={styles.removeImageButton}
+                      onPress={() => setFeedbackImage(null)}
+                    >
+                      <Text style={styles.removeImageText}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+
+              <Text style={[styles.hintText, { color: colors.textMuted }]}>
+                Aktueller Bereich: {activeScreen}
+              </Text>
+
+              {/* AI Prompt Generator */}
+              {feedbackText.trim().length > 0 && (
+                <View style={[styles.promptSection, { borderColor: colors.border }]}>
+                  <TouchableOpacity
+                    style={[styles.generatePromptButton, { backgroundColor: isDark ? 'rgba(139, 92, 246, 0.2)' : '#f3e8ff' }]}
+                    onPress={generateAIPrompt}
+                  >
+                    <Text style={{ fontSize: 16, marginRight: 8 }}>🤖</Text>
+                    <Text style={[styles.generatePromptText, { color: isDark ? '#c4b5fd' : '#7c3aed' }]}>
+                      AI-Prompt generieren
+                    </Text>
+                  </TouchableOpacity>
+
+                  {generatedPrompt.length > 0 && (
+                    <View style={[styles.promptContainer, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
+                      <Text style={[styles.promptText, { color: colors.text }]} selectable>
+                        {generatedPrompt}
+                      </Text>
+                      <TouchableOpacity
+                        style={[styles.copyButton, { backgroundColor: promptCopied ? '#22c55e' : colors.primary }]}
+                        onPress={copyPromptToClipboard}
+                      >
+                        <Text style={[styles.copyButtonText, { color: colors.primaryText }]}>
+                          {promptCopied ? '✓ Kopiert!' : '📋 Kopieren'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              )}
+            </ScrollView>
+
+            <View style={[styles.modalButtons, { borderTopColor: colors.border }]}>
+              <TouchableOpacity
+                style={[styles.cancelButton, { borderColor: colors.border }]}
+                onPress={() => {
+                  setShowFeedbackModal(false);
+                  setFeedbackText('');
+                  setFeedbackImage(null);
+                  setGeneratedPrompt('');
+                }}
+              >
+                <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.submitButton, { backgroundColor: colors.primary }, submitting && { opacity: 0.6 }]}
+                onPress={submitFeedback}
+                disabled={submitting}
+              >
+                <Text style={[styles.submitButtonText, { color: colors.primaryText }]}>
+                  {submitting ? 'Sende...' : 'Absenden'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -634,6 +861,10 @@ const styles = StyleSheet.create({
   modalButtons: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
   },
   cancelButton: {
     paddingVertical: 10,
@@ -657,6 +888,91 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontSize: 14,
     color: '#fff',
+    fontWeight: '600',
+  },
+  // Image Upload Styles
+  imageUploadContainer: {
+    marginBottom: 16,
+  },
+  imageUploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderStyle: 'dashed' as any,
+  },
+  imageUploadText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  imagePreviewContainer: {
+    marginTop: 12,
+    position: 'relative',
+    alignSelf: 'flex-start',
+  },
+  imagePreview: {
+    width: 150,
+    height: 100,
+    borderRadius: 8,
+    resizeMode: 'cover',
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#ef4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  removeImageText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  // AI Prompt Styles
+  promptSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+  },
+  generatePromptButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  generatePromptText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  promptContainer: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  promptText: {
+    fontSize: 13,
+    lineHeight: 20,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  copyButton: {
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  copyButtonText: {
+    fontSize: 14,
     fontWeight: '600',
   },
 });

@@ -445,8 +445,8 @@ export function TermineScreen({ navigation }: any) {
   };
 
   const getSortIndicator = (field: SortField): string => {
-    if (sortField !== field) return '↕';
-    return sortDirection === 'asc' ? '↑' : '↓';
+    if (sortField !== field) return '';
+    return sortDirection === 'asc' ? '▲' : '▼';
   };
 
   const formatDate = (termin: Termin): string => {
@@ -1432,10 +1432,10 @@ END:VEVENT
             {/* Spieler Filter */}
             <View style={[styles.scoutingDropdownContainer, { zIndex: 40 }]}>
               <TouchableOpacity
-                style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedPlayers.length > 0 && styles.scoutingFilterButtonActive]}
+                style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedPlayers.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
                 onPress={(e) => { e.stopPropagation(); setShowPlayerDropdown(!showPlayerDropdown); setShowResponsibilityDropdown(false); }}
               >
-                <Text style={[styles.scoutingFilterButtonText, { color: colors.textSecondary }, selectedPlayers.length > 0 && styles.scoutingFilterButtonTextActive]}>
+                <Text style={[styles.scoutingFilterButtonText, { color: colors.textSecondary }, selectedPlayers.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>
                   {getPlayerFilterLabel()} ▼
                 </Text>
               </TouchableOpacity>
@@ -1478,10 +1478,10 @@ END:VEVENT
             {/* Zuständigkeit Filter */}
             <View style={[styles.scoutingDropdownContainer, { zIndex: 30 }]}>
               <TouchableOpacity
-                style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedResponsibilities.length > 0 && styles.scoutingFilterButtonActive]}
+                style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedResponsibilities.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
                 onPress={(e) => { e.stopPropagation(); setShowResponsibilityDropdown(!showResponsibilityDropdown); setShowPlayerDropdown(false); }}
               >
-                <Text style={[styles.scoutingFilterButtonText, { color: colors.textSecondary }, selectedResponsibilities.length > 0 && styles.scoutingFilterButtonTextActive]}>
+                <Text style={[styles.scoutingFilterButtonText, { color: colors.textSecondary }, selectedResponsibilities.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>
                   {getResponsibilityFilterLabel()} ▼
                 </Text>
               </TouchableOpacity>
@@ -1955,10 +1955,10 @@ END:VEVENT
             {/* Jahrgang Filter */}
             <View style={[styles.scoutingDropdownContainer, { zIndex: 40 }]}>
               <TouchableOpacity
-                style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, termineJahrgangFilter.length > 0 && styles.scoutingFilterButtonActive]}
+                style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, termineJahrgangFilter.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
                 onPress={(e) => { e.stopPropagation(); setShowTermineJahrgangDropdown(!showTermineJahrgangDropdown); }}
               >
-                <Text style={[styles.scoutingFilterButtonText, { color: colors.textSecondary }, termineJahrgangFilter.length > 0 && styles.scoutingFilterButtonTextActive]}>
+                <Text style={[styles.scoutingFilterButtonText, { color: colors.textSecondary }, termineJahrgangFilter.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>
                   {getJahrgangFilterLabel()} ▼
                 </Text>
               </TouchableOpacity>
@@ -2001,17 +2001,17 @@ END:VEVENT
             {/* Anstehend / Archiv Toggle + Neuer Termin */}
             <TouchableOpacity
               onPress={() => setShowTermineArchiv(false)}
-              style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, !showTermineArchiv && styles.scoutingFilterButtonActive]}
+              style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, !showTermineArchiv && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
             >
-              <Text style={[styles.scoutingFilterButtonText, { color: colors.textSecondary }, !showTermineArchiv && styles.scoutingFilterButtonTextActive]}>
+              <Text style={[styles.scoutingFilterButtonText, { color: colors.textSecondary }, !showTermineArchiv && { color: isDark ? '#93c5fd' : '#0369a1' }]}>
                 Anstehend ({filteredTermine.length})
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setShowTermineArchiv(true)}
-              style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, showTermineArchiv && styles.scoutingFilterButtonActive]}
+              style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, showTermineArchiv && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
             >
-              <Text style={[styles.scoutingFilterButtonText, { color: colors.textSecondary }, showTermineArchiv && styles.scoutingFilterButtonTextActive]}>
+              <Text style={[styles.scoutingFilterButtonText, { color: colors.textSecondary }, showTermineArchiv && { color: isDark ? '#93c5fd' : '#0369a1' }]}>
                 Archiv ({archivTermine.length})
               </Text>
             </TouchableOpacity>
@@ -2692,9 +2692,9 @@ const styles = StyleSheet.create({
   sidebarMobile: { width: 280, height: '100%', backgroundColor: '#fff' },
 
   mainContent: { flex: 1, backgroundColor: '#f5f5f5' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
   headerCenter: { flex: 1, alignItems: 'center' },
-  headerTitle: { fontSize: 28, fontWeight: '700', color: '#1a1a1a' },
+  headerTitle: { fontSize: 24, fontWeight: '700', color: '#1a1a1a' },
   headerSubtitle: { fontSize: 14, color: '#64748b', marginTop: 4 },
   backButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0' },
   backButtonText: { fontSize: 14, color: '#64748b' },
@@ -3220,10 +3220,8 @@ const styles = StyleSheet.create({
   scoutingSearchInput: { flex: 1, paddingVertical: 10, fontSize: 14, outlineStyle: 'none' as any },
   scoutingFilterContainer: { flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: 16 },
   scoutingDropdownContainer: { position: 'relative' as any },
-  scoutingFilterButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 14, backgroundColor: '#f1f5f9', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0' },
-  scoutingFilterButtonActive: { backgroundColor: '#e0f2fe', borderColor: '#3b82f6' },
-  scoutingFilterButtonText: { fontSize: 14, color: '#64748b' },
-  scoutingFilterButtonTextActive: { color: '#0369a1' },
+  scoutingFilterButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 14, borderRadius: 8, borderWidth: 1 },
+  scoutingFilterButtonText: { fontSize: 14 },
   scoutingFilterDropdownMulti: { position: 'absolute' as any, top: '100%', right: 0, borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, minWidth: 220, marginTop: 4, zIndex: 1002, borderWidth: 1 },
   scoutingFilterDropdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', backgroundColor: '#f8fafc', borderTopLeftRadius: 12, borderTopRightRadius: 12 },
   scoutingFilterDropdownTitle: { fontSize: 13, fontWeight: '600', color: '#475569' },

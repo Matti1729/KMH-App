@@ -2081,8 +2081,8 @@ export function ScoutingScreen({ navigation }: any) {
             </ScrollView>
 
             {/* FAB */}
-            <TouchableOpacity style={styles.mobileFab} onPress={() => setShowAddPlayerModal(true)}>
-              <Text style={styles.mobileFabIcon}>+</Text>
+            <TouchableOpacity style={[styles.mobileFab, { backgroundColor: colors.primary }]} onPress={() => setShowAddPlayerModal(true)}>
+              <Text style={[styles.mobileFabIcon, { color: colors.primaryText }]}>+</Text>
             </TouchableOpacity>
           </>
         ) : (
@@ -2137,8 +2137,8 @@ export function ScoutingScreen({ navigation }: any) {
             </ScrollView>
 
             {/* FAB */}
-            <TouchableOpacity style={styles.mobileFab} onPress={() => setShowAddGameModal(true)}>
-              <Text style={styles.mobileFabIcon}>+</Text>
+            <TouchableOpacity style={[styles.mobileFab, { backgroundColor: colors.primary }]} onPress={() => setShowAddGameModal(true)}>
+              <Text style={[styles.mobileFabIcon, { color: colors.primaryText }]}>+</Text>
             </TouchableOpacity>
           </>
         )}
@@ -2660,19 +2660,19 @@ export function ScoutingScreen({ navigation }: any) {
         {/* Header Banner - nur auf Desktop */}
         {!isMobile && (
           <View style={[styles.headerBanner, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-            <TouchableOpacity style={styles.filterButton} onPress={() => navigation.navigate('AdvisorDashboard')}>
-              <Text style={styles.filterButtonText}>← Zurück</Text>
+            <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => navigation.navigate('AdvisorDashboard')}>
+              <Text style={[styles.filterButtonText, { color: colors.textSecondary }]}>← Zurück</Text>
             </TouchableOpacity>
             <View style={styles.headerBannerCenter}>
               <Text style={[styles.title, { color: colors.text }]}>Scouting Area</Text>
               <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Manage Talente, Berichte und Spieltermine.</Text>
             </View>
             <View style={styles.headerTabs}>
-              <TouchableOpacity style={[styles.filterButton, activeTab === 'spieler' && styles.filterButtonActive]} onPress={() => setActiveTab('spieler')}>
-                <Text style={[styles.filterButtonText, activeTab === 'spieler' && styles.filterButtonTextActive]}>Spieler-Datenbank</Text>
+              <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, activeTab === 'spieler' && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]} onPress={() => setActiveTab('spieler')}>
+                <Text style={[styles.filterButtonText, { color: colors.textSecondary }, activeTab === 'spieler' && { color: isDark ? '#93c5fd' : '#0369a1' }]}>Spieler-Datenbank</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.filterButton, activeTab === 'spiele' && styles.filterButtonActive]} onPress={() => setActiveTab('spiele')}>
-                <Text style={[styles.filterButtonText, activeTab === 'spiele' && styles.filterButtonTextActive]}>Scouting-Termine</Text>
+              <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, activeTab === 'spiele' && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]} onPress={() => setActiveTab('spiele')}>
+                <Text style={[styles.filterButtonText, { color: colors.textSecondary }, activeTab === 'spiele' && { color: isDark ? '#93c5fd' : '#0369a1' }]}>Scouting-Termine</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -2721,9 +2721,9 @@ export function ScoutingScreen({ navigation }: any) {
           {activeTab === 'spieler' && (
             <View style={styles.filterContainer}>
               <View style={[styles.dropdownContainer, { zIndex: 30 }]}>
-                <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedPositions.length > 0 && styles.filterButtonActive]}
+                <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedPositions.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
                   onPress={(e) => { e.stopPropagation(); setShowPositionDropdown(!showPositionDropdown); setShowYearDropdown(false); setShowRatingDropdown(false); }}>
-                  <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedPositions.length > 0 && styles.filterButtonTextActive]}>{getPositionFilterLabel()} ▼</Text>
+                  <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedPositions.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>{getPositionFilterLabel()} ▼</Text>
                 </TouchableOpacity>
                 {showPositionDropdown && (
                   <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
@@ -2750,9 +2750,9 @@ export function ScoutingScreen({ navigation }: any) {
               </View>
 
               <View style={[styles.dropdownContainer, { zIndex: 20 }]}>
-                <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedYears.length > 0 && styles.filterButtonActive]}
+                <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedYears.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
                   onPress={(e) => { e.stopPropagation(); setShowYearDropdown(!showYearDropdown); setShowPositionDropdown(false); setShowRatingDropdown(false); }}>
-                  <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedYears.length > 0 && styles.filterButtonTextActive]}>{getYearFilterLabel()} ▼</Text>
+                  <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedYears.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>{getYearFilterLabel()} ▼</Text>
                 </TouchableOpacity>
                 {showYearDropdown && (
                   <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
@@ -2779,9 +2779,9 @@ export function ScoutingScreen({ navigation }: any) {
               </View>
 
               <View style={[styles.dropdownContainer, { zIndex: 10 }]}>
-                <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedRatings.length > 0 && styles.filterButtonActive]}
+                <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedRatings.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
                   onPress={(e) => { e.stopPropagation(); setShowRatingDropdown(!showRatingDropdown); setShowPositionDropdown(false); setShowYearDropdown(false); }}>
-                  <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedRatings.length > 0 && styles.filterButtonTextActive]}>{getRatingFilterLabel()} ▼</Text>
+                  <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedRatings.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>{getRatingFilterLabel()} ▼</Text>
                 </TouchableOpacity>
                 {showRatingDropdown && (
                   <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
@@ -2812,9 +2812,9 @@ export function ScoutingScreen({ navigation }: any) {
           {activeTab === 'spiele' && (
             <View style={styles.filterContainer}>
               <View style={[styles.dropdownContainer, { zIndex: 20 }]}>
-                <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedGamesYears.length > 0 && styles.filterButtonActive]}
+                <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedGamesYears.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
                   onPress={(e) => { e.stopPropagation(); setShowGamesYearDropdown(!showGamesYearDropdown); setShowGamesRatingDropdown(false); }}>
-                  <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedGamesYears.length > 0 && styles.filterButtonTextActive]}>
+                  <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedGamesYears.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>
                     {selectedGamesYears.length === 0 ? 'Jahrgang' : selectedGamesYears.length === 1 ? selectedGamesYears[0] : `${selectedGamesYears.length} Jahrgänge`} ▼
                   </Text>
                 </TouchableOpacity>
@@ -2846,9 +2846,9 @@ export function ScoutingScreen({ navigation }: any) {
               </View>
 
               <View style={[styles.dropdownContainer, { zIndex: 10 }]}>
-                <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedGamesRatings.length > 0 && styles.filterButtonActive]}
+                <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedGamesRatings.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
                   onPress={(e) => { e.stopPropagation(); setShowGamesRatingDropdown(!showGamesRatingDropdown); setShowGamesYearDropdown(false); }}>
-                  <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedGamesRatings.length > 0 && styles.filterButtonTextActive]}>
+                  <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedGamesRatings.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>
                     {selectedGamesRatings.length === 0 ? 'Einschätzung' : selectedGamesRatings.length === 1 ? `⭐ ${selectedGamesRatings[0]}/10` : `${selectedGamesRatings.length} Einsch.`} ▼
                   </Text>
                 </TouchableOpacity>
@@ -2906,8 +2906,8 @@ export function ScoutingScreen({ navigation }: any) {
             )}
           </View>
 
-          <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => activeTab === 'spieler' ? setShowAddPlayerModal(true) : setShowAddGameModal(true)}>
-            <Text style={[styles.filterButtonText, { color: colors.textSecondary }]}>{activeTab === 'spieler' ? 'neuen Spieler anlegen' : 'neues Spiel anlegen'}</Text>
+          <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={() => activeTab === 'spieler' ? setShowAddPlayerModal(true) : setShowAddGameModal(true)}>
+            <Text style={[styles.addButtonText, { color: colors.primaryText }]}>{activeTab === 'spieler' ? 'neuen Spieler anlegen' : 'neues Spiel anlegen'}</Text>
           </TouchableOpacity>
         </View>
 
@@ -4045,9 +4045,9 @@ const styles = StyleSheet.create({
   mobileTabTextActive: { color: '#1a1a1a', fontWeight: '600' },
   
   // Header Banner - weiß mit Titel mittig
-  headerBanner: { flexDirection: 'row', alignItems: 'center', padding: 24, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  headerBanner: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 24, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
   headerBannerCenter: { flex: 1, alignItems: 'center' },
-  title: { fontSize: 28, fontWeight: '700', color: '#1a1a1a' },
+  title: { fontSize: 24, fontWeight: '700', color: '#1a1a1a' },
   subtitle: { fontSize: 14, color: '#64748b', marginTop: 4 },
   headerTabs: { flexDirection: 'row', gap: 8 },
   headerTab: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0' },
@@ -4057,16 +4057,14 @@ const styles = StyleSheet.create({
   headerTabTextActive: { color: '#fff' },
   
   // Toolbar - weiß umrandet
-  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0', zIndex: 100 },
+  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0', zIndex: 100 },
   searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', paddingHorizontal: 12 },
   searchIcon: { fontSize: 16, marginRight: 8 },
   searchInput: { flex: 1, paddingVertical: 10, fontSize: 14 },
   filterContainer: { flexDirection: 'row', gap: 8 },
   dropdownContainer: { position: 'relative' },
-  filterButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0' },
-  filterButtonActive: { backgroundColor: '#e0f2fe', borderColor: '#3b82f6' },
-  filterButtonText: { fontSize: 14, color: '#64748b' },
-  filterButtonTextActive: { color: '#0369a1' },
+  filterButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, borderWidth: 1 },
+  filterButtonText: { fontSize: 14 },
   filterDropdownMulti: { position: 'absolute', top: '100%', left: 0, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', marginTop: 4, minWidth: 220, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, zIndex: 1000, overflow: 'hidden' },
   filterDropdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#e2e8f0', backgroundColor: '#f8fafc' },
   filterDropdownTitle: { fontSize: 13, fontWeight: '600', color: '#1a1a1a' },
@@ -4084,8 +4082,8 @@ const styles = StyleSheet.create({
   viewButton: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 6 },
   viewButtonActive: { backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4 },
   viewButtonText: { fontSize: 14, color: '#64748b' },
-  addButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#1a1a1a' },
-  addButtonText: { fontSize: 14, color: '#fff', fontWeight: '600' },
+  addButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, borderWidth: 1 },
+  addButtonText: { fontSize: 14, fontWeight: '600' },
   content: { flex: 1, padding: 16 },
   kanbanContainer: { flex: 1, flexDirection: 'row', gap: 12 },
   kanbanColumn: { flex: 1, backgroundColor: '#f1f5f9', borderRadius: 12, padding: 12, minHeight: 400, minWidth: 200 },
@@ -4103,25 +4101,25 @@ const styles = StyleSheet.create({
   cardHeader: { flexDirection: 'row', alignItems: 'center' },
   clubLogoCard: { width: 32, height: 32, resizeMode: 'contain', marginRight: 10 },
   cardInfo: { flex: 1 },
-  playerName: { fontSize: 16, fontWeight: '600', color: '#1a1a1a' },
-  playerYearInline: { fontSize: 13, fontWeight: '400', color: '#64748b' },
-  playerClubName: { fontSize: 13, color: '#64748b', marginTop: 2 },
+  playerName: { fontSize: 14, fontWeight: '600', color: '#1a1a1a' },
+  playerYearInline: { fontSize: 12, fontWeight: '400', color: '#64748b' },
+  playerClubName: { fontSize: 12, color: '#64748b', marginTop: 2 },
   playerClub: { fontSize: 12, color: '#64748b', marginTop: 2 },
   cardRight: { alignItems: 'flex-end', gap: 4 },
   positionBadgesRow: { flexDirection: 'row', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' },
-  ratingBadgeCard: { backgroundColor: '#dcfce7', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4 },
-  ratingTextCard: { fontSize: 10, fontWeight: '600', color: '#166534' },
+  ratingBadgeCard: { backgroundColor: '#dcfce7', paddingVertical: 1, paddingHorizontal: 4, borderRadius: 3 },
+  ratingTextCard: { fontSize: 9, fontWeight: '600', color: '#166534' },
   birthYear: { fontSize: 11, color: '#64748b' },
   clubLogoSmall: { width: 28, height: 28, resizeMode: 'contain', marginTop: 4 },
   cardFooter: { flexDirection: 'row', alignItems: 'center', marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#f1f5f9' },
-  positionBadge: { backgroundColor: '#e0f2fe', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 4, borderWidth: 1, borderColor: '#bae6fd' },
-  positionText: { fontSize: 10, fontWeight: '500', color: '#0369a1' },
-  ratingBadge: { backgroundColor: '#dcfce7', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 4, borderWidth: 1, borderColor: '#bbf7d0' },
-  ratingText: { fontSize: 10, fontWeight: '600', color: '#166534' },
-  ratingBadgeSmall: { backgroundColor: '#dcfce7', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 4, borderWidth: 1, borderColor: '#bbf7d0' },
-  ratingTextSmall: { fontSize: 10, fontWeight: '500', color: '#166534' },
-  ratingBadgeList: { backgroundColor: '#dcfce7', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4 },
-  ratingTextList: { fontSize: 10, fontWeight: '600', color: '#166534' },
+  positionBadge: { backgroundColor: '#e0f2fe', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 3, borderWidth: 1, borderColor: '#bae6fd' },
+  positionText: { fontSize: 9, fontWeight: '500', color: '#0369a1' },
+  ratingBadge: { backgroundColor: '#dcfce7', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 3, borderWidth: 1, borderColor: '#bbf7d0' },
+  ratingText: { fontSize: 9, fontWeight: '600', color: '#166534' },
+  ratingBadgeSmall: { backgroundColor: '#dcfce7', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 3, borderWidth: 1, borderColor: '#bbf7d0' },
+  ratingTextSmall: { fontSize: 9, fontWeight: '500', color: '#166534' },
+  ratingBadgeList: { backgroundColor: '#dcfce7', paddingVertical: 1, paddingHorizontal: 4, borderRadius: 3 },
+  ratingTextList: { fontSize: 9, fontWeight: '600', color: '#166534' },
   tmIconSmall: { padding: 2 },
   tmLogoSmall: { width: 40, height: 16, resizeMode: 'contain' },
   tmLogoMedium: { width: 50, height: 20, resizeMode: 'contain' },
@@ -4139,8 +4137,8 @@ const styles = StyleSheet.create({
   tableCell: { fontSize: 14, color: '#1a1a1a' },
   tableCellText: { fontSize: 14, color: '#1a1a1a', fontWeight: '500' },
   clubLogoTable: { width: 24, height: 24, resizeMode: 'contain' },
-  positionBadgeSmall: { backgroundColor: '#e0f2fe', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 4, borderWidth: 1, borderColor: '#bae6fd' },
-  positionTextSmall: { fontSize: 10, fontWeight: '500', color: '#0369a1' },
+  positionBadgeSmall: { backgroundColor: '#e0f2fe', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 3, borderWidth: 1, borderColor: '#bae6fd' },
+  positionTextSmall: { fontSize: 9, fontWeight: '500', color: '#0369a1' },
   statusBadge: { paddingVertical: 4, paddingHorizontal: 8, borderRadius: 4 },
   statusBadgeText: { fontSize: 11, fontWeight: '600' },
   gamesContainer: { flex: 1, backgroundColor: '#fff', borderRadius: 12, overflow: 'hidden' },

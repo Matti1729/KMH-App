@@ -30,6 +30,9 @@ interface Contact {
   email: string; notes?: string; created_at: string;
 }
 
+type SortField = 'verein' | 'name' | 'bereich' | 'position' | 'mannschaft' | 'telefon' | 'email';
+type SortDirection = 'asc' | 'desc';
+
 export function FootballNetworkScreen({ navigation }: any) {
   const isMobile = useIsMobile();
   const { session, loading: authLoading } = useAuth();
@@ -60,6 +63,10 @@ export function FootballNetworkScreen({ navigation }: any) {
   const [showContactDetailModal, setShowContactDetailModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showDesktopDetailModal, setShowDesktopDetailModal] = useState(false);
+
+  // Sorting State
+  const [sortField, setSortField] = useState<SortField>('verein');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
   // Daten nur laden wenn Auth bereit ist
   useEffect(() => {
@@ -149,8 +156,27 @@ export function FootballNetworkScreen({ navigation }: any) {
     if (selectedPositions.length > 0) result = result.filter(c => selectedPositions.includes(c.position));
     if (selectedLeagues.length > 0) result = result.filter(c => selectedLeagues.includes(c.liga));
     if (selectedBereiche.length > 0) result = result.filter(c => selectedBereiche.includes(c.bereich));
+
+    // Sorting
+    result = [...result].sort((a, b) => {
+      let valueA: string, valueB: string;
+      switch (sortField) {
+        case 'verein': valueA = a.verein?.toLowerCase() || ''; valueB = b.verein?.toLowerCase() || ''; break;
+        case 'name': valueA = formatName(a).toLowerCase(); valueB = formatName(b).toLowerCase(); break;
+        case 'bereich': valueA = a.bereich?.toLowerCase() || ''; valueB = b.bereich?.toLowerCase() || ''; break;
+        case 'position': valueA = a.position?.toLowerCase() || ''; valueB = b.position?.toLowerCase() || ''; break;
+        case 'mannschaft': valueA = a.mannschaft?.toLowerCase() || ''; valueB = b.mannschaft?.toLowerCase() || ''; break;
+        case 'telefon': valueA = formatPhone(a).toLowerCase(); valueB = formatPhone(b).toLowerCase(); break;
+        case 'email': valueA = a.email?.toLowerCase() || ''; valueB = b.email?.toLowerCase() || ''; break;
+        default: return 0;
+      }
+      if (valueA < valueB) return sortDirection === 'asc' ? -1 : 1;
+      if (valueA > valueB) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
     return result;
-  }, [contacts, searchText, selectedPositions, selectedLeagues, selectedBereiche]);
+  }, [contacts, searchText, selectedPositions, selectedLeagues, selectedBereiche, sortField, sortDirection]);
 
   const togglePosition = (p: string) => setSelectedPositions(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
   const toggleLeague = (l: string) => setSelectedLeagues(prev => prev.includes(l) ? prev.filter(x => x !== l) : [...prev, l]);
@@ -158,6 +184,21 @@ export function FootballNetworkScreen({ navigation }: any) {
   const closeAllDropdowns = () => { setShowPositionDropdown(false); setShowLeagueDropdown(false); setShowBereichDropdown(false); };
   const formatPhone = (c: Contact) => c.telefon ? `${c.telefon_code || ''} ${c.telefon}`.trim() : '-';
   const formatName = (c: Contact) => c.nachname && c.vorname ? `${c.nachname}, ${c.vorname}` : c.nachname || c.vorname || '-';
+
+  // Sorting functions
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortIndicator = (field: SortField): string => {
+    if (sortField !== field) return '';
+    return sortDirection === 'asc' ? '▲' : '▼';
+  };
 
   // Profile initials for header
   const profileInitials = profile ? `${profile.first_name?.[0] || ''}${profile.last_name?.[0] || ''}` : '?';
@@ -722,19 +763,33 @@ export function FootballNetworkScreen({ navigation }: any) {
               )}
             </View>
           </View>
-          <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.primary }]} onPress={() => setShowAddModal(true)}><Text style={[styles.addButtonText, { color: colors.primaryText }]}>+ neuen Kontakt anlegen</Text></TouchableOpacity>
+          <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={() => setShowAddModal(true)}><Text style={[styles.addButtonText, { color: colors.primaryText }]}>+ neuen Kontakt anlegen</Text></TouchableOpacity>
         </View>
 
         <View style={styles.content}>
           <View style={[styles.tableContainer, { backgroundColor: colors.cardBackground }]}>
             <View style={[styles.tableHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
-              <Text style={[styles.tableHeaderCell, { flex: 1.3, color: colors.textSecondary }]}>Verein</Text>
-              <Text style={[styles.tableHeaderCell, { flex: 1.2, color: colors.textSecondary }]}>Name</Text>
-              <Text style={[styles.tableHeaderCell, { flex: 0.7, color: colors.textSecondary }]}>Bereich</Text>
-              <Text style={[styles.tableHeaderCell, { flex: 0.8, marginRight: -8, color: colors.textSecondary }]}>Position</Text>
-              <Text style={[styles.tableHeaderCell, { flex: 0.7, color: colors.textSecondary }]}>Mannschaft</Text>
-              <Text style={[styles.tableHeaderCell, { flex: 1, color: colors.textSecondary }]}>Telefon</Text>
-              <Text style={[styles.tableHeaderCell, { flex: 1.2, color: colors.textSecondary }]}>E-Mail</Text>
+              <TouchableOpacity onPress={() => handleSort('verein')} style={[styles.sortableHeaderCell, { flex: 1.3 }]}>
+                <Text style={[styles.tableHeaderCell, { color: colors.textSecondary }]}>Verein {getSortIndicator('verein')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleSort('name')} style={[styles.sortableHeaderCell, { flex: 1.2 }]}>
+                <Text style={[styles.tableHeaderCell, { color: colors.textSecondary }]}>Name {getSortIndicator('name')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleSort('bereich')} style={[styles.sortableHeaderCell, { flex: 0.7 }]}>
+                <Text style={[styles.tableHeaderCell, { color: colors.textSecondary }]}>Bereich {getSortIndicator('bereich')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleSort('position')} style={[styles.sortableHeaderCell, { flex: 0.8, marginRight: -8 }]}>
+                <Text style={[styles.tableHeaderCell, { color: colors.textSecondary }]}>Position {getSortIndicator('position')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleSort('mannschaft')} style={[styles.sortableHeaderCell, { flex: 0.7 }]}>
+                <Text style={[styles.tableHeaderCell, { color: colors.textSecondary }]}>Mannschaft {getSortIndicator('mannschaft')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleSort('telefon')} style={[styles.sortableHeaderCell, { flex: 1 }]}>
+                <Text style={[styles.tableHeaderCell, { color: colors.textSecondary }]}>Telefon {getSortIndicator('telefon')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleSort('email')} style={[styles.sortableHeaderCell, { flex: 1.2 }]}>
+                <Text style={[styles.tableHeaderCell, { color: colors.textSecondary }]}>E-Mail {getSortIndicator('email')}</Text>
+              </TouchableOpacity>
             </View>
             <ScrollView>
               {filteredContacts.length === 0 ? (
@@ -1028,18 +1083,16 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 14, color: '#64748b', marginTop: 4 },
   backButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0' },
   backButtonText: { fontSize: 14, color: '#64748b', fontWeight: '500' },
-  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 24, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0', zIndex: 100 },
+  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0', zIndex: 100 },
   searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: '#e2e8f0' },
   searchIcon: { marginRight: 8 },
   searchInput: { flex: 1, paddingVertical: 10, fontSize: 14, color: '#1a1a1a' },
   filterContainer: { flexDirection: 'row', gap: 8 },
   dropdownContainer: { position: 'relative' },
-  filterButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0' },
-  filterButtonActive: { backgroundColor: '#1a1a1a', borderColor: '#1a1a1a' },
-  filterButtonText: { fontSize: 14, color: '#64748b', fontWeight: '500' },
-  filterButtonTextActive: { color: '#fff' },
-  addButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#1a1a1a' },
-  addButtonText: { fontSize: 14, color: '#fff', fontWeight: '500' },
+  filterButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, borderWidth: 1 },
+  filterButtonText: { fontSize: 14, fontWeight: '500' },
+  addButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, borderWidth: 1 },
+  addButtonText: { fontSize: 14, fontWeight: '500' },
   filterDropdownMulti: { position: 'absolute', top: '100%', left: 0, minWidth: 220, backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', marginTop: 4, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, zIndex: 1000 },
   filterDropdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
   filterDropdownTitle: { fontSize: 13, fontWeight: '600', color: '#1a1a1a' },
@@ -1056,6 +1109,7 @@ const styles = StyleSheet.create({
   tableContainer: { flex: 1, backgroundColor: '#fff', borderRadius: 12, overflow: 'hidden' },
   tableHeader: { flexDirection: 'row', backgroundColor: '#f8fafc', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
   tableHeaderCell: { fontSize: 12, fontWeight: '600', color: '#64748b', textTransform: 'uppercase' },
+  sortableHeaderCell: { cursor: 'pointer' as any },
   tableRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', alignItems: 'center' },
   tableCell: { fontSize: 14, color: '#1a1a1a' },
   tableCellBold: { fontWeight: '500' },

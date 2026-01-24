@@ -28,6 +28,7 @@ export function AdvisorHomeScreen({ navigation }: any) {
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [transferCount, setTransferCount] = useState(0);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+  const [openFeedbackCount, setOpenFeedbackCount] = useState(0);
   const [todayGamesCount, setTodayGamesCount] = useState(0);
   const [tasksAndRemindersCount, setTasksAndRemindersCount] = useState(0);
   const [networkContactsCount, setNetworkContactsCount] = useState(0);
@@ -46,6 +47,7 @@ export function AdvisorHomeScreen({ navigation }: any) {
     fetchScoutingCount();
     fetchTransferCount();
     fetchPendingRequestsCount();
+    fetchOpenFeedbackCount();
     fetchTodayGamesCount();
     fetchTasksAndRemindersCount();
     fetchNetworkContactsCount();
@@ -127,8 +129,17 @@ export function AdvisorHomeScreen({ navigation }: any) {
       .from('access_requests')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'pending');
-    
+
     setPendingRequestsCount(count || 0);
+  };
+
+  const fetchOpenFeedbackCount = async () => {
+    const { count } = await supabase
+      .from('feedback')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'open');
+
+    setOpenFeedbackCount(count || 0);
   };
 
   const fetchTodayGamesCount = async () => {
@@ -175,27 +186,34 @@ export function AdvisorHomeScreen({ navigation }: any) {
   const fetchTasksAndRemindersCount = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    
+
     let totalCount = 0;
-    
-    // Offene Aufgaben zählen
+
+    // Offene Hauptaufgaben zählen (Subtasks sind in separater Tabelle)
     const { count: tasksCount } = await supabase
       .from('tasks')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', user.id)
       .eq('completed', false);
-    
+
     totalCount += tasksCount || 0;
-    
-    // Offene Erinnerungen zählen
+
+    // Nur heutige offene Erinnerungen zählen
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
     const { count: remindersCount } = await supabase
       .from('reminders')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', user.id)
-      .eq('completed', false);
-    
+      .eq('completed', false)
+      .gte('due_date', today.toISOString())
+      .lt('due_date', tomorrow.toISOString());
+
     totalCount += remindersCount || 0;
-    
+
     setTasksAndRemindersCount(totalCount);
   };
 
@@ -386,7 +404,11 @@ export function AdvisorHomeScreen({ navigation }: any) {
                       <Text style={[styles.mobileCardTitle, { color: colors.text }]}>Administration</Text>
                       <Text style={[styles.mobileCardSubtitle, { color: colors.textSecondary }]}>Benutzer & Rechte</Text>
                     </View>
-                    {pendingRequestsCount > 0 && <Text style={[styles.mobileCardCount, { color: colors.text }]}>{pendingRequestsCount}</Text>}
+                    {(pendingRequestsCount + openFeedbackCount) > 0 && (
+                      <View style={[styles.mobileCardBadgeRed, { backgroundColor: colors.error }]}>
+                        <Text style={styles.mobileCardBadgeRedText}>{pendingRequestsCount + openFeedbackCount}</Text>
+                      </View>
+                    )}
                   </View>
                 </DashboardCard>
               )}
@@ -582,9 +604,9 @@ export function AdvisorHomeScreen({ navigation }: any) {
                         <Text style={[styles.lightBottomCardTitle, { color: colors.text }]}>Administration</Text>
                         <Text style={[styles.lightBottomCardSubtitle, { color: colors.textMuted }]}>Benutzer & Rechte verwalten</Text>
                       </View>
-                      {pendingRequestsCount > 0 && (
-                        <View style={[styles.lightBottomCardBadge, { backgroundColor: colors.primary }]}>
-                          <Text style={[styles.lightBottomCardBadgeText, { color: colors.primaryText }]}>{pendingRequestsCount}</Text>
+                      {(pendingRequestsCount + openFeedbackCount) > 0 && (
+                        <View style={[styles.redBadge, { backgroundColor: colors.error }]}>
+                          <Text style={styles.redBadgeText}>{pendingRequestsCount + openFeedbackCount}</Text>
                         </View>
                       )}
                     </View>

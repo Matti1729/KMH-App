@@ -1,9 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Platform, Modal, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { Sidebar } from '../../components/Sidebar';
+import { MobileSidebar } from '../../components/MobileSidebar';
+import { MobileHeader } from '../../components/MobileHeader';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 interface AccessRequest {
   id: string;
@@ -21,6 +25,8 @@ interface Advisor {
   last_name: string;
   role: string;
   email?: string;
+  phone?: string;
+  birth_date?: string;
 }
 
 interface Feedback {
@@ -37,12 +43,21 @@ interface Feedback {
 export function AdminPanelScreen({ navigation }: any) {
   const { session, loading: authLoading } = useAuth();
   const { colors, isDark } = useTheme();
+  const isMobile = useIsMobile();
   const dataLoadedRef = useRef(false);
   const [pendingRequests, setPendingRequests] = useState<AccessRequest[]>([]);
   const [advisors, setAdvisors] = useState<Advisor[]>([]);
   const [feedbackList, setFeedbackList] = useState<Feedback[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'requests' | 'advisors' | 'feedback'>('requests');
+  const [profile, setProfile] = useState<Advisor | null>(null);
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+
+  // Confirmation Modal State
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<'makeAdmin' | 'removeAdmin' | 'approve' | 'reject' | null>(null);
+  const [selectedAdvisor, setSelectedAdvisor] = useState<Advisor | null>(null);
+  const [selectedRequest, setSelectedRequest] = useState<AccessRequest | null>(null);
 
   // Daten nur laden wenn Auth bereit ist
   useEffect(() => {
@@ -56,8 +71,20 @@ export function AdminPanelScreen({ navigation }: any) {
 
   const fetchData = async () => {
     setLoading(true);
-    await Promise.all([fetchPendingRequests(), fetchAdvisors(), fetchFeedback()]);
+    await Promise.all([fetchPendingRequests(), fetchAdvisors(), fetchFeedback(), fetchProfile()]);
     setLoading(false);
+  };
+
+  const fetchProfile = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data } = await supabase
+        .from('advisors')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      if (data) setProfile(data);
+    }
   };
 
   const fetchFeedback = async () => {
@@ -81,19 +108,42 @@ export function AdminPanelScreen({ navigation }: any) {
     }
   };
 
-  const generatePrompt = (feedback: Feedback) => {
-    const typeLabel = feedback.type === 'bug' ? 'Bug/Fehler' : feedback.type === 'feature' ? 'Verbesserungsvorschlag' : 'Sonstiges';
-    return `Ich habe folgendes Feedback von einem Benutzer bekommen:
+  const deleteFeedback = async (feedback: Feedback) => {
+    if (Platform.OS === 'web') {
+      if (!window.confirm('Feedback wirklich löschen?')) return;
+    }
+    const { error } = await supabase
+      .from('feedback')
+      .delete()
+      .eq('id', feedback.id);
 
-**Typ:** ${typeLabel}
-**Bereich:** ${feedback.screen}
-**Gemeldet von:** ${feedback.user_name}
-**Datum:** ${formatDate(feedback.created_at)}
+    if (!error) {
+      fetchFeedback();
+    }
+  };
+
+  const generatePrompt = (feedback: Feedback) => {
+    const typeLabel = feedback.type === 'bug' ? 'Bug/Fehler' : feedback.type === 'feature' ? 'Verbesserung/Feature' : 'Sonstiges';
+    const actionText = feedback.type === 'bug'
+      ? 'Bitte finde und behebe den Fehler.'
+      : feedback.type === 'feature'
+        ? 'Bitte implementiere diese Verbesserung.'
+        : 'Bitte analysiere und setze um.';
+
+    return `${typeLabel} in der KMH Sports Agency App:
+
+**Bereich/Screen:** ${feedback.screen}
 
 **Beschreibung:**
 ${feedback.description}
 
-Bitte analysiere das Problem und schlage eine Lösung vor.`;
+${actionText}
+
+Achte dabei auf:
+- Dark Mode Kompatibilität (colors.* Theme-Farben verwenden)
+- Mobile und Desktop Ansichten
+- Bestehende Code-Patterns im Projekt
+- Einheitliches Styling mit anderen Screens`;
   };
 
   const copyPrompt = (feedback: Feedback) => {
@@ -148,7 +198,7 @@ Bitte analysiere das Problem und schlage eine Lösung vor.`;
   const fetchAdvisors = async () => {
     const { data } = await supabase
       .from('advisors')
-      .select('id, first_name, last_name, role')
+      .select('id, first_name, last_name, role, email, phone, birth_date')
       .order('last_name');
 
     if (data) setAdvisors(data);
@@ -227,6 +277,45 @@ Bitte analysiere das Problem und schlage eine Lösung vor.`;
     }
   };
 
+  const openConfirmModal = (advisor: Advisor | null, request: AccessRequest | null, action: 'makeAdmin' | 'removeAdmin' | 'approve' | 'reject') => {
+    setSelectedAdvisor(advisor);
+    setSelectedRequest(request);
+    setConfirmAction(action);
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmAction = async () => {
+    if (!confirmAction) return;
+
+    // Advisor actions
+    if ((confirmAction === 'makeAdmin' || confirmAction === 'removeAdmin') && selectedAdvisor) {
+      const newRole = confirmAction === 'makeAdmin' ? 'admin' : 'berater';
+      const { error } = await supabase
+        .from('advisors')
+        .update({ role: newRole })
+        .eq('id', selectedAdvisor.id);
+
+      if (error) {
+        Alert.alert('Fehler', error.message);
+      } else {
+        fetchAdvisors();
+      }
+    }
+
+    // Request actions
+    if (confirmAction === 'approve' && selectedRequest) {
+      await handleApprove(selectedRequest);
+    }
+    if (confirmAction === 'reject' && selectedRequest) {
+      await handleReject(selectedRequest.id);
+    }
+
+    setShowConfirmModal(false);
+    setSelectedAdvisor(null);
+    setSelectedRequest(null);
+    setConfirmAction(null);
+  };
+
   const handleChangeRole = async (advisorId: string, newRole: string) => {
     const { error } = await supabase
       .from('advisors')
@@ -247,15 +336,70 @@ Bitte analysiere das Problem und schlage eine Lösung vor.`;
     return `${date.getDate().toString().padStart(2, '0')}.${(date.getMonth() + 1).toString().padStart(2, '0')}.${date.getFullYear()}`;
   };
 
+  const formatPhoneWithCountryCode = (phone: string | undefined) => {
+    if (!phone) return null;
+    let formatted = phone.trim();
+    // Remove spaces and dashes for processing
+    const cleaned = formatted.replace(/[\s\-]/g, '');
+    // If starts with 0, replace with +49 (Germany)
+    if (cleaned.startsWith('0')) {
+      formatted = '+49 ' + cleaned.substring(1);
+    } else if (!cleaned.startsWith('+')) {
+      formatted = '+49 ' + cleaned;
+    }
+    return formatted;
+  };
+
+  const handlePhonePress = (phone: string | undefined) => {
+    const formatted = formatPhoneWithCountryCode(phone);
+    if (formatted) {
+      const phoneNumber = formatted.replace(/[\s\-]/g, '');
+      Linking.openURL(`tel:${phoneNumber}`);
+    }
+  };
+
+  const profileInitials = profile ? `${profile.first_name?.[0] || ''}${profile.last_name?.[0] || ''}` : '?';
+
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backButton, { backgroundColor: colors.surfaceSecondary }]}>
-          <Text style={[styles.backButtonText, { color: colors.text }]}>←</Text>
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Administration</Text>
-        <View style={styles.placeholder} />
-      </View>
+    <View style={[styles.container, isMobile && styles.containerMobile, { backgroundColor: colors.background }]}>
+      {/* Mobile Sidebar Overlay */}
+      {isMobile && (
+        <MobileSidebar
+          visible={showMobileSidebar}
+          onClose={() => setShowMobileSidebar(false)}
+          navigation={navigation}
+          activeScreen="admin"
+          profile={profile}
+        />
+      )}
+
+      {/* Desktop Sidebar */}
+      {!isMobile && <Sidebar navigation={navigation} activeScreen="admin" profile={profile} />}
+
+      <View style={[styles.mainContent, { backgroundColor: colors.background }]}>
+        {/* Mobile Header */}
+        {isMobile && (
+          <MobileHeader
+            title="Administration"
+            onMenuPress={() => setShowMobileSidebar(true)}
+            onProfilePress={() => navigation.navigate('MyProfile')}
+            profileInitials={profileInitials}
+          />
+        )}
+
+        {/* Desktop Header */}
+        {!isMobile && (
+          <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+            <TouchableOpacity onPress={() => navigation.navigate('AdvisorDashboard')} style={[styles.backButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
+              <Text style={[styles.backButtonText, { color: colors.textSecondary }]}>← Zurück</Text>
+            </TouchableOpacity>
+            <View style={styles.headerCenter}>
+              <Text style={[styles.headerTitle, { color: colors.text }]}>Administration</Text>
+              <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Benutzer, Anfragen und Feedback verwalten</Text>
+            </View>
+            <View style={styles.placeholder} />
+          </View>
+        )}
 
       {/* Tabs */}
       <View style={[styles.tabs, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
@@ -295,64 +439,105 @@ Bitte analysiere das Problem und schlage eine Lösung vor.`;
               <Text style={[styles.emptyText, { color: colors.textMuted }]}>Keine offenen Anfragen</Text>
             </View>
           ) : (
-            pendingRequests.map((request) => (
-              <View key={request.id} style={[styles.requestCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder, borderWidth: 1 }]}>
-                <View style={styles.requestInfo}>
-                  <Text style={[styles.requestAdvisor, { color: colors.text }]}>{request.requester_name}</Text>
-                  <Text style={[styles.requestText, { color: colors.textSecondary }]}>möchte Zugriff auf</Text>
-                  <Text style={[styles.requestPlayer, { color: colors.text }]}>{request.player_name}</Text>
-                  <Text style={[styles.requestDate, { color: colors.textMuted }]}>Angefragt am {formatDate(request.created_at)}</Text>
+            <View style={styles.requestsGrid}>
+              {pendingRequests.map((request) => (
+                <View key={request.id} style={[styles.requestCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+                  <View style={styles.requestHeader}>
+                    <View style={styles.requestInfo}>
+                      <Text style={[styles.requestPlayer, { color: colors.text }]}>{request.player_name}</Text>
+                      <Text style={[styles.requestAdvisor, { color: colors.textSecondary }]}>für {request.requester_name}</Text>
+                    </View>
+                    <Text style={[styles.requestDate, { color: colors.textMuted }]}>{formatDate(request.created_at)}</Text>
+                  </View>
+                  <View style={styles.requestActions}>
+                    <TouchableOpacity
+                      style={[styles.approveButton, { backgroundColor: colors.primary }]}
+                      onPress={() => openConfirmModal(null, request, 'approve')}
+                    >
+                      <Text style={[styles.approveButtonText, { color: colors.primaryText }]}>Genehmigen</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.rejectButton}
+                      onPress={() => openConfirmModal(null, request, 'reject')}
+                    >
+                      <Text style={styles.rejectButtonText}>Ablehnen</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-                <View style={styles.requestActions}>
-                  <TouchableOpacity
-                    style={[styles.approveButton, { backgroundColor: colors.primary }]}
-                    onPress={() => handleApprove(request)}
-                  >
-                    <Text style={[styles.approveButtonText, { color: colors.primaryText }]}>Genehmigen</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.rejectButton, { borderColor: '#dc3545' }]}
-                    onPress={() => handleReject(request.id)}
-                  >
-                    <Text style={styles.rejectButtonText}>Ablehnen</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))
+              ))}
+            </View>
           )
         ) : activeTab === 'advisors' ? (
-          /* Advisors List */
-          advisors.map((advisor) => (
-            <View key={advisor.id} style={[styles.advisorCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder, borderWidth: 1 }]}>
-              <View style={styles.advisorInfo}>
-                <Text style={[styles.advisorName, { color: colors.text }]}>
-                  {advisor.first_name} {advisor.last_name}
-                </Text>
-                <View style={[styles.roleBadge, advisor.role === 'admin' ? { backgroundColor: colors.primary } : styles.roleBerater]}>
-                  <Text style={[styles.roleBadgeText, { color: advisor.role === 'admin' ? colors.primaryText : '#fff' }]}>
-                    {advisor.role === 'admin' ? 'Admin' : 'Berater'}
-                  </Text>
+          /* Advisors List - Admins first, side by side */
+          <View style={[styles.advisorsGrid, isMobile && styles.advisorsGridMobile]}>
+            {[...advisors].sort((a, b) => {
+              if (a.role === 'admin' && b.role !== 'admin') return -1;
+              if (a.role !== 'admin' && b.role === 'admin') return 1;
+              return (a.last_name || '').localeCompare(b.last_name || '');
+            }).map((advisor) => (
+              <View key={advisor.id} style={[styles.advisorCard, isMobile && styles.advisorCardMobile, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+                <View style={styles.advisorHeader}>
+                  <View style={styles.advisorNameSection}>
+                    <Text style={[styles.advisorName, { color: colors.text }]} numberOfLines={1}>
+                      {advisor.first_name} {advisor.last_name}
+                    </Text>
+                    <Text style={[styles.advisorBirthDate, { color: colors.textMuted }]} numberOfLines={1}>
+                      Geb.: {advisor.birth_date ? formatDate(advisor.birth_date) : '-'}
+                    </Text>
+                  </View>
+                  <View style={[styles.roleBadge, advisor.role === 'admin' ? { backgroundColor: colors.primary } : styles.roleBerater]}>
+                    <Text style={[styles.roleBadgeText, { color: advisor.role === 'admin' ? colors.primaryText : '#fff' }]}>
+                      {advisor.role === 'admin' ? 'Admin' : 'Berater'}
+                    </Text>
+                  </View>
+                </View>
+                <View style={[styles.advisorDivider, { borderBottomColor: colors.border }]} />
+                <View style={styles.advisorBottomSection}>
+                  <View style={styles.advisorDetails}>
+                    <View style={styles.advisorDetailRow}>
+                      <Text style={[styles.advisorDetailLabel, { color: colors.textMuted }]}>E-Mail: </Text>
+                      {advisor.email ? (
+                        <TouchableOpacity onPress={() => Linking.openURL(`mailto:${advisor.email}`)} style={styles.advisorDetailValue}>
+                          <Text style={[styles.advisorDetailText, styles.linkText, { color: colors.primary }]} numberOfLines={1}>
+                            {advisor.email}
+                          </Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <Text style={[styles.advisorDetailText, { color: colors.textSecondary }]}>-</Text>
+                      )}
+                    </View>
+                    <View style={styles.advisorDetailRow}>
+                      <Text style={[styles.advisorDetailLabel, { color: colors.textMuted }]}>Tel.: </Text>
+                      {advisor.phone ? (
+                        <TouchableOpacity onPress={() => handlePhonePress(advisor.phone)} style={styles.advisorDetailValue}>
+                          <Text style={[styles.advisorDetailText, styles.linkText, { color: colors.primary }]} numberOfLines={1}>
+                            {formatPhoneWithCountryCode(advisor.phone)}
+                          </Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <Text style={[styles.advisorDetailText, { color: colors.textSecondary }]}>-</Text>
+                      )}
+                    </View>
+                  </View>
+                  {advisor.role !== 'admin' ? (
+                    <TouchableOpacity
+                      style={[styles.makeAdminButton, { backgroundColor: colors.primary }]}
+                      onPress={() => openConfirmModal(advisor, null, 'makeAdmin')}
+                    >
+                      <Text style={[styles.makeAdminButtonText, { color: colors.primaryText }]}>Zum Admin</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={[styles.removeAdminButton, { backgroundColor: colors.surface, borderColor: '#ff4444' }]}
+                      onPress={() => openConfirmModal(advisor, null, 'removeAdmin')}
+                    >
+                      <Text style={styles.removeAdminButtonText}>Entfernen</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
-              <View style={styles.advisorActions}>
-                {advisor.role !== 'admin' ? (
-                  <TouchableOpacity
-                    style={[styles.makeAdminButton, { backgroundColor: colors.primary }]}
-                    onPress={() => handleChangeRole(advisor.id, 'admin')}
-                  >
-                    <Text style={[styles.makeAdminButtonText, { color: colors.primaryText }]}>Zum Admin</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity
-                    style={[styles.removeAdminButton, { backgroundColor: colors.surface, borderColor: '#ff4444' }]}
-                    onPress={() => handleChangeRole(advisor.id, 'berater')}
-                  >
-                    <Text style={styles.removeAdminButtonText}>Admin entfernen</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          ))
+            ))}
+          </View>
         ) : (
           /* Feedback List */
           feedbackList.length === 0 ? (
@@ -361,39 +546,47 @@ Bitte analysiere das Problem und schlage eine Lösung vor.`;
             </View>
           ) : (
             feedbackList.map((feedback) => (
-              <View key={feedback.id} style={[styles.feedbackCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder, borderWidth: 1 }, feedback.status === 'done' && { opacity: 0.6, backgroundColor: colors.surfaceSecondary }]}>
+              <View key={feedback.id} style={[styles.feedbackCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }, feedback.status === 'done' && { opacity: 0.6, backgroundColor: colors.surfaceSecondary }]}>
                 <View style={styles.feedbackHeader}>
-                  <View style={[
-                    styles.feedbackTypeBadge,
-                    feedback.type === 'bug' && { backgroundColor: isDark ? '#3f1f1f' : '#fef2f2' },
-                    feedback.type === 'feature' && { backgroundColor: isDark ? '#1f3f1f' : '#f0fdf4' },
-                    feedback.type === 'other' && { backgroundColor: isDark ? '#1f2f3f' : '#f0f9ff' },
-                  ]}>
-                    <Text style={[styles.feedbackTypeBadgeText, { color: colors.text }]}>
-                      {feedback.type === 'bug' ? 'Bug' : feedback.type === 'feature' ? 'Idee' : 'Sonstiges'}
-                    </Text>
+                  <View style={styles.feedbackHeaderLeft}>
+                    <View style={[
+                      styles.feedbackTypeBadge,
+                      feedback.type === 'bug' && { backgroundColor: isDark ? '#3f1f1f' : '#fef2f2' },
+                      feedback.type === 'feature' && { backgroundColor: isDark ? '#1f3f1f' : '#f0fdf4' },
+                      feedback.type === 'other' && { backgroundColor: isDark ? '#1f2f3f' : '#f0f9ff' },
+                    ]}>
+                      <Text style={[styles.feedbackTypeBadgeText, { color: colors.text }]}>
+                        {feedback.type === 'bug' ? 'Bug' : feedback.type === 'feature' ? 'Idee' : 'Sonst.'}
+                      </Text>
+                    </View>
+                    <Text style={[styles.feedbackScreen, { color: colors.textSecondary }]}>{feedback.screen}</Text>
+                    <Text style={[styles.feedbackUser, { color: colors.textMuted }]}>• {feedback.user_name}</Text>
+                    <Text style={[styles.feedbackDate, { color: colors.textMuted }]}>• {formatDate(feedback.created_at)}</Text>
                   </View>
-                  <Text style={[styles.feedbackScreen, { color: colors.textSecondary }]}>Bereich: {feedback.screen}</Text>
                 </View>
-                <Text style={[styles.feedbackDescription, { color: colors.text }]}>{feedback.description}</Text>
-                <View style={styles.feedbackMeta}>
-                  <Text style={[styles.feedbackUser, { color: colors.textSecondary }]}>Von: {feedback.user_name}</Text>
-                  <Text style={[styles.feedbackDate, { color: colors.textSecondary }]}>{formatDate(feedback.created_at)}</Text>
+                <View style={[styles.feedbackDescriptionBox, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
+                  <Text style={[styles.feedbackDescription, { color: colors.text }]}>{feedback.description}</Text>
                 </View>
                 <View style={styles.feedbackActions}>
                   <TouchableOpacity
                     style={[styles.copyPromptButton, { backgroundColor: colors.surfaceSecondary }]}
                     onPress={() => copyPrompt(feedback)}
                   >
-                    <Text style={[styles.copyPromptButtonText, { color: colors.text }]}>Prompt kopieren</Text>
+                    <Text style={[styles.copyPromptButtonText, { color: colors.text }]}>AI-Prompt</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.toggleStatusButton, feedback.status === 'done' && { backgroundColor: colors.surfaceSecondary }]}
                     onPress={() => toggleFeedbackStatus(feedback)}
                   >
                     <Text style={[styles.toggleStatusButtonText, feedback.status === 'done' && { color: colors.textSecondary }]}>
-                      {feedback.status === 'open' ? 'Erledigt' : 'Wieder oeffnen'}
+                      {feedback.status === 'open' ? 'Erledigt' : 'Öffnen'}
                     </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.deleteFeedbackButton}
+                    onPress={() => deleteFeedback(feedback)}
+                  >
+                    <Text style={styles.deleteFeedbackButtonText}>Löschen</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -401,17 +594,67 @@ Bitte analysiere das Problem und schlage eine Lösung vor.`;
           )
         )}
       </ScrollView>
-    </SafeAreaView>
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && (selectedAdvisor || selectedRequest) && (
+        <Modal visible={showConfirmModal} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={[styles.confirmModal, { backgroundColor: colors.surface }]}>
+              <Text style={[styles.confirmTitle, { color: colors.text }]}>
+                {confirmAction === 'makeAdmin' && 'Admin-Rechte vergeben'}
+                {confirmAction === 'removeAdmin' && 'Admin-Rechte entfernen'}
+                {confirmAction === 'approve' && 'Anfrage genehmigen'}
+                {confirmAction === 'reject' && 'Anfrage ablehnen'}
+              </Text>
+              <Text style={[styles.confirmText, { color: (confirmAction === 'removeAdmin' || confirmAction === 'reject') ? '#ef4444' : colors.textSecondary }]}>
+                {confirmAction === 'makeAdmin' && selectedAdvisor &&
+                  `Möchten Sie ${selectedAdvisor.first_name} ${selectedAdvisor.last_name} zum Admin machen?`}
+                {confirmAction === 'removeAdmin' && selectedAdvisor &&
+                  `Möchten Sie ${selectedAdvisor.first_name} ${selectedAdvisor.last_name} die Admin-Rechte entziehen?`}
+                {confirmAction === 'approve' && selectedRequest &&
+                  `Möchten Sie ${selectedRequest.requester_name} Zugriff auf ${selectedRequest.player_name} gewähren?`}
+                {confirmAction === 'reject' && selectedRequest &&
+                  `Möchten Sie die Anfrage von ${selectedRequest.requester_name} für ${selectedRequest.player_name} ablehnen?`}
+              </Text>
+              <View style={styles.confirmButtons}>
+                <TouchableOpacity
+                  style={[styles.confirmCancelBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
+                  onPress={() => setShowConfirmModal(false)}
+                >
+                  <Text style={[styles.confirmCancelText, { color: colors.textSecondary }]}>Abbrechen</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.confirmActionBtn, (confirmAction === 'removeAdmin' || confirmAction === 'reject') ? { backgroundColor: '#ef4444' } : { backgroundColor: colors.primary }]}
+                  onPress={handleConfirmAction}
+                >
+                  <Text style={[styles.confirmActionText, { color: (confirmAction === 'removeAdmin' || confirmAction === 'reject') ? '#fff' : colors.primaryText }]}>
+                    {confirmAction === 'makeAdmin' && 'Bestätigen'}
+                    {confirmAction === 'removeAdmin' && 'Entfernen'}
+                    {confirmAction === 'approve' && 'Genehmigen'}
+                    {confirmAction === 'reject' && 'Ablehnen'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#ddd' },
-  backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#eee', justifyContent: 'center', alignItems: 'center' },
-  backButtonText: { fontSize: 20, color: '#333' },
-  headerTitle: { fontSize: 20, fontWeight: 'bold' },
-  placeholder: { width: 40 },
+  container: { flex: 1, flexDirection: 'row', backgroundColor: '#f5f5f5' },
+  containerMobile: { flexDirection: 'column' },
+  mainContent: { flex: 1, backgroundColor: '#f5f5f5' },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  backButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0' },
+  backButtonText: { fontSize: 14, color: '#64748b' },
+  headerCenter: { flex: 1, alignItems: 'center' },
+  headerTitle: { fontSize: 24, fontWeight: '700', color: '#1a1a1a' },
+  headerSubtitle: { fontSize: 14, color: '#64748b', marginTop: 4 },
+  placeholder: { width: 90 },
   tabs: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#ddd' },
   tab: { flex: 1, paddingVertical: 14, alignItems: 'center' },
   tabActive: { borderBottomWidth: 2, borderBottomColor: '#000' },
@@ -421,48 +664,74 @@ const styles = StyleSheet.create({
   loadingText: { padding: 20, textAlign: 'center', color: '#666' },
   emptyContainer: { padding: 40, alignItems: 'center' },
   emptyText: { color: '#999', fontSize: 16 },
-  requestCard: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12 },
-  requestInfo: { marginBottom: 12 },
-  requestAdvisor: { fontSize: 16, fontWeight: '600', color: '#000' },
-  requestText: { fontSize: 14, color: '#666', marginVertical: 4 },
-  requestPlayer: { fontSize: 16, fontWeight: '600', color: '#000' },
-  requestDate: { fontSize: 12, color: '#999', marginTop: 8 },
-  requestActions: { flexDirection: 'row', gap: 8 },
-  approveButton: { flex: 1, backgroundColor: '#000', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
-  approveButtonText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  rejectButton: { flex: 1, paddingVertical: 12, borderRadius: 8, borderWidth: 1, borderColor: '#dc3545', alignItems: 'center' },
-  rejectButtonText: { color: '#dc3545', fontSize: 14, fontWeight: '600' },
-  advisorCard: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  advisorInfo: { flex: 1 },
-  advisorName: { fontSize: 16, fontWeight: '600', color: '#000', marginBottom: 4 },
-  roleBadge: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 12, alignSelf: 'flex-start' },
+  requestsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  requestCard: { backgroundColor: '#fff', borderRadius: 10, padding: 12, borderWidth: 1, width: 240, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
+  requestHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
+  requestInfo: { flex: 1 },
+  requestPlayer: { fontSize: 14, fontWeight: '600', color: '#1a1a1a' },
+  requestAdvisor: { fontSize: 12, color: '#64748b', marginTop: 2 },
+  requestDate: { fontSize: 10, color: '#94a3b8' },
+  requestActions: { flexDirection: 'row', gap: 6 },
+  approveButton: { flex: 1, backgroundColor: '#1a1a1a', paddingVertical: 6, borderRadius: 6, alignItems: 'center' },
+  approveButtonText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  rejectButton: { flex: 1, paddingVertical: 6, borderRadius: 6, backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca', alignItems: 'center' },
+  rejectButtonText: { color: '#dc2626', fontSize: 12, fontWeight: '600' },
+  advisorsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  advisorsGridMobile: { flexDirection: 'column' },
+  advisorCard: { backgroundColor: '#fff', borderRadius: 10, padding: 12, borderWidth: 1, width: '31%', minWidth: 220, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
+  advisorCardMobile: { width: '100%', minWidth: 0 },
+  advisorHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  advisorNameSection: { flex: 1 },
+  advisorName: { fontSize: 14, fontWeight: '600', color: '#1a1a1a' },
+  advisorBirthDate: { fontSize: 11, color: '#9ca3af', marginTop: 2 },
+  advisorDivider: { borderBottomWidth: 1, borderBottomColor: '#e5e7eb', marginVertical: 10 },
+  advisorBottomSection: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
+  advisorDetails: { flex: 1 },
+  advisorDetailRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
+  advisorDetailLabel: { fontSize: 11, color: '#9ca3af' },
+  advisorDetailValue: { flex: 1 },
+  advisorDetailText: { fontSize: 11, color: '#64748b' },
+  linkText: { textDecorationLine: 'underline' },
+  roleBadge: { paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4 },
   roleAdmin: { backgroundColor: '#000' },
-  roleBerater: { backgroundColor: '#5bc0de' },
-  roleBadgeText: { color: '#fff', fontSize: 12, fontWeight: '600' },
-  advisorActions: {},
-  makeAdminButton: { backgroundColor: '#000', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
-  makeAdminButtonText: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  removeAdminButton: { backgroundColor: '#fff', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: '#ff4444' },
-  removeAdminButtonText: { color: '#ff4444', fontSize: 13, fontWeight: '600' },
+  roleBerater: { backgroundColor: '#0ea5e9' },
+  roleBadgeText: { color: '#fff', fontSize: 10, fontWeight: '600' },
+  makeAdminButton: { backgroundColor: '#1a1a1a', paddingVertical: 3, paddingHorizontal: 6, borderRadius: 3, alignItems: 'center', alignSelf: 'flex-end', marginLeft: 10 },
+  makeAdminButtonText: { color: '#fff', fontSize: 10, fontWeight: '600' },
+  removeAdminButton: { backgroundColor: '#fef2f2', paddingVertical: 3, paddingHorizontal: 6, borderRadius: 3, borderWidth: 1, borderColor: '#fecaca', alignItems: 'center', alignSelf: 'flex-end', marginLeft: 10 },
+  removeAdminButtonText: { color: '#dc2626', fontSize: 10, fontWeight: '600' },
   // Feedback Styles
-  feedbackCard: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12 },
+  feedbackCard: { backgroundColor: '#fff', borderRadius: 6, padding: 8, marginBottom: 6, borderWidth: 1, maxWidth: 500 },
   feedbackCardDone: { opacity: 0.6, backgroundColor: '#f9fafb' },
-  feedbackHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  feedbackTypeBadge: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 12 },
+  feedbackHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  feedbackHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  feedbackTypeBadge: { paddingVertical: 1, paddingHorizontal: 5, borderRadius: 3 },
   feedbackTypeBug: { backgroundColor: '#fef2f2' },
   feedbackTypeFeature: { backgroundColor: '#f0fdf4' },
   feedbackTypeOther: { backgroundColor: '#f0f9ff' },
-  feedbackTypeBadgeText: { fontSize: 12, fontWeight: '600' },
-  feedbackScreen: { fontSize: 12, color: '#6b7280' },
-  feedbackDescription: { fontSize: 14, color: '#1f2937', lineHeight: 20, marginBottom: 12 },
-  feedbackMeta: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-  feedbackUser: { fontSize: 12, color: '#6b7280' },
-  feedbackDate: { fontSize: 12, color: '#6b7280' },
-  feedbackActions: { flexDirection: 'row', gap: 8 },
-  copyPromptButton: { flex: 1, backgroundColor: '#f3f4f6', paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
-  copyPromptButtonText: { fontSize: 13, color: '#374151', fontWeight: '500' },
-  toggleStatusButton: { flex: 1, backgroundColor: '#10b981', paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
+  feedbackTypeBadgeText: { fontSize: 9, fontWeight: '600' },
+  feedbackScreen: { fontSize: 9, color: '#6b7280' },
+  feedbackDescriptionBox: { padding: 6, borderRadius: 4, borderWidth: 1, marginBottom: 6 },
+  feedbackDescription: { fontSize: 11, color: '#1f2937', lineHeight: 14 },
+  feedbackUser: { fontSize: 9, color: '#9ca3af' },
+  feedbackDate: { fontSize: 9, color: '#9ca3af' },
+  feedbackActions: { flexDirection: 'row', gap: 4 },
+  copyPromptButton: { backgroundColor: '#f3f4f6', paddingVertical: 3, paddingHorizontal: 6, borderRadius: 3, alignItems: 'center' },
+  copyPromptButtonText: { fontSize: 10, color: '#374151', fontWeight: '500' },
+  toggleStatusButton: { backgroundColor: '#10b981', paddingVertical: 3, paddingHorizontal: 6, borderRadius: 3, alignItems: 'center' },
   toggleStatusButtonDone: { backgroundColor: '#f3f4f6' },
-  toggleStatusButtonText: { fontSize: 13, color: '#fff', fontWeight: '600' },
+  toggleStatusButtonText: { fontSize: 10, color: '#fff', fontWeight: '600' },
   toggleStatusButtonTextDone: { color: '#6b7280' },
+  deleteFeedbackButton: { paddingVertical: 3, paddingHorizontal: 6, borderRadius: 3, backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca', alignItems: 'center' },
+  deleteFeedbackButtonText: { fontSize: 10, color: '#dc2626', fontWeight: '600' },
+  // Confirmation Modal Styles
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  confirmModal: { backgroundColor: '#fff', borderRadius: 12, padding: 20, width: '85%', maxWidth: 320, alignItems: 'center' },
+  confirmTitle: { fontSize: 16, fontWeight: '600', color: '#1a1a1a', marginBottom: 10 },
+  confirmText: { fontSize: 14, textAlign: 'center', marginBottom: 20, lineHeight: 20 },
+  confirmButtons: { flexDirection: 'row', gap: 10, width: '100%' },
+  confirmCancelBtn: { flex: 1, paddingVertical: 10, backgroundColor: '#f1f5f9', borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0' },
+  confirmCancelText: { fontSize: 14, fontWeight: '500' },
+  confirmActionBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
+  confirmActionText: { fontSize: 14, fontWeight: '600' },
 });

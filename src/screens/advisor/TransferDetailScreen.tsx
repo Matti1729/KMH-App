@@ -1098,7 +1098,7 @@ export function TransferDetailScreen({ route, navigation }: any) {
                 </TouchableOpacity>
               </View>
             </View>
-            <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.primary }]} onPress={() => { resetForm(); setShowAddModal(true); }}>
+            <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={() => { resetForm(); setShowAddModal(true); }}>
               <Text style={[styles.addButtonText, { color: colors.primaryText }]}>+ Neuen Verein anlegen</Text>
             </TouchableOpacity>
           </View>
@@ -1246,13 +1246,13 @@ const styles = StyleSheet.create({
   viewButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 4 },
   viewButtonActive: { backgroundColor: '#f1f5f9' },
   viewButtonText: { fontSize: 14, color: '#64748b' },
-  addButton: { 
-    backgroundColor: '#000', 
-    paddingVertical: 8, 
-    paddingHorizontal: 12, 
+  addButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     borderRadius: 6,
+    borderWidth: 1,
   },
-  addButtonText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  addButtonText: { fontSize: 13, fontWeight: '600' },
   
   // Kanban - kompakter aber höher
   kanbanContainer: { flexDirection: 'row', gap: 12, flex: 1 },

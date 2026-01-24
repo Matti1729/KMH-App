@@ -3461,17 +3461,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   listingBadgeMobile: {
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 6,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 4,
   },
   listingBadgeTextMobile: {
     fontSize: 12,
   },
   contractBadgeMobile: {
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 6,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 4,
   },
   contractBadgeTextMobile: {
     fontSize: 12,
@@ -3643,7 +3643,7 @@ const styles = StyleSheet.create({
   statusTextNormal: { color: '#495057' },
   statusTextGreen: { color: '#155724' },
   statusTextRed: { color: '#721c24' },
-  listingBadge: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, alignSelf: 'flex-start' },
+  listingBadge: { paddingVertical: 3, paddingHorizontal: 8, borderRadius: 5, alignSelf: 'flex-start' },
   listingKMH: { backgroundColor: '#000' },
   listingPM: { backgroundColor: '#5bc0de' },
   listingBadgeText: { color: '#fff', fontSize: 14, fontWeight: '600' },

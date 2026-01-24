@@ -368,12 +368,8 @@ export function PlayerOverviewScreen({ navigation }: any) {
 
   const handlePlayerClick = (player: Player) => {
     if (hasAccessToPlayer(player.id)) {
-      if (isMobile) {
-        setSelectedPlayer(player);
-        setShowPlayerDetailModal(true);
-      } else {
-        navigation.navigate('PlayerDetail', { playerId: player.id });
-      }
+      // Immer zum vollständigen Profil navigieren
+      navigation.navigate('PlayerDetail', { playerId: player.id });
     } else {
       setSelectedPlayer(player);
       setShowRequestModal(true);
@@ -568,14 +564,14 @@ export function PlayerOverviewScreen({ navigation }: any) {
   };
 
   const renderListingBadge = (listing: string | null) => {
-    if (!listing) return <Text style={styles.tableCell}>-</Text>;
+    if (!listing) return <Text style={[styles.tableCell, { color: colors.text }]}>-</Text>;
     const isKMH = listing === 'Karl Herzog Sportmanagement';
     return <View style={[styles.listingBadge, isKMH ? styles.listingKMH : styles.listingPM]}><Text style={styles.listingBadgeText}>{isKMH ? 'KMH' : 'PM'}</Text></View>;
   };
 
   const renderSortableHeader = (label: string, field: SortField, style: any) => (
     <TouchableOpacity onPress={() => handleSort(field)} style={style}>
-      <Text style={styles.tableHeaderText}>{label} {sortField === field ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</Text>
+      <Text style={[styles.tableHeaderText, { color: colors.textSecondary }]}>{label} {sortField === field ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</Text>
     </TouchableOpacity>
   );
 
@@ -586,7 +582,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
     return (
       <View style={[styles.colClub, styles.clubCell]}>
         {expired ? <Image source={ArbeitsamtIcon} style={styles.clubLogo} /> : logoUrl ? <Image source={{ uri: logoUrl }} style={styles.clubLogo} /> : null}
-        <Text style={[styles.tableCell, expired && styles.clubTextRed]} numberOfLines={1}>{displayClub}</Text>
+        <Text style={[styles.tableCell, { color: colors.text }, expired && styles.clubTextRed]} numberOfLines={1}>{displayClub}</Text>
       </View>
     );
   };
@@ -595,7 +591,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
     const birthday = isBirthday(player.birth_date);
     return (
       <View style={[styles.colBirthDate, styles.birthDateCell]}>
-        <Text style={styles.tableCell}>{formatDate(player.birth_date)}</Text>
+        <Text style={[styles.tableCell, { color: colors.text }]}>{formatDate(player.birth_date)}</Text>
         {birthday && <Text style={styles.birthdayIcon}>🎉</Text>}
       </View>
     );
@@ -622,7 +618,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
         </View>
       );
     }
-    return <Text style={[styles.tableCell, styles.colContract]}>{formatDate(player.contract_end)}</Text>;
+    return <Text style={[styles.tableCell, styles.colContract, { color: colors.text }]}>{formatDate(player.contract_end)}</Text>;
   };
 
   const renderPlayerRow = (player: Player) => {
@@ -634,22 +630,22 @@ export function PlayerOverviewScreen({ navigation }: any) {
     return (
       <TouchableOpacity
         key={player.id}
-        style={[styles.tableRow, !hasAccess && styles.tableRowLocked]}
+        style={[styles.tableRow, { borderBottomColor: colors.border }, !hasAccess && [styles.tableRowLocked, { backgroundColor: colors.surfaceSecondary }]]}
         onPress={() => handlePlayerClick(player)}
       >
         <View style={[styles.colName, styles.nameContainer]}>
           {!hasAccess && <Text style={styles.lockIcon}>🔒 </Text>}
-          <Text style={[styles.tableCell, styles.nameCell]} numberOfLines={1}>
+          <Text style={[styles.tableCell, styles.nameCell, { color: colors.text }]} numberOfLines={1}>
             {player.last_name}, {player.first_name}
           </Text>
         </View>
         {renderBirthDateCell(player)}
-        <Text style={[styles.tableCell, styles.colPosition]} numberOfLines={1}>{positionDisplay}</Text>
+        <Text style={[styles.tableCell, styles.colPosition, { color: colors.text }]} numberOfLines={1}>{positionDisplay}</Text>
         {renderClubCell(player)}
-        <Text style={[styles.tableCell, styles.colLeague]} numberOfLines={1}>{player.league || '-'}</Text>
+        <Text style={[styles.tableCell, styles.colLeague, { color: colors.text }]} numberOfLines={1}>{player.league || '-'}</Text>
         {renderContractCell(player)}
         <View style={styles.colListing}>{renderListingBadge(player.listing)}</View>
-        <Text style={[styles.tableCell, styles.colResponsibility]} numberOfLines={1}>{getResponsibilityInitials(player.responsibility)}</Text>
+        <Text style={[styles.tableCell, styles.colResponsibility, { color: colors.text }]} numberOfLines={1}>{getResponsibilityInitials(player.responsibility)}</Text>
       </TouchableOpacity>
     );
   };
@@ -779,9 +775,6 @@ export function PlayerOverviewScreen({ navigation }: any) {
                 </View>
               )}
             </TouchableOpacity>
-            <TouchableOpacity style={styles.mobileAddButton} onPress={() => setShowAddModal(true)}>
-              <Text style={styles.mobileAddButtonText}>+</Text>
-            </TouchableOpacity>
           </View>
 
           {/* Player Count */}
@@ -810,6 +803,11 @@ export function PlayerOverviewScreen({ navigation }: any) {
               filteredPlayers.map(player => renderPlayerCard(player))
             )}
           </ScrollView>
+
+          {/* FAB Button */}
+          <TouchableOpacity style={[styles.fab, { backgroundColor: colors.primary }]} onPress={() => setShowAddModal(true)}>
+            <Text style={[styles.fabText, { color: colors.primaryText }]}>+</Text>
+          </TouchableOpacity>
 
           {/* Mobile Filter Modal */}
           <Modal visible={showMobileFilters} transparent animationType="slide">
@@ -1064,8 +1062,8 @@ export function PlayerOverviewScreen({ navigation }: any) {
       <View style={[styles.mainContent, { backgroundColor: colors.background }]}>
         {/* Header Banner - weiß mit Titel mittig und Zurück links */}
         <View style={[styles.headerBanner, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-          <TouchableOpacity onPress={() => navigation.navigate('AdvisorDashboard')} style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary }]}>
-            <Text style={[styles.filterButtonText, { color: colors.text }]}>← Zurück</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('AdvisorDashboard')} style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
+            <Text style={[styles.filterButtonText, { color: colors.textSecondary }]}>← Zurück</Text>
           </TouchableOpacity>
           <View style={styles.headerBannerCenter}>
             <Text style={[styles.headerTitle, { color: colors.text }]}>KMH-Spieler</Text>
@@ -1084,11 +1082,11 @@ export function PlayerOverviewScreen({ navigation }: any) {
           <View style={styles.filterContainer}>
             {/* Position Filter */}
             <View style={[styles.dropdownContainer, { zIndex: 50 }]}>
-              <TouchableOpacity 
-                style={[styles.filterButton, selectedPositions.length > 0 && styles.filterButtonActive]} 
+              <TouchableOpacity
+                style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedPositions.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
                 onPress={(e) => { e.stopPropagation(); closeAllDropdowns(); setShowPositionDropdown(!showPositionDropdown); }}
               >
-                <Text style={[styles.filterButtonText, selectedPositions.length > 0 && styles.filterButtonTextActive]}>{getPositionFilterLabel()} ▼</Text>
+                <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedPositions.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>{getPositionFilterLabel()} ▼</Text>
               </TouchableOpacity>
               {showPositionDropdown && (
                 <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
@@ -1116,11 +1114,11 @@ export function PlayerOverviewScreen({ navigation }: any) {
 
             {/* Jahrgang Filter */}
             <View style={[styles.dropdownContainer, { zIndex: 40 }]}>
-              <TouchableOpacity 
-                style={[styles.filterButton, selectedYears.length > 0 && styles.filterButtonActive]} 
+              <TouchableOpacity
+                style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedYears.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
                 onPress={(e) => { e.stopPropagation(); closeAllDropdowns(); setShowYearDropdown(!showYearDropdown); }}
               >
-                <Text style={[styles.filterButtonText, selectedYears.length > 0 && styles.filterButtonTextActive]}>{getYearFilterLabel()} ▼</Text>
+                <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedYears.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>{getYearFilterLabel()} ▼</Text>
               </TouchableOpacity>
               {showYearDropdown && (
                 <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
@@ -1148,11 +1146,11 @@ export function PlayerOverviewScreen({ navigation }: any) {
 
             {/* Listung Filter */}
             <View style={[styles.dropdownContainer, { zIndex: 30 }]}>
-              <TouchableOpacity 
-                style={[styles.filterButton, selectedListings.length > 0 && styles.filterButtonActive]} 
+              <TouchableOpacity
+                style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedListings.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
                 onPress={(e) => { e.stopPropagation(); closeAllDropdowns(); setShowListingDropdown(!showListingDropdown); }}
               >
-                <Text style={[styles.filterButtonText, selectedListings.length > 0 && styles.filterButtonTextActive]}>{getListingFilterLabel()} ▼</Text>
+                <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedListings.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>{getListingFilterLabel()} ▼</Text>
               </TouchableOpacity>
               {showListingDropdown && (
                 <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
@@ -1180,11 +1178,11 @@ export function PlayerOverviewScreen({ navigation }: any) {
 
             {/* Zuständigkeit Filter */}
             <View style={[styles.dropdownContainer, { zIndex: 20 }]}>
-              <TouchableOpacity 
-                style={[styles.filterButton, selectedResponsibilities.length > 0 && styles.filterButtonActive]} 
+              <TouchableOpacity
+                style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedResponsibilities.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
                 onPress={(e) => { e.stopPropagation(); closeAllDropdowns(); setShowResponsibilityDropdown(!showResponsibilityDropdown); }}
               >
-                <Text style={[styles.filterButtonText, selectedResponsibilities.length > 0 && styles.filterButtonTextActive]}>{getResponsibilityFilterLabel()} ▼</Text>
+                <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedResponsibilities.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>{getResponsibilityFilterLabel()} ▼</Text>
               </TouchableOpacity>
               {showResponsibilityDropdown && (
                 <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
@@ -1214,11 +1212,11 @@ export function PlayerOverviewScreen({ navigation }: any) {
 
             {/* Vertragsende Filter */}
             <View style={[styles.dropdownContainer, { zIndex: 10 }]}>
-              <TouchableOpacity 
-                style={[styles.filterButton, selectedContractYears.length > 0 && styles.filterButtonActive]} 
+              <TouchableOpacity
+                style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedContractYears.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
                 onPress={(e) => { e.stopPropagation(); closeAllDropdowns(); setShowContractDropdown(!showContractDropdown); }}
               >
-                <Text style={[styles.filterButtonText, selectedContractYears.length > 0 && styles.filterButtonTextActive]}>{getContractFilterLabel()} ▼</Text>
+                <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedContractYears.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>{getContractFilterLabel()} ▼</Text>
               </TouchableOpacity>
               {showContractDropdown && (
                 <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
@@ -1245,8 +1243,8 @@ export function PlayerOverviewScreen({ navigation }: any) {
             </View>
           </View>
           
-          <TouchableOpacity onPress={() => setShowAddModal(true)} style={styles.addButton}>
-            <Text style={styles.addButtonText}>+ Spieler anlegen</Text>
+          <TouchableOpacity onPress={() => setShowAddModal(true)} style={[styles.addButton, { backgroundColor: colors.primary, borderColor: colors.primary }]}>
+            <Text style={[styles.addButtonText, { color: colors.primaryText }]}>+ Spieler anlegen</Text>
           </TouchableOpacity>
         </Pressable>
 
@@ -1255,33 +1253,37 @@ export function PlayerOverviewScreen({ navigation }: any) {
           <Pressable style={styles.dropdownOverlay} onPress={closeAllDropdowns} />
         )}
 
-        <View style={styles.tableHeader}>
-          {renderSortableHeader('Name', 'name', styles.colName)}
-          {renderSortableHeader('Geb.-Datum', 'birth_date', styles.colBirthDate)}
-          {renderSortableHeader('Position', 'position', styles.colPosition)}
-          {renderSortableHeader('Verein', 'club', styles.colClub)}
-          {renderSortableHeader('Liga', 'league', styles.colLeague)}
-          {renderSortableHeader('Vertragsende', 'contract_end', styles.colContract)}
-          {renderSortableHeader('Listung', 'listing', styles.colListing)}
-          {renderSortableHeader('Zuständigkeit', 'responsibility', styles.colResponsibility)}
-        </View>
-
-        <ScrollView style={[styles.tableBody, { backgroundColor: colors.surface }]}>
-          {(authLoading || loading) ? (
-            <Text style={styles.loadingText}>Laden...</Text>
-          ) : error ? (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{error}</Text>
-              <TouchableOpacity style={styles.retryButton} onPress={fetchPlayers}>
-                <Text style={styles.retryButtonText}>Erneut versuchen</Text>
-              </TouchableOpacity>
+        <View style={styles.content}>
+          <View style={[styles.tableWrapper, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+            <View style={[styles.tableHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+              {renderSortableHeader('Name', 'name', styles.colName)}
+              {renderSortableHeader('Geb.-Datum', 'birth_date', styles.colBirthDate)}
+              {renderSortableHeader('Position', 'position', styles.colPosition)}
+              {renderSortableHeader('Verein', 'club', styles.colClub)}
+              {renderSortableHeader('Liga', 'league', styles.colLeague)}
+              {renderSortableHeader('Vertragsende', 'contract_end', styles.colContract)}
+              {renderSortableHeader('Listung', 'listing', styles.colListing)}
+              {renderSortableHeader('Zuständigkeit', 'responsibility', styles.colResponsibility)}
             </View>
-          ) : filteredPlayers.length === 0 ? (
-            <Text style={styles.emptyText}>Keine Spieler gefunden</Text>
-          ) : (
-            filteredPlayers.map((player) => renderPlayerRow(player))
-          )}
-        </ScrollView>
+
+            <ScrollView style={styles.tableBody}>
+              {(authLoading || loading) ? (
+                <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Laden...</Text>
+              ) : error ? (
+                <View style={styles.errorContainer}>
+                  <Text style={styles.errorText}>{error}</Text>
+                  <TouchableOpacity style={styles.retryButton} onPress={fetchPlayers}>
+                    <Text style={styles.retryButtonText}>Erneut versuchen</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : filteredPlayers.length === 0 ? (
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Keine Spieler gefunden</Text>
+              ) : (
+                filteredPlayers.map((player) => renderPlayerRow(player))
+              )}
+            </ScrollView>
+          </View>
+        </View>
 
         {/* Add Player Modal */}
         <Modal visible={showAddModal} transparent animationType="fade">
@@ -1392,18 +1394,25 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
-  mobileAddButton: {
+  // FAB
+  fab: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
     width: 44,
     height: 44,
-    borderRadius: 8,
-    backgroundColor: '#1a1a1a',
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
   },
-  mobileAddButtonText: {
-    color: '#fff',
+  fabText: {
     fontSize: 24,
-    fontWeight: '500',
+    fontWeight: '300',
+    lineHeight: 26,
   },
 
   // Mobile Subheader
@@ -1628,13 +1637,13 @@ const styles = StyleSheet.create({
   },
   
   // Header Banner - weiß mit Titel mittig
-  headerBanner: { flexDirection: 'row', alignItems: 'center', padding: 24, borderBottomWidth: 1 },
+  headerBanner: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 24, borderBottomWidth: 1 },
   headerBannerCenter: { flex: 1, alignItems: 'center' },
-  headerTitle: { fontSize: 28, fontWeight: '700', color: '#1a1a1a' },
+  headerTitle: { fontSize: 24, fontWeight: '700', color: '#1a1a1a' },
   headerSubtitle: { fontSize: 14, color: '#64748b', marginTop: 4 },
   
   // Toolbar - wie Scouting
-  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderBottomWidth: 1, zIndex: 100 },
+  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, zIndex: 100 },
   searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', paddingHorizontal: 12 },
   searchIcon: { fontSize: 16, marginRight: 8 },
   searchInput: { flex: 1, paddingVertical: 10, fontSize: 14 },
@@ -1642,10 +1651,8 @@ const styles = StyleSheet.create({
   dropdownContainer: { position: 'relative' },
   
   // Filter Buttons - wie Scouting
-  filterButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0' },
-  filterButtonActive: { backgroundColor: '#e0f2fe', borderColor: '#3b82f6' },
-  filterButtonText: { fontSize: 14, color: '#64748b' },
-  filterButtonTextActive: { color: '#0369a1' },
+  filterButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, borderWidth: 1 },
+  filterButtonText: { fontSize: 14 },
   
   // Filter Dropdown - wie Scouting
   filterDropdownMulti: { position: 'absolute', top: '100%', left: 0, borderRadius: 12, borderWidth: 1, marginTop: 4, minWidth: 220, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, zIndex: 1000, overflow: 'hidden' },
@@ -1663,13 +1670,19 @@ const styles = StyleSheet.create({
   
   // Dropdown Overlay
   dropdownOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, backgroundColor: 'transparent' },
-  
+
+  // Content with padding
+  content: { flex: 1, padding: 24 },
+
+  // Table Wrapper with rounded borders
+  tableWrapper: { flex: 1, borderRadius: 12, borderWidth: 1, overflow: 'hidden' },
+
   // Add Button
-  addButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#1a1a1a' },
-  addButtonText: { fontSize: 14, color: '#fff', fontWeight: '600' },
-  
+  addButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, borderWidth: 1 },
+  addButtonText: { fontSize: 14, fontWeight: '600' },
+
   // Tabelle wie Scouting
-  tableHeader: { flexDirection: 'row', backgroundColor: '#f1f5f9', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  tableHeader: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1 },
   tableHeaderText: { color: '#64748b', fontWeight: '600', fontSize: 13 },
   tableBody: { flex: 1 },
   tableRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', alignItems: 'center' },
@@ -1684,18 +1697,18 @@ const styles = StyleSheet.create({
   birthDateCell: { flexDirection: 'row', alignItems: 'center' },
   birthdayIcon: { fontSize: 14, marginLeft: 6 },
   colName: { flex: 1.5, minWidth: 100 },
-  colBirthDate: { flex: 1.1, minWidth: 95 },
-  colPosition: { flex: 1.4, minWidth: 90 },
-  colClub: { flex: 1.8, minWidth: 130 },
-  colLeague: { flex: 1.3, minWidth: 100 },
-  colContract: { flex: 1.4, minWidth: 115 },
-  colListing: { flex: 0.8, minWidth: 55 },
-  colResponsibility: { flex: 1.3, minWidth: 100 },
-  contractBadge: { backgroundColor: '#fef2f2', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, alignSelf: 'flex-start' },
+  colBirthDate: { flex: 1, minWidth: 85 },
+  colPosition: { flex: 0.9, minWidth: 70 },
+  colClub: { flex: 2.2, minWidth: 150 },
+  colLeague: { flex: 1.8, minWidth: 120 },
+  colContract: { flex: 1.2, minWidth: 100 },
+  colListing: { flex: 0.7, minWidth: 50 },
+  colResponsibility: { flex: 1, minWidth: 85 },
+  contractBadge: { backgroundColor: '#fef2f2', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4, alignSelf: 'flex-start' },
   contractBadgeText: { color: '#dc2626', fontSize: 14, fontWeight: '600' },
-  contractBadgeGreen: { backgroundColor: '#f0fdf4', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, alignSelf: 'flex-start' },
+  contractBadgeGreen: { backgroundColor: '#f0fdf4', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4, alignSelf: 'flex-start' },
   contractBadgeTextGreen: { color: '#16a34a', fontSize: 14, fontWeight: '600' },
-  listingBadge: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6, alignSelf: 'flex-start' },
+  listingBadge: { paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4, alignSelf: 'flex-start' },
   listingKMH: { backgroundColor: '#1e293b' },
   listingPM: { backgroundColor: '#0ea5e9' },
   listingBadgeText: { color: '#fff', fontSize: 13, fontWeight: '600' },
