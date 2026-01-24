@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Platform }
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface AccessRequest {
   id: string;
@@ -35,6 +36,7 @@ interface Feedback {
 
 export function AdminPanelScreen({ navigation }: any) {
   const { session, loading: authLoading } = useAuth();
+  const { colors, isDark } = useTheme();
   const dataLoadedRef = useRef(false);
   const [pendingRequests, setPendingRequests] = useState<AccessRequest[]>([]);
   const [advisors, setAdvisors] = useState<Advisor[]>([]);
@@ -246,70 +248,70 @@ Bitte analysiere das Problem und schlage eine Lösung vor.`;
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={styles.backButtonText}>←</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backButton, { backgroundColor: colors.surfaceSecondary }]}>
+          <Text style={[styles.backButtonText, { color: colors.text }]}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Administration</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Administration</Text>
         <View style={styles.placeholder} />
       </View>
 
       {/* Tabs */}
-      <View style={styles.tabs}>
+      <View style={[styles.tabs, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'requests' && styles.tabActive]}
+          style={[styles.tab, activeTab === 'requests' && styles.tabActive, activeTab === 'requests' && { borderBottomColor: colors.primary }]}
           onPress={() => setActiveTab('requests')}
         >
-          <Text style={[styles.tabText, activeTab === 'requests' && styles.tabTextActive]}>
+          <Text style={[styles.tabText, { color: colors.textSecondary }, activeTab === 'requests' && { color: colors.text, fontWeight: '600' }]}>
             Anfragen {pendingRequests.length > 0 ? `(${pendingRequests.length})` : ''}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'advisors' && styles.tabActive]}
+          style={[styles.tab, activeTab === 'advisors' && styles.tabActive, activeTab === 'advisors' && { borderBottomColor: colors.primary }]}
           onPress={() => setActiveTab('advisors')}
         >
-          <Text style={[styles.tabText, activeTab === 'advisors' && styles.tabTextActive]}>
+          <Text style={[styles.tabText, { color: colors.textSecondary }, activeTab === 'advisors' && { color: colors.text, fontWeight: '600' }]}>
             Benutzer
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'feedback' && styles.tabActive]}
+          style={[styles.tab, activeTab === 'feedback' && styles.tabActive, activeTab === 'feedback' && { borderBottomColor: colors.primary }]}
           onPress={() => setActiveTab('feedback')}
         >
-          <Text style={[styles.tabText, activeTab === 'feedback' && styles.tabTextActive]}>
+          <Text style={[styles.tabText, { color: colors.textSecondary }, activeTab === 'feedback' && { color: colors.text, fontWeight: '600' }]}>
             Feedback {feedbackList.filter(f => f.status === 'open').length > 0 ? `(${feedbackList.filter(f => f.status === 'open').length})` : ''}
           </Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView style={[styles.content, { backgroundColor: colors.background }]}>
         {loading ? (
-          <Text style={styles.loadingText}>Laden...</Text>
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Laden...</Text>
         ) : activeTab === 'requests' ? (
           /* Pending Requests */
           pendingRequests.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>Keine offenen Anfragen</Text>
+              <Text style={[styles.emptyText, { color: colors.textMuted }]}>Keine offenen Anfragen</Text>
             </View>
           ) : (
             pendingRequests.map((request) => (
-              <View key={request.id} style={styles.requestCard}>
+              <View key={request.id} style={[styles.requestCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder, borderWidth: 1 }]}>
                 <View style={styles.requestInfo}>
-                  <Text style={styles.requestAdvisor}>{request.requester_name}</Text>
-                  <Text style={styles.requestText}>möchte Zugriff auf</Text>
-                  <Text style={styles.requestPlayer}>{request.player_name}</Text>
-                  <Text style={styles.requestDate}>Angefragt am {formatDate(request.created_at)}</Text>
+                  <Text style={[styles.requestAdvisor, { color: colors.text }]}>{request.requester_name}</Text>
+                  <Text style={[styles.requestText, { color: colors.textSecondary }]}>möchte Zugriff auf</Text>
+                  <Text style={[styles.requestPlayer, { color: colors.text }]}>{request.player_name}</Text>
+                  <Text style={[styles.requestDate, { color: colors.textMuted }]}>Angefragt am {formatDate(request.created_at)}</Text>
                 </View>
                 <View style={styles.requestActions}>
                   <TouchableOpacity
-                    style={styles.approveButton}
+                    style={[styles.approveButton, { backgroundColor: colors.primary }]}
                     onPress={() => handleApprove(request)}
                   >
-                    <Text style={styles.approveButtonText}>Genehmigen</Text>
+                    <Text style={[styles.approveButtonText, { color: colors.primaryText }]}>Genehmigen</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={styles.rejectButton}
+                    style={[styles.rejectButton, { borderColor: '#dc3545' }]}
                     onPress={() => handleReject(request.id)}
                   >
                     <Text style={styles.rejectButtonText}>Ablehnen</Text>
@@ -321,13 +323,13 @@ Bitte analysiere das Problem und schlage eine Lösung vor.`;
         ) : activeTab === 'advisors' ? (
           /* Advisors List */
           advisors.map((advisor) => (
-            <View key={advisor.id} style={styles.advisorCard}>
+            <View key={advisor.id} style={[styles.advisorCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder, borderWidth: 1 }]}>
               <View style={styles.advisorInfo}>
-                <Text style={styles.advisorName}>
+                <Text style={[styles.advisorName, { color: colors.text }]}>
                   {advisor.first_name} {advisor.last_name}
                 </Text>
-                <View style={[styles.roleBadge, advisor.role === 'admin' ? styles.roleAdmin : styles.roleBerater]}>
-                  <Text style={styles.roleBadgeText}>
+                <View style={[styles.roleBadge, advisor.role === 'admin' ? { backgroundColor: colors.primary } : styles.roleBerater]}>
+                  <Text style={[styles.roleBadgeText, { color: advisor.role === 'admin' ? colors.primaryText : '#fff' }]}>
                     {advisor.role === 'admin' ? 'Admin' : 'Berater'}
                   </Text>
                 </View>
@@ -335,14 +337,14 @@ Bitte analysiere das Problem und schlage eine Lösung vor.`;
               <View style={styles.advisorActions}>
                 {advisor.role !== 'admin' ? (
                   <TouchableOpacity
-                    style={styles.makeAdminButton}
+                    style={[styles.makeAdminButton, { backgroundColor: colors.primary }]}
                     onPress={() => handleChangeRole(advisor.id, 'admin')}
                   >
-                    <Text style={styles.makeAdminButtonText}>Zum Admin</Text>
+                    <Text style={[styles.makeAdminButtonText, { color: colors.primaryText }]}>Zum Admin</Text>
                   </TouchableOpacity>
                 ) : (
                   <TouchableOpacity
-                    style={styles.removeAdminButton}
+                    style={[styles.removeAdminButton, { backgroundColor: colors.surface, borderColor: '#ff4444' }]}
                     onPress={() => handleChangeRole(advisor.id, 'berater')}
                   >
                     <Text style={styles.removeAdminButtonText}>Admin entfernen</Text>
@@ -355,42 +357,42 @@ Bitte analysiere das Problem und schlage eine Lösung vor.`;
           /* Feedback List */
           feedbackList.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>Kein Feedback vorhanden</Text>
+              <Text style={[styles.emptyText, { color: colors.textMuted }]}>Kein Feedback vorhanden</Text>
             </View>
           ) : (
             feedbackList.map((feedback) => (
-              <View key={feedback.id} style={[styles.feedbackCard, feedback.status === 'done' && styles.feedbackCardDone]}>
+              <View key={feedback.id} style={[styles.feedbackCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder, borderWidth: 1 }, feedback.status === 'done' && { opacity: 0.6, backgroundColor: colors.surfaceSecondary }]}>
                 <View style={styles.feedbackHeader}>
                   <View style={[
                     styles.feedbackTypeBadge,
-                    feedback.type === 'bug' && styles.feedbackTypeBug,
-                    feedback.type === 'feature' && styles.feedbackTypeFeature,
-                    feedback.type === 'other' && styles.feedbackTypeOther,
+                    feedback.type === 'bug' && { backgroundColor: isDark ? '#3f1f1f' : '#fef2f2' },
+                    feedback.type === 'feature' && { backgroundColor: isDark ? '#1f3f1f' : '#f0fdf4' },
+                    feedback.type === 'other' && { backgroundColor: isDark ? '#1f2f3f' : '#f0f9ff' },
                   ]}>
-                    <Text style={styles.feedbackTypeBadgeText}>
-                      {feedback.type === 'bug' ? '🐛 Bug' : feedback.type === 'feature' ? '💡 Idee' : '📝 Sonstiges'}
+                    <Text style={[styles.feedbackTypeBadgeText, { color: colors.text }]}>
+                      {feedback.type === 'bug' ? 'Bug' : feedback.type === 'feature' ? 'Idee' : 'Sonstiges'}
                     </Text>
                   </View>
-                  <Text style={styles.feedbackScreen}>Bereich: {feedback.screen}</Text>
+                  <Text style={[styles.feedbackScreen, { color: colors.textSecondary }]}>Bereich: {feedback.screen}</Text>
                 </View>
-                <Text style={styles.feedbackDescription}>{feedback.description}</Text>
+                <Text style={[styles.feedbackDescription, { color: colors.text }]}>{feedback.description}</Text>
                 <View style={styles.feedbackMeta}>
-                  <Text style={styles.feedbackUser}>Von: {feedback.user_name}</Text>
-                  <Text style={styles.feedbackDate}>{formatDate(feedback.created_at)}</Text>
+                  <Text style={[styles.feedbackUser, { color: colors.textSecondary }]}>Von: {feedback.user_name}</Text>
+                  <Text style={[styles.feedbackDate, { color: colors.textSecondary }]}>{formatDate(feedback.created_at)}</Text>
                 </View>
                 <View style={styles.feedbackActions}>
                   <TouchableOpacity
-                    style={styles.copyPromptButton}
+                    style={[styles.copyPromptButton, { backgroundColor: colors.surfaceSecondary }]}
                     onPress={() => copyPrompt(feedback)}
                   >
-                    <Text style={styles.copyPromptButtonText}>📋 Prompt kopieren</Text>
+                    <Text style={[styles.copyPromptButtonText, { color: colors.text }]}>Prompt kopieren</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.toggleStatusButton, feedback.status === 'done' && styles.toggleStatusButtonDone]}
+                    style={[styles.toggleStatusButton, feedback.status === 'done' && { backgroundColor: colors.surfaceSecondary }]}
                     onPress={() => toggleFeedbackStatus(feedback)}
                   >
-                    <Text style={[styles.toggleStatusButtonText, feedback.status === 'done' && styles.toggleStatusButtonTextDone]}>
-                      {feedback.status === 'open' ? '✓ Erledigt' : '↩ Wieder öffnen'}
+                    <Text style={[styles.toggleStatusButtonText, feedback.status === 'done' && { color: colors.textSecondary }]}>
+                      {feedback.status === 'open' ? 'Erledigt' : 'Wieder oeffnen'}
                     </Text>
                   </TouchableOpacity>
                 </View>

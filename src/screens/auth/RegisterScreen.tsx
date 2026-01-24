@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export function RegisterScreen({ navigation }: any) {
   const { signUp } = useAuth();
+  const { colors, isDark } = useTheme();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -29,31 +31,31 @@ export function RegisterScreen({ navigation }: any) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.content, { backgroundColor: colors.surface }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.back}>← Zurück</Text>
+          <Text style={[styles.back, { color: colors.textMuted }]}>← Zurück</Text>
         </TouchableOpacity>
 
-        <Text style={styles.title}>Registrieren</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Registrieren</Text>
 
         <TextInput
-          style={styles.input}
-          placeholder="Vorname" placeholderTextColor="#999"
+          style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+          placeholder="Vorname" placeholderTextColor={colors.textSecondary}
           value={firstName}
           onChangeText={setFirstName}
         />
 
         <TextInput
-          style={styles.input}
-          placeholder="Nachname" placeholderTextColor="#999"
+          style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+          placeholder="Nachname" placeholderTextColor={colors.textSecondary}
           value={lastName}
           onChangeText={setLastName}
         />
 
         <TextInput
-          style={styles.input}
-          placeholder="E-Mail" placeholderTextColor="#999"
+          style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+          placeholder="E-Mail" placeholderTextColor={colors.textSecondary}
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
@@ -61,15 +63,15 @@ export function RegisterScreen({ navigation }: any) {
         />
 
         <TextInput
-          style={styles.input}
-          placeholder="Passwort" placeholderTextColor="#999"
+          style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+          placeholder="Passwort" placeholderTextColor={colors.textSecondary}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
         />
 
-        <TouchableOpacity style={styles.button} onPress={handleRegister} disabled={loading}>
-          <Text style={styles.buttonText}>{loading ? 'Laden...' : 'Konto erstellen'}</Text>
+        <TouchableOpacity style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleRegister} disabled={loading}>
+          <Text style={[styles.buttonText, { color: colors.primaryText }]}>{loading ? 'Laden...' : 'Konto erstellen'}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Modal, Pressable, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { supabase } from '../../config/supabase';
 
 // Fallback falls Datenbank nicht erreichbar
@@ -19,6 +20,7 @@ const showAlert = (title: string, message: string, onOk?: () => void) => {
 
 export function LoginScreen({ navigation }: any) {
   const { signIn } = useAuth();
+  const { colors, isDark } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -81,14 +83,14 @@ export function LoginScreen({ navigation }: any) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>Karl M. Herzog</Text>
-        <Text style={styles.titleSecond}>Sportmanagement</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.content, { backgroundColor: colors.background }]}>
+        <Text style={[styles.title, { color: colors.text }]}>Karl M. Herzog</Text>
+        <Text style={[styles.titleSecond, { color: colors.text }]}>Sportmanagement</Text>
 
         <TextInput
-          style={styles.input}
-          placeholder="E-Mail" placeholderTextColor="#999"
+          style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+          placeholder="E-Mail" placeholderTextColor={colors.textMuted}
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
@@ -96,48 +98,47 @@ export function LoginScreen({ navigation }: any) {
         />
 
         <TextInput
-          style={styles.input}
-          placeholder="Passwort" placeholderTextColor="#999"
+          style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+          placeholder="Passwort" placeholderTextColor={colors.textMuted}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
         />
 
-        <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
-          <Text style={styles.buttonText}>{loading ? 'Laden...' : 'Anmelden'}</Text>
+        <TouchableOpacity style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleLogin} disabled={loading}>
+          <Text style={[styles.buttonText, { color: colors.primaryText }]}>{loading ? 'Laden...' : 'Anmelden'}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-          <Text style={styles.link}>Noch kein Konto? Registrieren</Text>
+          <Text style={[styles.link, { color: colors.textMuted }]}>Noch kein Konto? Registrieren</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => { setShowAdvisorModal(true); setCodeError(null); setAdvisorCode(''); }} style={styles.advisorLink}>
-          <Text style={styles.advisorText}>Als Berater registrieren</Text>
+          <Text style={[styles.advisorText, { color: colors.textMuted }]}>Als Berater registrieren</Text>
         </TouchableOpacity>
       </View>
 
       {/* Berater-Zugang Modal */}
       <Modal visible={showAdvisorModal} transparent animationType="fade">
         <Pressable style={styles.modalOverlay} onPress={() => setShowAdvisorModal(false)}>
-          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
-            <TouchableOpacity style={styles.modalClose} onPress={() => setShowAdvisorModal(false)}>
-              <Text style={styles.modalCloseText}>✕</Text>
+          <Pressable style={[styles.modalContent, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
+            <TouchableOpacity style={[styles.modalClose, { backgroundColor: isDark ? colors.inputBackground : '#f1f5f9' }]} onPress={() => setShowAdvisorModal(false)}>
+              <Text style={[styles.modalCloseText, { color: colors.textSecondary }]}>✕</Text>
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>Berater-Zugang</Text>
-            <Text style={styles.modalSubtitle}>Bitte Einladungscode eingeben</Text>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Berater-Zugang</Text>
+            <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>Bitte Einladungscode eingeben</Text>
             <TextInput
-              style={[styles.modalInput, codeError && styles.modalInputError]}
-              placeholder="Einladungscode" placeholderTextColor="#999"
+              style={[styles.modalInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }, codeError && styles.modalInputError]}
+              placeholder="Einladungscode" placeholderTextColor={colors.textMuted}
               value={advisorCode}
               onChangeText={(text) => { setAdvisorCode(text); setCodeError(null); }}
               autoCapitalize="none"
-              placeholderTextColor="#999"
             />
             {codeError && (
               <Text style={styles.errorText}>{codeError}</Text>
             )}
-            <TouchableOpacity style={styles.modalButton} onPress={handleAdvisorCode}>
-              <Text style={styles.modalButtonText}>Weiter</Text>
+            <TouchableOpacity style={[styles.modalButton, { backgroundColor: colors.primary }]} onPress={handleAdvisorCode}>
+              <Text style={[styles.modalButtonText, { color: colors.primaryText }]}>Weiter</Text>
             </TouchableOpacity>
           </Pressable>
         </Pressable>

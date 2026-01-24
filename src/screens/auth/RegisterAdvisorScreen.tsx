@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Platform, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const showAlert = (title: string, message: string, onOk?: () => void) => {
   if (Platform.OS === 'web') {
@@ -14,6 +15,7 @@ const showAlert = (title: string, message: string, onOk?: () => void) => {
 
 export function RegisterAdvisorScreen({ navigation }: any) {
   const { signUp } = useAuth();
+  const { colors, isDark } = useTheme();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -54,68 +56,68 @@ export function RegisterAdvisorScreen({ navigation }: any) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.content, { backgroundColor: colors.surface }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.back}>← Zurück</Text>
+          <Text style={[styles.back, { color: colors.textMuted }]}>← Zurück</Text>
         </TouchableOpacity>
 
-        <Text style={styles.title}>Berater-Registrierung</Text>
-        <Text style={styles.subtitle}>Erstellen Sie Ihr Berater-Konto</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Berater-Registrierung</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Erstellen Sie Ihr Berater-Konto</Text>
 
         <TextInput
-          style={styles.input}
-          placeholder="Vorname" placeholderTextColor="#999"
+          style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+          placeholder="Vorname" placeholderTextColor={colors.textMuted}
           value={firstName}
           onChangeText={setFirstName}
         />
 
         <TextInput
-          style={styles.input}
-          placeholder="Nachname" placeholderTextColor="#999"
+          style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+          placeholder="Nachname" placeholderTextColor={colors.textMuted}
           value={lastName}
           onChangeText={setLastName}
         />
 
         <TextInput
-          style={styles.input}
-          placeholder="E-Mail" placeholderTextColor="#999"
+          style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+          placeholder="E-Mail" placeholderTextColor={colors.textMuted}
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
           autoCapitalize="none"
         />
 
-        <View style={styles.passwordContainer}>
+        <View style={[styles.passwordContainer, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
           <TextInput
-            style={styles.passwordInput}
-            placeholder="Passwort (min. 6 Zeichen)" placeholderTextColor="#999"
+            style={[styles.passwordInput, { color: colors.text }]}
+            placeholder="Passwort (min. 6 Zeichen)" placeholderTextColor={colors.textMuted}
             value={password}
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
           />
-          <TouchableOpacity 
-            style={styles.showButton} 
+          <TouchableOpacity
+            style={styles.showButton}
             onPress={() => setShowPassword(!showPassword)}
           >
-            <Text style={styles.showButtonText}>
+            <Text style={[styles.showButtonText, { color: colors.textMuted }]}>
               {showPassword ? 'Verbergen' : 'Anzeigen'}
             </Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.passwordContainer}>
+        <View style={[styles.passwordContainer, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
           <TextInput
-            style={styles.passwordInput}
-            placeholder="Passwort wiederholen" placeholderTextColor="#999"
+            style={[styles.passwordInput, { color: colors.text }]}
+            placeholder="Passwort wiederholen" placeholderTextColor={colors.textMuted}
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             secureTextEntry={!showPassword}
           />
         </View>
 
-        <TouchableOpacity style={styles.button} onPress={handleRegister} disabled={loading}>
-          <Text style={styles.buttonText}>{loading ? 'Laden...' : 'Konto erstellen'}</Text>
+        <TouchableOpacity style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleRegister} disabled={loading}>
+          <Text style={[styles.buttonText, { color: colors.primaryText }]}>{loading ? 'Laden...' : 'Konto erstellen'}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

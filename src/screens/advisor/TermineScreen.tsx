@@ -974,7 +974,7 @@ END:VEVENT
 
   const SortableHeader = ({ field, label, style }: { field: SortField; label: string; style: any }) => (
     <TouchableOpacity onPress={() => handleSort(field)} style={[style, styles.sortableHeader]}>
-      <Text style={styles.termineTableHeaderText}>{label} {getSortIndicator(field)}</Text>
+      <Text style={[styles.termineTableHeaderText, { color: colors.textSecondary }]}>{label} {getSortIndicator(field)}</Text>
     </TouchableOpacity>
   );
 
@@ -2111,7 +2111,7 @@ END:VEVENT
         <Text style={styles.placeholderIcon}>📅</Text>
         <Text style={[styles.placeholderTitle, { color: colors.text }]}>Kalenderansicht</Text>
         <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>Übersichtliche Monatsansicht mit allen Terminen{'\n'}und Export-Funktion.</Text>
-        <View style={styles.comingSoonLarge}><Text style={styles.comingSoonLargeText}>COMING SOON</Text></View>
+        <View style={[styles.comingSoonLarge, { backgroundColor: isDark ? 'rgba(255, 243, 205, 0.2)' : '#fff3cd' }]}><Text style={[styles.comingSoonLargeText, { color: isDark ? '#fbbf24' : '#856404' }]}>COMING SOON</Text></View>
       </View>
     </View>
   );
@@ -2530,12 +2530,12 @@ END:VEVENT
             <Modal visible={showDeleteConfirm} transparent animationType="fade">
               <View style={styles.modalOverlay}>
                 <View style={[styles.deleteConfirmModal, { backgroundColor: colors.surface }]}>
-                  <Text style={styles.deleteConfirmTitle}>Termin löschen?</Text>
-                  <Text style={styles.deleteConfirmText}>Möchtest du diesen Termin wirklich löschen?</Text>
-                  <Text style={styles.deleteConfirmTermin}>{selectedTermin?.titel}</Text>
+                  <Text style={[styles.deleteConfirmTitle, { color: colors.text }]}>Termin löschen?</Text>
+                  <Text style={[styles.deleteConfirmText, { color: colors.textSecondary }]}>Möchtest du diesen Termin wirklich löschen?</Text>
+                  <Text style={[styles.deleteConfirmTermin, { color: colors.text }]}>{selectedTermin?.titel}</Text>
                   <View style={styles.deleteConfirmButtons}>
-                    <TouchableOpacity style={styles.cancelButton} onPress={() => setShowDeleteConfirm(false)}>
-                      <Text style={styles.cancelButtonText}>Abbrechen</Text>
+                    <TouchableOpacity style={[styles.cancelButton, { backgroundColor: colors.surfaceSecondary }]} onPress={() => setShowDeleteConfirm(false)}>
+                      <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.confirmDeleteButton} onPress={handleDeleteTermin}>
                       <Text style={styles.confirmDeleteButtonText}>Ja, löschen</Text>
@@ -2553,32 +2553,32 @@ END:VEVENT
   const renderSyncModal = () => (
     <Modal visible={showSyncModal} transparent animationType="fade">
       <View style={styles.modalOverlay}>
-        <View style={styles.syncModalContent}>
-          <Text style={styles.modalTitle}>🇩🇪 Termine synchronisieren</Text>
-          <Text style={styles.syncDescription}>
+        <View style={[styles.syncModalContent, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.modalTitle, { color: colors.text }]}>Termine synchronisieren</Text>
+          <Text style={[styles.syncDescription, { color: colors.textSecondary }]}>
             Lädt {getDFBTermineCount()} DFB-Nationalmannschaftstermine und {getHallenTermineCount()} Hallenturniere.{'\n'}
             Bereits vorhandene Termine werden übersprungen.
           </Text>
-          <Text style={styles.syncStand}>Stand: {getLastUpdateDisplay()}</Text>
+          <Text style={[styles.syncStand, { color: colors.textMuted }]}>Stand: {getLastUpdateDisplay()}</Text>
           {syncLoading ? (
             <View style={styles.syncLoadingContainer}>
-              <ActivityIndicator size="large" color="#000" />
-              <Text style={styles.syncLoadingText}>Synchronisiere...</Text>
+              <ActivityIndicator size="large" color={colors.text} />
+              <Text style={[styles.syncLoadingText, { color: colors.textSecondary }]}>Synchronisiere...</Text>
             </View>
           ) : syncResult ? (
-            <View style={styles.syncResultContainer}>
-              <Text style={styles.syncResultTitle}>✓ Synchronisierung abgeschlossen</Text>
-              <Text style={styles.syncResultText}>{syncResult.added} neue Termine hinzugefügt</Text>
-              <Text style={styles.syncResultText}>{syncResult.skipped} bereits vorhanden (übersprungen)</Text>
+            <View style={[styles.syncResultContainer, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : '#d4edda' }]}>
+              <Text style={[styles.syncResultTitle, { color: isDark ? '#10b981' : '#155724' }]}>Synchronisierung abgeschlossen</Text>
+              <Text style={[styles.syncResultText, { color: isDark ? '#10b981' : '#155724' }]}>{syncResult.added} neue Termine hinzugefügt</Text>
+              <Text style={[styles.syncResultText, { color: isDark ? '#10b981' : '#155724' }]}>{syncResult.skipped} bereits vorhanden (übersprungen)</Text>
             </View>
           ) : null}
           <View style={styles.modalButtons}>
-            <TouchableOpacity style={styles.cancelButton} onPress={() => { setShowSyncModal(false); setSyncResult(null); }}>
-              <Text style={styles.cancelButtonText}>{syncResult ? 'Schließen' : 'Abbrechen'}</Text>
+            <TouchableOpacity style={[styles.cancelButton, { backgroundColor: colors.surfaceSecondary }]} onPress={() => { setShowSyncModal(false); setSyncResult(null); }}>
+              <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>{syncResult ? 'Schließen' : 'Abbrechen'}</Text>
             </TouchableOpacity>
             {!syncResult && (
-              <TouchableOpacity style={styles.saveButton} onPress={handleDFBSync} disabled={syncLoading}>
-                <Text style={styles.saveButtonText}>Jetzt synchronisieren</Text>
+              <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.primary }]} onPress={handleDFBSync} disabled={syncLoading}>
+                <Text style={[styles.saveButtonText, { color: colors.primaryText }]}>Jetzt synchronisieren</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -2590,29 +2590,30 @@ END:VEVENT
   const renderTokenModal = () => (
     <Modal visible={showTokenModal} transparent animationType="fade">
       <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>🔑 API Token einrichten</Text>
-          <Text style={styles.syncDescription}>
+        <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.modalTitle, { color: colors.text }]}>API Token einrichten</Text>
+          <Text style={[styles.syncDescription, { color: colors.textSecondary }]}>
             Um Spiele von fussball.de zu laden, wird ein API Token benötigt.{'\n\n'}
             1. Gehe zu api-fussball.de/token{'\n'}
             2. Registriere dich mit deiner E-Mail{'\n'}
             3. Kopiere den Token und füge ihn hier ein
           </Text>
-          <Text style={styles.formLabel}>API Token</Text>
-          <TextInput 
-            style={styles.formInput} 
-            value={apiToken} 
-            onChangeText={setApiToken} 
-            placeholder="Dein API Token..." 
+          <Text style={[styles.formLabel, { color: colors.textSecondary }]}>API Token</Text>
+          <TextInput
+            style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+            value={apiToken}
+            onChangeText={setApiToken}
+            placeholder="Dein API Token..."
+            placeholderTextColor={colors.textMuted}
             autoCapitalize="none"
             autoCorrect={false}
           />
           <View style={styles.modalButtons}>
-            <TouchableOpacity style={styles.cancelButton} onPress={() => { setShowTokenModal(false); setApiToken(''); }}>
-              <Text style={styles.cancelButtonText}>Abbrechen</Text>
+            <TouchableOpacity style={[styles.cancelButton, { backgroundColor: colors.surfaceSecondary }]} onPress={() => { setShowTokenModal(false); setApiToken(''); }}>
+              <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.saveButton} onPress={handleSaveToken}>
-              <Text style={styles.saveButtonText}>Speichern</Text>
+            <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.primary }]} onPress={handleSaveToken}>
+              <Text style={[styles.saveButtonText, { color: colors.primaryText }]}>Speichern</Text>
             </TouchableOpacity>
           </View>
         </View>

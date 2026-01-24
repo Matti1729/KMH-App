@@ -1250,22 +1250,22 @@ export function ScoutingScreen({ navigation }: any) {
     const list = getFilteredClubs(searchTxt);
     return (
       <View style={styles.clubSelectorContainer}>
-        <TextInput 
-          style={styles.formInput} 
-          value={searchTxt} 
-          onChangeText={(t) => { setSearchTxt(t); onSelect(t); setShowDrop(t.length > 0 && getFilteredClubs(t).length > 0); }} 
+        <TextInput
+          style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+          value={searchTxt}
+          onChangeText={(t) => { setSearchTxt(t); onSelect(t); setShowDrop(t.length > 0 && getFilteredClubs(t).length > 0); }}
           onFocus={() => { if (searchTxt.length > 0 && getFilteredClubs(searchTxt).length > 0) setShowDrop(true); }}
           onBlur={() => setTimeout(() => setShowDrop(false), 200)}
-          placeholder="Verein suchen..." placeholderTextColor="#999"
-          placeholderTextColor="#9ca3af"
+          placeholder="Verein suchen..."
+          placeholderTextColor={colors.textMuted}
         />
         {showDrop && list.length > 0 && (
-          <View style={styles.clubDropdown}>
+          <View style={[styles.clubDropdown, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <ScrollView style={styles.clubDropdownScroll} nestedScrollEnabled keyboardShouldPersistTaps="handled">
               {list.map((club) => (
-                <TouchableOpacity key={club} style={styles.clubDropdownItem} onPress={() => { setSearchTxt(club); onSelect(club); setShowDrop(false); }}>
+                <TouchableOpacity key={club} style={[styles.clubDropdownItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }]} onPress={() => { setSearchTxt(club); onSelect(club); setShowDrop(false); }}>
                   {getClubLogo(club) && <Image source={{ uri: getClubLogo(club)! }} style={styles.clubDropdownLogo} />}
-                  <Text style={styles.clubDropdownText}>{club}</Text>
+                  <Text style={[styles.clubDropdownText, { color: colors.text }]}>{club}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -1634,30 +1634,30 @@ export function ScoutingScreen({ navigation }: any) {
   };
 
   const renderArchivView = () => (
-    <View style={styles.tableContainer}>
-      <View style={styles.tableHeader}>
-        <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Name</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 0.5 }]}>Geb.</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 0.8 }]}>Pos.</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>Verein</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Grund</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Archiviert am</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 1 }]}></Text>
+    <View style={[styles.tableContainer, { backgroundColor: colors.cardBackground }]}>
+      <View style={[styles.tableHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+        <Text style={[styles.tableHeaderCell, { flex: 2, color: colors.textSecondary }]}>Name</Text>
+        <Text style={[styles.tableHeaderCell, { flex: 0.5, color: colors.textSecondary }]}>Geb.</Text>
+        <Text style={[styles.tableHeaderCell, { flex: 0.8, color: colors.textSecondary }]}>Pos.</Text>
+        <Text style={[styles.tableHeaderCell, { flex: 1.5, color: colors.textSecondary }]}>Verein</Text>
+        <Text style={[styles.tableHeaderCell, { flex: 2, color: colors.textSecondary }]}>Grund</Text>
+        <Text style={[styles.tableHeaderCell, { flex: 1, color: colors.textSecondary }]}>Archiviert am</Text>
+        <Text style={[styles.tableHeaderCell, { flex: 1, color: colors.textSecondary }]}></Text>
       </View>
       <ScrollView>
         {archivedPlayers.length === 0 ? (
           <View style={styles.emptyArchiv}>
-            <Text style={styles.emptyArchivText}>Keine archivierten Spieler</Text>
+            <Text style={[styles.emptyArchivText, { color: colors.textMuted }]}>Keine archivierten Spieler</Text>
           </View>
         ) : (
           archivedPlayers.map(player => (
-            <View key={player.id} style={styles.tableRow}>
-              <Text style={[styles.tableCell, styles.tableCellText, { flex: 2 }]}>{player.last_name}, {player.first_name}</Text>
-              <Text style={[styles.tableCell, { flex: 0.5 }]}>{getYearFromDate(player.birth_date)}</Text>
-              <Text style={[styles.tableCell, { flex: 0.8 }]}>{player.position}</Text>
-              <Text style={[styles.tableCell, { flex: 1.5 }]}>{player.club}</Text>
-              <Text style={[styles.tableCell, { flex: 2, color: '#64748b', fontStyle: 'italic' }]}>{player.archive_reason || '-'}</Text>
-              <Text style={[styles.tableCell, { flex: 1 }]}>{player.archived_at ? new Date(player.archived_at).toLocaleDateString('de-DE') : '-'}</Text>
+            <View key={player.id} style={[styles.tableRow, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.tableCell, styles.tableCellText, { flex: 2, color: colors.text }]}>{player.last_name}, {player.first_name}</Text>
+              <Text style={[styles.tableCell, { flex: 0.5, color: colors.text }]}>{getYearFromDate(player.birth_date)}</Text>
+              <Text style={[styles.tableCell, { flex: 0.8, color: colors.text }]}>{player.position}</Text>
+              <Text style={[styles.tableCell, { flex: 1.5, color: colors.text }]}>{player.club}</Text>
+              <Text style={[styles.tableCell, { flex: 2, color: colors.textSecondary, fontStyle: 'italic' }]}>{player.archive_reason || '-'}</Text>
+              <Text style={[styles.tableCell, { flex: 1, color: colors.text }]}>{player.archived_at ? new Date(player.archived_at).toLocaleDateString('de-DE') : '-'}</Text>
               <View style={[styles.tableCell, { flex: 1 }]}>
                 <TouchableOpacity style={styles.restoreButton} onPress={() => restorePlayer(player.id)}>
                   <Text style={styles.restoreButtonText}>Wiederherstellen</Text>
@@ -1677,20 +1677,22 @@ export function ScoutingScreen({ navigation }: any) {
   ) => (
     <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={true} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
       {/* Status-Auswahl */}
-      <View style={[styles.detailInfo, { alignSelf: 'flex-start', marginBottom: 12 }]}>
-        <Text style={[styles.formLabel, { marginBottom: 6 }]}>Status</Text>
+      <View style={[styles.detailInfo, { alignSelf: 'flex-start', marginBottom: 12, backgroundColor: colors.surfaceSecondary }]}>
+        <Text style={[styles.formLabel, { marginBottom: 6, color: colors.textSecondary }]}>Status</Text>
         <View style={styles.statusSelector}>
           {SCOUTING_STATUS.map(status => (
             <TouchableOpacity
               key={status.id}
               style={[
                 styles.statusOption,
+                { backgroundColor: isDark ? colors.surface : '#f1f5f9', borderColor: colors.border },
                 data.status === status.id && { backgroundColor: status.color, borderColor: status.color }
               ]}
               onPress={() => setData({ ...data, status: status.id })}
             >
               <Text style={[
                 styles.statusOptionText,
+                { color: colors.textSecondary },
                 data.status === status.id && { color: '#fff' }
               ]}>{status.label}</Text>
             </TouchableOpacity>
@@ -1699,92 +1701,92 @@ export function ScoutingScreen({ navigation }: any) {
       </View>
 
       {/* Erste Säule: Grunddaten + Kontakt */}
-      <View style={[styles.detailInfo, { zIndex: 9999 }]}>
+      <View style={[styles.detailInfo, { zIndex: 9999, backgroundColor: colors.surfaceSecondary }]}>
         <View style={styles.formRow}>
           <View style={styles.formField}>
-            <Text style={styles.formLabel}>Vorname *</Text>
-            <TextInput style={styles.formInput} value={data.first_name} onChangeText={(t) => setData({...data, first_name: t})} placeholder="Vorname" placeholderTextColor="#9ca3af" />
+            <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Vorname *</Text>
+            <TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={data.first_name} onChangeText={(t) => setData({...data, first_name: t})} placeholder="Vorname" placeholderTextColor={colors.textMuted} />
           </View>
           <View style={styles.formField}>
-            <Text style={styles.formLabel}>Nachname *</Text>
-            <TextInput style={styles.formInput} value={data.last_name} onChangeText={(t) => setData({...data, last_name: t})} placeholder="Nachname" placeholderTextColor="#9ca3af" />
+            <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Nachname *</Text>
+            <TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={data.last_name} onChangeText={(t) => setData({...data, last_name: t})} placeholder="Nachname" placeholderTextColor={colors.textMuted} />
           </View>
         </View>
         <View style={[styles.formRow, { zIndex: 9999 }]}>
           <View style={[styles.formField, { zIndex: 9999 }]}>
-            <Text style={styles.formLabel}>Verein</Text>
+            <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Verein</Text>
             {renderClubSelector(clubSearch, setClubSearch, showClubDrop, setShowClubDrop, (c) => setData({...data, club: c}))}
           </View>
           <View style={styles.formField}>
-            <Text style={styles.formLabel}>Geburtsdatum / Jahrgang</Text>
-            <TextInput style={styles.formInput} value={data.birth_date || ''} onChangeText={(t) => setData({...data, birth_date: t})} placeholder="YYYY-MM-DD oder YYYY" placeholderTextColor="#9ca3af" />
+            <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Geburtsdatum / Jahrgang</Text>
+            <TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={data.birth_date || ''} onChangeText={(t) => setData({...data, birth_date: t})} placeholder="YYYY-MM-DD oder YYYY" placeholderTextColor={colors.textMuted} />
           </View>
         </View>
         <View style={styles.formRow}>
           <View style={styles.formField}>
-            <Text style={styles.formLabel}>Kontakt</Text>
-            <TextInput 
-              style={styles.formInput} 
-              value={data.phone || ''} 
-              onChangeText={(t) => setData({...data, phone: t})} 
-              placeholder="Telefonnummer..." placeholderTextColor="#999"
-              placeholderTextColor="#9ca3af"
+            <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Kontakt</Text>
+            <TextInput
+              style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+              value={data.phone || ''}
+              onChangeText={(t) => setData({...data, phone: t})}
+              placeholder="Telefonnummer..."
+              placeholderTextColor={colors.textMuted}
               keyboardType="phone-pad"
             />
           </View>
           <View style={styles.formField}>
-            <Text style={styles.formLabel}>IST-Stand</Text>
-            <TextInput 
-              style={styles.formInput} 
-              value={data.current_status || ''} 
-              onChangeText={(t) => setData({...data, current_status: t})} 
-              placeholder="z.B. Termin am 15.01." placeholderTextColor="#999"
-              placeholderTextColor="#9ca3af"
+            <Text style={[styles.formLabel, { color: colors.textSecondary }]}>IST-Stand</Text>
+            <TextInput
+              style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+              value={data.current_status || ''}
+              onChangeText={(t) => setData({...data, current_status: t})}
+              placeholder="z.B. Termin am 15.01."
+              placeholderTextColor={colors.textMuted}
             />
           </View>
         </View>
       </View>
 
       {/* Zweite Säule: Position + Einschätzung */}
-      <View style={[styles.detailInfo, { zIndex: 1 }]}>
+      <View style={[styles.detailInfo, { zIndex: 1, backgroundColor: colors.surfaceSecondary }]}>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Position:</Text>
+          <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Position:</Text>
           <View style={styles.positionPickerSmall}>
-            <TouchableOpacity 
-              style={[styles.positionOptionSmall, (!data.position || data.position === '') && styles.positionOptionSelected]} 
+            <TouchableOpacity
+              style={[styles.positionOptionSmall, { backgroundColor: isDark ? colors.surface : '#f1f5f9' }, (!data.position || data.position === '') && styles.positionOptionSelected]}
               onPress={() => setData({...data, position: ''})}
             >
-              <Text style={[styles.positionOptionTextSmall, (!data.position || data.position === '') && styles.positionOptionTextSelected]}>-</Text>
+              <Text style={[styles.positionOptionTextSmall, { color: colors.textSecondary }, (!data.position || data.position === '') && styles.positionOptionTextSelected]}>-</Text>
             </TouchableOpacity>
             {POSITIONS.map(pos => {
               const currentPositions = parsePositions(data.position || '');
               const isSelected = currentPositions.includes(pos);
               return (
-                <TouchableOpacity 
-                  key={pos} 
-                  style={[styles.positionOptionSmall, isSelected && styles.positionOptionSelected]} 
+                <TouchableOpacity
+                  key={pos}
+                  style={[styles.positionOptionSmall, { backgroundColor: isDark ? colors.surface : '#f1f5f9' }, isSelected && styles.positionOptionSelected]}
                   onPress={() => {
-                    const newPositions = isSelected 
+                    const newPositions = isSelected
                       ? currentPositions.filter(p => p !== pos)
                       : [...currentPositions, pos];
                     setData({...data, position: formatPositions(newPositions)});
                   }}
                 >
-                  <Text style={[styles.positionOptionTextSmall, isSelected && styles.positionOptionTextSelected]}>{pos}</Text>
+                  <Text style={[styles.positionOptionTextSmall, { color: colors.textSecondary }, isSelected && styles.positionOptionTextSelected]}>{pos}</Text>
                 </TouchableOpacity>
               );
             })}
           </View>
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Einschätzung:</Text>
+          <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Einschätzung:</Text>
           <View style={styles.ratingPickerSmall}>
-            <TouchableOpacity style={[styles.ratingOptionSmall, !data.rating && styles.ratingOptionSelected]} onPress={() => setData({...data, rating: null})}>
-              <Text style={[styles.ratingOptionTextSmall, !data.rating && styles.ratingOptionTextSelected]}>-</Text>
+            <TouchableOpacity style={[styles.ratingOptionSmall, { backgroundColor: isDark ? colors.surface : '#f1f5f9' }, !data.rating && styles.ratingOptionSelected]} onPress={() => setData({...data, rating: null})}>
+              <Text style={[styles.ratingOptionTextSmall, { color: colors.textSecondary }, !data.rating && styles.ratingOptionTextSelected]}>-</Text>
             </TouchableOpacity>
             {[1,2,3,4,5,6,7,8,9,10].map(r => (
-              <TouchableOpacity key={r} style={[styles.ratingOptionSmall, data.rating === r && styles.ratingOptionSelected]} onPress={() => setData({...data, rating: r})}>
-                <Text style={[styles.ratingOptionTextSmall, data.rating === r && styles.ratingOptionTextSelected]}>{r}</Text>
+              <TouchableOpacity key={r} style={[styles.ratingOptionSmall, { backgroundColor: isDark ? colors.surface : '#f1f5f9' }, data.rating === r && styles.ratingOptionSelected]} onPress={() => setData({...data, rating: r})}>
+                <Text style={[styles.ratingOptionTextSmall, { color: colors.textSecondary }, data.rating === r && styles.ratingOptionTextSelected]}>{r}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -1792,19 +1794,19 @@ export function ScoutingScreen({ navigation }: any) {
       </View>
 
       {/* Dritte Säule: Transfermarkt + Scout */}
-      <View style={styles.detailInfo}>
+      <View style={[styles.detailInfo, { backgroundColor: colors.surfaceSecondary }]}>
         <View style={styles.formField}>
-          <Text style={styles.formLabel}>Transfermarkt Link</Text>
+          <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Transfermarkt Link</Text>
           <View style={styles.tmInputRow}>
-            <TextInput 
-              style={[styles.formInput, { flex: 1 }]} 
-              value={data.transfermarkt_url || ''} 
-              onChangeText={(t) => setData({...data, transfermarkt_url: t})} 
-              placeholder="https://www.transfermarkt.de/spieler/profil/..." placeholderTextColor="#999"
-              placeholderTextColor="#9ca3af"
+            <TextInput
+              style={[styles.formInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+              value={data.transfermarkt_url || ''}
+              onChangeText={(t) => setData({...data, transfermarkt_url: t})}
+              placeholder="https://www.transfermarkt.de/spieler/profil/..."
+              placeholderTextColor={colors.textMuted}
             />
             {data.transfermarkt_url && (
-              <TouchableOpacity style={styles.tmButton} onPress={() => openTransfermarkt(data.transfermarkt_url)}>
+              <TouchableOpacity style={[styles.tmButton, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => openTransfermarkt(data.transfermarkt_url)}>
                 <Image source={TransfermarktLogo} style={styles.tmLogoMedium} />
               </TouchableOpacity>
             )}
@@ -1814,14 +1816,14 @@ export function ScoutingScreen({ navigation }: any) {
 
       {/* Vierte Säule: Weitere Infos */}
       <View style={[styles.detailSection, { marginBottom: 10 }]}>
-        <Text style={styles.detailSectionTitle}>Weitere Infos</Text>
-        <TextInput style={[styles.formInput, styles.textArea]} value={data.additional_info || ''} onChangeText={(t) => setData({...data, additional_info: t})} placeholder="Weitere Informationen..." placeholderTextColor="#9ca3af" multiline />
+        <Text style={[styles.detailSectionTitle, { color: colors.text }]}>Weitere Infos</Text>
+        <TextInput style={[styles.formInput, styles.textArea, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={data.additional_info || ''} onChangeText={(t) => setData({...data, additional_info: t})} placeholder="Weitere Informationen..." placeholderTextColor={colors.textMuted} multiline />
       </View>
 
       {/* Ganz unten: Fußballerische Einschätzung */}
       <View style={[styles.detailSection, { marginBottom: 20 }]}>
-        <Text style={styles.detailSectionTitle}>Fußballerische Einschätzung</Text>
-        <TextInput style={[styles.formInput, styles.textArea]} value={data.notes || ''} onChangeText={(t) => setData({...data, notes: t})} placeholder="Fußballerische Einschätzung..." placeholderTextColor="#9ca3af" multiline />
+        <Text style={[styles.detailSectionTitle, { color: colors.text }]}>Fußballerische Einschätzung</Text>
+        <TextInput style={[styles.formInput, styles.textArea, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={data.notes || ''} onChangeText={(t) => setData({...data, notes: t})} placeholder="Fußballerische Einschätzung..." placeholderTextColor={colors.textMuted} multiline />
       </View>
     </ScrollView>
   );
@@ -2008,23 +2010,23 @@ export function ScoutingScreen({ navigation }: any) {
                     style={[styles.mobileStatusTab, isActive && { borderBottomColor: status.color }]}
                     onPress={() => setMobileStatusTab(status.id as MobileStatusTab)}
                   >
-                    <Text style={[styles.mobileStatusTabText, isActive && { color: status.color }]} numberOfLines={1}>
+                    <Text style={[styles.mobileStatusTabText, { color: colors.textSecondary }, isActive && { color: status.color }]} numberOfLines={1}>
                       {status.label.split(' ')[0]}
                     </Text>
-                    <View style={[styles.mobileStatusBadge, { backgroundColor: isActive ? status.color : '#e2e8f0' }]}>
-                      <Text style={[styles.mobileStatusBadgeText, !isActive && { color: '#64748b' }]}>{count}</Text>
+                    <View style={[styles.mobileStatusBadge, { backgroundColor: isActive ? status.color : colors.surfaceSecondary }]}>
+                      <Text style={[styles.mobileStatusBadgeText, !isActive && { color: colors.textSecondary }]}>{count}</Text>
                     </View>
                   </TouchableOpacity>
                 );
               })}
               {/* Archiv Tab */}
               <TouchableOpacity
-                style={[styles.mobileStatusTab, mobileStatusTab === 'archiv' && { borderBottomColor: '#64748b' }]}
+                style={[styles.mobileStatusTab, mobileStatusTab === 'archiv' && { borderBottomColor: colors.textSecondary }]}
                 onPress={() => setMobileStatusTab('archiv')}
               >
-                <Text style={[styles.mobileStatusTabText, mobileStatusTab === 'archiv' && { color: '#64748b' }]}>Archiv</Text>
-                <View style={[styles.mobileStatusBadge, { backgroundColor: mobileStatusTab === 'archiv' ? '#64748b' : '#e2e8f0' }]}>
-                  <Text style={[styles.mobileStatusBadgeText, mobileStatusTab !== 'archiv' && { color: '#64748b' }]}>
+                <Text style={[styles.mobileStatusTabText, { color: colors.textSecondary }, mobileStatusTab === 'archiv' && { color: colors.textSecondary }]}>Archiv</Text>
+                <View style={[styles.mobileStatusBadge, { backgroundColor: mobileStatusTab === 'archiv' ? '#64748b' : colors.surfaceSecondary }]}>
+                  <Text style={[styles.mobileStatusBadgeText, mobileStatusTab !== 'archiv' && { color: colors.textSecondary }]}>
                     {scoutedPlayers.filter(p => p.archived).length}
                   </Text>
                 </View>
@@ -2056,7 +2058,7 @@ export function ScoutingScreen({ navigation }: any) {
             >
               {mobileStatusPlayers.length === 0 ? (
                 <View style={styles.mobileEmptyState}>
-                  <Text style={styles.mobileEmptyText}>Keine Spieler in dieser Kategorie</Text>
+                  <Text style={[styles.mobileEmptyText, { color: colors.textMuted }]}>Keine Spieler in dieser Kategorie</Text>
                 </View>
               ) : (
                 mobileStatusPlayers
@@ -2112,7 +2114,7 @@ export function ScoutingScreen({ navigation }: any) {
             >
               {upcomingGames.length === 0 ? (
                 <View style={styles.mobileEmptyState}>
-                  <Text style={styles.mobileEmptyText}>Keine kommenden Termine</Text>
+                  <Text style={[styles.mobileEmptyText, { color: colors.textMuted }]}>Keine kommenden Termine</Text>
                 </View>
               ) : (
                 upcomingGames
@@ -2294,11 +2296,13 @@ export function ScoutingScreen({ navigation }: any) {
                               key={status.id}
                               style={[
                                 styles.statusOption,
+                                { backgroundColor: isDark ? colors.surface : '#f1f5f9', borderColor: colors.border },
                                 selectedPlayer.status === status.id && { backgroundColor: status.color, borderColor: status.color }
                               ]}
                             >
                               <Text style={[
                                 styles.statusOptionText,
+                                { color: colors.textSecondary },
                                 selectedPlayer.status === status.id && { color: '#fff' }
                               ]}>{status.label}</Text>
                             </View>
@@ -2306,11 +2310,13 @@ export function ScoutingScreen({ navigation }: any) {
                           <View
                             style={[
                               styles.statusOption,
+                              { backgroundColor: isDark ? colors.surface : '#f1f5f9', borderColor: colors.border },
                               selectedPlayer.archived && { backgroundColor: '#64748b', borderColor: '#64748b' }
                             ]}
                           >
                             <Text style={[
                               styles.statusOptionText,
+                              { color: colors.textSecondary },
                               selectedPlayer.archived && { color: '#fff' }
                             ]}>Archiv</Text>
                           </View>
@@ -2490,9 +2496,9 @@ export function ScoutingScreen({ navigation }: any) {
         {showDecisionModal && selectedPlayer && (
           <Modal visible={showDecisionModal} transparent animationType="fade">
             <View style={styles.modalOverlay}>
-              <View style={[styles.decisionModalContent, { padding: 20, maxWidth: 320 }]}>
-                <Text style={[styles.decisionModalTitle, { fontSize: 16, marginBottom: 4 }]}>Entscheidung treffen</Text>
-                <Text style={[styles.decisionModalSubtitle, { fontSize: 13, marginBottom: 16 }]}>{selectedPlayer.last_name}, {selectedPlayer.first_name}</Text>
+              <View style={[styles.decisionModalContent, { padding: 20, maxWidth: 320, backgroundColor: colors.surface }]}>
+                <Text style={[styles.decisionModalTitle, { fontSize: 16, marginBottom: 4, color: colors.text }]}>Entscheidung treffen</Text>
+                <Text style={[styles.decisionModalSubtitle, { fontSize: 13, marginBottom: 16, color: colors.textSecondary }]}>{selectedPlayer.last_name}, {selectedPlayer.first_name}</Text>
 
                 <View style={[styles.decisionButtonsContainer, { gap: 10 }]}>
                   <TouchableOpacity style={[styles.transferButton, { padding: 12 }]} onPress={() => { setShowDecisionModal(false); setShowTransferModal(true); }}>
@@ -2508,8 +2514,8 @@ export function ScoutingScreen({ navigation }: any) {
                   </TouchableOpacity>
                 </View>
 
-                <TouchableOpacity style={[styles.decisionCancelButton, { marginTop: 12, paddingVertical: 10, paddingHorizontal: 20, backgroundColor: '#f1f5f9', borderRadius: 8 }]} onPress={() => setShowDecisionModal(false)}>
-                  <Text style={[styles.decisionCancelButtonText, { fontSize: 13 }]}>Abbrechen</Text>
+                <TouchableOpacity style={[styles.decisionCancelButton, { marginTop: 12, paddingVertical: 10, paddingHorizontal: 20, backgroundColor: colors.surfaceSecondary, borderRadius: 8 }]} onPress={() => setShowDecisionModal(false)}>
+                  <Text style={[styles.decisionCancelButtonText, { fontSize: 13, color: colors.textSecondary }]}>Abbrechen</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -2520,25 +2526,25 @@ export function ScoutingScreen({ navigation }: any) {
         {showArchiveModal && selectedPlayer && (
           <Modal visible={showArchiveModal} transparent animationType="fade">
             <View style={styles.modalOverlay}>
-              <View style={styles.modalContent}>
-                <Text style={styles.modalTitle}>Spieler archivieren</Text>
-                <Text style={styles.modalSubtitle}>{selectedPlayer.last_name}, {selectedPlayer.first_name}</Text>
+              <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>Spieler archivieren</Text>
+                <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>{selectedPlayer.last_name}, {selectedPlayer.first_name}</Text>
 
                 <View style={styles.formField}>
-                  <Text style={styles.formLabel}>Grund für Archivierung</Text>
+                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Grund für Archivierung</Text>
                   <TextInput
-                    style={[styles.formInput, styles.textArea]}
+                    style={[styles.formInput, styles.textArea, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
                     value={archiveReason}
                     onChangeText={setArchiveReason}
                     placeholder="z.B. Kein Interesse, Spieler hat abgesagt, andere Agentur gewählt..."
-                    placeholderTextColor="#9ca3af"
+                    placeholderTextColor={colors.textMuted}
                     multiline
                   />
                 </View>
 
-                <View style={styles.modalButtons}>
-                  <TouchableOpacity style={styles.cancelButton} onPress={() => { setShowArchiveModal(false); setArchiveReason(''); }}>
-                    <Text style={styles.cancelButtonText}>Abbrechen</Text>
+                <View style={[styles.modalButtons, { borderTopColor: colors.border }]}>
+                  <TouchableOpacity style={[styles.cancelButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => { setShowArchiveModal(false); setArchiveReason(''); }}>
+                    <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.archiveConfirmButton} onPress={archivePlayer}>
                     <Text style={styles.archiveConfirmButtonText}>Archivieren</Text>
@@ -2553,35 +2559,35 @@ export function ScoutingScreen({ navigation }: any) {
         {showTransferModal && selectedPlayer && (
           <Modal visible={showTransferModal} transparent animationType="fade">
             <View style={styles.modalOverlay}>
-              <View style={styles.modalContent}>
-                <Text style={styles.modalTitle}>Spieler übernehmen</Text>
-                <Text style={styles.modalSubtitle}>{selectedPlayer.last_name}, {selectedPlayer.first_name} in die Spielerübersicht übernehmen</Text>
+              <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>Spieler übernehmen</Text>
+                <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>{selectedPlayer.last_name}, {selectedPlayer.first_name} in die Spielerübersicht übernehmen</Text>
 
                 <View style={styles.formField}>
-                  <Text style={styles.formLabel}>Listung *</Text>
+                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Listung *</Text>
                   <View style={styles.listingSelector}>
                     {LISTINGS.map(listing => (
                       <TouchableOpacity
                         key={listing}
-                        style={[styles.listingOption, transferListing === listing && styles.listingOptionSelected]}
+                        style={[styles.listingOption, { backgroundColor: isDark ? colors.surface : '#f1f5f9', borderColor: colors.border }, transferListing === listing && styles.listingOptionSelected]}
                         onPress={() => setTransferListing(listing)}
                       >
-                        <Text style={[styles.listingOptionText, transferListing === listing && styles.listingOptionTextSelected]}>{listing}</Text>
+                        <Text style={[styles.listingOptionText, { color: colors.textSecondary }, transferListing === listing && styles.listingOptionTextSelected]}>{listing}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
                 </View>
 
                 <View style={styles.formField}>
-                  <Text style={styles.formLabel}>Zuständiger Berater *</Text>
+                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Zuständiger Berater *</Text>
                   <View style={styles.advisorSelector}>
                     {advisors.map(advisor => (
                       <TouchableOpacity
                         key={advisor.id}
-                        style={[styles.advisorOption, transferResponsibility === `${advisor.first_name} ${advisor.last_name}` && styles.advisorOptionSelected]}
+                        style={[styles.advisorOption, { backgroundColor: isDark ? colors.surface : '#f1f5f9', borderColor: colors.border }, transferResponsibility === `${advisor.first_name} ${advisor.last_name}` && styles.advisorOptionSelected]}
                         onPress={() => setTransferResponsibility(`${advisor.first_name} ${advisor.last_name}`)}
                       >
-                        <Text style={[styles.advisorOptionText, transferResponsibility === `${advisor.first_name} ${advisor.last_name}` && styles.advisorOptionTextSelected]}>
+                        <Text style={[styles.advisorOptionText, { color: colors.textSecondary }, transferResponsibility === `${advisor.first_name} ${advisor.last_name}` && styles.advisorOptionTextSelected]}>
                           {advisor.first_name} {advisor.last_name}
                         </Text>
                       </TouchableOpacity>
@@ -2589,9 +2595,9 @@ export function ScoutingScreen({ navigation }: any) {
                   </View>
                 </View>
 
-                <View style={styles.modalButtons}>
-                  <TouchableOpacity style={styles.cancelButton} onPress={() => { setShowTransferModal(false); setTransferListing(''); setTransferResponsibility(''); }}>
-                    <Text style={styles.cancelButtonText}>Abbrechen</Text>
+                <View style={[styles.modalButtons, { borderTopColor: colors.border }]}>
+                  <TouchableOpacity style={[styles.cancelButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => { setShowTransferModal(false); setTransferListing(''); setTransferResponsibility(''); }}>
+                    <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.transferConfirmButton} onPress={transferToPlayers}>
                     <Text style={styles.transferConfirmButtonText}>Übernehmen</Text>
@@ -2606,13 +2612,13 @@ export function ScoutingScreen({ navigation }: any) {
         {showDeleteConfirm && selectedPlayer && (
           <Modal visible={showDeleteConfirm} transparent animationType="fade">
             <View style={styles.modalOverlay}>
-              <View style={styles.deleteConfirmModal}>
-                <Text style={styles.deleteConfirmTitle}>Spieler löschen</Text>
+              <View style={[styles.deleteConfirmModal, { backgroundColor: colors.surface }]}>
+                <Text style={[styles.deleteConfirmTitle, { color: colors.text }]}>Spieler löschen</Text>
                 <Text style={styles.deleteConfirmText}>Möchten Sie {selectedPlayer.first_name} {selectedPlayer.last_name} wirklich löschen?</Text>
 
                 <View style={styles.deleteConfirmButtons}>
-                  <TouchableOpacity style={styles.deleteConfirmCancelBtn} onPress={() => setShowDeleteConfirm(false)}>
-                    <Text style={styles.deleteConfirmCancelText}>Abbrechen</Text>
+                  <TouchableOpacity style={[styles.deleteConfirmCancelBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setShowDeleteConfirm(false)}>
+                    <Text style={[styles.deleteConfirmCancelText, { color: colors.textSecondary }]}>Abbrechen</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.deleteConfirmDeleteBtn} onPress={() => { setShowDeleteConfirm(false); deleteScoutedPlayer(selectedPlayer.id); }}>
                     <Text style={styles.deleteConfirmDeleteText}>Löschen</Text>
@@ -2677,12 +2683,12 @@ export function ScoutingScreen({ navigation }: any) {
 
         {/* Mobile Tabs */}
         {isMobile && (
-          <View style={styles.mobileTabs}>
-            <TouchableOpacity style={[styles.mobileTab, activeTab === 'spieler' && styles.mobileTabActive]} onPress={() => setActiveTab('spieler')}>
-              <Text style={[styles.mobileTabText, activeTab === 'spieler' && styles.mobileTabTextActive]}>Spieler</Text>
+          <View style={[styles.mobileTabs, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+            <TouchableOpacity style={[styles.mobileTab, activeTab === 'spieler' && [styles.mobileTabActive, { borderBottomColor: colors.text }]]} onPress={() => setActiveTab('spieler')}>
+              <Text style={[styles.mobileTabText, { color: colors.textSecondary }, activeTab === 'spieler' && [styles.mobileTabTextActive, { color: colors.text }]]}>Spieler</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.mobileTab, activeTab === 'spiele' && styles.mobileTabActive]} onPress={() => setActiveTab('spiele')}>
-              <Text style={[styles.mobileTabText, activeTab === 'spiele' && styles.mobileTabTextActive]}>Termine</Text>
+            <TouchableOpacity style={[styles.mobileTab, activeTab === 'spiele' && [styles.mobileTabActive, { borderBottomColor: colors.text }]]} onPress={() => setActiveTab('spiele')}>
+              <Text style={[styles.mobileTabText, { color: colors.textSecondary }, activeTab === 'spiele' && [styles.mobileTabTextActive, { color: colors.text }]]}>Termine</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -2718,14 +2724,14 @@ export function ScoutingScreen({ navigation }: any) {
           {activeTab === 'spieler' && (
             <View style={styles.filterContainer}>
               <View style={[styles.dropdownContainer, { zIndex: 30 }]}>
-                <TouchableOpacity style={[styles.filterButton, selectedPositions.length > 0 && styles.filterButtonActive]} 
+                <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedPositions.length > 0 && styles.filterButtonActive]}
                   onPress={(e) => { e.stopPropagation(); setShowPositionDropdown(!showPositionDropdown); setShowYearDropdown(false); setShowRatingDropdown(false); }}>
-                  <Text style={[styles.filterButtonText, selectedPositions.length > 0 && styles.filterButtonTextActive]}>{getPositionFilterLabel()} ▼</Text>
+                  <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedPositions.length > 0 && styles.filterButtonTextActive]}>{getPositionFilterLabel()} ▼</Text>
                 </TouchableOpacity>
                 {showPositionDropdown && (
-                  <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
-                    <View style={styles.filterDropdownHeader}>
-                      <Text style={styles.filterDropdownTitle}>Positionen wählen</Text>
+                  <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
+                    <View style={[styles.filterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+                      <Text style={[styles.filterDropdownTitle, { color: colors.text }]}>Positionen wählen</Text>
                       {selectedPositions.length > 0 && <TouchableOpacity onPress={clearPositions}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
                     </View>
                     <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
@@ -2733,28 +2739,28 @@ export function ScoutingScreen({ navigation }: any) {
                         const isSelected = selectedPositions.includes(pos);
                         const count = scoutedPlayers.filter(p => p.position === pos).length;
                         return (
-                          <TouchableOpacity key={pos} style={styles.filterCheckboxItem} onPress={() => togglePosition(pos)}>
-                            <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                            <Text style={styles.filterCheckboxText}>{pos}</Text>
-                            <Text style={styles.filterCountBadge}>{count}</Text>
+                          <TouchableOpacity key={pos} style={[styles.filterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => togglePosition(pos)}>
+                            <View style={[styles.checkbox, { borderColor: colors.border }, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                            <Text style={[styles.filterCheckboxText, { color: colors.text }]}>{pos}</Text>
+                            <Text style={[styles.filterCountBadge, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
                           </TouchableOpacity>
                         );
                       })}
                     </ScrollView>
-                    <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowPositionDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                    <TouchableOpacity style={[styles.filterDoneButton, { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border }]} onPress={() => setShowPositionDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
                   </Pressable>
                 )}
               </View>
 
               <View style={[styles.dropdownContainer, { zIndex: 20 }]}>
-                <TouchableOpacity style={[styles.filterButton, selectedYears.length > 0 && styles.filterButtonActive]} 
+                <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedYears.length > 0 && styles.filterButtonActive]}
                   onPress={(e) => { e.stopPropagation(); setShowYearDropdown(!showYearDropdown); setShowPositionDropdown(false); setShowRatingDropdown(false); }}>
-                  <Text style={[styles.filterButtonText, selectedYears.length > 0 && styles.filterButtonTextActive]}>{getYearFilterLabel()} ▼</Text>
+                  <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedYears.length > 0 && styles.filterButtonTextActive]}>{getYearFilterLabel()} ▼</Text>
                 </TouchableOpacity>
                 {showYearDropdown && (
-                  <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
-                    <View style={styles.filterDropdownHeader}>
-                      <Text style={styles.filterDropdownTitle}>Jahrgänge wählen</Text>
+                  <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
+                    <View style={[styles.filterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+                      <Text style={[styles.filterDropdownTitle, { color: colors.text }]}>Jahrgänge wählen</Text>
                       {selectedYears.length > 0 && <TouchableOpacity onPress={clearYears}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
                     </View>
                     <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
@@ -2762,28 +2768,28 @@ export function ScoutingScreen({ navigation }: any) {
                         const isSelected = selectedYears.includes(year);
                         const count = scoutedPlayers.filter(p => getYearFromDate(p.birth_date) === year).length;
                         return (
-                          <TouchableOpacity key={year} style={styles.filterCheckboxItem} onPress={() => toggleYear(year)}>
-                            <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                            <Text style={styles.filterCheckboxText}>{year}</Text>
-                            <Text style={styles.filterCountBadge}>{count}</Text>
+                          <TouchableOpacity key={year} style={[styles.filterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => toggleYear(year)}>
+                            <View style={[styles.checkbox, { borderColor: colors.border }, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                            <Text style={[styles.filterCheckboxText, { color: colors.text }]}>{year}</Text>
+                            <Text style={[styles.filterCountBadge, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
                           </TouchableOpacity>
                         );
                       })}
                     </ScrollView>
-                    <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowYearDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                    <TouchableOpacity style={[styles.filterDoneButton, { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border }]} onPress={() => setShowYearDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
                   </Pressable>
                 )}
               </View>
 
               <View style={[styles.dropdownContainer, { zIndex: 10 }]}>
-                <TouchableOpacity style={[styles.filterButton, selectedRatings.length > 0 && styles.filterButtonActive]} 
+                <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedRatings.length > 0 && styles.filterButtonActive]}
                   onPress={(e) => { e.stopPropagation(); setShowRatingDropdown(!showRatingDropdown); setShowPositionDropdown(false); setShowYearDropdown(false); }}>
-                  <Text style={[styles.filterButtonText, selectedRatings.length > 0 && styles.filterButtonTextActive]}>{getRatingFilterLabel()} ▼</Text>
+                  <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedRatings.length > 0 && styles.filterButtonTextActive]}>{getRatingFilterLabel()} ▼</Text>
                 </TouchableOpacity>
                 {showRatingDropdown && (
-                  <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
-                    <View style={styles.filterDropdownHeader}>
-                      <Text style={styles.filterDropdownTitle}>Einschätzung wählen</Text>
+                  <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
+                    <View style={[styles.filterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+                      <Text style={[styles.filterDropdownTitle, { color: colors.text }]}>Einschätzung wählen</Text>
                       {selectedRatings.length > 0 && <TouchableOpacity onPress={clearRatings}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
                     </View>
                     <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
@@ -2791,15 +2797,15 @@ export function ScoutingScreen({ navigation }: any) {
                         const isSelected = selectedRatings.includes(rating);
                         const count = activePlayers.filter(p => p.rating === rating).length;
                         return (
-                          <TouchableOpacity key={rating} style={styles.filterCheckboxItem} onPress={() => toggleRating(rating)}>
-                            <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                            <Text style={styles.filterCheckboxText}>⭐ {rating}/10</Text>
-                            <Text style={styles.filterCountBadge}>{count}</Text>
+                          <TouchableOpacity key={rating} style={[styles.filterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => toggleRating(rating)}>
+                            <View style={[styles.checkbox, { borderColor: colors.border }, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                            <Text style={[styles.filterCheckboxText, { color: colors.text }]}>⭐ {rating}/10</Text>
+                            <Text style={[styles.filterCountBadge, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
                           </TouchableOpacity>
                         );
                       })}
                     </ScrollView>
-                    <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowRatingDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                    <TouchableOpacity style={[styles.filterDoneButton, { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border }]} onPress={() => setShowRatingDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
                   </Pressable>
                 )}
               </View>
@@ -2809,16 +2815,16 @@ export function ScoutingScreen({ navigation }: any) {
           {activeTab === 'spiele' && (
             <View style={styles.filterContainer}>
               <View style={[styles.dropdownContainer, { zIndex: 20 }]}>
-                <TouchableOpacity style={[styles.filterButton, selectedGamesYears.length > 0 && styles.filterButtonActive]} 
+                <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedGamesYears.length > 0 && styles.filterButtonActive]}
                   onPress={(e) => { e.stopPropagation(); setShowGamesYearDropdown(!showGamesYearDropdown); setShowGamesRatingDropdown(false); }}>
-                  <Text style={[styles.filterButtonText, selectedGamesYears.length > 0 && styles.filterButtonTextActive]}>
+                  <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedGamesYears.length > 0 && styles.filterButtonTextActive]}>
                     {selectedGamesYears.length === 0 ? 'Jahrgang' : selectedGamesYears.length === 1 ? selectedGamesYears[0] : `${selectedGamesYears.length} Jahrgänge`} ▼
                   </Text>
                 </TouchableOpacity>
                 {showGamesYearDropdown && (
-                  <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
-                    <View style={styles.filterDropdownHeader}>
-                      <Text style={styles.filterDropdownTitle}>Jahrgänge wählen</Text>
+                  <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
+                    <View style={[styles.filterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+                      <Text style={[styles.filterDropdownTitle, { color: colors.text }]}>Jahrgänge wählen</Text>
                       {selectedGamesYears.length > 0 && <TouchableOpacity onPress={() => setSelectedGamesYears([])}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
                     </View>
                     <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
@@ -2826,33 +2832,33 @@ export function ScoutingScreen({ navigation }: any) {
                         const isSelected = selectedGamesYears.includes(year);
                         const count = allGamePlayers.filter(p => p.birth_year === year).length;
                         return (
-                          <TouchableOpacity key={year} style={styles.filterCheckboxItem} onPress={() => {
+                          <TouchableOpacity key={year} style={[styles.filterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => {
                             setSelectedGamesYears(prev => prev.includes(year) ? prev.filter(y => y !== year) : [...prev, year]);
                             setGamesViewMode('search');
                           }}>
-                            <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                            <Text style={styles.filterCheckboxText}>{year}</Text>
-                            <Text style={styles.filterCountBadge}>{count}</Text>
+                            <View style={[styles.checkbox, { borderColor: colors.border }, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                            <Text style={[styles.filterCheckboxText, { color: colors.text }]}>{year}</Text>
+                            <Text style={[styles.filterCountBadge, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
                           </TouchableOpacity>
                         );
                       })}
                     </ScrollView>
-                    <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowGamesYearDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                    <TouchableOpacity style={[styles.filterDoneButton, { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border }]} onPress={() => setShowGamesYearDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
                   </Pressable>
                 )}
               </View>
 
               <View style={[styles.dropdownContainer, { zIndex: 10 }]}>
-                <TouchableOpacity style={[styles.filterButton, selectedGamesRatings.length > 0 && styles.filterButtonActive]} 
+                <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedGamesRatings.length > 0 && styles.filterButtonActive]}
                   onPress={(e) => { e.stopPropagation(); setShowGamesRatingDropdown(!showGamesRatingDropdown); setShowGamesYearDropdown(false); }}>
-                  <Text style={[styles.filterButtonText, selectedGamesRatings.length > 0 && styles.filterButtonTextActive]}>
+                  <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedGamesRatings.length > 0 && styles.filterButtonTextActive]}>
                     {selectedGamesRatings.length === 0 ? 'Einschätzung' : selectedGamesRatings.length === 1 ? `⭐ ${selectedGamesRatings[0]}/10` : `${selectedGamesRatings.length} Einsch.`} ▼
                   </Text>
                 </TouchableOpacity>
                 {showGamesRatingDropdown && (
-                  <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
-                    <View style={styles.filterDropdownHeader}>
-                      <Text style={styles.filterDropdownTitle}>Einschätzung wählen</Text>
+                  <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
+                    <View style={[styles.filterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+                      <Text style={[styles.filterDropdownTitle, { color: colors.text }]}>Einschätzung wählen</Text>
                       {selectedGamesRatings.length > 0 && <TouchableOpacity onPress={() => setSelectedGamesRatings([])}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
                     </View>
                     <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
@@ -2860,51 +2866,51 @@ export function ScoutingScreen({ navigation }: any) {
                         const isSelected = selectedGamesRatings.includes(rating);
                         const count = allGamePlayers.filter(p => p.rating === rating).length;
                         return (
-                          <TouchableOpacity key={rating} style={styles.filterCheckboxItem} onPress={() => {
+                          <TouchableOpacity key={rating} style={[styles.filterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => {
                             setSelectedGamesRatings(prev => prev.includes(rating) ? prev.filter(r => r !== rating) : [...prev, rating]);
                             setGamesViewMode('search');
                           }}>
-                            <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                            <Text style={styles.filterCheckboxText}>⭐ {rating}/10</Text>
-                            <Text style={styles.filterCountBadge}>{count}</Text>
+                            <View style={[styles.checkbox, { borderColor: colors.border }, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                            <Text style={[styles.filterCheckboxText, { color: colors.text }]}>⭐ {rating}/10</Text>
+                            <Text style={[styles.filterCountBadge, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
                           </TouchableOpacity>
                         );
                       })}
                     </ScrollView>
-                    <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowGamesRatingDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                    <TouchableOpacity style={[styles.filterDoneButton, { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border }]} onPress={() => setShowGamesRatingDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
                   </Pressable>
                 )}
               </View>
             </View>
           )}
 
-          <View style={styles.viewToggle}>
+          <View style={[styles.viewToggle, { backgroundColor: colors.surfaceSecondary }]}>
             {activeTab === 'spieler' ? (
               <>
-                <TouchableOpacity style={[styles.viewButton, viewMode === 'kanban' && styles.viewButtonActive]} onPress={() => setViewMode('kanban')}>
-                  <Text style={[styles.viewButtonText, viewMode === 'kanban' && styles.viewButtonTextActive]}>▦</Text>
+                <TouchableOpacity style={[styles.viewButton, viewMode === 'kanban' && [styles.viewButtonActive, { backgroundColor: colors.surface }]]} onPress={() => setViewMode('kanban')}>
+                  <Text style={[styles.viewButtonText, { color: colors.textSecondary }, viewMode === 'kanban' && [styles.viewButtonTextActive, { color: colors.text }]]}>▦</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.viewButton, viewMode === 'liste' && styles.viewButtonActive]} onPress={() => setViewMode('liste')}>
-                  <Text style={[styles.viewButtonText, viewMode === 'liste' && styles.viewButtonTextActive]}>☰</Text>
+                <TouchableOpacity style={[styles.viewButton, viewMode === 'liste' && [styles.viewButtonActive, { backgroundColor: colors.surface }]]} onPress={() => setViewMode('liste')}>
+                  <Text style={[styles.viewButtonText, { color: colors.textSecondary }, viewMode === 'liste' && [styles.viewButtonTextActive, { color: colors.text }]]}>☰</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.viewButton, viewMode === 'archiv' && styles.viewButtonActive]} onPress={() => setViewMode('archiv')}>
-                  <Text style={[styles.viewButtonText, viewMode === 'archiv' && styles.viewButtonTextActive]}>Archiv ({archivedPlayersCount})</Text>
+                <TouchableOpacity style={[styles.viewButton, viewMode === 'archiv' && [styles.viewButtonActive, { backgroundColor: colors.surface }]]} onPress={() => setViewMode('archiv')}>
+                  <Text style={[styles.viewButtonText, { color: colors.textSecondary }, viewMode === 'archiv' && [styles.viewButtonTextActive, { color: colors.text }]]}>Archiv ({archivedPlayersCount})</Text>
                 </TouchableOpacity>
               </>
             ) : (
               <>
-                <TouchableOpacity style={[styles.viewButton, gamesViewMode === 'upcoming' && styles.viewButtonActive]} onPress={() => { setGamesViewMode('upcoming'); setGamesSearchQuery(''); setSelectedGamesRatings([]); setSelectedGamesYears([]); }}>
-                  <Text style={[styles.viewButtonText, gamesViewMode === 'upcoming' && styles.viewButtonTextActive]}>Anstehend ({upcomingGames.length})</Text>
+                <TouchableOpacity style={[styles.viewButton, gamesViewMode === 'upcoming' && [styles.viewButtonActive, { backgroundColor: colors.surface }]]} onPress={() => { setGamesViewMode('upcoming'); setGamesSearchQuery(''); setSelectedGamesRatings([]); setSelectedGamesYears([]); }}>
+                  <Text style={[styles.viewButtonText, { color: colors.textSecondary }, gamesViewMode === 'upcoming' && [styles.viewButtonTextActive, { color: colors.text }]]}>Anstehend ({upcomingGames.length})</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.viewButton, gamesViewMode === 'archive' && styles.viewButtonActive]} onPress={() => { setGamesViewMode('archive'); setGamesSearchQuery(''); setSelectedGamesRatings([]); setSelectedGamesYears([]); }}>
-                  <Text style={[styles.viewButtonText, gamesViewMode === 'archive' && styles.viewButtonTextActive]}>Archiv ({archivedGames.length})</Text>
+                <TouchableOpacity style={[styles.viewButton, gamesViewMode === 'archive' && [styles.viewButtonActive, { backgroundColor: colors.surface }]]} onPress={() => { setGamesViewMode('archive'); setGamesSearchQuery(''); setSelectedGamesRatings([]); setSelectedGamesYears([]); }}>
+                  <Text style={[styles.viewButtonText, { color: colors.textSecondary }, gamesViewMode === 'archive' && [styles.viewButtonTextActive, { color: colors.text }]]}>Archiv ({archivedGames.length})</Text>
                 </TouchableOpacity>
               </>
             )}
           </View>
 
-          <TouchableOpacity style={styles.filterButton} onPress={() => activeTab === 'spieler' ? setShowAddPlayerModal(true) : setShowAddGameModal(true)}>
-            <Text style={styles.filterButtonText}>{activeTab === 'spieler' ? 'neuen Spieler anlegen' : 'neues Spiel anlegen'}</Text>
+          <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => activeTab === 'spieler' ? setShowAddPlayerModal(true) : setShowAddGameModal(true)}>
+            <Text style={[styles.filterButtonText, { color: colors.textSecondary }]}>{activeTab === 'spieler' ? 'neuen Spieler anlegen' : 'neues Spiel anlegen'}</Text>
           </TouchableOpacity>
         </View>
 
@@ -2963,22 +2969,22 @@ export function ScoutingScreen({ navigation }: any) {
               <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Datum *</Text>
               <View style={styles.datePickerRow}>
                 <View style={{ position: 'relative', flex: 1 }}>
-                  <TouchableOpacity 
-                    style={styles.dateDropdownButton}
+                  <TouchableOpacity
+                    style={[styles.dateDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                     onPress={(e) => { e.stopPropagation(); closeAllGameDropdowns(); setShowGameDatePicker(true); setGameDatePart('day'); }}
                   >
-                    <Text style={styles.dateDropdownText}>
+                    <Text style={[styles.dateDropdownText, { color: colors.text }]}>
                       {parseDateToParts(newGame.date)?.day || 'Tag'}
                     </Text>
-                    <Text>▼</Text>
+                    <Text style={{ color: colors.textSecondary }}>▼</Text>
                   </TouchableOpacity>
                   {showGameDatePicker && gameDatePart === 'day' && (
-                    <View style={styles.datePickerList}>
+                    <View style={[styles.datePickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                       <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
                         {DAYS.map((d) => (
-                          <TouchableOpacity 
-                            key={d} 
-                            style={styles.datePickerItem}
+                          <TouchableOpacity
+                            key={d}
+                            style={[styles.datePickerItem, { borderBottomColor: colors.border }]}
                             onPress={() => {
                               const parts = parseDateToParts(newGame.date) || { day: 1, month: new Date().getMonth(), year: new Date().getFullYear() };
                               setNewGame({ ...newGame, date: buildDateFromParts(d, parts.month, parts.year) });
@@ -2986,7 +2992,7 @@ export function ScoutingScreen({ navigation }: any) {
                               setShowGameDatePicker(false);
                             }}
                           >
-                            <Text style={styles.datePickerItemText}>{d}</Text>
+                            <Text style={[styles.datePickerItemText, { color: colors.text }]}>{d}</Text>
                           </TouchableOpacity>
                         ))}
                       </ScrollView>
@@ -2994,22 +3000,22 @@ export function ScoutingScreen({ navigation }: any) {
                   )}
                 </View>
                 <View style={{ position: 'relative', flex: 2 }}>
-                  <TouchableOpacity 
-                    style={styles.dateDropdownButton}
+                  <TouchableOpacity
+                    style={[styles.dateDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                     onPress={(e) => { e.stopPropagation(); closeAllGameDropdowns(); setShowGameDatePicker(true); setGameDatePart('month'); }}
                   >
-                    <Text style={styles.dateDropdownText}>
+                    <Text style={[styles.dateDropdownText, { color: colors.text }]}>
                       {parseDateToParts(newGame.date) ? MONTHS[parseDateToParts(newGame.date)!.month] : 'Monat'}
                     </Text>
-                    <Text>▼</Text>
+                    <Text style={{ color: colors.textSecondary }}>▼</Text>
                   </TouchableOpacity>
                   {showGameDatePicker && gameDatePart === 'month' && (
-                    <View style={styles.datePickerList}>
+                    <View style={[styles.datePickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                       <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
                         {MONTHS.map((m, idx) => (
-                          <TouchableOpacity 
-                            key={m} 
-                            style={styles.datePickerItem}
+                          <TouchableOpacity
+                            key={m}
+                            style={[styles.datePickerItem, { borderBottomColor: colors.border }]}
                             onPress={() => {
                               const parts = parseDateToParts(newGame.date) || { day: 1, month: 0, year: new Date().getFullYear() };
                               setNewGame({ ...newGame, date: buildDateFromParts(parts.day, idx, parts.year) });
@@ -3017,7 +3023,7 @@ export function ScoutingScreen({ navigation }: any) {
                               setShowGameDatePicker(false);
                             }}
                           >
-                            <Text style={styles.datePickerItemText}>{m}</Text>
+                            <Text style={[styles.datePickerItemText, { color: colors.text }]}>{m}</Text>
                           </TouchableOpacity>
                         ))}
                       </ScrollView>
@@ -3025,22 +3031,22 @@ export function ScoutingScreen({ navigation }: any) {
                   )}
                 </View>
                 <View style={{ position: 'relative', flex: 1 }}>
-                  <TouchableOpacity 
-                    style={styles.dateDropdownButton}
+                  <TouchableOpacity
+                    style={[styles.dateDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                     onPress={(e) => { e.stopPropagation(); closeAllGameDropdowns(); setShowGameDatePicker(true); setGameDatePart('year'); }}
                   >
-                    <Text style={styles.dateDropdownText}>
+                    <Text style={[styles.dateDropdownText, { color: colors.text }]}>
                       {parseDateToParts(newGame.date)?.year || 'Jahr'}
                     </Text>
-                    <Text>▼</Text>
+                    <Text style={{ color: colors.textSecondary }}>▼</Text>
                   </TouchableOpacity>
                   {showGameDatePicker && gameDatePart === 'year' && (
-                    <View style={styles.datePickerList}>
+                    <View style={[styles.datePickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                       <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
                         {YEARS.map((y) => (
-                          <TouchableOpacity 
-                            key={y} 
-                            style={styles.datePickerItem}
+                          <TouchableOpacity
+                            key={y}
+                            style={[styles.datePickerItem, { borderBottomColor: colors.border }]}
                             onPress={() => {
                               const parts = parseDateToParts(newGame.date) || { day: 1, month: new Date().getMonth(), year: new Date().getFullYear() };
                               setNewGame({ ...newGame, date: buildDateFromParts(parts.day, parts.month, y) });
@@ -3048,7 +3054,7 @@ export function ScoutingScreen({ navigation }: any) {
                               setShowGameDatePicker(false);
                             }}
                           >
-                            <Text style={styles.datePickerItemText}>{y}</Text>
+                            <Text style={[styles.datePickerItemText, { color: colors.text }]}>{y}</Text>
                           </TouchableOpacity>
                         ))}
                       </ScrollView>
@@ -3060,38 +3066,38 @@ export function ScoutingScreen({ navigation }: any) {
 
             {/* Art - Dropdown mit manueller Eingabe */}
             <View style={[styles.formField, { zIndex: 300 }]}>
-              <Text style={styles.formLabel}>Art</Text>
+              <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Art</Text>
               <View style={{ position: 'relative' }}>
-                <TouchableOpacity 
-                  style={styles.dateDropdownButton}
+                <TouchableOpacity
+                  style={[styles.dateDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                   onPress={(e) => { e.stopPropagation(); closeAllGameDropdowns(); setShowGameTypePicker(true); }}
                 >
-                  <Text style={styles.dateDropdownText}>
+                  <Text style={[styles.dateDropdownText, { color: colors.text }]}>
                     {newGame.game_type || 'Art auswählen...'}
                   </Text>
-                  <Text>▼</Text>
+                  <Text style={{ color: colors.textSecondary }}>▼</Text>
                 </TouchableOpacity>
                 {showGameTypePicker && (
-                  <Pressable style={styles.datePickerList} onPress={(e) => e.stopPropagation()}>
+                  <Pressable style={[styles.datePickerList, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
                     <TextInput
-                      style={[styles.formInput, { margin: 8, marginBottom: 0 }]}
+                      style={[styles.formInput, { margin: 8, marginBottom: 0, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
                       value={newGame.game_type}
                       onChangeText={(t) => setNewGame({ ...newGame, game_type: t })}
-                      placeholder="Eigene Art eingeben..." placeholderTextColor="#999"
-                      placeholderTextColor="#9ca3af"
+                      placeholder="Eigene Art eingeben..."
+                      placeholderTextColor={colors.textMuted}
                       onFocus={(e) => e.stopPropagation?.()}
                     />
                     <ScrollView style={{ maxHeight: 150 }} nestedScrollEnabled>
                       {GAME_TYPES.map((type) => (
-                        <TouchableOpacity 
-                          key={type} 
-                          style={styles.datePickerItem}
+                        <TouchableOpacity
+                          key={type}
+                          style={[styles.datePickerItem, { borderBottomColor: colors.border }]}
                           onPress={() => {
                             setNewGame({ ...newGame, game_type: type });
                             setShowGameTypePicker(false);
                           }}
                         >
-                          <Text style={styles.datePickerItemText}>{type}</Text>
+                          <Text style={[styles.datePickerItemText, { color: colors.text }]}>{type}</Text>
                         </TouchableOpacity>
                       ))}
                     </ScrollView>
@@ -3102,43 +3108,43 @@ export function ScoutingScreen({ navigation }: any) {
 
             {/* Spiel/Beschreibung */}
             <View style={[styles.formField, { zIndex: 1 }]}>
-              <Text style={styles.formLabel}>Spiel/Beschreibung *</Text>
-              <TextInput 
-                style={styles.formInput} 
-                value={newGame.description} 
-                onChangeText={(t) => setNewGame({...newGame, description: t})} 
-                placeholder="z.B. Hallenmasters Wieseck" 
-                placeholderTextColor="#9ca3af"
+              <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Spiel/Beschreibung *</Text>
+              <TextInput
+                style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+                value={newGame.description}
+                onChangeText={(t) => setNewGame({...newGame, description: t})}
+                placeholder="z.B. Hallenmasters Wieseck"
+                placeholderTextColor={colors.textMuted}
                 onFocus={closeAllGameDropdowns}
               />
             </View>
 
             {/* Jahrgang - Dropdown */}
             <View style={[styles.formField, { zIndex: 200 }]}>
-              <Text style={styles.formLabel}>Jahrgang</Text>
+              <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Jahrgang</Text>
               <View style={{ position: 'relative' }}>
-                <TouchableOpacity 
-                  style={styles.dateDropdownButton}
+                <TouchableOpacity
+                  style={[styles.dateDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                   onPress={(e) => { e.stopPropagation(); closeAllGameDropdowns(); setShowAgeGroupPicker(true); }}
                 >
-                  <Text style={styles.dateDropdownText}>
+                  <Text style={[styles.dateDropdownText, { color: colors.text }]}>
                     {newGame.age_group || 'Jahrgang auswählen...'}
                   </Text>
-                  <Text>▼</Text>
+                  <Text style={{ color: colors.textSecondary }}>▼</Text>
                 </TouchableOpacity>
                 {showAgeGroupPicker && (
-                  <View style={styles.datePickerList}>
+                  <View style={[styles.datePickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
                       {AGE_GROUPS.map((age) => (
-                        <TouchableOpacity 
-                          key={age} 
-                          style={styles.datePickerItem}
+                        <TouchableOpacity
+                          key={age}
+                          style={[styles.datePickerItem, { borderBottomColor: colors.border }]}
                           onPress={() => {
                             setNewGame({ ...newGame, age_group: age });
                             setShowAgeGroupPicker(false);
                           }}
                         >
-                          <Text style={styles.datePickerItemText}>{age}</Text>
+                          <Text style={[styles.datePickerItemText, { color: colors.text }]}>{age}</Text>
                         </TouchableOpacity>
                       ))}
                     </ScrollView>
@@ -3149,30 +3155,30 @@ export function ScoutingScreen({ navigation }: any) {
 
             {/* Scout - Dropdown */}
             <View style={[styles.formField, { zIndex: 100 }]}>
-              <Text style={styles.formLabel}>Scout</Text>
+              <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Scout</Text>
               <View style={{ position: 'relative' }}>
-                <TouchableOpacity 
-                  style={styles.dateDropdownButton}
+                <TouchableOpacity
+                  style={[styles.dateDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                   onPress={(e) => { e.stopPropagation(); closeAllGameDropdowns(); setShowScoutPicker(true); }}
                 >
-                  <Text style={styles.dateDropdownText}>
+                  <Text style={[styles.dateDropdownText, { color: colors.text }]}>
                     {newGame.scout_id ? advisors.find(a => a.id === newGame.scout_id)?.first_name + ' ' + advisors.find(a => a.id === newGame.scout_id)?.last_name : 'Scout auswählen...'}
                   </Text>
-                  <Text>▼</Text>
+                  <Text style={{ color: colors.textSecondary }}>▼</Text>
                 </TouchableOpacity>
                 {showScoutPicker && (
-                  <View style={styles.datePickerList}>
+                  <View style={[styles.datePickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
                       {advisors.map((advisor) => (
-                        <TouchableOpacity 
-                          key={advisor.id} 
-                          style={styles.datePickerItem}
+                        <TouchableOpacity
+                          key={advisor.id}
+                          style={[styles.datePickerItem, { borderBottomColor: colors.border }]}
                           onPress={() => {
                             setNewGame({ ...newGame, scout_id: advisor.id });
                             setShowScoutPicker(false);
                           }}
                         >
-                          <Text style={styles.datePickerItemText}>{advisor.first_name} {advisor.last_name}</Text>
+                          <Text style={[styles.datePickerItemText, { color: colors.text }]}>{advisor.first_name} {advisor.last_name}</Text>
                         </TouchableOpacity>
                       ))}
                     </ScrollView>
@@ -3181,9 +3187,9 @@ export function ScoutingScreen({ navigation }: any) {
               </View>
             </View>
 
-            <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.cancelButton} onPress={() => { setShowAddGameModal(false); closeAllGameDropdowns(); }}>
-                <Text style={styles.cancelButtonText}>Abbrechen</Text>
+            <View style={[styles.modalButtons, { borderTopColor: colors.border }]}>
+              <TouchableOpacity style={[styles.cancelButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => { setShowAddGameModal(false); closeAllGameDropdowns(); }}>
+                <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.saveButton} onPress={addScoutingGame}>
                 <Text style={styles.saveButtonText}>Hinzufügen</Text>
@@ -3216,25 +3222,25 @@ export function ScoutingScreen({ navigation }: any) {
                       <>
                         {/* Datum Dropdown */}
                         <View style={[styles.gameDetailMetaItem, { zIndex: 40 }]}>
-                          <Text style={styles.gameDetailMetaLabel}>Datum:</Text>
+                          <Text style={[styles.gameDetailMetaLabel, { color: colors.textSecondary }]}>Datum:</Text>
                           <View style={styles.editDateRow}>
                             <View style={{ position: 'relative' }}>
-                              <TouchableOpacity 
-                                style={styles.editDateBtn}
+                              <TouchableOpacity
+                                style={[styles.editDateBtn, { backgroundColor: colors.surfaceSecondary }]}
                                 onPress={(e) => { e.stopPropagation(); closeAllEditDropdowns(); setShowEditDatePicker(true); setEditDatePart('day'); }}
                               >
-                                <Text style={styles.editDateBtnText}>{parseDateToParts(editGameData.date || '')?.day || 'Tag'}</Text>
+                                <Text style={[styles.editDateBtnText, { color: colors.text }]}>{parseDateToParts(editGameData.date || '')?.day || 'Tag'}</Text>
                               </TouchableOpacity>
                               {showEditDatePicker && editDatePart === 'day' && (
-                                <View style={styles.editDropdownList}>
+                                <View style={[styles.editDropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                                   <ScrollView style={{ maxHeight: 150 }} nestedScrollEnabled>
                                     {DAYS.map((d) => (
-                                      <TouchableOpacity key={d} style={styles.editDropdownItem} onPress={() => {
+                                      <TouchableOpacity key={d} style={[styles.editDropdownItem, { borderBottomColor: colors.border }]} onPress={() => {
                                         const parts = parseDateToParts(editGameData.date || '') || { day: 1, month: new Date().getMonth(), year: new Date().getFullYear() };
                                         setEditGameData({ ...editGameData, date: buildDateFromParts(d, parts.month, parts.year) });
                                         setShowEditDatePicker(false); setEditDatePart(null);
                                       }}>
-                                        <Text style={styles.editDropdownItemText}>{d}</Text>
+                                        <Text style={[styles.editDropdownItemText, { color: colors.text }]}>{d}</Text>
                                       </TouchableOpacity>
                                     ))}
                                   </ScrollView>
@@ -3242,22 +3248,22 @@ export function ScoutingScreen({ navigation }: any) {
                               )}
                             </View>
                             <View style={{ position: 'relative' }}>
-                              <TouchableOpacity 
-                                style={styles.editDateBtn}
+                              <TouchableOpacity
+                                style={[styles.editDateBtn, { backgroundColor: colors.surfaceSecondary }]}
                                 onPress={(e) => { e.stopPropagation(); closeAllEditDropdowns(); setShowEditDatePicker(true); setEditDatePart('month'); }}
                               >
-                                <Text style={styles.editDateBtnText}>{parseDateToParts(editGameData.date || '') ? MONTHS[parseDateToParts(editGameData.date || '')!.month] : 'Monat'}</Text>
+                                <Text style={[styles.editDateBtnText, { color: colors.text }]}>{parseDateToParts(editGameData.date || '') ? MONTHS[parseDateToParts(editGameData.date || '')!.month] : 'Monat'}</Text>
                               </TouchableOpacity>
                               {showEditDatePicker && editDatePart === 'month' && (
-                                <View style={styles.editDropdownList}>
+                                <View style={[styles.editDropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                                   <ScrollView style={{ maxHeight: 150 }} nestedScrollEnabled>
                                     {MONTHS.map((m, idx) => (
-                                      <TouchableOpacity key={m} style={styles.editDropdownItem} onPress={() => {
+                                      <TouchableOpacity key={m} style={[styles.editDropdownItem, { borderBottomColor: colors.border }]} onPress={() => {
                                         const parts = parseDateToParts(editGameData.date || '') || { day: 1, month: 0, year: new Date().getFullYear() };
                                         setEditGameData({ ...editGameData, date: buildDateFromParts(parts.day, idx, parts.year) });
                                         setShowEditDatePicker(false); setEditDatePart(null);
                                       }}>
-                                        <Text style={styles.editDropdownItemText}>{m}</Text>
+                                        <Text style={[styles.editDropdownItemText, { color: colors.text }]}>{m}</Text>
                                       </TouchableOpacity>
                                     ))}
                                   </ScrollView>
@@ -3265,22 +3271,22 @@ export function ScoutingScreen({ navigation }: any) {
                               )}
                             </View>
                             <View style={{ position: 'relative' }}>
-                              <TouchableOpacity 
-                                style={styles.editDateBtn}
+                              <TouchableOpacity
+                                style={[styles.editDateBtn, { backgroundColor: colors.surfaceSecondary }]}
                                 onPress={(e) => { e.stopPropagation(); closeAllEditDropdowns(); setShowEditDatePicker(true); setEditDatePart('year'); }}
                               >
-                                <Text style={styles.editDateBtnText}>{parseDateToParts(editGameData.date || '')?.year || 'Jahr'}</Text>
+                                <Text style={[styles.editDateBtnText, { color: colors.text }]}>{parseDateToParts(editGameData.date || '')?.year || 'Jahr'}</Text>
                               </TouchableOpacity>
                               {showEditDatePicker && editDatePart === 'year' && (
-                                <View style={styles.editDropdownList}>
+                                <View style={[styles.editDropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                                   <ScrollView style={{ maxHeight: 150 }} nestedScrollEnabled>
                                     {YEARS.map((y) => (
-                                      <TouchableOpacity key={y} style={styles.editDropdownItem} onPress={() => {
+                                      <TouchableOpacity key={y} style={[styles.editDropdownItem, { borderBottomColor: colors.border }]} onPress={() => {
                                         const parts = parseDateToParts(editGameData.date || '') || { day: 1, month: new Date().getMonth(), year: new Date().getFullYear() };
                                         setEditGameData({ ...editGameData, date: buildDateFromParts(parts.day, parts.month, y) });
                                         setShowEditDatePicker(false); setEditDatePart(null);
                                       }}>
-                                        <Text style={styles.editDropdownItemText}>{y}</Text>
+                                        <Text style={[styles.editDropdownItemText, { color: colors.text }]}>{y}</Text>
                                       </TouchableOpacity>
                                     ))}
                                   </ScrollView>
@@ -3291,30 +3297,30 @@ export function ScoutingScreen({ navigation }: any) {
                         </View>
                         {/* Art Dropdown */}
                         <View style={[styles.gameDetailMetaItem, { zIndex: 30 }]}>
-                          <Text style={styles.gameDetailMetaLabel}>Art:</Text>
+                          <Text style={[styles.gameDetailMetaLabel, { color: colors.textSecondary }]}>Art:</Text>
                           <View style={{ position: 'relative' }}>
-                            <TouchableOpacity 
-                              style={styles.editDateBtn}
+                            <TouchableOpacity
+                              style={[styles.editDateBtn, { backgroundColor: colors.surfaceSecondary }]}
                               onPress={(e) => { e.stopPropagation(); closeAllEditDropdowns(); setShowEditGameTypePicker(true); }}
                             >
-                              <Text style={styles.editDateBtnText}>{editGameData.game_type || 'Auswählen'}</Text>
+                              <Text style={[styles.editDateBtnText, { color: colors.text }]}>{editGameData.game_type || 'Auswählen'}</Text>
                             </TouchableOpacity>
                             {showEditGameTypePicker && (
-                              <Pressable style={styles.editDropdownList} onPress={(e) => e.stopPropagation()}>
+                              <Pressable style={[styles.editDropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
                                 <TextInput
-                                  style={[styles.formInput, { margin: 4, fontSize: 12 }]}
+                                  style={[styles.formInput, { margin: 4, fontSize: 12, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
                                   value={editGameData.game_type || ''}
                                   onChangeText={(t) => setEditGameData({ ...editGameData, game_type: t })}
-                                  placeholder="Eigene Art..." placeholderTextColor="#999"
-                                  placeholderTextColor="#9ca3af"
+                                  placeholder="Eigene Art..."
+                                  placeholderTextColor={colors.textMuted}
                                 />
                                 <ScrollView style={{ maxHeight: 120 }} nestedScrollEnabled>
                                   {GAME_TYPES.map((type) => (
-                                    <TouchableOpacity key={type} style={styles.editDropdownItem} onPress={() => {
+                                    <TouchableOpacity key={type} style={[styles.editDropdownItem, { borderBottomColor: colors.border }]} onPress={() => {
                                       setEditGameData({ ...editGameData, game_type: type });
                                       setShowEditGameTypePicker(false);
                                     }}>
-                                      <Text style={styles.editDropdownItemText}>{type}</Text>
+                                      <Text style={[styles.editDropdownItemText, { color: colors.text }]}>{type}</Text>
                                     </TouchableOpacity>
                                   ))}
                                 </ScrollView>
@@ -3324,23 +3330,23 @@ export function ScoutingScreen({ navigation }: any) {
                         </View>
                         {/* Jahrgang Dropdown */}
                         <View style={[styles.gameDetailMetaItem, { zIndex: 20 }]}>
-                          <Text style={styles.gameDetailMetaLabel}>Jahrgang:</Text>
+                          <Text style={[styles.gameDetailMetaLabel, { color: colors.textSecondary }]}>Jahrgang:</Text>
                           <View style={{ position: 'relative' }}>
-                            <TouchableOpacity 
-                              style={styles.editDateBtn}
+                            <TouchableOpacity
+                              style={[styles.editDateBtn, { backgroundColor: colors.surfaceSecondary }]}
                               onPress={(e) => { e.stopPropagation(); closeAllEditDropdowns(); setShowEditAgeGroupPicker(true); }}
                             >
-                              <Text style={styles.editDateBtnText}>{editGameData.age_group || 'Auswählen'}</Text>
+                              <Text style={[styles.editDateBtnText, { color: colors.text }]}>{editGameData.age_group || 'Auswählen'}</Text>
                             </TouchableOpacity>
                             {showEditAgeGroupPicker && (
-                              <View style={styles.editDropdownList}>
+                              <View style={[styles.editDropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                                 <ScrollView style={{ maxHeight: 150 }} nestedScrollEnabled>
                                   {AGE_GROUPS.map((age) => (
-                                    <TouchableOpacity key={age} style={styles.editDropdownItem} onPress={() => {
+                                    <TouchableOpacity key={age} style={[styles.editDropdownItem, { borderBottomColor: colors.border }]} onPress={() => {
                                       setEditGameData({ ...editGameData, age_group: age });
                                       setShowEditAgeGroupPicker(false);
                                     }}>
-                                      <Text style={styles.editDropdownItemText}>{age}</Text>
+                                      <Text style={[styles.editDropdownItemText, { color: colors.text }]}>{age}</Text>
                                     </TouchableOpacity>
                                   ))}
                                 </ScrollView>
@@ -3351,10 +3357,10 @@ export function ScoutingScreen({ navigation }: any) {
                       </>
                     ) : (
                       <>
-                        <Text style={styles.gameDetailMetaText}>{formatGameDate(selectedGame.date)}</Text>
-                        {selectedGame.game_type && <Text style={styles.gameDetailMetaText}>• {selectedGame.game_type}</Text>}
-                        {selectedGame.age_group && <Text style={styles.gameDetailMetaText}>• {selectedGame.age_group}</Text>}
-                        {selectedGame.scout_name && <Text style={styles.gameDetailMetaText}>• {selectedGame.scout_name}</Text>}
+                        <Text style={[styles.gameDetailMetaText, { color: colors.textSecondary }]}>{formatGameDate(selectedGame.date)}</Text>
+                        {selectedGame.game_type && <Text style={[styles.gameDetailMetaText, { color: colors.textSecondary }]}>• {selectedGame.game_type}</Text>}
+                        {selectedGame.age_group && <Text style={[styles.gameDetailMetaText, { color: colors.textSecondary }]}>• {selectedGame.age_group}</Text>}
+                        {selectedGame.scout_name && <Text style={[styles.gameDetailMetaText, { color: colors.textSecondary }]}>• {selectedGame.scout_name}</Text>}
                       </>
                     )}
                   </View>
@@ -3362,20 +3368,20 @@ export function ScoutingScreen({ navigation }: any) {
                 <View style={styles.gameDetailHeaderRight}>
                   {isEditingGame ? (
                     <>
-                      <TouchableOpacity style={styles.headerBtn} onPress={() => { setIsEditingGame(false); closeAllEditDropdowns(); }}>
-                        <Text style={styles.headerBtnText}>Abbrechen</Text>
+                      <TouchableOpacity style={[styles.headerBtn, { backgroundColor: colors.surfaceSecondary }]} onPress={() => { setIsEditingGame(false); closeAllEditDropdowns(); }}>
+                        <Text style={[styles.headerBtnText, { color: colors.textSecondary }]}>Abbrechen</Text>
                       </TouchableOpacity>
                       <TouchableOpacity style={[styles.headerBtn, styles.headerBtnPrimary]} onPress={() => { saveGameEdit(); setIsEditingGame(false); closeAllEditDropdowns(); }}>
                         <Text style={styles.headerBtnTextPrimary}>Speichern</Text>
                       </TouchableOpacity>
                     </>
                   ) : (
-                    <TouchableOpacity style={styles.headerBtn} onPress={() => { setIsEditingGame(true); setEditGameData(selectedGame); }}>
-                      <Text style={styles.headerBtnText}>Bearbeiten</Text>
+                    <TouchableOpacity style={[styles.headerBtn, { backgroundColor: colors.surfaceSecondary }]} onPress={() => { setIsEditingGame(true); setEditGameData(selectedGame); }}>
+                      <Text style={[styles.headerBtnText, { color: colors.textSecondary }]}>Bearbeiten</Text>
                     </TouchableOpacity>
                   )}
-                  <TouchableOpacity onPress={() => { setShowGameDetailModal(false); setIsEditingGame(false); setSelectedTeam(null); closeAllEditDropdowns(); }} style={styles.closeButton}>
-                    <Text style={styles.closeButtonText}>✕</Text>
+                  <TouchableOpacity onPress={() => { setShowGameDetailModal(false); setIsEditingGame(false); setSelectedTeam(null); closeAllEditDropdowns(); }} style={[styles.closeButton, { backgroundColor: colors.surfaceSecondary }]}>
+                    <Text style={[styles.closeButtonText, { color: colors.textSecondary }]}>✕</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -3383,15 +3389,15 @@ export function ScoutingScreen({ navigation }: any) {
               {/* Two Column Layout */}
               <View style={styles.gameDetailBody}>
                 {/* Left Column - Teams */}
-                <View style={styles.teamsColumn}>
-                  <Text style={styles.columnTitle}>Mannschaften</Text>
+                <View style={[styles.teamsColumn, { borderRightColor: colors.border }]}>
+                  <Text style={[styles.columnTitle, { color: colors.textSecondary }]}>Mannschaften</Text>
                   <View style={styles.addTeamContainer}>
                     <TextInput
-                      style={styles.addTeamInputNew}
+                      style={[styles.addTeamInputNew, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
                       value={newTeamName}
                       onChangeText={setNewTeamName}
-                      placeholder="Neue Mannschaft..." placeholderTextColor="#999"
-                      placeholderTextColor="#9ca3af"
+                      placeholder="Neue Mannschaft..."
+                      placeholderTextColor={colors.textMuted}
                       onSubmitEditing={addTeam}
                     />
                     <TouchableOpacity style={styles.addTeamBtnNew} onPress={addTeam}>
@@ -3400,22 +3406,22 @@ export function ScoutingScreen({ navigation }: any) {
                   </View>
                   <ScrollView style={styles.teamsList}>
                     {gameTeams.map(team => (
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         key={team.id}
-                        style={[styles.teamItem, selectedTeam?.id === team.id && styles.teamItemSelected]}
+                        style={[styles.teamItem, { backgroundColor: colors.surfaceSecondary }, selectedTeam?.id === team.id && styles.teamItemSelected]}
                         onPress={() => setSelectedTeam(selectedTeam?.id === team.id ? null : team)}
                       >
-                        <Text style={[styles.teamItemText, selectedTeam?.id === team.id && styles.teamItemTextSelected]}>
+                        <Text style={[styles.teamItemText, { color: colors.text }, selectedTeam?.id === team.id && styles.teamItemTextSelected]}>
                           {team.team_name}
                         </Text>
-                        <Text style={[styles.teamPlayerCount, selectedTeam?.id === team.id && { color: '#9ca3af' }]}>
+                        <Text style={[styles.teamPlayerCount, { color: colors.textMuted }, selectedTeam?.id === team.id && { color: '#9ca3af' }]}>
                           {gamePlayers.filter(p => p.team_id === team.id).length}
                         </Text>
-                        <TouchableOpacity 
+                        <TouchableOpacity
                           style={styles.teamDeleteBtn}
                           onPress={() => { if (confirm(`"${team.team_name}" löschen?`)) deleteTeam(team.id); }}
                         >
-                          <Text style={[styles.teamDeleteBtnText, selectedTeam?.id === team.id && { color: '#9ca3af' }]}>✕</Text>
+                          <Text style={[styles.teamDeleteBtnText, { color: colors.textMuted }, selectedTeam?.id === team.id && { color: '#9ca3af' }]}>✕</Text>
                         </TouchableOpacity>
                       </TouchableOpacity>
                     ))}
@@ -3427,37 +3433,37 @@ export function ScoutingScreen({ navigation }: any) {
                   {selectedTeam ? (
                     <>
                       <View style={styles.playersHeaderRow}>
-                        <Text style={styles.columnTitle}>Spieler - {selectedTeam.team_name}</Text>
+                        <Text style={[styles.columnTitle, { color: colors.textSecondary }]}>Spieler - {selectedTeam.team_name}</Text>
                       </View>
-                      
+
                       {/* Add Player Row - Now at top */}
-                      <View style={[styles.addPlayerRowTop, { zIndex: 50 }]}>
+                      <View style={[styles.addPlayerRowTop, { zIndex: 50, borderBottomColor: colors.border }]}>
                         <TextInput
-                          style={[styles.addPlayerInputNew, { width: 40 }]}
+                          style={[styles.addPlayerInputNew, { width: 40, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
                           value={newGamePlayer.number}
                           onChangeText={(t) => setNewGamePlayer({...newGamePlayer, number: t})}
-                          placeholder="Nr." placeholderTextColor="#999"
-                          placeholderTextColor="#9ca3af"
+                          placeholder="Nr."
+                          placeholderTextColor={colors.textMuted}
                           onSubmitEditing={addGamePlayer}
                         />
                         {/* Position Dropdown */}
                         <View style={{ position: 'relative', zIndex: 40 }}>
-                          <TouchableOpacity 
-                            style={[styles.addPlayerDropdownBtn, { width: 50 }]}
+                          <TouchableOpacity
+                            style={[styles.addPlayerDropdownBtn, { width: 50, backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
                             onPress={(e) => { e.stopPropagation(); setShowNewPlayerPositionPicker(!showNewPlayerPositionPicker); setShowNewPlayerRatingPicker(false); }}
                           >
-                            <Text style={styles.addPlayerDropdownBtnText}>{newGamePlayer.position || 'Pos.'}</Text>
-                            <Text style={styles.addPlayerDropdownArrow}>▼</Text>
+                            <Text style={[styles.addPlayerDropdownBtnText, { color: colors.text }]}>{newGamePlayer.position || 'Pos.'}</Text>
+                            <Text style={[styles.addPlayerDropdownArrow, { color: colors.textMuted }]}>▼</Text>
                           </TouchableOpacity>
                           {showNewPlayerPositionPicker && (
-                            <View style={styles.addPlayerDropdownList}>
+                            <View style={[styles.addPlayerDropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                               <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
-                                <TouchableOpacity style={styles.addPlayerDropdownItem} onPress={() => { setNewGamePlayer({...newGamePlayer, position: ''}); setShowNewPlayerPositionPicker(false); }}>
-                                  <Text style={styles.addPlayerDropdownItemText}>-</Text>
+                                <TouchableOpacity style={[styles.addPlayerDropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewGamePlayer({...newGamePlayer, position: ''}); setShowNewPlayerPositionPicker(false); }}>
+                                  <Text style={[styles.addPlayerDropdownItemText, { color: colors.text }]}>-</Text>
                                 </TouchableOpacity>
                                 {POSITIONS.map((pos) => (
-                                  <TouchableOpacity key={pos} style={styles.addPlayerDropdownItem} onPress={() => { setNewGamePlayer({...newGamePlayer, position: pos}); setShowNewPlayerPositionPicker(false); }}>
-                                    <Text style={styles.addPlayerDropdownItemText}>{pos}</Text>
+                                  <TouchableOpacity key={pos} style={[styles.addPlayerDropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewGamePlayer({...newGamePlayer, position: pos}); setShowNewPlayerPositionPicker(false); }}>
+                                    <Text style={[styles.addPlayerDropdownItemText, { color: colors.text }]}>{pos}</Text>
                                   </TouchableOpacity>
                                 ))}
                               </ScrollView>
@@ -3465,49 +3471,49 @@ export function ScoutingScreen({ navigation }: any) {
                           )}
                         </View>
                         <TextInput
-                          style={[styles.addPlayerInputNew, { width: 100 }]}
+                          style={[styles.addPlayerInputNew, { width: 100, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
                           value={newGamePlayer.last_name}
                           onChangeText={(t) => setNewGamePlayer({...newGamePlayer, last_name: t})}
-                          placeholder="Nachname" placeholderTextColor="#999"
-                          placeholderTextColor="#9ca3af"
+                          placeholder="Nachname"
+                          placeholderTextColor={colors.textMuted}
                           onSubmitEditing={addGamePlayer}
                         />
                         <TextInput
-                          style={[styles.addPlayerInputNew, { width: 80 }]}
+                          style={[styles.addPlayerInputNew, { width: 80, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
                           value={newGamePlayer.first_name}
                           onChangeText={(t) => setNewGamePlayer({...newGamePlayer, first_name: t})}
-                          placeholder="Vorname" placeholderTextColor="#999"
-                          placeholderTextColor="#9ca3af"
+                          placeholder="Vorname"
+                          placeholderTextColor={colors.textMuted}
                           onSubmitEditing={addGamePlayer}
                         />
                         <TextInput
-                          style={[styles.addPlayerInputNew, { width: 75 }]}
+                          style={[styles.addPlayerInputNew, { width: 75, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
                           value={newGamePlayer.birth_year}
                           onChangeText={(t) => setNewGamePlayer({...newGamePlayer, birth_year: t})}
-                          placeholder="Jahrgang" placeholderTextColor="#999"
-                          placeholderTextColor="#9ca3af"
+                          placeholder="Jahrgang"
+                          placeholderTextColor={colors.textMuted}
                           onSubmitEditing={addGamePlayer}
                         />
                         {/* Einschätzung Dropdown */}
                         <View style={{ position: 'relative', zIndex: 30 }}>
-                          <TouchableOpacity 
-                            style={[styles.addPlayerDropdownBtn, { width: 70 }, newGamePlayer.rating !== null && styles.addPlayerDropdownBtnRating]}
+                          <TouchableOpacity
+                            style={[styles.addPlayerDropdownBtn, { width: 70, backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, newGamePlayer.rating !== null && styles.addPlayerDropdownBtnRating]}
                             onPress={(e) => { e.stopPropagation(); setShowNewPlayerRatingPicker(!showNewPlayerRatingPicker); setShowNewPlayerPositionPicker(false); }}
                           >
-                            <Text style={[styles.addPlayerDropdownBtnText, newGamePlayer.rating !== null && styles.addPlayerDropdownBtnTextRating]}>
+                            <Text style={[styles.addPlayerDropdownBtnText, { color: colors.text }, newGamePlayer.rating !== null && styles.addPlayerDropdownBtnTextRating]}>
                               {newGamePlayer.rating !== null ? `⭐ ${newGamePlayer.rating}` : 'Einsch.'}
                             </Text>
-                            <Text style={[styles.addPlayerDropdownArrow, newGamePlayer.rating !== null && styles.addPlayerDropdownArrowRating]}>▼</Text>
+                            <Text style={[styles.addPlayerDropdownArrow, { color: colors.textMuted }, newGamePlayer.rating !== null && styles.addPlayerDropdownArrowRating]}>▼</Text>
                           </TouchableOpacity>
                           {showNewPlayerRatingPicker && (
-                            <View style={styles.addPlayerDropdownList}>
+                            <View style={[styles.addPlayerDropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                               <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
-                                <TouchableOpacity style={styles.addPlayerDropdownItem} onPress={() => { setNewGamePlayer({...newGamePlayer, rating: null}); setShowNewPlayerRatingPicker(false); }}>
-                                  <Text style={styles.addPlayerDropdownItemText}>-</Text>
+                                <TouchableOpacity style={[styles.addPlayerDropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewGamePlayer({...newGamePlayer, rating: null}); setShowNewPlayerRatingPicker(false); }}>
+                                  <Text style={[styles.addPlayerDropdownItemText, { color: colors.text }]}>-</Text>
                                 </TouchableOpacity>
                                 {[1,2,3,4,5,6,7,8,9,10].map((r) => (
-                                  <TouchableOpacity key={r} style={[styles.addPlayerDropdownItem, newGamePlayer.rating === r && styles.addPlayerDropdownItemActive]} onPress={() => { setNewGamePlayer({...newGamePlayer, rating: r}); setShowNewPlayerRatingPicker(false); }}>
-                                    <Text style={[styles.addPlayerDropdownItemText, newGamePlayer.rating === r && styles.addPlayerDropdownItemTextActive]}>⭐ {r}/10</Text>
+                                  <TouchableOpacity key={r} style={[styles.addPlayerDropdownItem, { borderBottomColor: colors.border }, newGamePlayer.rating === r && styles.addPlayerDropdownItemActive]} onPress={() => { setNewGamePlayer({...newGamePlayer, rating: r}); setShowNewPlayerRatingPicker(false); }}>
+                                    <Text style={[styles.addPlayerDropdownItemText, { color: colors.text }, newGamePlayer.rating === r && styles.addPlayerDropdownItemTextActive]}>⭐ {r}/10</Text>
                                   </TouchableOpacity>
                                 ))}
                               </ScrollView>
@@ -3520,41 +3526,41 @@ export function ScoutingScreen({ navigation }: any) {
                       </View>
 
                       {/* Players Table Header */}
-                      <View style={styles.playersTableHeaderNew}>
-                        <Text style={[styles.playersHeaderCellNew, { width: 35 }]}>Nr.</Text>
-                        <Text style={[styles.playersHeaderCellNew, { width: 40 }]}>Pos.</Text>
-                        <Text style={[styles.playersHeaderCellNew, { width: 85 }]}>Nachname</Text>
-                        <Text style={[styles.playersHeaderCellNew, { width: 70 }]}>Vorname</Text>
-                        <Text style={[styles.playersHeaderCellNew, { width: 60 }]}>Jahrgang</Text>
-                        <Text style={[styles.playersHeaderCellNew, { width: 90 }]}>Einschätzung</Text>
-                        <Text style={[styles.playersHeaderCellNew, { width: 38 }]}>Notiz</Text>
+                      <View style={[styles.playersTableHeaderNew, { backgroundColor: colors.surfaceSecondary }]}>
+                        <Text style={[styles.playersHeaderCellNew, { width: 35, color: colors.textSecondary }]}>Nr.</Text>
+                        <Text style={[styles.playersHeaderCellNew, { width: 40, color: colors.textSecondary }]}>Pos.</Text>
+                        <Text style={[styles.playersHeaderCellNew, { width: 85, color: colors.textSecondary }]}>Nachname</Text>
+                        <Text style={[styles.playersHeaderCellNew, { width: 70, color: colors.textSecondary }]}>Vorname</Text>
+                        <Text style={[styles.playersHeaderCellNew, { width: 60, color: colors.textSecondary }]}>Jahrgang</Text>
+                        <Text style={[styles.playersHeaderCellNew, { width: 90, color: colors.textSecondary }]}>Einschätzung</Text>
+                        <Text style={[styles.playersHeaderCellNew, { width: 38, color: colors.textSecondary }]}>Notiz</Text>
                         <Text style={[styles.playersHeaderCellNew, { flex: 1 }]}></Text>
                       </View>
 
                       {/* Players List */}
                       <ScrollView style={styles.playersListScroll}>
                         {gamePlayers.filter(p => p.team_id === selectedTeam.id).map(player => (
-                          <TouchableOpacity key={player.id} style={styles.playersTableRowNew} onPress={() => openPlayerNotes(player)}>
-                            <Text style={[styles.playersCellNew, { width: 35 }]}>{player.number || '-'}</Text>
+                          <TouchableOpacity key={player.id} style={[styles.playersTableRowNew, { borderBottomColor: colors.border }]} onPress={() => openPlayerNotes(player)}>
+                            <Text style={[styles.playersCellNew, { width: 35, color: colors.text }]}>{player.number || '-'}</Text>
                             <View style={[styles.playersCellNew, { width: 40 }]}>
                               {player.position ? (
                                 <View style={styles.positionBadgeSmall}><Text style={styles.positionTextSmall}>{player.position}</Text></View>
                               ) : (
-                                <Text>-</Text>
+                                <Text style={{ color: colors.text }}>-</Text>
                               )}
                             </View>
-                            <Text style={[styles.playersCellNew, { width: 85 }]}>{player.last_name || '-'}</Text>
-                            <Text style={[styles.playersCellNew, { width: 70 }]}>{player.first_name || '-'}</Text>
-                            <Text style={[styles.playersCellNew, { width: 60 }]}>{player.birth_year || '-'}</Text>
+                            <Text style={[styles.playersCellNew, { width: 85, color: colors.text }]}>{player.last_name || '-'}</Text>
+                            <Text style={[styles.playersCellNew, { width: 70, color: colors.text }]}>{player.first_name || '-'}</Text>
+                            <Text style={[styles.playersCellNew, { width: 60, color: colors.text }]}>{player.birth_year || '-'}</Text>
                             <View style={[styles.playersCellNew, { width: 90 }]}>
                               {player.rating ? (
                                 <View style={styles.ratingBadgeTight}><Text style={styles.ratingTextTight}>⭐ {player.rating}/10</Text></View>
                               ) : (
-                                <Text>-</Text>
+                                <Text style={{ color: colors.text }}>-</Text>
                               )}
                             </View>
                             <View style={[styles.playersCellNew, { width: 38, alignItems: 'center' }]}>
-                              <Text style={styles.notesBtnNew}>{player.notes ? '📝' : '-'}</Text>
+                              <Text style={[styles.notesBtnNew, { color: colors.textSecondary }]}>{player.notes ? '📝' : '-'}</Text>
                             </View>
                             <View style={{ flex: 1 }} />
                             {player.added_to_database ? (
@@ -3562,14 +3568,14 @@ export function ScoutingScreen({ navigation }: any) {
                                 <Text style={styles.addedToDatabaseBtnText}>wurde zur Spieler-Datenbank hinzugefügt</Text>
                               </View>
                             ) : (
-                              <TouchableOpacity 
+                              <TouchableOpacity
                                 style={styles.addToDatabaseBtn}
                                 onPress={(e) => { e.stopPropagation(); addGamePlayerToDatabase(player); }}
                               >
                                 <Text style={styles.addToDatabaseBtnText}>zur Spieler-Datenbank hinzufügen</Text>
                               </TouchableOpacity>
                             )}
-                            <TouchableOpacity 
+                            <TouchableOpacity
                               style={styles.deletePlayerBtn}
                               onPress={(e) => { e.stopPropagation(); deleteGamePlayer(player.id); }}
                             >
@@ -3581,14 +3587,14 @@ export function ScoutingScreen({ navigation }: any) {
                     </>
                   ) : (
                     <View style={styles.noTeamSelected}>
-                      <Text style={styles.noTeamSelectedText}>← Mannschaft auswählen</Text>
+                      <Text style={[styles.noTeamSelectedText, { color: colors.textMuted }]}>← Mannschaft auswählen</Text>
                     </View>
                   )}
                 </View>
               </View>
 
               {/* Bottom Buttons */}
-              <View style={styles.gameDetailFooter}>
+              <View style={[styles.gameDetailFooter, { borderTopColor: colors.border }]}>
                 <TouchableOpacity style={styles.deleteButton} onPress={() => { 
                   if (confirm('Spiel wirklich löschen? Alle Mannschaften und Spieler werden ebenfalls gelöscht.')) {
                     deleteScoutingGame(selectedGame.id); 
@@ -3607,46 +3613,46 @@ export function ScoutingScreen({ navigation }: any) {
       {showPlayerNotesModal && (
         <Modal visible={showPlayerNotesModal} transparent animationType="fade">
           <Pressable style={[styles.modalOverlay, { zIndex: 9999 }]} onPress={() => { setShowEditPlayerPositionPicker(false); setShowEditPlayerRatingPicker(false); }}>
-            <Pressable style={[styles.modalContent, { maxWidth: 500, zIndex: 10000, overflow: 'visible' }]} onPress={() => { setShowEditPlayerPositionPicker(false); setShowEditPlayerRatingPicker(false); }}>
+            <Pressable style={[styles.modalContent, { maxWidth: 500, zIndex: 10000, overflow: 'visible', backgroundColor: colors.surface }]} onPress={() => { setShowEditPlayerPositionPicker(false); setShowEditPlayerRatingPicker(false); }}>
               <View style={styles.detailHeader}>
-                <Text style={styles.modalTitle}>Spieler bearbeiten</Text>
-                <TouchableOpacity onPress={() => { setShowPlayerNotesModal(false); setShowEditPlayerPositionPicker(false); setShowEditPlayerRatingPicker(false); }} style={styles.closeButton}>
-                  <Text style={styles.closeButtonText}>✕</Text>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>Spieler bearbeiten</Text>
+                <TouchableOpacity onPress={() => { setShowPlayerNotesModal(false); setShowEditPlayerPositionPicker(false); setShowEditPlayerRatingPicker(false); }} style={[styles.closeButton, { backgroundColor: colors.surfaceSecondary }]}>
+                  <Text style={[styles.closeButtonText, { color: colors.textSecondary }]}>✕</Text>
                 </TouchableOpacity>
               </View>
               {selectedGamePlayer && (
                 <>
                   <View style={[styles.playerEditRow, { zIndex: 30 }]}>
                     <View style={[styles.playerEditField, { width: 50 }]}>
-                      <Text style={styles.playerEditLabel}>Nr.</Text>
+                      <Text style={[styles.playerEditLabel, { color: colors.textSecondary }]}>Nr.</Text>
                       <TextInput
-                        style={styles.playerEditInput}
+                        style={[styles.playerEditInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
                         value={selectedGamePlayer.number || ''}
                         onChangeText={(t) => updateSelectedGamePlayer('number', t)}
-                        placeholder="-" placeholderTextColor="#999"
-                        placeholderTextColor="#9ca3af"
+                        placeholder="-"
+                        placeholderTextColor={colors.textMuted}
                       />
                     </View>
                     {/* Position Dropdown */}
                     <View style={[styles.playerEditField, { width: 80, zIndex: 40 }]}>
-                      <Text style={styles.playerEditLabel}>Position</Text>
+                      <Text style={[styles.playerEditLabel, { color: colors.textSecondary }]}>Position</Text>
                       <View style={{ position: 'relative' }}>
-                        <TouchableOpacity 
-                          style={styles.playerEditDropdownBtn}
+                        <TouchableOpacity
+                          style={[styles.playerEditDropdownBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
                           onPress={(e) => { e.stopPropagation(); setShowEditPlayerPositionPicker(!showEditPlayerPositionPicker); setShowEditPlayerRatingPicker(false); }}
                         >
-                          <Text style={styles.playerEditDropdownBtnText}>{selectedGamePlayer.position || '-'}</Text>
-                          <Text style={styles.playerEditDropdownArrow}>▼</Text>
+                          <Text style={[styles.playerEditDropdownBtnText, { color: colors.text }]}>{selectedGamePlayer.position || '-'}</Text>
+                          <Text style={[styles.playerEditDropdownArrow, { color: colors.textMuted }]}>▼</Text>
                         </TouchableOpacity>
                         {showEditPlayerPositionPicker && (
-                          <View style={styles.playerEditDropdownList}>
+                          <View style={[styles.playerEditDropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                             <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
-                              <TouchableOpacity style={styles.playerEditDropdownItem} onPress={() => { updateSelectedGamePlayer('position', ''); setShowEditPlayerPositionPicker(false); }}>
-                                <Text style={styles.playerEditDropdownItemText}>-</Text>
+                              <TouchableOpacity style={[styles.playerEditDropdownItem, { borderBottomColor: colors.border }]} onPress={() => { updateSelectedGamePlayer('position', ''); setShowEditPlayerPositionPicker(false); }}>
+                                <Text style={[styles.playerEditDropdownItemText, { color: colors.text }]}>-</Text>
                               </TouchableOpacity>
                               {POSITIONS.map((pos) => (
-                                <TouchableOpacity key={pos} style={[styles.playerEditDropdownItem, selectedGamePlayer.position === pos && styles.playerEditDropdownItemActive]} onPress={() => { updateSelectedGamePlayer('position', pos); setShowEditPlayerPositionPicker(false); }}>
-                                  <Text style={[styles.playerEditDropdownItemText, selectedGamePlayer.position === pos && styles.playerEditDropdownItemTextActive]}>{pos}</Text>
+                                <TouchableOpacity key={pos} style={[styles.playerEditDropdownItem, { borderBottomColor: colors.border }, selectedGamePlayer.position === pos && styles.playerEditDropdownItemActive]} onPress={() => { updateSelectedGamePlayer('position', pos); setShowEditPlayerPositionPicker(false); }}>
+                                  <Text style={[styles.playerEditDropdownItemText, { color: colors.text }, selectedGamePlayer.position === pos && styles.playerEditDropdownItemTextActive]}>{pos}</Text>
                                 </TouchableOpacity>
                               ))}
                             </ScrollView>
@@ -3655,59 +3661,59 @@ export function ScoutingScreen({ navigation }: any) {
                       </View>
                     </View>
                     <View style={[styles.playerEditField, { flex: 1 }]}>
-                      <Text style={styles.playerEditLabel}>Nachname</Text>
+                      <Text style={[styles.playerEditLabel, { color: colors.textSecondary }]}>Nachname</Text>
                       <TextInput
-                        style={styles.playerEditInput}
+                        style={[styles.playerEditInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
                         value={selectedGamePlayer.last_name || ''}
                         onChangeText={(t) => updateSelectedGamePlayer('last_name', t)}
-                        placeholder="Nachname" placeholderTextColor="#999"
-                        placeholderTextColor="#9ca3af"
+                        placeholder="Nachname"
+                        placeholderTextColor={colors.textMuted}
                       />
                     </View>
                     <View style={[styles.playerEditField, { flex: 1 }]}>
-                      <Text style={styles.playerEditLabel}>Vorname</Text>
+                      <Text style={[styles.playerEditLabel, { color: colors.textSecondary }]}>Vorname</Text>
                       <TextInput
-                        style={styles.playerEditInput}
+                        style={[styles.playerEditInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
                         value={selectedGamePlayer.first_name || ''}
                         onChangeText={(t) => updateSelectedGamePlayer('first_name', t)}
-                        placeholder="Vorname" placeholderTextColor="#999"
-                        placeholderTextColor="#9ca3af"
+                        placeholder="Vorname"
+                        placeholderTextColor={colors.textMuted}
                       />
                     </View>
                   </View>
                   <View style={[styles.playerEditRow, { zIndex: 20 }]}>
                     <View style={[styles.playerEditField, { width: 80 }]}>
-                      <Text style={styles.playerEditLabel}>Jahrgang</Text>
+                      <Text style={[styles.playerEditLabel, { color: colors.textSecondary }]}>Jahrgang</Text>
                       <TextInput
-                        style={styles.playerEditInput}
+                        style={[styles.playerEditInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
                         value={selectedGamePlayer.birth_year || ''}
                         onChangeText={(t) => updateSelectedGamePlayer('birth_year', t)}
-                        placeholder="2008" placeholderTextColor="#999"
-                        placeholderTextColor="#9ca3af"
+                        placeholder="2008"
+                        placeholderTextColor={colors.textMuted}
                       />
                     </View>
                     {/* Einschätzung Dropdown */}
                     <View style={[styles.playerEditField, { width: 100, zIndex: 30 }]}>
-                      <Text style={styles.playerEditLabel}>Einschätzung</Text>
+                      <Text style={[styles.playerEditLabel, { color: colors.textSecondary }]}>Einschätzung</Text>
                       <View style={{ position: 'relative' }}>
-                        <TouchableOpacity 
-                          style={[styles.playerEditDropdownBtn, selectedGamePlayer.rating !== null && styles.playerEditDropdownBtnRating]}
+                        <TouchableOpacity
+                          style={[styles.playerEditDropdownBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedGamePlayer.rating !== null && styles.playerEditDropdownBtnRating]}
                           onPress={(e) => { e.stopPropagation(); setShowEditPlayerRatingPicker(!showEditPlayerRatingPicker); setShowEditPlayerPositionPicker(false); }}
                         >
-                          <Text style={[styles.playerEditDropdownBtnText, selectedGamePlayer.rating !== null && styles.playerEditDropdownBtnTextRating]}>
+                          <Text style={[styles.playerEditDropdownBtnText, { color: colors.text }, selectedGamePlayer.rating !== null && styles.playerEditDropdownBtnTextRating]}>
                             {selectedGamePlayer.rating !== null ? `${selectedGamePlayer.rating}/10` : '-'}
                           </Text>
-                          <Text style={[styles.playerEditDropdownArrow, selectedGamePlayer.rating !== null && styles.playerEditDropdownArrowRating]}>▼</Text>
+                          <Text style={[styles.playerEditDropdownArrow, { color: colors.textMuted }, selectedGamePlayer.rating !== null && styles.playerEditDropdownArrowRating]}>▼</Text>
                         </TouchableOpacity>
                         {showEditPlayerRatingPicker && (
-                          <View style={styles.playerEditDropdownList}>
+                          <View style={[styles.playerEditDropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                             <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
-                              <TouchableOpacity style={styles.playerEditDropdownItem} onPress={() => { updateSelectedGamePlayerRating(null); setShowEditPlayerRatingPicker(false); }}>
-                                <Text style={styles.playerEditDropdownItemText}>-</Text>
+                              <TouchableOpacity style={[styles.playerEditDropdownItem, { borderBottomColor: colors.border }]} onPress={() => { updateSelectedGamePlayerRating(null); setShowEditPlayerRatingPicker(false); }}>
+                                <Text style={[styles.playerEditDropdownItemText, { color: colors.text }]}>-</Text>
                               </TouchableOpacity>
                               {[1,2,3,4,5,6,7,8,9,10].map((r) => (
-                                <TouchableOpacity key={r} style={[styles.playerEditDropdownItem, selectedGamePlayer.rating === r && styles.playerEditDropdownItemActive]} onPress={() => { updateSelectedGamePlayerRating(r); setShowEditPlayerRatingPicker(false); }}>
-                                  <Text style={[styles.playerEditDropdownItemText, selectedGamePlayer.rating === r && styles.playerEditDropdownItemTextActive]}>⭐ {r}/10</Text>
+                                <TouchableOpacity key={r} style={[styles.playerEditDropdownItem, { borderBottomColor: colors.border }, selectedGamePlayer.rating === r && styles.playerEditDropdownItemActive]} onPress={() => { updateSelectedGamePlayerRating(r); setShowEditPlayerRatingPicker(false); }}>
+                                  <Text style={[styles.playerEditDropdownItemText, { color: colors.text }, selectedGamePlayer.rating === r && styles.playerEditDropdownItemTextActive]}>⭐ {r}/10</Text>
                                 </TouchableOpacity>
                               ))}
                             </ScrollView>
@@ -3717,21 +3723,21 @@ export function ScoutingScreen({ navigation }: any) {
                     </View>
                   </View>
                   <View style={[styles.playerEditField, { zIndex: 1 }]}>
-                    <Text style={styles.playerEditLabel}>Notizen</Text>
+                    <Text style={[styles.playerEditLabel, { color: colors.textSecondary }]}>Notizen</Text>
                     <TextInput
-                      style={[styles.playerEditInput, styles.textArea, { minHeight: 100 }]}
+                      style={[styles.playerEditInput, styles.textArea, { minHeight: 100, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
                       value={editingPlayerNotes}
                       onChangeText={setEditingPlayerNotes}
-                      placeholder="Notizen zum Spieler..." placeholderTextColor="#999"
-                      placeholderTextColor="#9ca3af"
+                      placeholder="Notizen zum Spieler..."
+                      placeholderTextColor={colors.textMuted}
                       multiline
                     />
                   </View>
                 </>
               )}
-              <View style={styles.modalButtons}>
-                <TouchableOpacity style={styles.cancelButton} onPress={() => setShowPlayerNotesModal(false)}>
-                  <Text style={styles.cancelButtonText}>Abbrechen</Text>
+              <View style={[styles.modalButtons, { borderTopColor: colors.border }]}>
+                <TouchableOpacity style={[styles.cancelButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setShowPlayerNotesModal(false)}>
+                  <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.saveButton} onPress={savePlayerNotes}>
                   <Text style={styles.saveButtonText}>Speichern</Text>
@@ -3928,20 +3934,20 @@ export function ScoutingScreen({ navigation }: any) {
             <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>{selectedPlayer?.last_name}, {selectedPlayer?.first_name}</Text>
 
             <View style={styles.formField}>
-              <Text style={styles.formLabel}>Grund für Archivierung</Text>
-              <TextInput 
-                style={[styles.formInput, styles.textArea]} 
-                value={archiveReason} 
-                onChangeText={setArchiveReason} 
-                placeholder="z.B. Kein Interesse, Spieler hat abgesagt, andere Agentur gewählt..." placeholderTextColor="#999"
-                placeholderTextColor="#9ca3af"
+              <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Grund für Archivierung</Text>
+              <TextInput
+                style={[styles.formInput, styles.textArea, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+                value={archiveReason}
+                onChangeText={setArchiveReason}
+                placeholder="z.B. Kein Interesse, Spieler hat abgesagt, andere Agentur gewählt..."
+                placeholderTextColor={colors.textMuted}
                 multiline
               />
             </View>
-            
-            <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.cancelButton} onPress={() => { setShowArchiveModal(false); setArchiveReason(''); }}>
-                <Text style={styles.cancelButtonText}>Abbrechen</Text>
+
+            <View style={[styles.modalButtons, { borderTopColor: colors.border }]}>
+              <TouchableOpacity style={[styles.cancelButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => { setShowArchiveModal(false); setArchiveReason(''); }}>
+                <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.archiveConfirmButton} onPress={archivePlayer}>
                 <Text style={styles.archiveConfirmButtonText}>Archivieren</Text>
@@ -3954,45 +3960,45 @@ export function ScoutingScreen({ navigation }: any) {
       {/* Transfer/Übernahme-Modal */}
       <Modal visible={showTransferModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Spieler übernehmen</Text>
-            <Text style={styles.modalSubtitle}>{selectedPlayer?.last_name}, {selectedPlayer?.first_name} in die Spielerübersicht übernehmen</Text>
-            
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Spieler übernehmen</Text>
+            <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>{selectedPlayer?.last_name}, {selectedPlayer?.first_name} in die Spielerübersicht übernehmen</Text>
+
             <View style={styles.formField}>
-              <Text style={styles.formLabel}>Listung *</Text>
+              <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Listung *</Text>
               <View style={styles.listingSelector}>
                 {LISTINGS.map(listing => (
-                  <TouchableOpacity 
-                    key={listing} 
-                    style={[styles.listingOption, transferListing === listing && styles.listingOptionSelected]}
+                  <TouchableOpacity
+                    key={listing}
+                    style={[styles.listingOption, { backgroundColor: isDark ? colors.surface : '#f1f5f9', borderColor: colors.border }, transferListing === listing && styles.listingOptionSelected]}
                     onPress={() => setTransferListing(listing)}
                   >
-                    <Text style={[styles.listingOptionText, transferListing === listing && styles.listingOptionTextSelected]}>{listing}</Text>
+                    <Text style={[styles.listingOptionText, { color: colors.textSecondary }, transferListing === listing && styles.listingOptionTextSelected]}>{listing}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </View>
-            
+
             <View style={styles.formField}>
-              <Text style={styles.formLabel}>Zuständiger Berater *</Text>
+              <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Zuständiger Berater *</Text>
               <View style={styles.advisorSelector}>
                 {advisors.map(advisor => (
-                  <TouchableOpacity 
-                    key={advisor.id} 
-                    style={[styles.advisorOption, transferResponsibility === `${advisor.first_name} ${advisor.last_name}` && styles.advisorOptionSelected]}
+                  <TouchableOpacity
+                    key={advisor.id}
+                    style={[styles.advisorOption, { backgroundColor: isDark ? colors.surface : '#f1f5f9', borderColor: colors.border }, transferResponsibility === `${advisor.first_name} ${advisor.last_name}` && styles.advisorOptionSelected]}
                     onPress={() => setTransferResponsibility(`${advisor.first_name} ${advisor.last_name}`)}
                   >
-                    <Text style={[styles.advisorOptionText, transferResponsibility === `${advisor.first_name} ${advisor.last_name}` && styles.advisorOptionTextSelected]}>
+                    <Text style={[styles.advisorOptionText, { color: colors.textSecondary }, transferResponsibility === `${advisor.first_name} ${advisor.last_name}` && styles.advisorOptionTextSelected]}>
                       {advisor.first_name} {advisor.last_name}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </View>
-            
-            <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.cancelButton} onPress={() => { setShowTransferModal(false); setTransferListing(''); setTransferResponsibility(''); }}>
-                <Text style={styles.cancelButtonText}>Abbrechen</Text>
+
+            <View style={[styles.modalButtons, { borderTopColor: colors.border }]}>
+              <TouchableOpacity style={[styles.cancelButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => { setShowTransferModal(false); setTransferListing(''); setTransferResponsibility(''); }}>
+                <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.transferConfirmButton} onPress={transferToPlayers}>
                 <Text style={styles.transferConfirmButtonText}>Übernehmen</Text>
@@ -4006,12 +4012,12 @@ export function ScoutingScreen({ navigation }: any) {
       {showDeleteConfirm && selectedPlayer && (
         <Modal visible={showDeleteConfirm} transparent animationType="fade">
           <View style={styles.modalOverlay}>
-            <View style={styles.deleteConfirmModal}>
-              <Text style={styles.deleteConfirmTitle}>Spieler löschen</Text>
+            <View style={[styles.deleteConfirmModal, { backgroundColor: colors.surface }]}>
+              <Text style={[styles.deleteConfirmTitle, { color: colors.text }]}>Spieler löschen</Text>
               <Text style={styles.deleteConfirmText}>Möchten Sie {selectedPlayer.first_name} {selectedPlayer.last_name} wirklich löschen?</Text>
               <View style={styles.deleteConfirmButtons}>
-                <TouchableOpacity style={styles.deleteConfirmCancelBtn} onPress={() => setShowDeleteConfirm(false)}>
-                  <Text style={styles.deleteConfirmCancelText}>Abbrechen</Text>
+                <TouchableOpacity style={[styles.deleteConfirmCancelBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setShowDeleteConfirm(false)}>
+                  <Text style={[styles.deleteConfirmCancelText, { color: colors.textSecondary }]}>Abbrechen</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.deleteConfirmDeleteBtn} onPress={() => { setShowDeleteConfirm(false); deleteScoutedPlayer(selectedPlayer.id); setShowPlayerDetailModal(false); setIsEditing(false); }}>
                   <Text style={styles.deleteConfirmDeleteText}>Löschen</Text>

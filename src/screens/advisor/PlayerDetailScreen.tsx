@@ -2242,30 +2242,30 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     const currentDay = dateParts?.day || 30;
     const currentMonth = dateParts?.month ?? 5;
     const currentYear = dateParts?.year || new Date().getFullYear() + 1;
-    
+
     const isActiveDay = activeDatePicker === 'contract_end' && activeDatePart === 'day';
     const isActiveMonth = activeDatePicker === 'contract_end' && activeDatePart === 'month';
     const isActiveYear = activeDatePicker === 'contract_end' && activeDatePart === 'year';
-    
+
     return (
       <View style={[styles.infoRow, { zIndex: activeDatePicker === 'contract_end' ? 500 : 1 }]}>
-        <Text style={styles.label}>Vertragsende</Text>
+        <Text style={[styles.label, { color: colors.textMuted }]}>Vertragsende</Text>
         {editing ? (
           <View style={styles.datePickerRow}>
             <View style={{ position: 'relative', flex: 1 }}>
-              <TouchableOpacity 
-                style={styles.dateDropdownButton} 
+              <TouchableOpacity
+                style={[styles.dateDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker('contract_end'); setActiveDatePart('day'); }}
               >
-                <Text style={currentDay ? styles.dateDropdownText : styles.dateDropdownPlaceholder}>{currentDay || 'Tag'}</Text>
-                <Text>▼</Text>
+                <Text style={[currentDay ? styles.dateDropdownText : styles.dateDropdownPlaceholder, { color: currentDay ? colors.text : colors.textMuted }]}>{currentDay || 'Tag'}</Text>
+                <Text style={{ color: colors.textMuted }}>▼</Text>
               </TouchableOpacity>
               {isActiveDay && (
-                <View style={styles.pickerList}>
+                <View style={[styles.pickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
                     {DAYS.map((d) => (
-                      <TouchableOpacity key={d} style={[styles.pickerItem, currentDay === d && styles.pickerItemSelected]} onPress={() => { updateField('contract_end', buildDateFromParts(d, currentMonth, currentYear)); setActiveDatePart(null); }}>
-                        <Text style={[styles.pickerItemText, currentDay === d && styles.pickerItemTextSelected]}>{d}</Text>
+                      <TouchableOpacity key={d} style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, currentDay === d && { backgroundColor: colors.primary }]} onPress={() => { updateField('contract_end', buildDateFromParts(d, currentMonth, currentYear)); setActiveDatePart(null); }}>
+                        <Text style={[styles.pickerItemText, { color: colors.text }, currentDay === d && { color: colors.primaryText }]}>{d}</Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -2273,19 +2273,19 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               )}
             </View>
             <View style={{ position: 'relative', flex: 2 }}>
-              <TouchableOpacity 
-                style={styles.dateDropdownButton} 
+              <TouchableOpacity
+                style={[styles.dateDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker('contract_end'); setActiveDatePart('month'); }}
               >
-                <Text style={MONTHS[currentMonth] ? styles.dateDropdownText : styles.dateDropdownPlaceholder}>{MONTHS[currentMonth] || 'Monat'}</Text>
-                <Text>▼</Text>
+                <Text style={[MONTHS[currentMonth] ? styles.dateDropdownText : styles.dateDropdownPlaceholder, { color: MONTHS[currentMonth] ? colors.text : colors.textMuted }]}>{MONTHS[currentMonth] || 'Monat'}</Text>
+                <Text style={{ color: colors.textMuted }}>▼</Text>
               </TouchableOpacity>
               {isActiveMonth && (
-                <View style={styles.pickerList}>
+                <View style={[styles.pickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
                     {MONTHS.map((m, idx) => (
-                      <TouchableOpacity key={m} style={[styles.pickerItem, currentMonth === idx && styles.pickerItemSelected]} onPress={() => { updateField('contract_end', buildDateFromParts(currentDay, idx, currentYear)); setActiveDatePart(null); }}>
-                        <Text style={[styles.pickerItemText, currentMonth === idx && styles.pickerItemTextSelected]}>{m}</Text>
+                      <TouchableOpacity key={m} style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, currentMonth === idx && { backgroundColor: colors.primary }]} onPress={() => { updateField('contract_end', buildDateFromParts(currentDay, idx, currentYear)); setActiveDatePart(null); }}>
+                        <Text style={[styles.pickerItemText, { color: colors.text }, currentMonth === idx && { color: colors.primaryText }]}>{m}</Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -2293,19 +2293,19 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               )}
             </View>
             <View style={{ position: 'relative', flex: 1 }}>
-              <TouchableOpacity 
-                style={styles.dateDropdownButton} 
+              <TouchableOpacity
+                style={[styles.dateDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker('contract_end'); setActiveDatePart('year'); }}
               >
-                <Text style={currentYear ? styles.dateDropdownText : styles.dateDropdownPlaceholder}>{currentYear || 'Jahr'}</Text>
-                <Text>▼</Text>
+                <Text style={[currentYear ? styles.dateDropdownText : styles.dateDropdownPlaceholder, { color: currentYear ? colors.text : colors.textMuted }]}>{currentYear || 'Jahr'}</Text>
+                <Text style={{ color: colors.textMuted }}>▼</Text>
               </TouchableOpacity>
               {isActiveYear && (
-                <View style={styles.pickerList}>
+                <View style={[styles.pickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
                     {YEARS.map((y) => (
-                      <TouchableOpacity key={y} style={[styles.pickerItem, currentYear === y && styles.pickerItemSelected]} onPress={() => { updateField('contract_end', buildDateFromParts(currentDay, currentMonth, y)); setActiveDatePart(null); }}>
-                        <Text style={[styles.pickerItemText, currentYear === y && styles.pickerItemTextSelected]}>{y}</Text>
+                      <TouchableOpacity key={y} style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, currentYear === y && { backgroundColor: colors.primary }]} onPress={() => { updateField('contract_end', buildDateFromParts(currentDay, currentMonth, y)); setActiveDatePart(null); }}>
+                        <Text style={[styles.pickerItemText, { color: colors.text }, currentYear === y && { color: colors.primaryText }]}>{y}</Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -2313,26 +2313,26 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               )}
             </View>
           </View>
-        ) : player?.contract_end ? (<View style={[styles.statusBadge, isMobile && styles.statusBadgeMobile, hasSecuredFuture ? styles.statusBadgeGreen : (inCurrentSeason ? styles.statusBadgeRed : styles.statusBadgeNormal)]}><Text style={[styles.statusBadgeText, isMobile && styles.statusBadgeTextMobile, hasSecuredFuture ? styles.statusTextGreen : (inCurrentSeason ? styles.statusTextRed : styles.statusTextNormal)]}>{formatDate(player.contract_end)}</Text></View>) : <Text style={styles.value}>-</Text>}
+        ) : player?.contract_end ? (<View style={[styles.statusBadge, isMobile && styles.statusBadgeMobile, hasSecuredFuture ? styles.statusBadgeGreen : (inCurrentSeason ? styles.statusBadgeRed : styles.statusBadgeNormal)]}><Text style={[styles.statusBadgeText, isMobile && styles.statusBadgeTextMobile, hasSecuredFuture ? styles.statusTextGreen : (inCurrentSeason ? styles.statusTextRed : styles.statusTextNormal)]}>{formatDate(player.contract_end)}</Text></View>) : <Text style={[styles.value, { color: colors.text }]}>-</Text>}
       </View>
     );
   };
 
   const renderAddressField = () => (
     <View style={styles.infoRow}>
-      <Text style={styles.label}>Adresse</Text>
+      <Text style={[styles.label, { color: colors.textMuted }]}>Adresse</Text>
       {editing ? (
         <View style={styles.addressColumn}>
-          <TextInput style={styles.input} value={editData?.street || ''} onChangeText={(text) => updateField('street', text)} placeholder="z.B. Musterstraße 1" placeholderTextColor="#999" />
+          <TextInput style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={editData?.street || ''} onChangeText={(text) => updateField('street', text)} placeholder="z.B. Musterstraße 1" placeholderTextColor={colors.textMuted} />
           <View style={styles.addressRowSmall}>
-            <TextInput style={[styles.input, styles.addressPLZ]} value={editData?.postal_code || ''} onChangeText={(text) => updateField('postal_code', text)} placeholder="PLZ" placeholderTextColor="#999" />
-            <TextInput style={[styles.input, styles.addressCitySmall]} value={editData?.city || ''} onChangeText={(text) => updateField('city', text)} placeholder="Stadt" placeholderTextColor="#999" />
+            <TextInput style={[styles.input, styles.addressPLZ, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={editData?.postal_code || ''} onChangeText={(text) => updateField('postal_code', text)} placeholder="PLZ" placeholderTextColor={colors.textMuted} />
+            <TextInput style={[styles.input, styles.addressCitySmall, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={editData?.city || ''} onChangeText={(text) => updateField('city', text)} placeholder="Stadt" placeholderTextColor={colors.textMuted} />
           </View>
         </View>
       ) : (
-        <Text style={styles.value}>
-          {player?.street || player?.postal_code || player?.city 
-            ? `${player?.street || ''}${player?.street && (player?.postal_code || player?.city) ? ', ' : ''}${player?.postal_code || ''} ${player?.city || ''}`.trim() 
+        <Text style={[styles.value, { color: colors.text }]}>
+          {player?.street || player?.postal_code || player?.city
+            ? `${player?.street || ''}${player?.street && (player?.postal_code || player?.city) ? ', ' : ''}${player?.postal_code || ''} ${player?.city || ''}`.trim()
             : '-'}
         </Text>
       )}
@@ -2511,26 +2511,26 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const renderResponsibilitySelector = () => {
     const advisorNames = advisors.map(a => `${a.first_name} ${a.last_name}`.trim());
     const isAdmin = profile?.role === 'admin';
-    
+
     return (
       <View style={styles.infoRow}>
-        <Text style={styles.label}>Zuständigkeit</Text>
+        <Text style={[styles.label, { color: colors.textMuted }]}>Zuständigkeit</Text>
         {editing && isAdmin ? (
           <View style={styles.chipGrid}>
             {advisorNames.map((name) => (
-              <TouchableOpacity 
-                key={name} 
-                style={[styles.chip, selectedResponsibilities.includes(name) && styles.chipSelected]} 
+              <TouchableOpacity
+                key={name}
+                style={[styles.chip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedResponsibilities.includes(name) && { backgroundColor: colors.primary, borderColor: colors.primary }]}
                 onPress={() => toggleResponsibility(name)}
               >
-                <Text style={[styles.chipText, selectedResponsibilities.includes(name) && styles.chipTextSelected]}>
+                <Text style={[styles.chipText, { color: colors.text }, selectedResponsibilities.includes(name) && { color: colors.primaryText }]}>
                   {selectedResponsibilities.includes(name) ? '✓ ' : ''}{name}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
         ) : (
-          <Text style={styles.value}>{selectedResponsibilities.length > 0 ? selectedResponsibilities.join(', ') : '-'}</Text>
+          <Text style={[styles.value, { color: colors.text }]}>{selectedResponsibilities.length > 0 ? selectedResponsibilities.join(', ') : '-'}</Text>
         )}
       </View>
     );
@@ -2613,12 +2613,12 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const renderDeleteModal = () => (
     <Modal visible={showDeleteModal} transparent animationType="fade">
       <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Spieler löschen</Text>
-          <Text style={styles.modalWarning}>Möchten Sie {player?.first_name} {player?.last_name} wirklich löschen?</Text>
+        <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.modalTitle, { color: colors.text }]}>Spieler löschen</Text>
+          <Text style={[styles.modalWarning, { color: colors.text }]}>Möchten Sie {player?.first_name} {player?.last_name} wirklich löschen?</Text>
           <View style={styles.modalButtons}>
-            <TouchableOpacity style={styles.modalCancelButton} onPress={() => setShowDeleteModal(false)}>
-              <Text style={styles.modalCancelButtonText}>Abbrechen</Text>
+            <TouchableOpacity style={[styles.modalCancelButton, { backgroundColor: colors.surfaceSecondary }]} onPress={() => setShowDeleteModal(false)}>
+              <Text style={[styles.modalCancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.modalDeleteButton} onPress={confirmDelete}>
               <Text style={styles.modalDeleteButtonText}>Löschen</Text>
@@ -2833,7 +2833,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                   {renderField('Gehalt/Monat', 'salary_month')}
                   {renderField('Punktprämie', 'point_bonus')}
                   {renderField('Auflaufprämie', 'appearance_bonus')}
-                  <View style={styles.infoRow}><Text style={styles.label}>Sonstiges</Text>{editing ? <TextInput style={[styles.input, styles.smallTextArea]} value={editData.contract_notes || ''} onChangeText={(text) => updateField('contract_notes', text)} placeholder="Sonstiges..." placeholderTextColor="#999" multiline /> : <Text style={styles.value}>{player.contract_notes || '-'}</Text>}</View>
+                  <View style={styles.infoRow}><Text style={[styles.label, { color: colors.textMuted }]}>Sonstiges</Text>{editing ? <TextInput style={[styles.input, styles.smallTextArea, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={editData.contract_notes || ''} onChangeText={(text) => updateField('contract_notes', text)} placeholder="Sonstiges..." placeholderTextColor={colors.textMuted} multiline /> : <Text style={[styles.value, { color: colors.text }]}>{player.contract_notes || '-'}</Text>}</View>
                   {renderDocuments()}
                   {renderSpielplanButton()}
                 </View>
@@ -2845,9 +2845,9 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               <View style={styles.beratungContainerMobile}>
                 <View style={styles.beratungColumnMobile}>
                   <View style={styles.infoRow}>
-                    <Text style={styles.label}>Listung</Text>
-                    {editing ? (<View style={styles.chipGrid}>{LISTINGS.map((opt) => (<TouchableOpacity key={opt} style={[styles.chip, editData?.listing === opt && styles.chipSelected]} onPress={() => updateField('listing', editData?.listing === opt ? null : opt)}><Text style={[styles.chipText, editData?.listing === opt && styles.chipTextSelected]}>{editData?.listing === opt ? '✓ ' : ''}{opt}</Text></TouchableOpacity>))}</View>
-                    ) : player?.listing ? (<View style={[styles.listingBadge, styles.listingBadgeMobile, player.listing === 'Karl Herzog Sportmanagement' ? styles.listingKMH : styles.listingPM]}><Text style={[styles.listingBadgeText, styles.listingBadgeTextMobile]}>{player.listing}</Text></View>) : <Text style={styles.value}>-</Text>}
+                    <Text style={[styles.label, { color: colors.textMuted }]}>Listung</Text>
+                    {editing ? (<View style={styles.chipGrid}>{LISTINGS.map((opt) => (<TouchableOpacity key={opt} style={[styles.chip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, editData?.listing === opt && { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={() => updateField('listing', editData?.listing === opt ? null : opt)}><Text style={[styles.chipText, { color: colors.text }, editData?.listing === opt && { color: colors.primaryText }]}>{editData?.listing === opt ? '✓ ' : ''}{opt}</Text></TouchableOpacity>))}</View>
+                    ) : player?.listing ? (<View style={[styles.listingBadge, styles.listingBadgeMobile, player.listing === 'Karl Herzog Sportmanagement' ? styles.listingKMH : styles.listingPM]}><Text style={[styles.listingBadgeText, styles.listingBadgeTextMobile]}>{player.listing}</Text></View>) : <Text style={[styles.value, { color: colors.text }]}>-</Text>}
                   </View>
                   {renderFieldWithDocuments('Provision', 'provision', 'provision_documents')}
                   {renderFieldWithDocuments('Weg-Vermittlung', 'transfer_commission', 'transfer_commission_documents')}
@@ -2882,27 +2882,27 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               <Text style={[styles.cardTitle, { color: colors.text, borderBottomColor: colors.border }]}>Familie</Text>
               <View style={styles.familyContainerMobileTwoCol}>
                 <View style={styles.familyColumnMobile}>
-                  <Text style={styles.sectionSubtitle}>Vater</Text>
+                  <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>Vater</Text>
                   {renderField('Name', 'father_name')}
                   {renderPhoneField('Telefon', 'father_phone', 'father_phone_country_code')}
                   {renderField('Job', 'father_job')}
-                  <Text style={styles.sectionSubtitle}>Mutter</Text>
+                  <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>Mutter</Text>
                   {renderField('Name', 'mother_name')}
                   {renderPhoneField('Telefon', 'mother_phone', 'mother_phone_country_code')}
                   {renderField('Job', 'mother_job')}
                 </View>
                 <View style={styles.familyColumnMobile}>
-                  <Text style={styles.sectionSubtitle}>Geschwister</Text>
+                  <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>Geschwister</Text>
                   {renderField('Name', 'siblings')}
-                  <Text style={styles.sectionSubtitle}>Sonstiges</Text>
-                  <View style={styles.infoRow}>{editing ? <TextInput style={[styles.input, styles.smallTextArea]} value={editData.other_notes || ''} onChangeText={(text) => updateField('other_notes', text)} placeholder="Sonstiges..." placeholderTextColor="#999" multiline /> : <Text style={styles.value}>{player.other_notes || '-'}</Text>}</View>
+                  <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>Sonstiges</Text>
+                  <View style={styles.infoRow}>{editing ? <TextInput style={[styles.input, styles.smallTextArea, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={editData.other_notes || ''} onChangeText={(text) => updateField('other_notes', text)} placeholder="Sonstiges..." placeholderTextColor={colors.textMuted} multiline /> : <Text style={[styles.value, { color: colors.text }]}>{player.other_notes || '-'}</Text>}</View>
                 </View>
               </View>
             </View>
             {/* 6. Verletzungen */}
             <View style={[styles.card, styles.cardMobile, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
               <Text style={[styles.cardTitle, { color: colors.text, borderBottomColor: colors.border }]}>Verletzungen & Krankheiten</Text>
-              <View style={styles.infoRow}>{editing ? <TextInput style={[styles.input, styles.textArea]} value={editData.injuries || ''} onChangeText={(text) => updateField('injuries', text)} placeholder="Verletzungshistorie..." placeholderTextColor="#999" multiline /> : <Text style={styles.value}>{player.injuries || '-'}</Text>}</View>
+              <View style={styles.infoRow}>{editing ? <TextInput style={[styles.input, styles.textArea, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={editData.injuries || ''} onChangeText={(text) => updateField('injuries', text)} placeholder="Verletzungshistorie..." placeholderTextColor={colors.textMuted} multiline /> : <Text style={[styles.value, { color: colors.text }]}>{player.injuries || '-'}</Text>}</View>
             </View>
           </View>
         ) : (
@@ -2932,8 +2932,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 <Text style={[styles.cardTitle, { color: colors.text, borderBottomColor: colors.border }]}>Beratung</Text>
                 <View style={styles.infoRow}>
                   <Text style={[styles.label, { color: colors.textMuted }]}>Listung</Text>
-                  {editing ? (<View style={styles.chipGrid}>{LISTINGS.map((opt) => (<TouchableOpacity key={opt} style={[styles.chip, editData?.listing === opt && styles.chipSelected]} onPress={() => updateField('listing', editData?.listing === opt ? null : opt)}><Text style={[styles.chipText, editData?.listing === opt && styles.chipTextSelected]}>{editData?.listing === opt ? '✓ ' : ''}{opt}</Text></TouchableOpacity>))}</View>
-                  ) : player?.listing ? (<View style={[styles.listingBadge, player.listing === 'Karl Herzog Sportmanagement' ? styles.listingKMH : styles.listingPM]}><Text style={styles.listingBadgeText}>{player.listing}</Text></View>) : <Text style={styles.value}>-</Text>}
+                  {editing ? (<View style={styles.chipGrid}>{LISTINGS.map((opt) => (<TouchableOpacity key={opt} style={[styles.chip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, editData?.listing === opt && { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={() => updateField('listing', editData?.listing === opt ? null : opt)}><Text style={[styles.chipText, { color: colors.text }, editData?.listing === opt && { color: colors.primaryText }]}>{editData?.listing === opt ? '✓ ' : ''}{opt}</Text></TouchableOpacity>))}</View>
+                  ) : player?.listing ? (<View style={[styles.listingBadge, player.listing === 'Karl Herzog Sportmanagement' ? styles.listingKMH : styles.listingPM]}><Text style={styles.listingBadgeText}>{player.listing}</Text></View>) : <Text style={[styles.value, { color: colors.text }]}>-</Text>}
                 </View>
                 {renderResponsibilitySelector()}
                 {renderDateField('Mandat gültig bis', 'mandate_until')}
@@ -2977,7 +2977,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                     {renderField('Gehalt/Monat', 'salary_month')}
                     {renderField('Punktprämie', 'point_bonus')}
                     {renderField('Auflaufprämie', 'appearance_bonus')}
-                    <View style={styles.infoRow}><Text style={styles.label}>Sonstiges</Text>{editing ? <TextInput style={[styles.input, styles.smallTextArea]} value={editData.contract_notes || ''} onChangeText={(text) => updateField('contract_notes', text)} placeholder="Sonstiges..." placeholderTextColor="#999" multiline /> : <Text style={styles.value}>{player.contract_notes || '-'}</Text>}</View>
+                    <View style={styles.infoRow}><Text style={[styles.label, { color: colors.textMuted }]}>Sonstiges</Text>{editing ? <TextInput style={[styles.input, styles.smallTextArea, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={editData.contract_notes || ''} onChangeText={(text) => updateField('contract_notes', text)} placeholder="Sonstiges..." placeholderTextColor={colors.textMuted} multiline /> : <Text style={[styles.value, { color: colors.text }]}>{player.contract_notes || '-'}</Text>}</View>
                     {renderDocuments()}
                     {renderSpielplanButton()}
                   </View>
@@ -3055,65 +3055,65 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       {/* PDF Profil Modal */}
       <Modal visible={showPDFProfileModal} animationType="fade" transparent>
         <View style={styles.pdfModalOverlay}>
-          <View style={styles.pdfModalContainer}>
-            <View style={styles.pdfModalHeader}>
-              <Text style={styles.pdfModalTitle}>Spielerprofil PDF {pdfEditMode ? '(Bearbeiten)' : ''}</Text>
-              <TouchableOpacity onPress={() => { setShowPDFProfileModal(false); setPdfEditMode(false); }} style={styles.closeButton}>
-                <Text style={styles.closeButtonText}>✕</Text>
+          <View style={[styles.pdfModalContainer, { backgroundColor: colors.surface }]}>
+            <View style={[styles.pdfModalHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+              <Text style={[styles.pdfModalTitle, { color: colors.text }]}>Spielerprofil PDF {pdfEditMode ? '(Bearbeiten)' : ''}</Text>
+              <TouchableOpacity onPress={() => { setShowPDFProfileModal(false); setPdfEditMode(false); }} style={[styles.closeButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
+                <Text style={[styles.closeButtonText, { color: colors.textSecondary }]}>✕</Text>
               </TouchableOpacity>
             </View>
-            
+
             {pdfEditMode ? (
               /* Bearbeitungsmodus */
-              <ScrollView style={styles.pdfModalContent}>
+              <ScrollView style={[styles.pdfModalContent, { backgroundColor: colors.background }]}>
                 <View style={styles.pdfEditSection}>
-                  <Text style={styles.pdfEditSectionTitle}>Karriereverlauf der letzten Jahre</Text>
-                  <TouchableOpacity style={styles.pdfAddCareerButton} onPress={addNewCareerEntry}>
-                    <Text style={styles.pdfAddCareerButtonText}>+ Station hinzufügen</Text>
+                  <Text style={[styles.pdfEditSectionTitle, { color: colors.text }]}>Karriereverlauf der letzten Jahre</Text>
+                  <TouchableOpacity style={[styles.pdfAddCareerButton, { backgroundColor: colors.primary }]} onPress={addNewCareerEntry}>
+                    <Text style={[styles.pdfAddCareerButtonText, { color: colors.primaryText }]}>+ Station hinzufügen</Text>
                   </TouchableOpacity>
                 </View>
 
                 {careerEntries.map((entry, index) => (
-                  <View key={entry.id || index} style={styles.pdfCareerEditCard}>
+                  <View key={entry.id || index} style={[styles.pdfCareerEditCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
                     <View style={styles.pdfCareerEditRow}>
                       <View style={{ flex: 2 }}>
-                        <Text style={styles.pdfCareerEditLabel}>Verein</Text>
-                        <TextInput 
-                          style={styles.pdfCareerEditInput} 
-                          value={entry.club} 
+                        <Text style={[styles.pdfCareerEditLabel, { color: colors.textMuted }]}>Verein</Text>
+                        <TextInput
+                          style={[styles.pdfCareerEditInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+                          value={entry.club}
                           onChangeText={(t) => updateCareerEntry(index, 'club', t)}
-                          placeholder="Verein" placeholderTextColor="#999"
+                          placeholder="Verein" placeholderTextColor={colors.textMuted}
                         />
                       </View>
                       <View style={{ flex: 1, marginLeft: 6 }}>
-                        <Text style={styles.pdfCareerEditLabel}>Liga</Text>
-                        <TextInput 
-                          style={styles.pdfCareerEditInput} 
-                          value={entry.league} 
+                        <Text style={[styles.pdfCareerEditLabel, { color: colors.textMuted }]}>Liga</Text>
+                        <TextInput
+                          style={[styles.pdfCareerEditInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+                          value={entry.league}
                           onChangeText={(t) => updateCareerEntry(index, 'league', t)}
-                          placeholder="Liga" placeholderTextColor="#999"
+                          placeholder="Liga" placeholderTextColor={colors.textMuted}
                         />
                       </View>
                     </View>
-                    
+
                     <View style={[styles.pdfCareerEditRow, { marginTop: 4 }]}>
                       {entry.is_current ? (
                         <>
                           <View style={{ flex: 1 }}>
-                            <Text style={styles.pdfCareerEditLabel}>Seit</Text>
-                            <TextInput 
-                              style={styles.pdfCareerEditInput} 
-                              value={entry.from_date} 
+                            <Text style={[styles.pdfCareerEditLabel, { color: colors.textMuted }]}>Seit</Text>
+                            <TextInput
+                              style={[styles.pdfCareerEditInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+                              value={entry.from_date}
                               onChangeText={(t) => updateCareerEntry(index, 'from_date', t)}
-                              placeholder="01.07.2023" placeholderTextColor="#999"
+                              placeholder="01.07.2023" placeholderTextColor={colors.textMuted}
                             />
                           </View>
                           <View style={{ marginTop: 18, marginLeft: 6 }}>
-                            <TouchableOpacity 
-                              style={[styles.pdfCurrentToggle, styles.pdfCurrentToggleActive]}
+                            <TouchableOpacity
+                              style={[styles.pdfCurrentToggle, styles.pdfCurrentToggleActive, { backgroundColor: colors.primary }]}
                               onPress={() => updateCareerEntry(index, 'is_current', false)}
                             >
-                              <Text style={[styles.pdfCurrentToggleText, styles.pdfCurrentToggleTextActive]}>
+                              <Text style={[styles.pdfCurrentToggleText, styles.pdfCurrentToggleTextActive, { color: colors.primaryText }]}>
                                 Aktuell
                               </Text>
                             </TouchableOpacity>
@@ -3122,29 +3122,29 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                       ) : (
                         <>
                           <View style={{ flex: 1 }}>
-                            <Text style={styles.pdfCareerEditLabel}>Von</Text>
-                            <TextInput 
-                              style={styles.pdfCareerEditInput} 
-                              value={entry.from_date} 
+                            <Text style={[styles.pdfCareerEditLabel, { color: colors.textMuted }]}>Von</Text>
+                            <TextInput
+                              style={[styles.pdfCareerEditInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+                              value={entry.from_date}
                               onChangeText={(t) => updateCareerEntry(index, 'from_date', t)}
-                              placeholder="01.07.2023" placeholderTextColor="#999"
+                              placeholder="01.07.2023" placeholderTextColor={colors.textMuted}
                             />
                           </View>
                           <View style={{ flex: 1, marginLeft: 6 }}>
-                            <Text style={styles.pdfCareerEditLabel}>Bis</Text>
-                            <TextInput 
-                              style={styles.pdfCareerEditInput} 
-                              value={entry.to_date} 
+                            <Text style={[styles.pdfCareerEditLabel, { color: colors.textMuted }]}>Bis</Text>
+                            <TextInput
+                              style={[styles.pdfCareerEditInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+                              value={entry.to_date}
                               onChangeText={(t) => updateCareerEntry(index, 'to_date', t)}
-                              placeholder="30.06.2024" placeholderTextColor="#999"
+                              placeholder="30.06.2024" placeholderTextColor={colors.textMuted}
                             />
                           </View>
                           <View style={{ marginTop: 18, marginLeft: 6 }}>
-                            <TouchableOpacity 
-                              style={styles.pdfCurrentToggle}
+                            <TouchableOpacity
+                              style={[styles.pdfCurrentToggle, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
                               onPress={() => updateCareerEntry(index, 'is_current', true)}
                             >
-                              <Text style={styles.pdfCurrentToggleText}>
+                              <Text style={[styles.pdfCurrentToggleText, { color: colors.textSecondary }]}>
                                 Aktuell
                               </Text>
                             </TouchableOpacity>
@@ -3152,32 +3152,32 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                         </>
                       )}
                       <View style={{ flex: 0.6, marginLeft: 6 }}>
-                        <Text style={styles.pdfCareerEditLabel}>Spiele</Text>
+                        <Text style={[styles.pdfCareerEditLabel, { color: colors.textMuted }]}>Spiele</Text>
                         <TextInput
-                          style={styles.pdfCareerEditInput}
+                          style={[styles.pdfCareerEditInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
                           value={entry.games || ''}
                           onChangeText={(t) => updateCareerEntry(index, 'games', t.replace(/[^0-9]/g, ''))}
-                          placeholder="0" placeholderTextColor="#999"
+                          placeholder="0" placeholderTextColor={colors.textMuted}
                           keyboardType="numeric"
                         />
                       </View>
                       <View style={{ flex: 0.6, marginLeft: 6 }}>
-                        <Text style={styles.pdfCareerEditLabel}>Tore</Text>
+                        <Text style={[styles.pdfCareerEditLabel, { color: colors.textMuted }]}>Tore</Text>
                         <TextInput
-                          style={styles.pdfCareerEditInput}
+                          style={[styles.pdfCareerEditInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
                           value={entry.goals || ''}
                           onChangeText={(t) => updateCareerEntry(index, 'goals', t.replace(/[^0-9]/g, ''))}
-                          placeholder="0" placeholderTextColor="#999"
+                          placeholder="0" placeholderTextColor={colors.textMuted}
                           keyboardType="numeric"
                         />
                       </View>
                       <View style={{ flex: 0.6, marginLeft: 6 }}>
-                        <Text style={styles.pdfCareerEditLabel}>Assists</Text>
+                        <Text style={[styles.pdfCareerEditLabel, { color: colors.textMuted }]}>Assists</Text>
                         <TextInput
-                          style={styles.pdfCareerEditInput}
+                          style={[styles.pdfCareerEditInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
                           value={entry.assists || ''}
                           onChangeText={(t) => updateCareerEntry(index, 'assists', t.replace(/[^0-9]/g, ''))}
-                          placeholder="0" placeholderTextColor="#999"
+                          placeholder="0" placeholderTextColor={colors.textMuted}
                           keyboardType="numeric"
                         />
                       </View>
@@ -3189,12 +3189,12 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                     </View>
                   </View>
                 ))}
-                
+
                 {/* Ansprechpartner Dropdown */}
                 {pdfAdvisors.length > 1 && (
-                  <View style={{ backgroundColor: '#f5f5f5', borderRadius: 8, padding: 12, marginBottom: 12 }}>
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#666', marginBottom: 8 }}>Telefon im PDF von:</Text>
-                    <View style={{ backgroundColor: '#fff', borderRadius: 6, borderWidth: 1, borderColor: '#ddd' }}>
+                  <View style={{ backgroundColor: colors.surfaceSecondary, borderRadius: 8, padding: 12, marginBottom: 12 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: colors.textSecondary, marginBottom: 8 }}>Telefon im PDF von:</Text>
+                    <View style={{ backgroundColor: colors.surface, borderRadius: 6, borderWidth: 1, borderColor: colors.border }}>
                       {pdfAdvisors.map((advisor, index) => (
                         <TouchableOpacity
                           key={index}
@@ -3211,8 +3211,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                             alignItems: 'center',
                             padding: 10,
                             borderBottomWidth: index < pdfAdvisors.length - 1 ? 1 : 0,
-                            borderBottomColor: '#eee',
-                            backgroundColor: index === 0 ? '#f0f0f0' : '#fff',
+                            borderBottomColor: colors.border,
+                            backgroundColor: index === 0 ? colors.surfaceSecondary : colors.surface,
                           }}
                         >
                           <View style={{
@@ -3220,41 +3220,42 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                             height: 18,
                             borderRadius: 9,
                             borderWidth: 2,
-                            borderColor: index === 0 ? '#1a1a1a' : '#ccc',
+                            borderColor: index === 0 ? colors.primary : colors.border,
                             marginRight: 10,
                             justifyContent: 'center',
                             alignItems: 'center',
                           }}>
-                            {index === 0 && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#1a1a1a' }} />}
+                            {index === 0 && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.primary }} />}
                           </View>
-                          <Text style={{ fontSize: 14, color: '#333' }}>{advisor}</Text>
+                          <Text style={{ fontSize: 14, color: colors.text }}>{advisor}</Text>
                         </TouchableOpacity>
                       ))}
                     </View>
                   </View>
                 )}
 
-                <Text style={[styles.pdfEditSectionTitle, { marginTop: 16, marginBottom: 8 }]}>Über den Spieler</Text>
+                <Text style={[styles.pdfEditSectionTitle, { marginTop: 16, marginBottom: 8, color: colors.text }]}>Über den Spieler</Text>
 
                 {/* Feld 1: Stichpunkte eingeben */}
-                <View style={{ backgroundColor: '#f5f5f5', borderRadius: 8, padding: 12, marginBottom: 12 }}>
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#333', marginBottom: 6 }}>
+                <View style={{ backgroundColor: colors.surfaceSecondary, borderRadius: 8, padding: 12, marginBottom: 12 }}>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: 6 }}>
                     Stichpunkte für AI (optional)
                   </Text>
                   <TextInput
                     style={{
-                      backgroundColor: '#fff',
+                      backgroundColor: colors.inputBackground,
                       borderWidth: 1,
-                      borderColor: '#ddd',
+                      borderColor: colors.inputBorder,
                       borderRadius: 6,
                       padding: 10,
                       fontSize: 14,
                       minHeight: 80,
                       textAlignVertical: 'top',
+                      color: colors.text,
                     }}
                     value={aiBulletPoints}
                     onChangeText={setAiBulletPoints}
-                    placeholder="z.B. schnell am Ball, Führungsspieler, war verletzt - jetzt fit, technisch stark..." placeholderTextColor="#999"
+                    placeholder="z.B. schnell am Ball, Führungsspieler, war verletzt - jetzt fit, technisch stark..." placeholderTextColor={colors.textMuted}
                     multiline
                     numberOfLines={3}
                   />
@@ -3262,7 +3263,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                     onPress={generateAIDescription}
                     disabled={generatingDescription}
                     style={{
-                      backgroundColor: generatingDescription ? '#999' : '#1a1a1a',
+                      backgroundColor: generatingDescription ? colors.textMuted : colors.primary,
                       paddingVertical: 10,
                       paddingHorizontal: 16,
                       borderRadius: 6,
@@ -3270,31 +3271,32 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                       alignItems: 'center',
                     }}
                   >
-                    <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>
+                    <Text style={{ color: colors.primaryText, fontSize: 13, fontWeight: '600' }}>
                       {generatingDescription ? 'Generiere...' : 'AI Text generieren'}
                     </Text>
                   </TouchableOpacity>
                 </View>
 
                 {/* Feld 2: Generierter Text (bearbeitbar) */}
-                <View style={{ backgroundColor: '#fff', borderRadius: 8, padding: 12, borderWidth: 1, borderColor: '#ddd' }}>
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#333', marginBottom: 6 }}>
+                <View style={{ backgroundColor: colors.cardBackground, borderRadius: 8, padding: 12, borderWidth: 1, borderColor: colors.cardBorder }}>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: 6 }}>
                     Spielerbeschreibung (bearbeitbar)
                   </Text>
                   <TextInput
                     style={{
-                      backgroundColor: '#fafafa',
+                      backgroundColor: colors.inputBackground,
                       borderWidth: 1,
-                      borderColor: '#e0e0e0',
+                      borderColor: colors.inputBorder,
                       borderRadius: 6,
                       padding: 10,
                       fontSize: 14,
                       minHeight: 120,
                       textAlignVertical: 'top',
+                      color: colors.text,
                     }}
                     value={playerDescription}
                     onChangeText={setPlayerDescription}
-                    placeholder="Hier erscheint der generierte Text oder schreibe selbst..." placeholderTextColor="#999"
+                    placeholder="Hier erscheint der generierte Text oder schreibe selbst..." placeholderTextColor={colors.textMuted}
                     multiline
                     numberOfLines={6}
                   />
@@ -3303,11 +3305,11 @@ export function PlayerDetailScreen({ route, navigation }: any) {
             ) : (
               /* Vorschau - echtes PDF für Web (100% identisch zum Download), WebView für Mobile */
               Platform.OS === 'web' ? (
-                <div style={{ flex: 1, backgroundColor: '#e8e8e8', overflow: 'auto', padding: 16 }}>
+                <div style={{ flex: 1, backgroundColor: isDark ? '#1a1a2e' : '#e8e8e8', overflow: 'auto', padding: 16 }}>
                   {loadingPdfPreview ? (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12 }}>
-                      <div style={{ width: 40, height: 40, border: '3px solid #ddd', borderTopColor: '#333', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-                      <span style={{ color: '#666', fontSize: 14 }}>PDF wird generiert...</span>
+                      <div style={{ width: 40, height: 40, border: `3px solid ${colors.border}`, borderTopColor: colors.text, borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                      <span style={{ color: colors.textSecondary, fontSize: 14 }}>PDF wird generiert...</span>
                       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
                     </div>
                   ) : pdfPreviewUrl ? (
@@ -3317,13 +3319,13 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                     />
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12 }}>
-                      <span style={{ color: '#666', fontSize: 14 }}>PDF-Vorschau wird geladen...</span>
+                      <span style={{ color: colors.textSecondary, fontSize: 14 }}>PDF-Vorschau wird geladen...</span>
                     </div>
                   )}
                 </div>
               ) : (
-                <ScrollView 
-                  style={styles.pdfPreviewContainer} 
+                <ScrollView
+                  style={[styles.pdfPreviewContainer, { backgroundColor: colors.background }]}
                   contentContainerStyle={styles.pdfPreviewContent}
                   showsVerticalScrollIndicator={true}
                 >
@@ -3336,25 +3338,25 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 </ScrollView>
               )
             )}
-            
+
             {/* Buttons */}
-            <View style={styles.pdfButtonsContainer}>
+            <View style={[styles.pdfButtonsContainer, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
               {pdfEditMode ? (
                 <>
-                  <TouchableOpacity style={styles.pdfCancelButton} onPress={() => { setPdfEditMode(false); fetchCareerEntries(); }}>
-                    <Text style={styles.pdfCancelButtonText}>Abbrechen</Text>
+                  <TouchableOpacity style={[styles.pdfCancelButton, { backgroundColor: colors.surfaceSecondary }]} onPress={() => { setPdfEditMode(false); fetchCareerEntries(); }}>
+                    <Text style={[styles.pdfCancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.pdfSaveButton} onPress={savePdfChanges}>
-                    <Text style={styles.pdfSaveButtonText}>Speichern</Text>
+                  <TouchableOpacity style={[styles.pdfSaveButton, { backgroundColor: colors.primary }]} onPress={savePdfChanges}>
+                    <Text style={[styles.pdfSaveButtonText, { color: colors.primaryText }]}>Speichern</Text>
                   </TouchableOpacity>
                 </>
               ) : (
                 <>
-                  <TouchableOpacity style={styles.pdfDownloadButton} onPress={generatePDF}>
-                    <Text style={styles.pdfDownloadButtonText}>Als PDF downloaden</Text>
+                  <TouchableOpacity style={[styles.pdfDownloadButton, { backgroundColor: colors.primary }]} onPress={generatePDF}>
+                    <Text style={[styles.pdfDownloadButtonText, { color: colors.primaryText }]}>Als PDF downloaden</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.pdfEditButton} onPress={() => setPdfEditMode(true)}>
-                    <Text style={styles.pdfEditButtonText}>Bearbeiten</Text>
+                  <TouchableOpacity style={[styles.pdfEditButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setPdfEditMode(true)}>
+                    <Text style={[styles.pdfEditButtonText, { color: colors.textSecondary }]}>Bearbeiten</Text>
                   </TouchableOpacity>
                 </>
               )}
