@@ -22,6 +22,7 @@ export function MobileSidebar({ visible, onClose, navigation, activeScreen, prof
   const slideAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [shouldRender, setShouldRender] = useState(false);
+  const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const { colors } = useTheme();
 
   useEffect(() => {
@@ -61,11 +62,18 @@ export function MobileSidebar({ visible, onClose, navigation, activeScreen, prof
 
   if (!shouldRender) return null;
 
+  // Handler für Backdrop-Klick - schließt nicht wenn Feedback-Modal offen
+  const handleBackdropPress = () => {
+    if (!feedbackModalOpen) {
+      onClose();
+    }
+  };
+
   return (
     <View style={styles.container} pointerEvents="auto">
       {/* Backdrop */}
       <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
-        <Pressable style={styles.backdropPressable} onPress={onClose} />
+        <Pressable style={styles.backdropPressable} onPress={handleBackdropPress} />
       </Animated.View>
 
       {/* Sidebar */}
@@ -76,6 +84,7 @@ export function MobileSidebar({ visible, onClose, navigation, activeScreen, prof
           profile={profile}
           onNavigate={onClose}
           embedded
+          onFeedbackModalChange={setFeedbackModalOpen}
         />
       </Animated.View>
     </View>

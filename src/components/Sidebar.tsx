@@ -16,14 +16,21 @@ interface SidebarProps {
   } | null;
   onNavigate?: () => void;
   embedded?: boolean; // Wenn true, wird nur der Inhalt ohne Mobile-Header/Modal gerendert
+  onFeedbackModalChange?: (isOpen: boolean) => void; // Callback für Feedback-Modal Status
 }
 
 // Breakpoint für Mobile
 const MOBILE_BREAKPOINT = 768;
 
-export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedded }: SidebarProps) {
+export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedded, onFeedbackModalChange }: SidebarProps) {
   const [hoveredNav, setHoveredNav] = useState<string | null>(null);
-  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModalState] = useState(false);
+
+  // Wrapper für setShowFeedbackModal um Parent zu informieren
+  const setShowFeedbackModal = (value: boolean) => {
+    setShowFeedbackModalState(value);
+    onFeedbackModalChange?.(value);
+  };
   const [feedbackType, setFeedbackType] = useState<'bug' | 'feature' | 'other'>('bug');
   const [feedbackText, setFeedbackText] = useState('');
   const [submitting, setSubmitting] = useState(false);

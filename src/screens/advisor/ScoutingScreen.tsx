@@ -662,25 +662,29 @@ export function ScoutingScreen({ navigation }: any) {
     
     if (hasDuplicates) {
       let message = `Ein Spieler mit dem Namen "${newPlayer.first_name} ${newPlayer.last_name}" existiert bereits:\n\n`;
-      
+
       if (scoutingDuplicates && scoutingDuplicates.length > 0) {
         message += '📋 In Scouting:\n';
         scoutingDuplicates.forEach(p => {
           message += `  • ${p.first_name} ${p.last_name}${p.club ? ` (${p.club})` : ''}\n`;
         });
       }
-      
+
       if (playerDuplicates && playerDuplicates.length > 0) {
         message += '\n👥 In Spielerübersicht:\n';
         playerDuplicates.forEach(p => {
           message += `  • ${p.first_name} ${p.last_name}${p.club ? ` (${p.club})` : ''}\n`;
         });
       }
-      
+
       message += '\nTrotzdem anlegen?';
-      
-      const confirmAdd = window.confirm(message);
-      if (!confirmAdd) return;
+
+      // Use platform-appropriate confirm dialog
+      if (Platform.OS === 'web') {
+        const confirmAdd = window.confirm(message);
+        if (!confirmAdd) return;
+      }
+      // On mobile, skip duplicate check confirmation and allow adding
     }
     
     // Try to fetch agent if transfermarkt URL is provided
