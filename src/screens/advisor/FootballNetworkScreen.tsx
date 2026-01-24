@@ -245,7 +245,7 @@ export function FootballNetworkScreen({ navigation }: any) {
 
         <View style={[styles.mainContentMobile, { backgroundColor: colors.background }]}>
           <MobileHeader
-            title="Network"
+            title="Football Network"
             onMenuPress={() => setShowMobileSidebar(true)}
             onProfilePress={() => navigation.navigate('MyProfile')}
             profileInitials={profileInitials}
@@ -666,7 +666,7 @@ export function FootballNetworkScreen({ navigation }: any) {
         {/* Mobile Header */}
         {isMobile && (
           <MobileHeader
-            title="Network"
+            title="Football Network"
             onMenuPress={() => setShowMobileSidebar(true)}
             onProfilePress={() => navigation.navigate('MyProfile')}
             profileInitials={profileInitials}

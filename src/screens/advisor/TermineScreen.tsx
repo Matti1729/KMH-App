@@ -1312,7 +1312,7 @@ END:VEVENT
                 return (
                   <TouchableOpacity
                     key={game.id}
-                    style={[styles.mobileGameCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }, isToday && styles.mobileGameCardToday]}
+                    style={[styles.mobileGameCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }, isToday && { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#d1fae5', borderColor: '#10b981' }]}
                     onPress={() => toggleGameSelection(game.id, game.selected)}
                     activeOpacity={0.7}
                   >
@@ -1597,7 +1597,7 @@ END:VEVENT
                     <View key={game.id} style={[
                       styles.scoutingTableRow,
                       { borderBottomColor: colors.border },
-                      isToday && styles.gameRowToday
+                      isToday && { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#d1fae5' }
                     ]}>
                       <TouchableOpacity
                         style={[styles.scoutingTableCell, { width: 40 }]}
@@ -1858,7 +1858,7 @@ END:VEVENT
                     style={[
                       styles.mobileTerminCard,
                       { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
-                      isRunning && !isPast && styles.mobileTerminCardRunning,
+                      isRunning && !isPast && { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#dcfce7', borderColor: '#10b981' },
                       isPast && { backgroundColor: colors.surfaceSecondary }
                     ]}
                     onPress={() => toggleTerminSelection(termin.id)}
@@ -2066,7 +2066,7 @@ END:VEVENT
                       style={[
                         styles.termineTableRow,
                         { backgroundColor: colors.cardBackground, borderBottomColor: colors.border },
-                        isRunning && !isPast && styles.termineTableRowRunning,
+                        isRunning && !isPast && { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#dcfce7' },
                         isPast && { backgroundColor: colors.surfaceSecondary }
                       ]}
                       onPress={() => openEditModal(termin)}

@@ -24,7 +24,14 @@ export function AppNavigator() {
       <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="AdvisorDashboard" component={AdvisorHomeScreen} />
       <Stack.Screen name="PlayerOverview" component={PlayerOverviewScreen} />
-      <Stack.Screen name="PlayerDetail" component={PlayerDetailScreen} />
+      <Stack.Screen
+        name="PlayerDetail"
+        component={PlayerDetailScreen}
+        options={{
+          presentation: 'modal',
+          animation: 'slide_from_bottom',
+        }}
+      />
       <Stack.Screen name="MyProfile" component={MyProfileScreen} />
       <Stack.Screen name="AdminPanel" component={AdminPanelScreen} />
       <Stack.Screen name="Calendar" component={TermineScreen} />

@@ -830,23 +830,23 @@ export function TransfersScreen({ navigation }: any) {
           </View>
 
           {/* Mobile Toolbar */}
-          <View style={styles.mobileToolbar}>
-            <View style={styles.mobileSearchContainer}>
+          <View style={[styles.mobileToolbar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+            <View style={[styles.mobileSearchContainer, { backgroundColor: colors.inputBackground }]}>
               <Text style={styles.searchIcon}>🔍</Text>
               <TextInput
-                style={styles.mobileSearchInput}
+                style={[styles.mobileSearchInput, { color: colors.text }]}
                 placeholder={activeTab === 'spieler' ? "Spieler suchen..." : "Verein suchen..."}
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={colors.textMuted}
                 value={activeTab === 'spieler' ? searchText : clubSearchText}
                 onChangeText={activeTab === 'spieler' ? setSearchText : setClubSearchText}
               />
             </View>
             {activeTab === 'spieler' && (
               <TouchableOpacity
-                style={[styles.mobileFilterButton, activeFilterCount > 0 && styles.mobileFilterButtonActive]}
+                style={[styles.mobileFilterButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }, activeFilterCount > 0 && { backgroundColor: colors.primary, borderColor: colors.primary }]}
                 onPress={() => setShowMobileFilters(true)}
               >
-                <Ionicons name="filter" size={20} color={activeFilterCount > 0 ? "#fff" : "#64748b"} />
+                <Ionicons name="filter" size={20} color={activeFilterCount > 0 ? colors.primaryText : colors.textSecondary} />
                 {activeFilterCount > 0 && (
                   <View style={styles.filterCountBubble}>
                     <Text style={styles.filterCountText}>{activeFilterCount}</Text>
@@ -862,8 +862,8 @@ export function TransfersScreen({ navigation }: any) {
           </View>
 
           {/* Player Count */}
-          <View style={styles.mobileSubheader}>
-            <Text style={styles.mobileSubheaderText}>
+          <View style={[styles.mobileSubheader, { backgroundColor: colors.surfaceSecondary }]}>
+            <Text style={[styles.mobileSubheaderText, { color: colors.textSecondary }]}>
               {activeTab === 'spieler' ? `${filteredPlayers.length} Spieler` : `${filteredSearchingClubs.length} Vereine`}
             </Text>
           </View>
@@ -871,16 +871,16 @@ export function TransfersScreen({ navigation }: any) {
           {/* Content */}
           <ScrollView style={styles.mobileCardList} contentContainerStyle={styles.mobileCardListContent}>
             {loading ? (
-              <Text style={styles.loadingText}>Laden...</Text>
+              <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Laden...</Text>
             ) : activeTab === 'spieler' ? (
               filteredPlayers.length === 0 ? (
-                <Text style={styles.emptyText}>Keine Spieler gefunden</Text>
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Keine Spieler gefunden</Text>
               ) : (
                 filteredPlayers.map(player => renderMobilePlayerCard(player))
               )
             ) : (
               filteredSearchingClubs.length === 0 ? (
-                <Text style={styles.emptyText}>Keine Vereine gefunden</Text>
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Keine Vereine gefunden</Text>
               ) : (
                 filteredSearchingClubs.map(club => (
                   <TouchableOpacity
@@ -923,26 +923,26 @@ export function TransfersScreen({ navigation }: any) {
 
           {/* Mobile Filter Modal */}
           <Modal visible={showMobileFilters} transparent animationType="slide">
-            <View style={styles.mobileFilterModal}>
-              <View style={styles.mobileFilterHeader}>
-                <Text style={styles.mobileFilterTitle}>Filter</Text>
+            <View style={[styles.mobileFilterModal, { backgroundColor: colors.surface }]}>
+              <View style={[styles.mobileFilterHeader, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.mobileFilterTitle, { color: colors.text }]}>Filter</Text>
                 <TouchableOpacity onPress={() => setShowMobileFilters(false)}>
-                  <Text style={styles.mobileFilterClose}>✕</Text>
+                  <Text style={[styles.mobileFilterClose, { color: colors.textSecondary }]}>✕</Text>
                 </TouchableOpacity>
               </View>
               <ScrollView style={styles.mobileFilterContent}>
                 {/* Position Filter */}
-                <Text style={styles.mobileFilterSectionTitle}>Position</Text>
+                <Text style={[styles.mobileFilterSectionTitle, { color: colors.text }]}>Position</Text>
                 <View style={styles.mobileChipContainer}>
                   {POSITIONS.map(pos => {
                     const isSelected = selectedPositions.includes(pos);
                     return (
                       <TouchableOpacity
                         key={pos}
-                        style={[styles.mobileChip, isSelected && styles.mobileChipSelected]}
+                        style={[styles.mobileChip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, isSelected && { backgroundColor: colors.primary, borderColor: colors.primary }]}
                         onPress={() => togglePosition(pos)}
                       >
-                        <Text style={[styles.mobileChipText, isSelected && styles.mobileChipTextSelected]}>
+                        <Text style={[styles.mobileChipText, { color: colors.textSecondary }, isSelected && { color: colors.primaryText }]}>
                           {POSITION_SHORT[pos]}
                         </Text>
                       </TouchableOpacity>
@@ -951,17 +951,17 @@ export function TransfersScreen({ navigation }: any) {
                 </View>
 
                 {/* Year Filter */}
-                <Text style={styles.mobileFilterSectionTitle}>Jahrgang</Text>
+                <Text style={[styles.mobileFilterSectionTitle, { color: colors.text }]}>Jahrgang</Text>
                 <View style={styles.mobileChipContainer}>
                   {availableYears.map(year => {
                     const isSelected = selectedYears.includes(year);
                     return (
                       <TouchableOpacity
                         key={year}
-                        style={[styles.mobileChip, isSelected && styles.mobileChipSelected]}
+                        style={[styles.mobileChip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, isSelected && { backgroundColor: colors.primary, borderColor: colors.primary }]}
                         onPress={() => toggleYear(year)}
                       >
-                        <Text style={[styles.mobileChipText, isSelected && styles.mobileChipTextSelected]}>
+                        <Text style={[styles.mobileChipText, { color: colors.textSecondary }, isSelected && { color: colors.primaryText }]}>
                           {year}
                         </Text>
                       </TouchableOpacity>
@@ -970,7 +970,7 @@ export function TransfersScreen({ navigation }: any) {
                 </View>
 
                 {/* Listing Filter */}
-                <Text style={styles.mobileFilterSectionTitle}>Listung</Text>
+                <Text style={[styles.mobileFilterSectionTitle, { color: colors.text }]}>Listung</Text>
                 <View style={styles.mobileChipContainer}>
                   {LISTINGS.map(listing => {
                     const isSelected = selectedListings.includes(listing);
@@ -978,10 +978,10 @@ export function TransfersScreen({ navigation }: any) {
                     return (
                       <TouchableOpacity
                         key={listing}
-                        style={[styles.mobileChip, isSelected && styles.mobileChipSelected]}
+                        style={[styles.mobileChip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, isSelected && { backgroundColor: colors.primary, borderColor: colors.primary }]}
                         onPress={() => toggleListing(listing)}
                       >
-                        <Text style={[styles.mobileChipText, isSelected && styles.mobileChipTextSelected]}>
+                        <Text style={[styles.mobileChipText, { color: colors.textSecondary }, isSelected && { color: colors.primaryText }]}>
                           {label}
                         </Text>
                       </TouchableOpacity>
@@ -990,7 +990,7 @@ export function TransfersScreen({ navigation }: any) {
                 </View>
 
                 {/* Responsibility Filter */}
-                <Text style={styles.mobileFilterSectionTitle}>Zuständigkeit</Text>
+                <Text style={[styles.mobileFilterSectionTitle, { color: colors.text }]}>Zuständigkeit</Text>
                 <View style={styles.mobileChipContainer}>
                   {advisors.map(advisor => {
                     const fullName = `${advisor.first_name} ${advisor.last_name}`;
@@ -998,10 +998,10 @@ export function TransfersScreen({ navigation }: any) {
                     return (
                       <TouchableOpacity
                         key={advisor.id}
-                        style={[styles.mobileChip, isSelected && styles.mobileChipSelected]}
+                        style={[styles.mobileChip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, isSelected && { backgroundColor: colors.primary, borderColor: colors.primary }]}
                         onPress={() => toggleResponsibility(fullName)}
                       >
-                        <Text style={[styles.mobileChipText, isSelected && styles.mobileChipTextSelected]}>
+                        <Text style={[styles.mobileChipText, { color: colors.textSecondary }, isSelected && { color: colors.primaryText }]}>
                           {advisor.first_name}
                         </Text>
                       </TouchableOpacity>
@@ -1009,9 +1009,9 @@ export function TransfersScreen({ navigation }: any) {
                   })}
                 </View>
               </ScrollView>
-              <View style={styles.mobileFilterFooter}>
+              <View style={[styles.mobileFilterFooter, { borderTopColor: colors.border }]}>
                 <TouchableOpacity
-                  style={styles.mobileFilterClearButton}
+                  style={[styles.mobileFilterClearButton, { borderColor: colors.border }]}
                   onPress={() => {
                     clearPositions();
                     clearYears();
@@ -1019,13 +1019,13 @@ export function TransfersScreen({ navigation }: any) {
                     clearResponsibilities();
                   }}
                 >
-                  <Text style={styles.mobileFilterClearText}>Alle löschen</Text>
+                  <Text style={[styles.mobileFilterClearText, { color: colors.textSecondary }]}>Alle löschen</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={styles.mobileFilterApplyButton}
+                  style={[styles.mobileFilterApplyButton, { backgroundColor: colors.primary }]}
                   onPress={() => setShowMobileFilters(false)}
                 >
-                  <Text style={styles.mobileFilterApplyText}>Anwenden</Text>
+                  <Text style={[styles.mobileFilterApplyText, { color: colors.primaryText }]}>Anwenden</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1863,7 +1863,7 @@ const styles = StyleSheet.create({
   mobileToolbar: { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 8, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
   mobileSearchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 8, paddingHorizontal: 10, height: 40 },
   mobileSearchInput: { flex: 1, fontSize: 14, color: '#1a1a1a', marginLeft: 8 },
-  mobileFilterButton: { width: 40, height: 40, borderRadius: 8, backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center' },
+  mobileFilterButton: { width: 44, height: 44, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', justifyContent: 'center', alignItems: 'center' },
   mobileFilterButtonActive: { backgroundColor: '#1a1a1a' },
   mobileAddButton: { width: 40, height: 40, borderRadius: 8, backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center' },
   mobileAddButtonText: { color: '#fff', fontSize: 24, fontWeight: '300' },
