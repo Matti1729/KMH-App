@@ -929,14 +929,14 @@ export function PlayerOverviewScreen({ navigation }: any) {
           {/* Add Player Modal */}
           <Modal visible={showAddModal} transparent animationType="fade">
             <View style={styles.modalOverlay}>
-              <View style={styles.modalContent}>
-                <Text style={styles.modalTitle}>Neuen Spieler anlegen</Text>
-                <TextInput style={styles.modalInput} placeholder="Vorname" value={newFirstName} onChangeText={setNewFirstName} />
-                <TextInput style={styles.modalInput} placeholder="Nachname" value={newLastName} onChangeText={setNewLastName} />
-                <Text style={styles.modalHint}>Zuständigkeit: {currentUserName || 'Sie'}</Text>
+              <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>Neuen Spieler anlegen</Text>
+                <TextInput style={[styles.modalInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Vorname" placeholderTextColor={colors.textMuted} value={newFirstName} onChangeText={setNewFirstName} />
+                <TextInput style={[styles.modalInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Nachname" placeholderTextColor={colors.textMuted} value={newLastName} onChangeText={setNewLastName} />
+                <Text style={[styles.modalHint, { color: colors.textSecondary }]}>Zuständigkeit: {currentUserName || 'Sie'}</Text>
                 <View style={styles.modalButtons}>
-                  <TouchableOpacity style={styles.modalCancelButton} onPress={() => setShowAddModal(false)}><Text style={styles.modalCancelButtonText}>Abbrechen</Text></TouchableOpacity>
-                  <TouchableOpacity style={styles.modalSaveButton} onPress={handleAddPlayer}><Text style={styles.modalSaveButtonText}>Speichern</Text></TouchableOpacity>
+                  <TouchableOpacity style={[styles.modalCancelButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setShowAddModal(false)}><Text style={[styles.modalCancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text></TouchableOpacity>
+                  <TouchableOpacity style={[styles.modalSaveButton, { backgroundColor: colors.surface }]} onPress={handleAddPlayer}><Text style={styles.modalSaveButtonText}>Speichern</Text></TouchableOpacity>
                 </View>
               </View>
             </View>
@@ -945,20 +945,20 @@ export function PlayerOverviewScreen({ navigation }: any) {
           {/* Request Access Modal */}
           <Modal visible={showRequestModal} transparent animationType="fade">
             <View style={styles.modalOverlay}>
-              <View style={styles.modalContent}>
-                <Text style={styles.modalTitle}>Zuständigkeit beantragen</Text>
-                <Text style={styles.modalText}>
+              <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>Zuständigkeit beantragen</Text>
+                <Text style={[styles.modalText, { color: colors.text }]}>
                   Sie haben keinen Zugriff auf das Profil von{'\n'}
                   <Text style={styles.modalPlayerName}>{selectedPlayer?.first_name} {selectedPlayer?.last_name}</Text>
                 </Text>
-                <Text style={styles.modalSubText}>
+                <Text style={[styles.modalSubText, { color: colors.textSecondary }]}>
                   Möchten Sie die Zuständigkeit beantragen?{'\n'}Ein Admin wird Ihre Anfrage prüfen.
                 </Text>
                 <View style={styles.modalButtons}>
-                  <TouchableOpacity style={styles.modalCancelButton} onPress={() => { setShowRequestModal(false); setSelectedPlayer(null); }}>
-                    <Text style={styles.modalCancelButtonText}>Abbrechen</Text>
+                  <TouchableOpacity style={[styles.modalCancelButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => { setShowRequestModal(false); setSelectedPlayer(null); }}>
+                    <Text style={[styles.modalCancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.modalSaveButton} onPress={handleRequestAccess}>
+                  <TouchableOpacity style={[styles.modalSaveButton, { backgroundColor: colors.surface }]} onPress={handleRequestAccess}>
                     <Text style={styles.modalSaveButtonText}>Ja, beantragen</Text>
                   </TouchableOpacity>
                 </View>
@@ -1075,10 +1075,10 @@ export function PlayerOverviewScreen({ navigation }: any) {
         </View>
 
         {/* Toolbar wie Scouting */}
-        <Pressable style={styles.toolbar} onPress={closeAllDropdowns}>
-          <View style={styles.searchContainer}>
+        <Pressable style={[styles.toolbar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]} onPress={closeAllDropdowns}>
+          <View style={[styles.searchContainer, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
             <Text style={styles.searchIcon}>🔍</Text>
-            <TextInput style={styles.searchInput} placeholder="Spieler, Verein suchen..." placeholderTextColor="#9ca3af" value={searchText} onChangeText={setSearchText} onFocus={closeAllDropdowns} />
+            <TextInput style={[styles.searchInput, { color: colors.text }]} placeholder="Spieler, Verein suchen..." placeholderTextColor={colors.textMuted} value={searchText} onChangeText={setSearchText} onFocus={closeAllDropdowns} />
           </View>
           
           <View style={styles.filterContainer}>
@@ -1091,9 +1091,9 @@ export function PlayerOverviewScreen({ navigation }: any) {
                 <Text style={[styles.filterButtonText, selectedPositions.length > 0 && styles.filterButtonTextActive]}>{getPositionFilterLabel()} ▼</Text>
               </TouchableOpacity>
               {showPositionDropdown && (
-                <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
-                  <View style={styles.filterDropdownHeader}>
-                    <Text style={styles.filterDropdownTitle}>Positionen wählen</Text>
+                <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
+                  <View style={[styles.filterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+                    <Text style={[styles.filterDropdownTitle, { color: colors.text }]}>Positionen wählen</Text>
                     {selectedPositions.length > 0 && <TouchableOpacity onPress={clearPositions}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
                   </View>
                   <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
@@ -1101,15 +1101,15 @@ export function PlayerOverviewScreen({ navigation }: any) {
                       const isSelected = selectedPositions.includes(pos);
                       const count = players.filter(p => p.position?.includes(pos)).length;
                       return (
-                        <TouchableOpacity key={pos} style={styles.filterCheckboxItem} onPress={() => togglePosition(pos)}>
-                          <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                          <Text style={styles.filterCheckboxText}>{POSITION_SHORT[pos]}</Text>
-                          <Text style={styles.filterCountBadge}>{count}</Text>
+                        <TouchableOpacity key={pos} style={[styles.filterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => togglePosition(pos)}>
+                          <View style={[styles.checkbox, { borderColor: colors.border }, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                          <Text style={[styles.filterCheckboxText, { color: colors.text }]}>{POSITION_SHORT[pos]}</Text>
+                          <Text style={[styles.filterCountBadge, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
                         </TouchableOpacity>
                       );
                     })}
                   </ScrollView>
-                  <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowPositionDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                  <TouchableOpacity style={[styles.filterDoneButton, { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border }]} onPress={() => setShowPositionDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
                 </Pressable>
               )}
             </View>
@@ -1123,9 +1123,9 @@ export function PlayerOverviewScreen({ navigation }: any) {
                 <Text style={[styles.filterButtonText, selectedYears.length > 0 && styles.filterButtonTextActive]}>{getYearFilterLabel()} ▼</Text>
               </TouchableOpacity>
               {showYearDropdown && (
-                <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
-                  <View style={styles.filterDropdownHeader}>
-                    <Text style={styles.filterDropdownTitle}>Jahrgänge wählen</Text>
+                <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
+                  <View style={[styles.filterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+                    <Text style={[styles.filterDropdownTitle, { color: colors.text }]}>Jahrgänge wählen</Text>
                     {selectedYears.length > 0 && <TouchableOpacity onPress={clearYears}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
                   </View>
                   <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
@@ -1133,15 +1133,15 @@ export function PlayerOverviewScreen({ navigation }: any) {
                       const isSelected = selectedYears.includes(year);
                       const count = players.filter(p => getYearFromDate(p.birth_date) === year).length;
                       return (
-                        <TouchableOpacity key={year} style={styles.filterCheckboxItem} onPress={() => toggleYear(year)}>
-                          <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                          <Text style={styles.filterCheckboxText}>Jg. {year}</Text>
-                          <Text style={styles.filterCountBadge}>{count}</Text>
+                        <TouchableOpacity key={year} style={[styles.filterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => toggleYear(year)}>
+                          <View style={[styles.checkbox, { borderColor: colors.border }, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                          <Text style={[styles.filterCheckboxText, { color: colors.text }]}>Jg. {year}</Text>
+                          <Text style={[styles.filterCountBadge, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
                         </TouchableOpacity>
                       );
                     })}
                   </ScrollView>
-                  <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowYearDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                  <TouchableOpacity style={[styles.filterDoneButton, { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border }]} onPress={() => setShowYearDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
                 </Pressable>
               )}
             </View>
@@ -1155,9 +1155,9 @@ export function PlayerOverviewScreen({ navigation }: any) {
                 <Text style={[styles.filterButtonText, selectedListings.length > 0 && styles.filterButtonTextActive]}>{getListingFilterLabel()} ▼</Text>
               </TouchableOpacity>
               {showListingDropdown && (
-                <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
-                  <View style={styles.filterDropdownHeader}>
-                    <Text style={styles.filterDropdownTitle}>Listung wählen</Text>
+                <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
+                  <View style={[styles.filterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+                    <Text style={[styles.filterDropdownTitle, { color: colors.text }]}>Listung wählen</Text>
                     {selectedListings.length > 0 && <TouchableOpacity onPress={clearListings}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
                   </View>
                   <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
@@ -1165,15 +1165,15 @@ export function PlayerOverviewScreen({ navigation }: any) {
                       const isSelected = selectedListings.includes(listing);
                       const count = players.filter(p => p.listing === listing).length;
                       return (
-                        <TouchableOpacity key={listing} style={styles.filterCheckboxItem} onPress={() => toggleListing(listing)}>
-                          <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                          <Text style={styles.filterCheckboxText}>{listing === 'Karl Herzog Sportmanagement' ? 'KMH' : 'PM'}</Text>
-                          <Text style={styles.filterCountBadge}>{count}</Text>
+                        <TouchableOpacity key={listing} style={[styles.filterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => toggleListing(listing)}>
+                          <View style={[styles.checkbox, { borderColor: colors.border }, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                          <Text style={[styles.filterCheckboxText, { color: colors.text }]}>{listing === 'Karl Herzog Sportmanagement' ? 'KMH' : 'PM'}</Text>
+                          <Text style={[styles.filterCountBadge, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
                         </TouchableOpacity>
                       );
                     })}
                   </ScrollView>
-                  <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowListingDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                  <TouchableOpacity style={[styles.filterDoneButton, { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border }]} onPress={() => setShowListingDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
                 </Pressable>
               )}
             </View>
@@ -1187,9 +1187,9 @@ export function PlayerOverviewScreen({ navigation }: any) {
                 <Text style={[styles.filterButtonText, selectedResponsibilities.length > 0 && styles.filterButtonTextActive]}>{getResponsibilityFilterLabel()} ▼</Text>
               </TouchableOpacity>
               {showResponsibilityDropdown && (
-                <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
-                  <View style={styles.filterDropdownHeader}>
-                    <Text style={styles.filterDropdownTitle}>Zuständigkeit wählen</Text>
+                <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
+                  <View style={[styles.filterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+                    <Text style={[styles.filterDropdownTitle, { color: colors.text }]}>Zuständigkeit wählen</Text>
                     {selectedResponsibilities.length > 0 && <TouchableOpacity onPress={clearResponsibilities}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
                   </View>
                   <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
@@ -1199,15 +1199,15 @@ export function PlayerOverviewScreen({ navigation }: any) {
                       const isSelected = selectedResponsibilities.includes(name);
                       const count = players.filter(p => p.responsibility?.includes(name) || p.responsibility?.includes(lastName)).length;
                       return (
-                        <TouchableOpacity key={advisor.id} style={styles.filterCheckboxItem} onPress={() => toggleResponsibility(name)}>
-                          <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                          <Text style={styles.filterCheckboxText}>{name}</Text>
-                          <Text style={styles.filterCountBadge}>{count}</Text>
+                        <TouchableOpacity key={advisor.id} style={[styles.filterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => toggleResponsibility(name)}>
+                          <View style={[styles.checkbox, { borderColor: colors.border }, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                          <Text style={[styles.filterCheckboxText, { color: colors.text }]}>{name}</Text>
+                          <Text style={[styles.filterCountBadge, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
                         </TouchableOpacity>
                       );
                     })}
                   </ScrollView>
-                  <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowResponsibilityDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                  <TouchableOpacity style={[styles.filterDoneButton, { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border }]} onPress={() => setShowResponsibilityDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
                 </Pressable>
               )}
             </View>
@@ -1221,9 +1221,9 @@ export function PlayerOverviewScreen({ navigation }: any) {
                 <Text style={[styles.filterButtonText, selectedContractYears.length > 0 && styles.filterButtonTextActive]}>{getContractFilterLabel()} ▼</Text>
               </TouchableOpacity>
               {showContractDropdown && (
-                <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
-                  <View style={styles.filterDropdownHeader}>
-                    <Text style={styles.filterDropdownTitle}>Vertragsende wählen</Text>
+                <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
+                  <View style={[styles.filterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+                    <Text style={[styles.filterDropdownTitle, { color: colors.text }]}>Vertragsende wählen</Text>
                     {selectedContractYears.length > 0 && <TouchableOpacity onPress={clearContractYears}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
                   </View>
                   <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
@@ -1231,15 +1231,15 @@ export function PlayerOverviewScreen({ navigation }: any) {
                       const isSelected = selectedContractYears.includes(year);
                       const count = players.filter(p => p.contract_end && new Date(p.contract_end).getFullYear().toString() === year).length;
                       return (
-                        <TouchableOpacity key={year} style={styles.filterCheckboxItem} onPress={() => toggleContractYear(year)}>
-                          <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                          <Text style={styles.filterCheckboxText}>{year}</Text>
-                          <Text style={styles.filterCountBadge}>{count}</Text>
+                        <TouchableOpacity key={year} style={[styles.filterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => toggleContractYear(year)}>
+                          <View style={[styles.checkbox, { borderColor: colors.border }, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                          <Text style={[styles.filterCheckboxText, { color: colors.text }]}>{year}</Text>
+                          <Text style={[styles.filterCountBadge, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
                         </TouchableOpacity>
                       );
                     })}
                   </ScrollView>
-                  <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowContractDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                  <TouchableOpacity style={[styles.filterDoneButton, { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border }]} onPress={() => setShowContractDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
                 </Pressable>
               )}
             </View>
@@ -1266,7 +1266,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
           {renderSortableHeader('Zuständigkeit', 'responsibility', styles.colResponsibility)}
         </View>
 
-        <ScrollView style={styles.tableBody}>
+        <ScrollView style={[styles.tableBody, { backgroundColor: colors.surface }]}>
           {(authLoading || loading) ? (
             <Text style={styles.loadingText}>Laden...</Text>
           ) : error ? (
@@ -1628,13 +1628,13 @@ const styles = StyleSheet.create({
   },
   
   // Header Banner - weiß mit Titel mittig
-  headerBanner: { flexDirection: 'row', alignItems: 'center', padding: 24, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  headerBanner: { flexDirection: 'row', alignItems: 'center', padding: 24, borderBottomWidth: 1 },
   headerBannerCenter: { flex: 1, alignItems: 'center' },
   headerTitle: { fontSize: 28, fontWeight: '700', color: '#1a1a1a' },
   headerSubtitle: { fontSize: 14, color: '#64748b', marginTop: 4 },
   
   // Toolbar - wie Scouting
-  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0', zIndex: 100 },
+  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderBottomWidth: 1, zIndex: 100 },
   searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', paddingHorizontal: 12 },
   searchIcon: { fontSize: 16, marginRight: 8 },
   searchInput: { flex: 1, paddingVertical: 10, fontSize: 14 },
@@ -1648,7 +1648,7 @@ const styles = StyleSheet.create({
   filterButtonTextActive: { color: '#0369a1' },
   
   // Filter Dropdown - wie Scouting
-  filterDropdownMulti: { position: 'absolute', top: '100%', left: 0, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', marginTop: 4, minWidth: 220, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, zIndex: 1000, overflow: 'hidden' },
+  filterDropdownMulti: { position: 'absolute', top: '100%', left: 0, borderRadius: 12, borderWidth: 1, marginTop: 4, minWidth: 220, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, zIndex: 1000, overflow: 'hidden' },
   filterDropdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#e2e8f0', backgroundColor: '#f8fafc' },
   filterDropdownTitle: { fontSize: 13, fontWeight: '600', color: '#1a1a1a' },
   filterClearText: { fontSize: 12, color: '#ef4444' },
@@ -1671,7 +1671,7 @@ const styles = StyleSheet.create({
   // Tabelle wie Scouting
   tableHeader: { flexDirection: 'row', backgroundColor: '#f1f5f9', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
   tableHeaderText: { color: '#64748b', fontWeight: '600', fontSize: 13 },
-  tableBody: { flex: 1, backgroundColor: '#fff' },
+  tableBody: { flex: 1 },
   tableRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', alignItems: 'center' },
   tableRowLocked: { backgroundColor: '#fafafa' },
   tableCell: { fontSize: 14, color: '#334155' },
@@ -1708,7 +1708,7 @@ const styles = StyleSheet.create({
 
   // Modal - dezente Buttons
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 400 },
+  modalContent: { borderRadius: 16, padding: 24, width: '90%', maxWidth: 400 },
   modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 16, textAlign: 'center' },
   modalText: { fontSize: 15, color: '#334155', textAlign: 'center', marginBottom: 8 },
   modalPlayerName: { fontWeight: 'bold' },

@@ -959,14 +959,14 @@ END:VEVENT
     setShowPlayerDropdown(false);
   };
 
-  const DashboardCard = ({ id, children, style, onPress, hoverStyle }: { 
-    id: string; children: React.ReactNode; style?: any; onPress?: () => void; hoverStyle?: any; 
+  const DashboardCard = ({ id, children, style, onPress, hoverStyle }: {
+    id: string; children: React.ReactNode; style?: any; onPress?: () => void; hoverStyle?: any;
   }) => (
-    <Pressable 
-      onPress={onPress} 
-      onHoverIn={() => setHoveredCard(id)} 
-      onHoverOut={() => setHoveredCard(null)} 
-      style={[styles.card, style, hoveredCard === id && (hoverStyle || styles.cardHovered)]}
+    <Pressable
+      onPress={onPress}
+      onHoverIn={() => setHoveredCard(id)}
+      onHoverOut={() => setHoveredCard(null)}
+      style={[styles.card, style, hoveredCard === id && [hoverStyle || styles.cardHovered, { backgroundColor: colors.surfaceSecondary }]]}
     >
       {children}
     </Pressable>
@@ -3114,10 +3114,10 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 16, marginBottom: 16 },
   card: { borderRadius: 20, overflow: 'hidden', cursor: 'pointer' as any },
   cardHovered: { transform: [{ scale: 1.02 }], shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 20 },
-  lightCardHovered: { backgroundColor: '#f0f0f0', transform: [{ scale: 1.01 }] },
-  darkCardHovered: { backgroundColor: '#2a2a2a', transform: [{ scale: 1.02 }] },
-  mainCardHovered: { backgroundColor: '#fafafa', transform: [{ scale: 1.005 }] },
-  mainCard: { flex: 2, backgroundColor: '#fff', padding: 28, minHeight: 280, borderWidth: 1, borderColor: '#eee', position: 'relative' },
+  lightCardHovered: { transform: [{ scale: 1.01 }] },
+  darkCardHovered: { transform: [{ scale: 1.02 }] },
+  mainCardHovered: { transform: [{ scale: 1.005 }] },
+  mainCard: { flex: 2, padding: 28, minHeight: 280, borderWidth: 1, position: 'relative' },
   todayCountTopRight: { position: 'absolute', top: 20, right: 24, fontSize: 48, fontWeight: '700', color: '#1a1a1a' },
   mainCardContent: { flex: 1, flexDirection: 'row' },
   mainCardLeft: { flex: 1, justifyContent: 'space-between' },
@@ -3130,8 +3130,8 @@ const styles = StyleSheet.create({
   mainCardLink: { fontSize: 14, fontWeight: '600', color: '#1a1a1a' },
   mainCardArrow: { fontSize: 16, marginLeft: 8, color: '#1a1a1a' },
   rightColumn: { flex: 1, gap: 16 },
-  termineCard: { flex: 1, backgroundColor: '#fff', padding: 20, borderWidth: 1, borderColor: '#eee', justifyContent: 'space-between' },
-  termineCardFull: { flex: 1, backgroundColor: '#fff', padding: 28, minHeight: 280, borderWidth: 1, borderColor: '#eee', borderRadius: 20, justifyContent: 'space-between', position: 'relative' },
+  termineCard: { flex: 1, padding: 20, borderWidth: 1, justifyContent: 'space-between' },
+  termineCardFull: { flex: 1, padding: 28, minHeight: 280, borderWidth: 1, borderRadius: 20, justifyContent: 'space-between', position: 'relative' },
   termineHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   termineIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#f5f5f5', justifyContent: 'center', alignItems: 'center' },
   termineIconText: { fontSize: 18 },
@@ -3160,8 +3160,8 @@ const styles = StyleSheet.create({
   // Modal styles
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalScrollContent: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 600 },
-  syncModalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 450 },
+  modalContent: { borderRadius: 16, padding: 24, width: '100%', maxWidth: 600 },
+  syncModalContent: { borderRadius: 16, padding: 24, width: '90%', maxWidth: 450 },
   modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 20 },
   syncDescription: { fontSize: 14, color: '#666', lineHeight: 22, marginBottom: 12 },
   syncStand: { fontSize: 12, color: '#999', marginBottom: 20 },
@@ -3176,14 +3176,14 @@ const styles = StyleSheet.create({
   formLabel: { fontSize: 13, color: '#666', marginBottom: 6, marginTop: 12 },
   formInput: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, fontSize: 15 },
   selectWrapper: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, overflow: 'hidden' },
-  selectInput: { padding: 12, fontSize: 15, border: 'none', width: '100%', backgroundColor: '#fff' },
-  
+  selectInput: { padding: 12, fontSize: 15, border: 'none', width: '100%' },
+
   // Dropdown Styles
   dropdownWrapper: { position: 'relative' as any, marginBottom: 4 },
-  dropdownButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, backgroundColor: '#fff' },
+  dropdownButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderRadius: 8, padding: 12 },
   dropdownButtonText: { fontSize: 15, color: '#333' },
   dropdownArrow: { fontSize: 12, color: '#999' },
-  dropdownList: { position: 'absolute' as any, top: '100%', left: 0, right: 0, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, maxHeight: 200, zIndex: 1000, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8 },
+  dropdownList: { position: 'absolute' as any, top: '100%', left: 0, right: 0, borderWidth: 1, borderRadius: 8, maxHeight: 200, zIndex: 1000, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8 },
   dropdownItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
   dropdownItemText: { fontSize: 15, color: '#333' },
   
@@ -3193,9 +3193,9 @@ const styles = StyleSheet.create({
   artOptionText: { fontSize: 13, color: '#333' },
   artOptionTextSelected: { color: '#fff' },
   modalButtons: { flexDirection: 'row', marginTop: 24, gap: 8 },
-  deleteButton: { backgroundColor: '#fff', borderWidth: 2, borderColor: '#ff4444', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 10 },
+  deleteButton: { borderWidth: 2, borderColor: '#ff4444', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 10 },
   deleteButtonText: { color: '#ff4444', fontWeight: '600' },
-  deleteConfirmModal: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 400, alignItems: 'center' },
+  deleteConfirmModal: { borderRadius: 16, padding: 24, width: '90%', maxWidth: 400, alignItems: 'center' },
   deleteConfirmTitle: { fontSize: 20, fontWeight: 'bold', color: '#1a1a1a', marginBottom: 12 },
   deleteConfirmText: { fontSize: 15, color: '#666', textAlign: 'center', marginBottom: 8 },
   deleteConfirmTermin: { fontSize: 16, fontWeight: '600', color: '#1a1a1a', marginBottom: 20, textAlign: 'center' },
@@ -3209,12 +3209,12 @@ const styles = StyleSheet.create({
   
   // Scouting-Style
   scoutingMainContent: { flex: 1, backgroundColor: '#f8fafc' },
-  scoutingHeaderBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 20, paddingHorizontal: 24, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  scoutingHeaderBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 20, paddingHorizontal: 24, borderBottomWidth: 1 },
   scoutingHeaderBannerCenter: { alignItems: 'center', flex: 1 },
   scoutingTitle: { fontSize: 24, fontWeight: '700', color: '#1a1a1a' },
   scoutingSubtitle: { fontSize: 14, color: '#64748b', marginTop: 4 },
   headerButtonsRow: { flexDirection: 'row', gap: 8 },
-  scoutingToolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0', zIndex: 100 },
+  scoutingToolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, zIndex: 100 },
   spieleSearchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', paddingHorizontal: 12, flex: 1, maxWidth: 600 },
   scoutingSearchIcon: { fontSize: 16, marginRight: 8 },
   scoutingSearchInput: { flex: 1, paddingVertical: 10, fontSize: 14, outlineStyle: 'none' as any },
@@ -3224,7 +3224,7 @@ const styles = StyleSheet.create({
   scoutingFilterButtonActive: { backgroundColor: '#e0f2fe', borderColor: '#3b82f6' },
   scoutingFilterButtonText: { fontSize: 14, color: '#64748b' },
   scoutingFilterButtonTextActive: { color: '#0369a1' },
-  scoutingFilterDropdownMulti: { position: 'absolute' as any, top: '100%', right: 0, backgroundColor: '#fff', borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, minWidth: 220, marginTop: 4, zIndex: 1002, borderWidth: 1, borderColor: '#e5e7eb' },
+  scoutingFilterDropdownMulti: { position: 'absolute' as any, top: '100%', right: 0, borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, minWidth: 220, marginTop: 4, zIndex: 1002, borderWidth: 1 },
   scoutingFilterDropdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', backgroundColor: '#f8fafc', borderTopLeftRadius: 12, borderTopRightRadius: 12 },
   scoutingFilterDropdownTitle: { fontSize: 13, fontWeight: '600', color: '#475569' },
   scoutingFilterClearText: { fontSize: 12, color: '#ef4444', fontWeight: '500' },
@@ -3239,7 +3239,7 @@ const styles = StyleSheet.create({
   scoutingNoDataText: { padding: 16, textAlign: 'center', color: '#94a3b8', fontSize: 14 },
   scoutingDropdownOverlay: { position: 'absolute' as any, top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000 },
   scoutingContent: { flex: 1, padding: 16 },
-  scoutingGamesContainer: { flex: 1, backgroundColor: '#fff', borderRadius: 12, overflow: 'hidden' },
+  scoutingGamesContainer: { flex: 1, borderRadius: 12, overflow: 'hidden' },
   scoutingTableHeader: { flexDirection: 'row', backgroundColor: '#f8fafc', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
   scoutingTableHeaderCell: { fontSize: 12, fontWeight: '600', color: '#64748b', textTransform: 'uppercase' as any },
   scoutingTableRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', alignItems: 'center' },
@@ -3254,7 +3254,7 @@ const styles = StyleSheet.create({
   emptyStateButtonText: { color: '#fff', fontWeight: '600', fontSize: 14 },
   
   // Game specific styles
-  gameCheckbox: { width: 22, height: 22, borderRadius: 4, borderWidth: 2, borderColor: '#cbd5e1', justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
+  gameCheckbox: { width: 22, height: 22, borderRadius: 4, borderWidth: 2, borderColor: '#cbd5e1', justifyContent: 'center', alignItems: 'center' },
   gameCheckboxSelected: { backgroundColor: '#10b981', borderColor: '#10b981' },
   gameCheckmark: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
   gameRowToday: { backgroundColor: '#d1fae5' },
@@ -3279,7 +3279,7 @@ const styles = StyleSheet.create({
   termineTableHeader: { flexDirection: 'row', backgroundColor: '#f8fafc', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
   termineTableHeaderText: { fontSize: 12, fontWeight: '600', color: '#64748b', textTransform: 'uppercase' as any },
   sortableHeader: { cursor: 'pointer' as any },
-  termineTableRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', alignItems: 'center', backgroundColor: '#fff' },
+  termineTableRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, alignItems: 'center' },
   termineTableRowRunning: { backgroundColor: '#dcfce7' },
   termineTableRowArchiv: { backgroundColor: '#f8fafc' },
   termineCellArchiv: { color: '#94a3b8' },

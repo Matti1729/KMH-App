@@ -1158,10 +1158,10 @@ export function TransfersScreen({ navigation }: any) {
 
         {activeTab === 'spieler' && (
         /* Toolbar wie Scouting */
-        <Pressable style={styles.toolbar} onPress={closeAllDropdowns}>
-          <View style={styles.searchContainer}>
+        <Pressable style={[styles.toolbar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]} onPress={closeAllDropdowns}>
+          <View style={[styles.searchContainer, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
             <Text style={styles.searchIcon}>🔍</Text>
-            <TextInput style={styles.searchInput} placeholder="Spieler, Verein suchen..." placeholderTextColor="#9ca3af" value={searchText} onChangeText={setSearchText} onFocus={closeAllDropdowns} />
+            <TextInput style={[styles.searchInput, { color: colors.text }]} placeholder="Spieler, Verein suchen..." placeholderTextColor={colors.textMuted} value={searchText} onChangeText={setSearchText} onFocus={closeAllDropdowns} />
           </View>
           
           <View style={styles.filterContainer}>
@@ -1174,9 +1174,9 @@ export function TransfersScreen({ navigation }: any) {
                 <Text style={[styles.filterButtonText, selectedPositions.length > 0 && styles.filterButtonTextActive]}>{getPositionFilterLabel()} ▼</Text>
               </TouchableOpacity>
               {showPositionDropdown && (
-                <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
-                  <View style={styles.filterDropdownHeader}>
-                    <Text style={styles.filterDropdownTitle}>Positionen wählen</Text>
+                <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
+                  <View style={[styles.filterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+                    <Text style={[styles.filterDropdownTitle, { color: colors.text }]}>Positionen wählen</Text>
                     {selectedPositions.length > 0 && <TouchableOpacity onPress={clearPositions}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
                   </View>
                   <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
@@ -1184,15 +1184,15 @@ export function TransfersScreen({ navigation }: any) {
                       const isSelected = selectedPositions.includes(pos);
                       const count = transferPlayers.filter(p => p.position?.includes(pos)).length;
                       return (
-                        <TouchableOpacity key={pos} style={styles.filterCheckboxItem} onPress={() => togglePosition(pos)}>
-                          <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                          <Text style={styles.filterCheckboxText}>{POSITION_SHORT[pos]}</Text>
-                          <Text style={styles.filterCountBadge}>{count}</Text>
+                        <TouchableOpacity key={pos} style={[styles.filterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => togglePosition(pos)}>
+                          <View style={[styles.checkbox, { borderColor: colors.border }, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                          <Text style={[styles.filterCheckboxText, { color: colors.text }]}>{POSITION_SHORT[pos]}</Text>
+                          <Text style={[styles.filterCountBadge, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
                         </TouchableOpacity>
                       );
                     })}
                   </ScrollView>
-                  <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowPositionDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                  <TouchableOpacity style={[styles.filterDoneButton, { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border }]} onPress={() => setShowPositionDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
                 </Pressable>
               )}
             </View>
@@ -1206,9 +1206,9 @@ export function TransfersScreen({ navigation }: any) {
                 <Text style={[styles.filterButtonText, selectedYears.length > 0 && styles.filterButtonTextActive]}>{getYearFilterLabel()} ▼</Text>
               </TouchableOpacity>
               {showYearDropdown && (
-                <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
-                  <View style={styles.filterDropdownHeader}>
-                    <Text style={styles.filterDropdownTitle}>Jahrgänge wählen</Text>
+                <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
+                  <View style={[styles.filterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+                    <Text style={[styles.filterDropdownTitle, { color: colors.text }]}>Jahrgänge wählen</Text>
                     {selectedYears.length > 0 && <TouchableOpacity onPress={clearYears}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
                   </View>
                   <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
@@ -1216,15 +1216,15 @@ export function TransfersScreen({ navigation }: any) {
                       const isSelected = selectedYears.includes(year);
                       const count = transferPlayers.filter(p => getYearFromDate(p.birth_date) === year).length;
                       return (
-                        <TouchableOpacity key={year} style={styles.filterCheckboxItem} onPress={() => toggleYear(year)}>
-                          <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                          <Text style={styles.filterCheckboxText}>Jg. {year}</Text>
-                          <Text style={styles.filterCountBadge}>{count}</Text>
+                        <TouchableOpacity key={year} style={[styles.filterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => toggleYear(year)}>
+                          <View style={[styles.checkbox, { borderColor: colors.border }, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                          <Text style={[styles.filterCheckboxText, { color: colors.text }]}>Jg. {year}</Text>
+                          <Text style={[styles.filterCountBadge, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
                         </TouchableOpacity>
                       );
                     })}
                   </ScrollView>
-                  <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowYearDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                  <TouchableOpacity style={[styles.filterDoneButton, { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border }]} onPress={() => setShowYearDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
                 </Pressable>
               )}
             </View>
@@ -1238,9 +1238,9 @@ export function TransfersScreen({ navigation }: any) {
                 <Text style={[styles.filterButtonText, selectedListings.length > 0 && styles.filterButtonTextActive]}>{getListingFilterLabel()} ▼</Text>
               </TouchableOpacity>
               {showListingDropdown && (
-                <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
-                  <View style={styles.filterDropdownHeader}>
-                    <Text style={styles.filterDropdownTitle}>Listung wählen</Text>
+                <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
+                  <View style={[styles.filterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+                    <Text style={[styles.filterDropdownTitle, { color: colors.text }]}>Listung wählen</Text>
                     {selectedListings.length > 0 && <TouchableOpacity onPress={clearListings}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
                   </View>
                   <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
@@ -1248,15 +1248,15 @@ export function TransfersScreen({ navigation }: any) {
                       const isSelected = selectedListings.includes(listing);
                       const count = transferPlayers.filter(p => p.listing === listing).length;
                       return (
-                        <TouchableOpacity key={listing} style={styles.filterCheckboxItem} onPress={() => toggleListing(listing)}>
-                          <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                          <Text style={styles.filterCheckboxText}>{listing === 'Karl Herzog Sportmanagement' ? 'KMH' : 'PM'}</Text>
-                          <Text style={styles.filterCountBadge}>{count}</Text>
+                        <TouchableOpacity key={listing} style={[styles.filterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => toggleListing(listing)}>
+                          <View style={[styles.checkbox, { borderColor: colors.border }, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                          <Text style={[styles.filterCheckboxText, { color: colors.text }]}>{listing === 'Karl Herzog Sportmanagement' ? 'KMH' : 'PM'}</Text>
+                          <Text style={[styles.filterCountBadge, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
                         </TouchableOpacity>
                       );
                     })}
                   </ScrollView>
-                  <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowListingDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                  <TouchableOpacity style={[styles.filterDoneButton, { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border }]} onPress={() => setShowListingDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
                 </Pressable>
               )}
             </View>
@@ -1270,9 +1270,9 @@ export function TransfersScreen({ navigation }: any) {
                 <Text style={[styles.filterButtonText, selectedResponsibilities.length > 0 && styles.filterButtonTextActive]}>{getResponsibilityFilterLabel()} ▼</Text>
               </TouchableOpacity>
               {showResponsibilityDropdown && (
-                <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
-                  <View style={styles.filterDropdownHeader}>
-                    <Text style={styles.filterDropdownTitle}>Zuständigkeit wählen</Text>
+                <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
+                  <View style={[styles.filterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+                    <Text style={[styles.filterDropdownTitle, { color: colors.text }]}>Zuständigkeit wählen</Text>
                     {selectedResponsibilities.length > 0 && <TouchableOpacity onPress={clearResponsibilities}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
                   </View>
                   <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
@@ -1281,15 +1281,15 @@ export function TransfersScreen({ navigation }: any) {
                       const isSelected = selectedResponsibilities.includes(name);
                       const count = transferPlayers.filter(p => p.responsibility?.includes(name)).length;
                       return (
-                        <TouchableOpacity key={advisor.id} style={styles.filterCheckboxItem} onPress={() => toggleResponsibility(name)}>
-                          <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                          <Text style={styles.filterCheckboxText}>{name}</Text>
-                          <Text style={styles.filterCountBadge}>{count}</Text>
+                        <TouchableOpacity key={advisor.id} style={[styles.filterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => toggleResponsibility(name)}>
+                          <View style={[styles.checkbox, { borderColor: colors.border }, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                          <Text style={[styles.filterCheckboxText, { color: colors.text }]}>{name}</Text>
+                          <Text style={[styles.filterCountBadge, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
                         </TouchableOpacity>
                       );
                     })}
                   </ScrollView>
-                  <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowResponsibilityDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                  <TouchableOpacity style={[styles.filterDoneButton, { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border }]} onPress={() => setShowResponsibilityDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
                 </Pressable>
               )}
             </View>
@@ -1315,8 +1315,8 @@ export function TransfersScreen({ navigation }: any) {
               {renderSortableHeader('Zuständigkeit', 'responsibility', styles.colResponsibility)}
             </View>
 
-            <View style={styles.tableBody}>
-              {loading ? <Text style={styles.loadingText}>Laden...</Text> : filteredPlayers.length === 0 ? <Text style={styles.emptyText}>Keine Spieler mit auslaufendem Vertrag gefunden</Text> : (
+            <View style={[styles.tableBody, { backgroundColor: colors.surface }]}>
+              {loading ? <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Laden...</Text> : filteredPlayers.length === 0 ? <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Keine Spieler mit auslaufendem Vertrag gefunden</Text> : (
                 filteredPlayers.map((player) => renderPlayerRow(player))
               )}
             </View>
@@ -1329,37 +1329,37 @@ export function TransfersScreen({ navigation }: any) {
       {/* Add Club Modal */}
       <Modal visible={showAddClubModal} transparent animationType="fade">
         <Pressable style={styles.modalOverlay} onPress={() => setShowFormClubDropdown(false)}>
-          <Pressable style={styles.modalContent} onPress={() => setShowFormClubDropdown(false)}>
+          <Pressable style={[styles.modalContent, { backgroundColor: colors.surface }]} onPress={() => setShowFormClubDropdown(false)}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{editingClub ? 'Verein bearbeiten' : 'Neuen suchenden Verein anlegen'}</Text>
-              <TouchableOpacity onPress={() => { setShowAddClubModal(false); resetClubForm(); }} style={styles.closeButton}>
-                <Text style={styles.closeButtonText}>✕</Text>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>{editingClub ? 'Verein bearbeiten' : 'Neuen suchenden Verein anlegen'}</Text>
+              <TouchableOpacity onPress={() => { setShowAddClubModal(false); resetClubForm(); }} style={[styles.closeButton, { backgroundColor: colors.surfaceSecondary }]}>
+                <Text style={[styles.closeButtonText, { color: colors.textSecondary }]}>✕</Text>
               </TouchableOpacity>
             </View>
-            
+
             <ScrollView style={{ maxHeight: 500 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <View style={[styles.formField, { zIndex: 1000 }]}>
-                <Text style={styles.formLabel}>Verein *</Text>
+                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Verein *</Text>
                 <View style={styles.clubSelectorContainer}>
-                  <TextInput 
-                    style={styles.formInput} 
-                    value={formClubSearch} 
+                  <TextInput
+                    style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+                    value={formClubSearch}
                     onChangeText={(t) => { setFormClubSearch(t); setShowFormClubDropdown(true); }}
                     onFocus={() => setShowFormClubDropdown(true)}
-                    placeholder="Verein suchen oder eingeben..." placeholderTextColor="#999"
-                    placeholderTextColor="#9ca3af"
+                    placeholder="Verein suchen oder eingeben..."
+                    placeholderTextColor={colors.textMuted}
                   />
                   {showFormClubDropdown && formClubSearch.length > 0 && (
-                    <View style={styles.clubDropdown}>
+                    <View style={[styles.clubDropdown, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                       <ScrollView style={styles.clubDropdownScroll} nestedScrollEnabled keyboardShouldPersistTaps="handled">
                         {getFilteredClubsForForm().map((club) => (
-                          <TouchableOpacity key={club} style={styles.clubDropdownItem} onPress={() => { setFormClubSearch(club); setNewClub({...newClub, club_name: club}); setShowFormClubDropdown(false); }}>
+                          <TouchableOpacity key={club} style={[styles.clubDropdownItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }]} onPress={() => { setFormClubSearch(club); setNewClub({...newClub, club_name: club}); setShowFormClubDropdown(false); }}>
                             {clubLogos[club] && <Image source={{ uri: clubLogos[club] }} style={styles.clubDropdownLogo} />}
-                            <Text style={styles.clubDropdownText}>{club}</Text>
+                            <Text style={[styles.clubDropdownText, { color: colors.text }]}>{club}</Text>
                           </TouchableOpacity>
                         ))}
                         {!getFilteredClubsForForm().includes(formClubSearch) && formClubSearch.trim() !== '' && (
-                          <TouchableOpacity style={[styles.clubDropdownItem, styles.clubDropdownCustom]} onPress={() => { setNewClub({...newClub, club_name: formClubSearch}); setShowFormClubDropdown(false); }}>
+                          <TouchableOpacity style={[styles.clubDropdownItem, styles.clubDropdownCustom, { borderBottomColor: colors.border }]} onPress={() => { setNewClub({...newClub, club_name: formClubSearch}); setShowFormClubDropdown(false); }}>
                             <Text style={styles.clubDropdownCustomText}>"{formClubSearch}" verwenden</Text>
                           </TouchableOpacity>
                         )}
@@ -1368,107 +1368,107 @@ export function TransfersScreen({ navigation }: any) {
                   )}
                 </View>
               </View>
-              
+
               <View style={[styles.formField, { zIndex: 1 }]}>
-                <Text style={styles.formLabel}>Liga</Text>
-                <TextInput 
-                  style={styles.formInput} 
-                  value={newClub.league || ''} 
-                  onChangeText={(t) => setNewClub({...newClub, league: t})} 
-                  placeholder="z.B. Bundesliga, 2. Liga" placeholderTextColor="#999"
-                  placeholderTextColor="#9ca3af"
+                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Liga</Text>
+                <TextInput
+                  style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+                  value={newClub.league || ''}
+                  onChangeText={(t) => setNewClub({...newClub, league: t})}
+                  placeholder="z.B. Bundesliga, 2. Liga"
+                  placeholderTextColor={colors.textMuted}
                   onFocus={() => setShowFormClubDropdown(false)}
                 />
               </View>
-              
+
               <View style={[styles.formField, { zIndex: 1 }]}>
-                <Text style={styles.formLabel}>Gesuchte Position</Text>
+                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Gesuchte Position</Text>
                 <Pressable style={styles.positionPickerRow} onPress={() => setShowFormClubDropdown(false)}>
                   {POSITIONS.map(pos => {
                     const isSelected = formPositions.includes(pos);
                     return (
-                      <TouchableOpacity 
-                        key={pos} 
-                        style={[styles.positionOption, isSelected && styles.positionOptionSelected]} 
+                      <TouchableOpacity
+                        key={pos}
+                        style={[styles.positionOption, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, isSelected && styles.positionOptionSelected]}
                         onPress={() => { setShowFormClubDropdown(false); toggleFormPosition(pos); }}
                       >
-                        <Text style={[styles.positionOptionText, isSelected && styles.positionOptionTextSelected]}>{POSITION_SHORT[pos]}</Text>
+                        <Text style={[styles.positionOptionText, { color: colors.textSecondary }, isSelected && styles.positionOptionTextSelected]}>{POSITION_SHORT[pos]}</Text>
                       </TouchableOpacity>
                     );
                   })}
                 </Pressable>
               </View>
-              
+
               <View style={[styles.formField, { zIndex: 1 }]}>
-                <Text style={styles.formLabel}>Alter/Jahrgang</Text>
-                <TextInput 
-                  style={styles.formInput} 
-                  value={newClub.year_range || ''} 
-                  onChangeText={(t) => setNewClub({...newClub, year_range: t})} 
-                  placeholder="z.B. 2005-2007" placeholderTextColor="#999"
-                  placeholderTextColor="#9ca3af"
+                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Alter/Jahrgang</Text>
+                <TextInput
+                  style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+                  value={newClub.year_range || ''}
+                  onChangeText={(t) => setNewClub({...newClub, year_range: t})}
+                  placeholder="z.B. 2005-2007"
+                  placeholderTextColor={colors.textMuted}
                   onFocus={() => setShowFormClubDropdown(false)}
                 />
               </View>
-              
+
               <View style={[styles.formField, { zIndex: 1 }]}>
-                <Text style={styles.formLabel}>Ansprechpartner</Text>
-                <TextInput 
-                  style={styles.formInput} 
-                  value={newClub.contact_person || ''} 
-                  onChangeText={(t) => setNewClub({...newClub, contact_person: t})} 
-                  placeholder="Name des Kontakts" placeholderTextColor="#999"
-                  placeholderTextColor="#9ca3af"
+                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Ansprechpartner</Text>
+                <TextInput
+                  style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+                  value={newClub.contact_person || ''}
+                  onChangeText={(t) => setNewClub({...newClub, contact_person: t})}
+                  placeholder="Name des Kontakts"
+                  placeholderTextColor={colors.textMuted}
                   onFocus={() => setShowFormClubDropdown(false)}
                 />
               </View>
-              
+
               <View style={[styles.formField, { zIndex: 1 }]}>
-                <Text style={styles.formLabel}>Notizen</Text>
-                <TextInput 
-                  style={[styles.formInput, { minHeight: 80 }]} 
-                  value={newClub.notes || ''} 
-                  onChangeText={(t) => setNewClub({...newClub, notes: t})} 
-                  placeholder="Weitere Informationen..." placeholderTextColor="#999"
-                  placeholderTextColor="#9ca3af"
+                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Notizen</Text>
+                <TextInput
+                  style={[styles.formInput, { minHeight: 80, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+                  value={newClub.notes || ''}
+                  onChangeText={(t) => setNewClub({...newClub, notes: t})}
+                  placeholder="Weitere Informationen..."
+                  placeholderTextColor={colors.textMuted}
                   multiline
                   onFocus={() => setShowFormClubDropdown(false)}
                 />
               </View>
             </ScrollView>
-            
-            <View style={styles.modalButtonsSpaced}>
+
+            <View style={[styles.modalButtonsSpaced, { borderTopColor: colors.border }]}>
               {editingClub && (
-                <TouchableOpacity style={styles.deleteButton} onPress={deleteSearchingClub}>
+                <TouchableOpacity style={[styles.deleteButton, { backgroundColor: colors.surface }]} onPress={deleteSearchingClub}>
                   <Text style={styles.deleteButtonText}>Löschen</Text>
                 </TouchableOpacity>
               )}
               <View style={{ flex: 1 }} />
-              <TouchableOpacity style={styles.saveButton} onPress={saveSearchingClub}>
+              <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.surface }]} onPress={saveSearchingClub}>
                 <Text style={styles.saveButtonText}>Speichern</Text>
               </TouchableOpacity>
             </View>
           </Pressable>
         </Pressable>
       </Modal>
-      
+
       {/* Club Detail Modal */}
       <Modal visible={showClubDetailModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={styles.detailModalContent}>
+          <View style={[styles.detailModalContent, { backgroundColor: colors.surface }]}>
             {/* Header mit Name, Liga und Logo */}
             <View style={styles.detailModalHeader}>
               <View style={styles.detailHeaderInfo}>
                 <View style={styles.detailHeaderNameRow}>
-                  <Text style={styles.detailModalTitle}>{selectedClub?.club_name}</Text>
+                  <Text style={[styles.detailModalTitle, { color: colors.text }]}>{selectedClub?.club_name}</Text>
                   {selectedClub?.club_name && getClubLogo(selectedClub.club_name) && (
                     <Image source={{ uri: getClubLogo(selectedClub.club_name)! }} style={styles.detailHeaderLogo} />
                   )}
                 </View>
-                {selectedClub?.league && <Text style={styles.detailModalSubtitle}>{selectedClub.league}</Text>}
+                {selectedClub?.league && <Text style={[styles.detailModalSubtitle, { color: colors.textSecondary }]}>{selectedClub.league}</Text>}
               </View>
-              <TouchableOpacity onPress={() => { setShowClubDetailModal(false); setSelectedClub(null); }} style={styles.closeButton}>
-                <Text style={styles.closeButtonText}>✕</Text>
+              <TouchableOpacity onPress={() => { setShowClubDetailModal(false); setSelectedClub(null); }} style={[styles.closeButton, { backgroundColor: colors.surfaceSecondary }]}>
+                <Text style={[styles.closeButtonText, { color: colors.textSecondary }]}>✕</Text>
               </TouchableOpacity>
             </View>
             
@@ -1664,13 +1664,13 @@ const styles = StyleSheet.create({
   mainContent: { flex: 1, backgroundColor: '#f8fafc' },
   
   // Header Banner
-  headerBanner: { flexDirection: 'row', alignItems: 'center', padding: 24, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  headerBanner: { flexDirection: 'row', alignItems: 'center', padding: 24, borderBottomWidth: 1 },
   headerBannerCenter: { flex: 1, alignItems: 'center' },
   headerTitle: { fontSize: 28, fontWeight: '700', color: '#1a1a1a' },
   headerSubtitle: { fontSize: 14, color: '#64748b', marginTop: 4 },
   
   // Toolbar - wie Scouting
-  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0', zIndex: 100 },
+  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderBottomWidth: 1, zIndex: 100 },
   searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', paddingHorizontal: 12 },
   searchIcon: { fontSize: 16, marginRight: 8 },
   searchInput: { flex: 1, paddingVertical: 10, fontSize: 14 },
@@ -1684,7 +1684,7 @@ const styles = StyleSheet.create({
   filterButtonTextActive: { color: '#0369a1' },
   
   // Filter Dropdown - wie Scouting
-  filterDropdownMulti: { position: 'absolute', top: '100%', left: 0, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', marginTop: 4, minWidth: 220, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, zIndex: 1000, overflow: 'hidden' },
+  filterDropdownMulti: { position: 'absolute', top: '100%', left: 0, borderRadius: 12, borderWidth: 1, marginTop: 4, minWidth: 220, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, zIndex: 1000, overflow: 'hidden' },
   filterDropdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#e2e8f0', backgroundColor: '#f8fafc' },
   filterDropdownTitle: { fontSize: 13, fontWeight: '600', color: '#1a1a1a' },
   filterClearText: { fontSize: 12, color: '#ef4444' },
@@ -1706,7 +1706,7 @@ const styles = StyleSheet.create({
   // Tabelle
   tableHeader: { flexDirection: 'row', backgroundColor: '#f1f5f9', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
   tableHeaderText: { color: '#64748b', fontWeight: '600', fontSize: 13 },
-  tableBody: { flex: 1, backgroundColor: '#fff' },
+  tableBody: { flex: 1 },
   tableRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', alignItems: 'center' },
   tableRowLocked: { backgroundColor: '#fafafa' },
   tableCell: { fontSize: 14, color: '#334155' },
@@ -1765,14 +1765,14 @@ const styles = StyleSheet.create({
   
   // Modal
   modalOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
-  modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 500, maxHeight: '90%' },
+  modalContent: { borderRadius: 16, padding: 24, width: '90%', maxWidth: 500, maxHeight: '90%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
   modalTitle: { fontSize: 20, fontWeight: '700', color: '#1a1a1a' },
   closeButton: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center' },
   closeButtonText: { fontSize: 18, color: '#64748b' },
   formField: { marginBottom: 16 },
   formLabel: { fontSize: 13, color: '#64748b', marginBottom: 6, fontWeight: '500' },
-  formInput: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 12, fontSize: 14, backgroundColor: '#fff' },
+  formInput: { borderWidth: 1, borderRadius: 8, padding: 12, fontSize: 14 },
   modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 20 },
   modalButtonsRight: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 20 },
   modalButtonsSpaced: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
@@ -1780,7 +1780,7 @@ const styles = StyleSheet.create({
   cancelButtonText: { color: '#64748b', fontWeight: '600' },
   saveButton: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#10b981' },
   saveButtonText: { color: '#10b981', fontWeight: '600' },
-  deleteButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ef4444' },
+  deleteButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, borderWidth: 1, borderColor: '#ef4444' },
   deleteButtonText: { color: '#ef4444', fontWeight: '600' },
   
   // Position Picker (Form)
@@ -1805,7 +1805,7 @@ const styles = StyleSheet.create({
   editButtonText: { color: '#64748b', fontWeight: '600' },
   
   // Detail Modal - Neues Karten-Layout
-  detailModalContent: { backgroundColor: '#fff', borderRadius: 16, width: '90%', maxWidth: 550, maxHeight: '85%', overflow: 'hidden' },
+  detailModalContent: { borderRadius: 16, width: '90%', maxWidth: 550, maxHeight: '85%', overflow: 'hidden' },
   detailModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 20, paddingBottom: 16 },
   detailHeaderInfo: { flex: 1 },
   detailHeaderNameRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -1833,16 +1833,16 @@ const styles = StyleSheet.create({
   
   // Action Buttons im Detail Modal - nur Bearbeiten rechts
   detailModalActions: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
-  detailDeleteButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#fff', borderWidth: 1, borderColor: '#fca5a5' },
+  detailDeleteButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, borderWidth: 1, borderColor: '#fca5a5' },
   detailDeleteButtonText: { color: '#ef4444', fontWeight: '600', fontSize: 14 },
-  detailEditButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#fff', borderWidth: 1, borderColor: '#3b82f6' },
+  detailEditButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, borderWidth: 1, borderColor: '#3b82f6' },
   detailEditButtonText: { color: '#3b82f6', fontWeight: '600', fontSize: 14 },
   
   // Club Selector in Form
   clubSelectorContainer: { position: 'relative', zIndex: 100 },
-  clubDropdown: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', marginTop: 4, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 10, zIndex: 9999, elevation: 9999 },
+  clubDropdown: { position: 'absolute', top: '100%', left: 0, right: 0, borderRadius: 8, borderWidth: 1, marginTop: 4, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 10, zIndex: 9999, elevation: 9999 },
   clubDropdownScroll: { maxHeight: 200 },
-  clubDropdownItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', backgroundColor: '#fff' },
+  clubDropdownItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1 },
   clubDropdownLogo: { width: 24, height: 24, resizeMode: 'contain', marginRight: 10 },
   clubDropdownText: { fontSize: 14, color: '#333' },
   clubDropdownCustom: { backgroundColor: '#f0fdf4' },

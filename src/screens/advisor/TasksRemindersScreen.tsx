@@ -495,10 +495,11 @@ export function TasksRemindersScreen({ navigation }: any) {
     })();
 
     return (
-      <Pressable 
+      <Pressable
         key={task.id}
         style={[
-          styles.taskCard, 
+          styles.taskCard,
+          { backgroundColor: colors.cardBackground, borderColor: colors.border },
           isExpanded && { zIndex: 10, position: 'relative' },
           isOverdueOrToday && styles.taskCardOverdue
         ]}
@@ -571,7 +572,8 @@ export function TasksRemindersScreen({ navigation }: any) {
     
     return (
       <View key={reminder.id} style={[
-        styles.reminderCard, 
+        styles.reminderCard,
+        { backgroundColor: colors.cardBackground, borderColor: colors.border },
         reminder.completed && styles.reminderCardCompleted,
         isOverdue && styles.reminderCardOverdue
       ]}>
@@ -1091,7 +1093,7 @@ export function TasksRemindersScreen({ navigation }: any) {
         {/* Content - 60/40 Split */}
         <View style={styles.splitContainer}>
           {/* Left Side - Tasks */}
-          <View style={[styles.leftPanel, expandedTaskId && { zIndex: 10 }]}>
+          <View style={[styles.leftPanel, { backgroundColor: colors.surface, borderColor: colors.border }, expandedTaskId && { zIndex: 10 }]}>
             <View style={styles.panelHeader}>
               <Text style={[styles.panelTitle, { color: colors.text }]}>Aufgaben</Text>
               <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.primary }]} onPress={openNewTaskModal}>
@@ -1135,7 +1137,7 @@ export function TasksRemindersScreen({ navigation }: any) {
           </View>
 
           {/* Right Side - Reminders */}
-          <View style={styles.rightPanel}>
+          <View style={[styles.rightPanel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.panelHeader}>
               <Text style={styles.panelTitle}>Erinnerungen</Text>
             </View>
@@ -1187,147 +1189,147 @@ export function TasksRemindersScreen({ navigation }: any) {
       {/* Task Modal */}
       <Modal visible={showTaskModal} transparent animationType="fade">
         <Pressable style={styles.modalOverlay} onPress={() => setShowTaskModal(false)}>
-          <Pressable 
-            style={styles.modalContent} 
+          <Pressable
+            style={[styles.modalContent, { backgroundColor: colors.surface }]}
             onPress={() => closeAllDatePickers()}
           >
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
                 {editingTask ? 'Aufgabe bearbeiten' : 'Neue Aufgabe'}
               </Text>
-              <TouchableOpacity style={styles.closeButton} onPress={() => setShowTaskModal(false)}>
-                <Text style={styles.closeButtonText}>✕</Text>
+              <TouchableOpacity style={[styles.closeButton, { backgroundColor: colors.surfaceSecondary }]} onPress={() => setShowTaskModal(false)}>
+                <Text style={[styles.closeButtonText, { color: colors.textSecondary }]}>✕</Text>
               </TouchableOpacity>
             </View>
 
             <ScrollView style={[styles.modalBody, { overflow: 'visible' }]} contentContainerStyle={{ overflow: 'visible' }}>
               {/* Title */}
               <View style={styles.formField}>
-                <Text style={styles.formLabel}>Titel *</Text>
+                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Titel *</Text>
                 <TextInput
-                  style={styles.formInput}
+                  style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
                   value={taskTitle}
                   onChangeText={setTaskTitle}
                   placeholder="Was ist zu tun?"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={colors.textMuted}
                 />
               </View>
 
               {/* Description */}
               <View style={styles.formField}>
-                <Text style={styles.formLabel}>Beschreibung</Text>
+                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Beschreibung</Text>
                 <TextInput
-                  style={[styles.formInput, styles.textArea]}
+                  style={[styles.formInput, styles.textArea, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
                   value={taskDescription}
                   onChangeText={setTaskDescription}
                   placeholder="Weitere Details..."
-                  placeholderTextColor="#999"
+                  placeholderTextColor={colors.textMuted}
                   multiline
                 />
               </View>
 
               {/* Due Date */}
               <View style={[styles.formField, { zIndex: 100 }]}>
-                <Text style={styles.formLabel}>Fälligkeitsdatum</Text>
+                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Fälligkeitsdatum</Text>
                 <View style={styles.datePickerRow}>
                   {/* Day */}
                   <View style={{ position: 'relative', flex: 1, zIndex: 103 }}>
-                    <TouchableOpacity 
-                      style={styles.dateDropdownButton}
-                      onPress={() => { 
-                        setShowDayPicker(!showDayPicker); 
-                        setShowMonthPicker(false); 
-                        setShowYearPicker(false); 
+                    <TouchableOpacity
+                      style={[styles.dateDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
+                      onPress={() => {
+                        setShowDayPicker(!showDayPicker);
+                        setShowMonthPicker(false);
+                        setShowYearPicker(false);
                       }}
                     >
-                      <Text style={styles.dateDropdownText}>
+                      <Text style={[styles.dateDropdownText, { color: colors.text }]}>
                         {selectedDay || 'Tag'}
                       </Text>
-                      <Text>▼</Text>
+                      <Text style={{ color: colors.textSecondary }}>▼</Text>
                     </TouchableOpacity>
                     {showDayPicker && (
-                      <View style={styles.datePickerList}>
+                      <View style={[styles.datePickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                         <ScrollView style={styles.datePickerScroll} nestedScrollEnabled>
                           {DAYS.map(d => (
-                            <TouchableOpacity 
-                              key={d} 
-                              style={[styles.datePickerItem, selectedDay === d && styles.datePickerItemSelected]}
+                            <TouchableOpacity
+                              key={d}
+                              style={[styles.datePickerItem, { borderBottomColor: colors.border }, selectedDay === d && styles.datePickerItemSelected]}
                               onPress={() => {
                                 setSelectedDay(d);
                                 setShowDayPicker(false);
                               }}
                             >
-                              <Text style={[styles.datePickerItemText, selectedDay === d && styles.datePickerItemTextSelected]}>{d}</Text>
+                              <Text style={[styles.datePickerItemText, { color: colors.text }, selectedDay === d && styles.datePickerItemTextSelected]}>{d}</Text>
                             </TouchableOpacity>
                           ))}
                         </ScrollView>
                       </View>
                     )}
                   </View>
-                  
+
                   {/* Month */}
                   <View style={{ position: 'relative', flex: 2, zIndex: 102 }}>
-                    <TouchableOpacity 
-                      style={styles.dateDropdownButton}
-                      onPress={() => { 
-                        setShowMonthPicker(!showMonthPicker); 
-                        setShowDayPicker(false); 
-                        setShowYearPicker(false); 
+                    <TouchableOpacity
+                      style={[styles.dateDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
+                      onPress={() => {
+                        setShowMonthPicker(!showMonthPicker);
+                        setShowDayPicker(false);
+                        setShowYearPicker(false);
                       }}
                     >
-                      <Text style={styles.dateDropdownText}>
+                      <Text style={[styles.dateDropdownText, { color: colors.text }]}>
                         {selectedMonth !== null ? MONTHS[selectedMonth] : 'Monat'}
                       </Text>
-                      <Text>▼</Text>
+                      <Text style={{ color: colors.textSecondary }}>▼</Text>
                     </TouchableOpacity>
                     {showMonthPicker && (
-                      <View style={styles.datePickerList}>
+                      <View style={[styles.datePickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                         <ScrollView style={styles.datePickerScroll} nestedScrollEnabled>
                           {MONTHS.map((m, idx) => (
-                            <TouchableOpacity 
-                              key={m} 
-                              style={[styles.datePickerItem, selectedMonth === idx && styles.datePickerItemSelected]}
+                            <TouchableOpacity
+                              key={m}
+                              style={[styles.datePickerItem, { borderBottomColor: colors.border }, selectedMonth === idx && styles.datePickerItemSelected]}
                               onPress={() => {
                                 setSelectedMonth(idx);
                                 setShowMonthPicker(false);
                               }}
                             >
-                              <Text style={[styles.datePickerItemText, selectedMonth === idx && styles.datePickerItemTextSelected]}>{m}</Text>
+                              <Text style={[styles.datePickerItemText, { color: colors.text }, selectedMonth === idx && styles.datePickerItemTextSelected]}>{m}</Text>
                             </TouchableOpacity>
                           ))}
                         </ScrollView>
                       </View>
                     )}
                   </View>
-                  
+
                   {/* Year */}
                   <View style={{ position: 'relative', flex: 1, zIndex: 101 }}>
-                    <TouchableOpacity 
-                      style={styles.dateDropdownButton}
-                      onPress={() => { 
-                        setShowYearPicker(!showYearPicker); 
-                        setShowDayPicker(false); 
-                        setShowMonthPicker(false); 
+                    <TouchableOpacity
+                      style={[styles.dateDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
+                      onPress={() => {
+                        setShowYearPicker(!showYearPicker);
+                        setShowDayPicker(false);
+                        setShowMonthPicker(false);
                       }}
                     >
-                      <Text style={styles.dateDropdownText}>
+                      <Text style={[styles.dateDropdownText, { color: colors.text }]}>
                         {selectedYear || 'Jahr'}
                       </Text>
-                      <Text>▼</Text>
+                      <Text style={{ color: colors.textSecondary }}>▼</Text>
                     </TouchableOpacity>
                     {showYearPicker && (
-                      <View style={styles.datePickerList}>
+                      <View style={[styles.datePickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                         <ScrollView style={styles.datePickerScroll} nestedScrollEnabled>
                           {YEARS.map(y => (
-                            <TouchableOpacity 
-                              key={y} 
-                              style={[styles.datePickerItem, selectedYear === y && styles.datePickerItemSelected]}
+                            <TouchableOpacity
+                              key={y}
+                              style={[styles.datePickerItem, { borderBottomColor: colors.border }, selectedYear === y && styles.datePickerItemSelected]}
                               onPress={() => {
                                 setSelectedYear(y);
                                 setShowYearPicker(false);
                               }}
                             >
-                              <Text style={[styles.datePickerItemText, selectedYear === y && styles.datePickerItemTextSelected]}>{y}</Text>
+                              <Text style={[styles.datePickerItemText, { color: colors.text }, selectedYear === y && styles.datePickerItemTextSelected]}>{y}</Text>
                             </TouchableOpacity>
                           ))}
                         </ScrollView>
@@ -1339,14 +1341,14 @@ export function TasksRemindersScreen({ navigation }: any) {
 
               {/* Subtasks */}
               <View style={styles.formField}>
-                <Text style={styles.formLabel}>Unteraufgaben</Text>
+                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Unteraufgaben</Text>
                 <View style={styles.subtaskInputRow}>
                   <TextInput
-                    style={[styles.formInput, styles.subtaskInput]}
+                    style={[styles.formInput, styles.subtaskInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
                     value={newSubtaskInput}
                     onChangeText={setNewSubtaskInput}
                     placeholder="Unteraufgabe hinzufügen..."
-                    placeholderTextColor="#999"
+                    placeholderTextColor={colors.textMuted}
                     onSubmitEditing={addSubtask}
                   />
                   <TouchableOpacity style={styles.addSubtaskButton} onPress={addSubtask}>
@@ -1364,20 +1366,20 @@ export function TasksRemindersScreen({ navigation }: any) {
               </View>
             </ScrollView>
 
-            <View style={styles.modalFooter}>
+            <View style={[styles.modalFooter, { borderTopColor: colors.border }]}>
               {editingTask && (
-                <TouchableOpacity 
-                  style={styles.deleteButton} 
+                <TouchableOpacity
+                  style={[styles.deleteButton, { backgroundColor: colors.surface }]}
                   onPress={() => deleteTask(editingTask.id)}
                 >
                   <Text style={styles.deleteButtonText}>Löschen</Text>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity style={styles.cancelButton} onPress={() => setShowTaskModal(false)}>
-                <Text style={styles.cancelButtonText}>Abbrechen</Text>
+              <TouchableOpacity style={[styles.cancelButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setShowTaskModal(false)}>
+                <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.saveButton} onPress={saveTask}>
-                <Text style={styles.saveButtonText}>Speichern</Text>
+              <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.primary }]} onPress={saveTask}>
+                <Text style={[styles.saveButtonText, { color: colors.primaryText }]}>Speichern</Text>
               </TouchableOpacity>
             </View>
           </Pressable>
@@ -1407,13 +1409,11 @@ const styles = StyleSheet.create({
   },
   
   // Header Banner - wie ScoutingScreen
-  headerBanner: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    padding: 24, 
-    backgroundColor: '#fff', 
-    borderBottomWidth: 1, 
-    borderBottomColor: '#e2e8f0' 
+  headerBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 24,
+    borderBottomWidth: 1,
   },
   headerBannerCenter: { flex: 1, alignItems: 'center' },
   headerTitle: { fontSize: 28, fontWeight: '700', color: '#1a1a1a' },
@@ -1432,8 +1432,8 @@ const styles = StyleSheet.create({
   splitContainer: { flex: 1, flexDirection: 'row', padding: 16, gap: 16, height: '100%' },
   
   // Panels - beide gleiche Höhe durch flex: 1 in row
-  leftPanel: { flex: 6, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', overflow: 'hidden', height: '100%' },
-  rightPanel: { flex: 4, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', overflow: 'hidden', height: '100%' },
+  leftPanel: { flex: 6, borderRadius: 12, borderWidth: 1, overflow: 'hidden', height: '100%' },
+  rightPanel: { flex: 4, borderRadius: 12, borderWidth: 1, overflow: 'hidden', height: '100%' },
   
   panelHeader: { 
     flexDirection: 'row', 
@@ -1480,11 +1480,9 @@ const styles = StyleSheet.create({
   prioritySectionContent: { padding: 8 },
 
   // Task Card
-  taskCard: { 
-    backgroundColor: '#fff', 
-    borderRadius: 8, 
-    borderWidth: 1, 
-    borderColor: '#e2e8f0',
+  taskCard: {
+    borderRadius: 8,
+    borderWidth: 1,
     marginBottom: 8,
     overflow: 'hidden',
   },
@@ -1607,16 +1605,14 @@ const styles = StyleSheet.create({
   noRemindersText: { fontSize: 12, color: '#94a3b8', textAlign: 'center', padding: 16 },
 
   // Reminder Card
-  reminderCard: { 
-    flexDirection: 'row', 
-    alignItems: 'flex-start', 
-    backgroundColor: '#fff', 
+  reminderCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     padding: 10,
     paddingRight: 70, // Platz für Badge rechts oben
-    borderRadius: 6, 
+    borderRadius: 6,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
     position: 'relative',
   },
   reminderCardCompleted: { opacity: 0.5 },
@@ -1644,7 +1640,7 @@ const styles = StyleSheet.create({
 
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { backgroundColor: '#fff', borderRadius: 16, width: '90%', maxWidth: 500, maxHeight: '90%', overflow: 'visible' },
+  modalContent: { borderRadius: 16, width: '90%', maxWidth: 500, maxHeight: '90%', overflow: 'visible' },
   modalHeader: { 
     flexDirection: 'row', 
     justifyContent: 'space-between', 
@@ -1677,13 +1673,11 @@ const styles = StyleSheet.create({
   // Form
   formField: { marginBottom: 16 },
   formLabel: { fontSize: 13, color: '#64748b', marginBottom: 6, fontWeight: '500' },
-  formInput: { 
-    borderWidth: 1, 
-    borderColor: '#e2e8f0', 
-    borderRadius: 8, 
-    padding: 12, 
-    fontSize: 14, 
-    backgroundColor: '#fff' 
+  formInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
   },
   textArea: { minHeight: 80, textAlignVertical: 'top' },
 
@@ -1759,10 +1753,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
     borderRadius: 8,
     padding: 12,
-    backgroundColor: '#fff',
   },
   dateDropdownText: { fontSize: 14, color: '#333' },
   datePickerList: {
@@ -1771,11 +1763,9 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
     borderRadius: 8,
     marginTop: 4,
     maxHeight: 200,
-    backgroundColor: '#fff',
     zIndex: 9999,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
