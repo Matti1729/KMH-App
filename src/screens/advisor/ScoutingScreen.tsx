@@ -4,6 +4,7 @@ import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 import { MobileHeader } from '../../components/MobileHeader';
 import { MobileSidebar } from '../../components/MobileSidebar';
+import { SlideUpModal } from '../../components/SlideUpModal';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -2264,9 +2265,7 @@ export function ScoutingScreen({ navigation }: any) {
 
         {/* Player Detail Modal - reuse desktop modal */}
         {selectedPlayer && (
-          <Modal visible={showPlayerDetailModal} transparent animationType="slide">
-            <View style={styles.mobileModalOverlay}>
-              <View style={[styles.mobileModalContent, { maxHeight: '95%', backgroundColor: colors.surface }]}>
+          <SlideUpModal visible={showPlayerDetailModal} onClose={() => { setShowPlayerDetailModal(false); setIsEditing(false); }}>
                 <View style={[styles.mobileModalHeader, { borderBottomColor: colors.border }]}>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.mobileModalTitle, { color: colors.text }]}>
@@ -2415,22 +2414,18 @@ export function ScoutingScreen({ navigation }: any) {
                     </>
                   )}
                 </View>
-              </View>
-            </View>
-          </Modal>
+          </SlideUpModal>
         )}
 
         {/* Game Detail Modal */}
         {selectedGame && (
-          <Modal visible={showGameDetailModal} transparent animationType="slide">
-            <View style={styles.mobileModalOverlay}>
-              <View style={[styles.mobileModalContent, { maxHeight: '95%', backgroundColor: colors.surface }]}>
-                <View style={[styles.mobileModalHeader, { borderBottomColor: colors.border }]}>
-                  <Text style={[styles.mobileModalTitle, { color: colors.text }]}>{selectedGame.home_team} vs {selectedGame.away_team}</Text>
-                  <TouchableOpacity onPress={() => setShowGameDetailModal(false)}>
-                    <Text style={[styles.mobileModalClose, { color: colors.textSecondary }]}>✕</Text>
-                  </TouchableOpacity>
-                </View>
+          <SlideUpModal visible={showGameDetailModal} onClose={() => setShowGameDetailModal(false)}>
+            <View style={[styles.mobileModalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.mobileModalTitle, { color: colors.text }]}>{selectedGame.home_team} vs {selectedGame.away_team}</Text>
+              <TouchableOpacity onPress={() => setShowGameDetailModal(false)}>
+                <Text style={[styles.mobileModalClose, { color: colors.textSecondary }]}>✕</Text>
+              </TouchableOpacity>
+            </View>
                 <ScrollView style={styles.mobileModalScroll}>
                   <View style={{ padding: 16 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
@@ -2491,9 +2486,7 @@ export function ScoutingScreen({ navigation }: any) {
                     <Text style={styles.mobileModalSaveText}>Bearbeiten</Text>
                   </TouchableOpacity>
                 </View>
-              </View>
-            </View>
-          </Modal>
+          </SlideUpModal>
         )}
 
         {/* Entscheidungs-Modal (Mobile) */}

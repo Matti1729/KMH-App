@@ -5,6 +5,7 @@ import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 import { MobileHeader } from '../../components/MobileHeader';
 import { MobileSidebar } from '../../components/MobileSidebar';
+import { SlideUpModal } from '../../components/SlideUpModal';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -382,25 +383,23 @@ export function FootballNetworkScreen({ navigation }: any) {
         </Modal>
 
         {/* Mobile Contact Detail Modal */}
-        <Modal visible={showContactDetailModal} transparent animationType="slide">
-          <View style={styles.mobileModalOverlay}>
-            <View style={[styles.mobileModalContent, { maxHeight: '95%', backgroundColor: colors.surface }]}>
-              {selectedContact && (
-                <>
-                  <View style={[styles.mobileDetailHeader, { borderBottomColor: colors.border }]}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.mobileDetailName, { color: colors.text }]}>{formatName(selectedContact)}</Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                        {getClubLogo(selectedContact.verein) && (
-                          <Image source={{ uri: getClubLogo(selectedContact.verein)! }} style={{ width: 18, height: 18, marginRight: 6 }} />
-                        )}
-                        <Text style={{ fontSize: 14, color: colors.textSecondary }}>{selectedContact.verein || '-'}</Text>
-                      </View>
-                    </View>
-                    <TouchableOpacity onPress={() => setShowContactDetailModal(false)}>
-                      <Text style={[styles.mobileDetailClose, { color: colors.textSecondary }]}>✕</Text>
-                    </TouchableOpacity>
+        <SlideUpModal visible={showContactDetailModal} onClose={() => setShowContactDetailModal(false)}>
+          {selectedContact && (
+            <>
+              <View style={[styles.mobileDetailHeader, { borderBottomColor: colors.border }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.mobileDetailName, { color: colors.text }]}>{formatName(selectedContact)}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                    {getClubLogo(selectedContact.verein) && (
+                      <Image source={{ uri: getClubLogo(selectedContact.verein)! }} style={{ width: 18, height: 18, marginRight: 6 }} />
+                    )}
+                    <Text style={{ fontSize: 14, color: colors.textSecondary }}>{selectedContact.verein || '-'}</Text>
                   </View>
+                </View>
+                <TouchableOpacity onPress={() => setShowContactDetailModal(false)}>
+                  <Text style={[styles.mobileDetailClose, { color: colors.textSecondary }]}>✕</Text>
+                </TouchableOpacity>
+              </View>
 
                   <ScrollView style={styles.mobileDetailContent}>
                     {/* Bereich | Position | Mannschaft */}
@@ -483,9 +482,7 @@ export function FootballNetworkScreen({ navigation }: any) {
                   </View>
                 </>
               )}
-            </View>
-          </View>
-        </Modal>
+        </SlideUpModal>
 
         {/* Add/Edit Modal for Mobile */}
         <Modal visible={showAddModal} transparent animationType="fade">
