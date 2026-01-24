@@ -1364,8 +1364,8 @@ export function TasksRemindersScreen({ navigation }: any) {
                   </TouchableOpacity>
                 </View>
                 {newSubtasks.map((subtask, index) => (
-                  <View key={index} style={styles.subtaskPreviewItem}>
-                    <Text style={styles.subtaskPreviewText}>• {subtask}</Text>
+                  <View key={index} style={[styles.subtaskPreviewItem, { backgroundColor: colors.surfaceSecondary }]}>
+                    <Text style={[styles.subtaskPreviewText, { color: colors.textSecondary }]}>• {subtask}</Text>
                     <TouchableOpacity onPress={() => removeSubtask(index)}>
                       <Text style={styles.subtaskRemoveText}>✕</Text>
                     </TouchableOpacity>
@@ -1644,38 +1644,35 @@ const styles = StyleSheet.create({
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { borderRadius: 16, width: '90%', maxWidth: 500, maxHeight: '90%', overflow: 'visible' },
-  modalHeader: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    padding: 20, 
-    borderBottomWidth: 1, 
-    borderBottomColor: '#e2e8f0' 
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
   },
-  modalTitle: { fontSize: 20, fontWeight: '700', color: '#1a1a1a' },
+  modalTitle: { fontSize: 20, fontWeight: '700' },
   modalBody: { padding: 20, zIndex: 10 },
-  modalFooter: { 
-    flexDirection: 'row', 
-    justifyContent: 'flex-end', 
-    gap: 12, 
-    padding: 20, 
-    borderTopWidth: 1, 
-    borderTopColor: '#e2e8f0',
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    padding: 20,
+    borderTopWidth: 1,
     zIndex: 1,
   },
-  closeButton: { 
-    width: 32, 
-    height: 32, 
-    borderRadius: 16, 
-    backgroundColor: '#f1f5f9', 
-    justifyContent: 'center', 
-    alignItems: 'center' 
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  closeButtonText: { fontSize: 16, color: '#64748b' },
+  closeButtonText: { fontSize: 16 },
 
   // Form
   formField: { marginBottom: 16 },
-  formLabel: { fontSize: 13, color: '#64748b', marginBottom: 6, fontWeight: '500' },
+  formLabel: { fontSize: 13, marginBottom: 6, fontWeight: '500' },
   formInput: {
     borderWidth: 1,
     borderRadius: 8,
@@ -1708,39 +1705,35 @@ const styles = StyleSheet.create({
     alignItems: 'center' 
   },
   addSubtaskButtonText: { color: '#fff', fontSize: 20, fontWeight: '600' },
-  subtaskPreviewItem: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
+  subtaskPreviewItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 8,
     paddingHorizontal: 12,
-    backgroundColor: '#f8fafc',
     borderRadius: 6,
     marginTop: 8,
   },
-  subtaskPreviewText: { fontSize: 13, color: '#475569' },
+  subtaskPreviewText: { fontSize: 13 },
   subtaskRemoveText: { fontSize: 16, color: '#ef4444' },
 
   // Buttons
-  deleteButton: { 
-    paddingVertical: 10, 
-    paddingHorizontal: 16, 
-    borderRadius: 8, 
-    backgroundColor: '#f8fafc', 
-    borderWidth: 1, 
+  deleteButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
     borderColor: '#ef4444',
     marginRight: 'auto',
   },
   deleteButtonText: { fontSize: 14, color: '#ef4444', fontWeight: '500' },
-  cancelButton: { 
-    paddingVertical: 10, 
-    paddingHorizontal: 16, 
-    borderRadius: 8, 
-    backgroundColor: '#f8fafc', 
-    borderWidth: 1, 
-    borderColor: '#e2e8f0' 
+  cancelButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
   },
-  cancelButtonText: { fontSize: 14, color: '#64748b' },
+  cancelButtonText: { fontSize: 14 },
   saveButton: { 
     paddingVertical: 10, 
     paddingHorizontal: 16, 
@@ -1778,9 +1771,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   datePickerScroll: { maxHeight: 200 },
-  datePickerItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  datePickerItem: { padding: 12, borderBottomWidth: 1 },
   datePickerItemSelected: { backgroundColor: '#1a1a1a' },
-  datePickerItemText: { fontSize: 14, color: '#333' },
+  datePickerItemText: { fontSize: 14 },
   datePickerItemTextSelected: { color: '#fff' },
   
   // Reminder Days Badge
