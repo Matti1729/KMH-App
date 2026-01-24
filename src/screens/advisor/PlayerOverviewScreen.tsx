@@ -663,13 +663,13 @@ export function PlayerOverviewScreen({ navigation }: any) {
     return (
       <TouchableOpacity
         key={player.id}
-        style={[styles.playerCard, !hasAccess && styles.playerCardLocked]}
+        style={[styles.playerCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }, !hasAccess && { backgroundColor: colors.surfaceSecondary }]}
         onPress={() => handlePlayerClick(player)}
       >
         <View style={styles.playerCardHeader}>
           <View style={styles.playerCardNameRow}>
             {!hasAccess && <Text style={styles.lockIconMobile}>🔒</Text>}
-            <Text style={styles.playerCardName} numberOfLines={1}>
+            <Text style={[styles.playerCardName, { color: colors.text }]} numberOfLines={1}>
               {player.last_name}, {player.first_name}
             </Text>
             {birthday && <Text style={styles.birthdayIconMobile}>🎉</Text>}
@@ -691,15 +691,15 @@ export function PlayerOverviewScreen({ navigation }: any) {
               ) : logoUrl ? (
                 <Image source={{ uri: logoUrl }} style={styles.clubLogoMobile} />
               ) : null}
-              <Text style={[styles.playerCardClubText, expired && styles.clubTextRed]} numberOfLines={1}>
+              <Text style={[styles.playerCardClubText, { color: colors.textSecondary }, expired && styles.clubTextRed]} numberOfLines={1}>
                 {displayClub}
               </Text>
             </View>
-            <Text style={styles.playerCardPosition}>{positionDisplay}</Text>
+            <Text style={[styles.playerCardPosition, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{positionDisplay}</Text>
           </View>
 
           <View style={styles.playerCardRow}>
-            <Text style={styles.playerCardLeague} numberOfLines={1}>{player.league || '-'}</Text>
+            <Text style={[styles.playerCardLeague, { color: colors.textMuted }]} numberOfLines={1}>{player.league || '-'}</Text>
             {player.contract_end && (
               <View style={[
                 styles.contractBadgeMobile,
@@ -708,6 +708,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
               ]}>
                 <Text style={[
                   styles.contractTextMobile,
+                  { color: colors.textMuted },
                   hasSecuredFuture ? styles.contractTextMobileGreen :
                   inCurrentSeason ? styles.contractTextMobileRed : null
                 ]}>
