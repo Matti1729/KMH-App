@@ -648,11 +648,9 @@ export function TransfersScreen({ navigation }: any) {
   };
 
   const renderBirthDateCell = (player: Player) => {
-    const birthday = isBirthday(player.birth_date);
     return (
       <View style={[styles.colBirthDate, styles.birthDateCell]}>
         <Text style={[styles.tableCell, { color: colors.text }]}>{formatDate(player.birth_date)}</Text>
-        {birthday && <Text style={styles.birthdayIcon}>🎉</Text>}
       </View>
     );
   };
@@ -681,19 +679,20 @@ export function TransfersScreen({ navigation }: any) {
 
   const renderPlayerRow = (player: Player) => {
     const hasAccess = hasAccessToPlayer(player.id);
+    const birthday = isBirthday(player.birth_date);
     // Position in Kürzel umwandeln
-    const positionDisplay = player.position 
+    const positionDisplay = player.position
       ? player.position.split(', ').map(p => POSITION_SHORT[p.trim()] || p).join(', ')
       : '-';
     return (
       <TouchableOpacity
         key={player.id}
-        style={[styles.tableRow, { borderBottomColor: colors.border }, !hasAccess && [styles.tableRowLocked, { backgroundColor: colors.surfaceSecondary }]]}
+        style={[styles.tableRow, { borderBottomColor: colors.border }, !hasAccess && [styles.tableRowLocked, { backgroundColor: colors.surfaceSecondary }], birthday && styles.birthdayRow]}
         onPress={() => handlePlayerClick(player)}
       >
         <View style={[styles.colName, styles.nameContainer]}>
           <Text style={[styles.tableCell, styles.nameCell, { color: colors.text }]} numberOfLines={1}>
-            {player.last_name}, {player.first_name}
+            {player.last_name}, {player.first_name}{birthday && ' 🎉'}
           </Text>
           {!hasAccess && <Text style={styles.lockIcon}>🔒</Text>}
         </View>
@@ -724,16 +723,15 @@ export function TransfersScreen({ navigation }: any) {
     return (
       <TouchableOpacity
         key={player.id}
-        style={[styles.playerCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }, !hasAccess && { backgroundColor: colors.surfaceSecondary }]}
+        style={[styles.playerCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }, !hasAccess && { backgroundColor: colors.surfaceSecondary }, birthday && styles.birthdayCard]}
         onPress={() => handlePlayerClick(player)}
       >
         <View style={styles.playerCardHeader}>
           <View style={styles.playerCardNameRow}>
             {!hasAccess && <Text style={styles.lockIconMobile}>🔒</Text>}
             <Text style={[styles.playerCardName, { color: colors.text }]} numberOfLines={1}>
-              {player.last_name}, {player.first_name}
+              {player.last_name}, {player.first_name}{birthday && ' 🎉'}
             </Text>
-            {birthday && <Text style={styles.birthdayIconMobile}>🎉</Text>}
           </View>
           <View style={styles.playerCardBadges}>
             {player.listing && (
@@ -1801,6 +1799,7 @@ const styles = StyleSheet.create({
   tableBody: { flex: 1 },
   tableRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', alignItems: 'center' },
   tableRowLocked: { backgroundColor: '#fafafa' },
+  birthdayRow: { backgroundColor: 'rgba(255, 215, 0, 0.2)' },
   tableCell: { fontSize: 14, color: '#334155' },
   nameContainer: { flexDirection: 'row', alignItems: 'center' },
   nameCell: { fontWeight: '500', flex: 1 },
@@ -2026,6 +2025,10 @@ const styles = StyleSheet.create({
   },
   playerCardLocked: {
     backgroundColor: '#fafafa',
+  },
+  birthdayCard: {
+    backgroundColor: 'rgba(255, 215, 0, 0.2)',
+    borderColor: 'rgba(255, 215, 0, 0.5)',
   },
   playerCardHeader: {
     flexDirection: 'row',

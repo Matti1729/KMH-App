@@ -118,6 +118,7 @@ export function TasksRemindersScreen({ navigation }: any) {
   const [profile, setProfile] = useState<any>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [birthdayPlayers, setBirthdayPlayers] = useState<{id: string; first_name: string; last_name: string; birth_date: string}[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
@@ -168,6 +169,7 @@ export function TasksRemindersScreen({ navigation }: any) {
     if (currentUserId) {
       fetchTasks();
       fetchReminders();
+      fetchBirthdayPlayers();
     }
   }, [currentUserId]);
 
@@ -177,6 +179,7 @@ export function TasksRemindersScreen({ navigation }: any) {
       if (currentUserId) {
         fetchTasks();
         fetchReminders();
+        fetchBirthdayPlayers();
       }
     }, [currentUserId])
   );
@@ -268,8 +271,30 @@ export function TasksRemindersScreen({ navigation }: any) {
 
     // Combine all reminders - include overdue ones too
     const allReminders = [...(remindersData || []), ...convertedTransferReminders];
-    
+
     setReminders(allReminders);
+  };
+
+  const fetchBirthdayPlayers = async () => {
+    const today = new Date();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+
+    // Fetch all players and filter by birthday (month and day match)
+    const { data } = await supabase
+      .from('player_details')
+      .select('id, first_name, last_name, birth_date');
+
+    if (data) {
+      const birthdayToday = data.filter(player => {
+        if (!player.birth_date) return false;
+        const birthDate = new Date(player.birth_date);
+        const birthMonth = String(birthDate.getMonth() + 1).padStart(2, '0');
+        const birthDay = String(birthDate.getDate()).padStart(2, '0');
+        return birthMonth === month && birthDay === day;
+      });
+      setBirthdayPlayers(birthdayToday);
+    }
   };
 
   const openNewTaskModal = () => {
@@ -621,6 +646,29 @@ export function TasksRemindersScreen({ navigation }: any) {
     );
   };
 
+  const renderBirthdayCard = (player: {id: string; first_name: string; last_name: string; birth_date: string}) => {
+    const birthYear = new Date(player.birth_date).getFullYear();
+    const age = new Date().getFullYear() - birthYear;
+
+    return (
+      <TouchableOpacity
+        key={`birthday-${player.id}`}
+        style={[styles.birthdayCard, { backgroundColor: 'rgba(255, 215, 0, 0.2)', borderColor: 'rgba(255, 215, 0, 0.5)' }]}
+        onPress={() => navigation.navigate('PlayerDetail', { playerId: player.id })}
+      >
+        <Text style={styles.birthdayEmoji}>🎉</Text>
+        <View style={styles.birthdayContent}>
+          <Text style={[styles.birthdayTitle, { color: colors.text }]}>
+            {player.first_name} {player.last_name}
+          </Text>
+          <Text style={[styles.birthdaySubtitle, { color: colors.textSecondary }]}>
+            hat heute Geburtstag! ({age} Jahre)
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
   const renderPrioritySection = (priority: 'high' | 'medium' | 'low', tasks: Task[]) => {
     const p = PRIORITIES.find(pr => pr.id === priority)!;
     if (tasks.length === 0) return null;
@@ -826,7 +874,7 @@ export function TasksRemindersScreen({ navigation }: any) {
               </Text>
               <View style={[styles.mobileTabBadge, { backgroundColor: colors.surfaceSecondary }, mobileActiveTab === 'reminders' && [styles.mobileTabBadgeActive, { backgroundColor: colors.primary }]]}>
                 <Text style={[styles.mobileTabBadgeText, { color: colors.textSecondary }, mobileActiveTab === 'reminders' && [styles.mobileTabBadgeTextActive, { color: colors.primaryText }]]}>
-                  {todayAndOverdueReminders.length + laterReminders.length}
+                  {todayAndOverdueReminders.length + laterReminders.length + birthdayPlayers.length}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -868,6 +916,19 @@ export function TasksRemindersScreen({ navigation }: any) {
               </>
             ) : (
               <>
+                {/* Geburtstage heute */}
+                {birthdayPlayers.length > 0 && (
+                  <View style={[styles.mobileReminderSection, { backgroundColor: 'rgba(255, 215, 0, 0.1)', borderWidth: 1.5, borderColor: 'rgba(255, 215, 0, 0.5)', borderRadius: 12 }]}>
+                    <View style={[styles.mobileReminderSectionHeader, { backgroundColor: 'rgba(255, 215, 0, 0.25)' }]}>
+                      <Text style={[styles.mobileReminderSectionTitle, { color: colors.text }]}>🎉 Geburtstage heute</Text>
+                      <View style={styles.mobileReminderSectionBadge}>
+                        <Text style={styles.mobileReminderSectionBadgeText}>{birthdayPlayers.length}</Text>
+                      </View>
+                    </View>
+                    {birthdayPlayers.map(player => renderBirthdayCard(player))}
+                  </View>
+                )}
+
                 {/* Heute & Überfällig */}
                 {todayAndOverdueReminders.length > 0 && (
                   <View style={[styles.mobileReminderSection, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.08)' : colors.cardBackground, borderWidth: 1.5, borderColor: isDark ? '#f87171' : '#fca5a5', borderRadius: 12 }]}>
@@ -894,7 +955,7 @@ export function TasksRemindersScreen({ navigation }: any) {
                   </View>
                 )}
 
-                {todayAndOverdueReminders.length === 0 && laterReminders.length === 0 && (
+                {todayAndOverdueReminders.length === 0 && laterReminders.length === 0 && birthdayPlayers.length === 0 && (
                   <View style={styles.mobileEmptyState}>
                     <Text style={styles.mobileEmptyStateText}>Keine Erinnerungen</Text>
                   </View>
@@ -1152,16 +1213,18 @@ export function TasksRemindersScreen({ navigation }: any) {
 
             <ScrollView style={styles.reminderScrollContainer}>
               <View style={styles.reminderColumns}>
-                {/* Heute (inkl. überfällige) */}
+                {/* Heute (inkl. überfällige + Geburtstage) */}
                 <View style={[styles.reminderColumn, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.08)' : colors.cardBackground, borderWidth: 1.5, borderColor: isDark ? '#f87171' : '#fca5a5' }]}>
                   <View style={[styles.reminderColumnHeader, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.25)' : '#fef2f2', borderBottomColor: colors.border }]}>
                     <Text style={[styles.reminderColumnTitle, { color: colors.text }]}>Heute</Text>
                     <View style={styles.reminderCountBadge}>
-                      <Text style={styles.reminderCountText}>{todayAndOverdueReminders.length}</Text>
+                      <Text style={styles.reminderCountText}>{todayAndOverdueReminders.length + birthdayPlayers.length}</Text>
                     </View>
                   </View>
                   <View style={styles.reminderColumnContent}>
-                    {todayAndOverdueReminders.length === 0 && completedRemindersToday.length === 0 ? (
+                    {/* Geburtstage */}
+                    {birthdayPlayers.map(player => renderBirthdayCard(player))}
+                    {todayAndOverdueReminders.length === 0 && completedRemindersToday.length === 0 && birthdayPlayers.length === 0 ? (
                       <Text style={styles.noRemindersText}>Keine Erinnerungen</Text>
                     ) : (
                       <>
@@ -1639,6 +1702,31 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     paddingHorizontal: 6,
     borderRadius: 4,
+  },
+
+  // Birthday Card
+  birthdayCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+  },
+  birthdayEmoji: {
+    fontSize: 24,
+    marginRight: 10,
+  },
+  birthdayContent: {
+    flex: 1,
+  },
+  birthdayTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  birthdaySubtitle: {
+    fontSize: 12,
+    marginTop: 2,
   },
 
   // Modal
