@@ -1288,14 +1288,14 @@ export function PlayerOverviewScreen({ navigation }: any) {
         {/* Add Player Modal */}
         <Modal visible={showAddModal} transparent animationType="fade">
           <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Neuen Spieler anlegen</Text>
-              <TextInput style={styles.modalInput} placeholder="Vorname" value={newFirstName} onChangeText={setNewFirstName} />
-              <TextInput style={styles.modalInput} placeholder="Nachname" value={newLastName} onChangeText={setNewLastName} />
-              <Text style={styles.modalHint}>Zuständigkeit: {currentUserName || 'Sie'}</Text>
+            <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Neuen Spieler anlegen</Text>
+              <TextInput style={[styles.modalInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Vorname" placeholderTextColor={colors.textMuted} value={newFirstName} onChangeText={setNewFirstName} />
+              <TextInput style={[styles.modalInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Nachname" placeholderTextColor={colors.textMuted} value={newLastName} onChangeText={setNewLastName} />
+              <Text style={[styles.modalHint, { color: colors.textSecondary }]}>Zuständigkeit: {currentUserName || 'Sie'}</Text>
               <View style={styles.modalButtons}>
-                <TouchableOpacity style={styles.modalCancelButton} onPress={() => setShowAddModal(false)}><Text style={styles.modalCancelButtonText}>Abbrechen</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.modalSaveButton} onPress={handleAddPlayer}><Text style={styles.modalSaveButtonText}>Speichern</Text></TouchableOpacity>
+                <TouchableOpacity style={[styles.modalCancelButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setShowAddModal(false)}><Text style={[styles.modalCancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text></TouchableOpacity>
+                <TouchableOpacity style={[styles.modalSaveButton, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={handleAddPlayer}><Text style={[styles.modalSaveButtonText, { color: '#10b981' }]}>Speichern</Text></TouchableOpacity>
               </View>
             </View>
           </View>
@@ -1304,21 +1304,21 @@ export function PlayerOverviewScreen({ navigation }: any) {
         {/* Request Access Modal */}
         <Modal visible={showRequestModal} transparent animationType="fade">
           <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Zuständigkeit beantragen</Text>
-              <Text style={styles.modalText}>
+            <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Zuständigkeit beantragen</Text>
+              <Text style={[styles.modalText, { color: colors.text }]}>
                 Sie haben keinen Zugriff auf das Profil von{'\n'}
                 <Text style={styles.modalPlayerName}>{selectedPlayer?.first_name} {selectedPlayer?.last_name}</Text>
               </Text>
-              <Text style={styles.modalSubText}>
+              <Text style={[styles.modalSubText, { color: colors.textSecondary }]}>
                 Möchten Sie die Zuständigkeit beantragen?{'\n'}Ein Admin wird Ihre Anfrage prüfen.
               </Text>
               <View style={styles.modalButtons}>
-                <TouchableOpacity style={styles.modalCancelButton} onPress={() => { setShowRequestModal(false); setSelectedPlayer(null); }}>
-                  <Text style={styles.modalCancelButtonText}>Abbrechen</Text>
+                <TouchableOpacity style={[styles.modalCancelButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => { setShowRequestModal(false); setSelectedPlayer(null); }}>
+                  <Text style={[styles.modalCancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.modalSaveButton} onPress={handleRequestAccess}>
-                  <Text style={styles.modalSaveButtonText}>Ja, beantragen</Text>
+                <TouchableOpacity style={[styles.modalSaveButton, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={handleRequestAccess}>
+                  <Text style={[styles.modalSaveButtonText, { color: '#10b981' }]}>Ja, beantragen</Text>
                 </TouchableOpacity>
               </View>
             </View>
