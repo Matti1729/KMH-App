@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Platform, Linking, Pressable, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Platform, Linking, Pressable, RefreshControl, Alert } from 'react-native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 import { MobileHeader } from '../../components/MobileHeader';
@@ -147,6 +147,25 @@ const isGameToday = (dateStr: string): boolean => {
   return today.getFullYear() === gameDate.getFullYear() &&
          today.getMonth() === gameDate.getMonth() &&
          today.getDate() === gameDate.getDate();
+};
+
+// Badge color helper for game types
+const getGameTypeBadgeStyle = (gameType: string | undefined): { backgroundColor: string; color: string } => {
+  if (!gameType) return { backgroundColor: '#f1f5f9', color: '#64748b' };
+  const type = gameType.toLowerCase();
+  if (type.includes('punktspiel') || type.includes('liga')) {
+    return { backgroundColor: '#dbeafe', color: '#1d4ed8' }; // Blue
+  }
+  if (type.includes('pokal')) {
+    return { backgroundColor: '#fef3c7', color: '#b45309' }; // Gold
+  }
+  if (type.includes('freundschaft') || type.includes('test')) {
+    return { backgroundColor: '#f1f5f9', color: '#64748b' }; // Gray
+  }
+  if (type.includes('turnier') || type.includes('hallen')) {
+    return { backgroundColor: '#ede9fe', color: '#7c3aed' }; // Purple
+  }
+  return { backgroundColor: '#f1f5f9', color: '#64748b' };
 };
 
 // Function to fetch agent from Transfermarkt (via proxy/scraping service)
@@ -306,6 +325,8 @@ export function ScoutingScreen({ navigation }: any) {
   // Games search and archive
   const [gamesSearchQuery, setGamesSearchQuery] = useState('');
   const [gamesViewMode, setGamesViewMode] = useState<'upcoming' | 'archive' | 'search'>('upcoming');
+  const [selectedGameIds, setSelectedGameIds] = useState<string[]>([]);
+  const [showMobileGamesArchiv, setShowMobileGamesArchiv] = useState(false);
   const [allGamePlayers, setAllGamePlayers] = useState<(GamePlayer & { game?: ScoutingGame, team_name?: string })[]>([]);
   const [selectedGamesRatings, setSelectedGamesRatings] = useState<number[]>([]);
   const [selectedGamesYears, setSelectedGamesYears] = useState<string[]>([]);
@@ -624,18 +645,22 @@ export function ScoutingScreen({ navigation }: any) {
     return null;
   };
 
-  const getFilteredClubs = (searchTxt: string) => {
-    if (!searchTxt || searchTxt.length === 0) return [];
-    return clubNames
-      .filter(name => {
-        // Filter out 2. Mannschaften, U23, U21, II, B-Team etc.
-        const lowerName = name.toLowerCase();
-        if (lowerName.includes(' ii') || lowerName.includes(' 2') || lowerName.includes(' b')) return false;
-        if (lowerName.includes('u23') || lowerName.includes('u21') || lowerName.includes('u19')) return false;
-        if (lowerName.includes('reserve') || lowerName.includes('amateur')) return false;
-        return name.toLowerCase().includes(searchTxt.toLowerCase());
-      })
-      .slice(0, 10);
+  const getFilteredClubs = (searchTxt: string, showAll: boolean = false) => {
+    const filtered = clubNames.filter(name => {
+      // Filter out 2. Mannschaften, U23, U21, II, B-Team etc.
+      const lowerName = name.toLowerCase();
+      if (lowerName.includes(' ii') || lowerName.includes(' 2')) return false;
+      if (lowerName.includes('u23') || lowerName.includes('u21') || lowerName.includes('u19')) return false;
+      if (lowerName.includes('reserve') || lowerName.includes('amateur')) return false;
+      if (lowerName.includes(' b ') || lowerName.endsWith(' b')) return false; // More precise B-Team filter
+      // If search text provided, filter by it
+      if (searchTxt && searchTxt.length > 0) {
+        return lowerName.includes(searchTxt.toLowerCase());
+      }
+      return true;
+    });
+    // Show more results when browsing all, limit when searching
+    return showAll ? filtered.slice(0, 50) : filtered.slice(0, 20);
   };
 
   const addScoutedPlayer = async () => {
@@ -1252,16 +1277,17 @@ export function ScoutingScreen({ navigation }: any) {
     showDrop: boolean, setShowDrop: (s: boolean) => void,
     onSelect: (c: string) => void
   ) => {
-    const list = getFilteredClubs(searchTxt);
+    const showAll = searchTxt.length === 0;
+    const list = getFilteredClubs(searchTxt, showAll);
     return (
       <View style={styles.clubSelectorContainer}>
         <TextInput
           style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
           value={searchTxt}
-          onChangeText={(t) => { setSearchTxt(t); onSelect(t); setShowDrop(t.length > 0 && getFilteredClubs(t).length > 0); }}
-          onFocus={() => { if (searchTxt.length > 0 && getFilteredClubs(searchTxt).length > 0) setShowDrop(true); }}
+          onChangeText={(t) => { setSearchTxt(t); onSelect(t); setShowDrop(true); }}
+          onFocus={() => setShowDrop(true)}
           onBlur={() => setTimeout(() => setShowDrop(false), 200)}
-          placeholder="Verein suchen..."
+          placeholder="Verein suchen oder auswählen..."
           placeholderTextColor={colors.textMuted}
         />
         {showDrop && list.length > 0 && (
@@ -1923,34 +1949,87 @@ export function ScoutingScreen({ navigation }: any) {
     );
   };
 
-  // Mobile Scouting Game Card
-  const renderMobileGameCard = (game: ScoutingGame) => {
+  // Mobile Scouting Game Card - New design matching TermineScreen
+  const renderMobileGameCard = (game: ScoutingGame, isPast: boolean = false) => {
     const homeLogo = getClubLogo(game.home_team);
     const awayLogo = getClubLogo(game.away_team);
-    const dateStr = game.date ? formatDateShort(game.date) : '-';
+    const dateStr = game.date ? formatGameDate(game.date) : '-';
+    const isToday = isGameToday(game.date);
+    const isSelected = selectedGameIds.includes(game.id);
+    const badgeStyle = getGameTypeBadgeStyle(game.game_type);
+
+    // Display title: description if set, otherwise "Home vs Away"
+    const displayTitle = game.description || `${game.home_team || '-'} vs ${game.away_team || '-'}`;
+
+    const toggleGameSelection = (e: any) => {
+      e.stopPropagation();
+      setSelectedGameIds(prev =>
+        prev.includes(game.id) ? prev.filter(id => id !== game.id) : [...prev, game.id]
+      );
+    };
 
     return (
       <TouchableOpacity
         key={game.id}
-        style={[styles.mobileGameCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
+        style={[
+          styles.mobileGameCard,
+          { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
+          isToday && !isPast && { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#dcfce7', borderColor: '#10b981' },
+          isPast && { backgroundColor: colors.surfaceSecondary }
+        ]}
         onPress={() => openGameDetail(game)}
+        onLongPress={toggleGameSelection}
+        activeOpacity={0.7}
       >
+        {/* Header: Jahrgang • Art + Datum */}
         <View style={styles.mobileGameCardHeader}>
-          <Text style={[styles.mobileGameCardDate, { color: colors.text }]}>{dateStr}</Text>
-          {game.age_group && <Text style={[styles.mobileGameCardJahrgang, { color: colors.textSecondary, backgroundColor: colors.surfaceSecondary }]}>{game.age_group}</Text>}
-        </View>
-        <View style={styles.mobileGameCardTeams}>
-          <View style={styles.mobileGameCardTeam}>
-            {homeLogo && <Image source={{ uri: homeLogo }} style={styles.mobileGameCardLogo} />}
-            <Text style={[styles.mobileGameCardTeamName, { color: colors.text }]} numberOfLines={1}>{game.home_team}</Text>
+          <View style={styles.mobileGameCardBadges}>
+            {game.age_group && (
+              <View style={[styles.mobileGameCardBadge, { backgroundColor: colors.surfaceSecondary }]}>
+                <Text style={[styles.mobileGameCardBadgeText, { color: isPast ? colors.textMuted : colors.textSecondary }]}>{game.age_group}</Text>
+              </View>
+            )}
+            {game.game_type && (
+              <View style={[styles.mobileGameCardBadge, { backgroundColor: isPast ? colors.surfaceSecondary : badgeStyle.backgroundColor }]}>
+                <Text style={[styles.mobileGameCardBadgeText, { color: isPast ? colors.textMuted : badgeStyle.color }]}>{game.game_type}</Text>
+              </View>
+            )}
           </View>
-          <Text style={[styles.mobileGameCardVs, { color: colors.textMuted }]}>vs</Text>
-          <View style={styles.mobileGameCardTeam}>
-            {awayLogo && <Image source={{ uri: awayLogo }} style={styles.mobileGameCardLogo} />}
-            <Text style={[styles.mobileGameCardTeamName, { color: colors.text }]} numberOfLines={1}>{game.away_team}</Text>
+          <Text style={[styles.mobileGameCardDateNew, { color: isPast ? colors.textMuted : colors.textSecondary }]}>
+            {dateStr}
+          </Text>
+        </View>
+
+        {/* Center: Match title with logos */}
+        <View style={styles.mobileGameCardCenter}>
+          <View style={styles.mobileGameCardMatchRow}>
+            {homeLogo && <Image source={{ uri: homeLogo }} style={styles.mobileGameCardLogoSmall} />}
+            <Text style={[styles.mobileGameCardTitle, { color: isPast ? colors.textSecondary : colors.text }]} numberOfLines={2}>
+              {displayTitle}
+            </Text>
+            {awayLogo && <Image source={{ uri: awayLogo }} style={styles.mobileGameCardLogoSmall} />}
           </View>
         </View>
-        {game.location && <Text style={[styles.mobileGameCardVenue, { color: colors.textSecondary }]}>📍 {game.location}</Text>}
+
+        {/* Footer: Location + Checkbox */}
+        <View style={[styles.mobileGameCardFooter, { borderTopColor: colors.border }]}>
+          {game.location ? (
+            <>
+              <Text style={styles.mobileGameCardOrtLabel}>📍</Text>
+              <Text style={[styles.mobileGameCardOrt, { color: isPast ? colors.textMuted : colors.textSecondary }]} numberOfLines={1}>
+                {game.location}
+              </Text>
+            </>
+          ) : (
+            <View style={{ flex: 1 }} />
+          )}
+          <TouchableOpacity
+            style={[styles.mobileGameCardCheckbox, { backgroundColor: colors.surface, borderColor: colors.border }, isSelected && styles.mobileGameCardCheckboxSelected]}
+            onPress={toggleGameSelection}
+          >
+            {isSelected && <Text style={styles.mobileGameCardCheckmark}>✓</Text>}
+          </TouchableOpacity>
+        </View>
       </TouchableOpacity>
     );
   };
@@ -2087,57 +2166,145 @@ export function ScoutingScreen({ navigation }: any) {
           </>
         ) : (
           <>
-            {/* Games Search */}
-            <View style={[styles.mobileSearchContainer, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
-              <Text style={styles.mobileSearchIcon}>🔍</Text>
-              <TextInput
-                style={[styles.mobileSearchInput, { color: colors.text }]}
-                placeholder="Spiel, Verein suchen..."
-                placeholderTextColor={colors.textMuted}
-                value={gamesSearchQuery}
-                onChangeText={(text) => {
-                  setGamesSearchQuery(text);
-                  if (text.trim()) {
-                    setGamesViewMode('search');
+            {/* Games Toolbar with Select All and Filter */}
+            <View style={[styles.mobileGamesToolbar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+              <TouchableOpacity
+                style={[styles.mobileGamesToolbarBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border },
+                  (showMobileGamesArchiv ? archivedGames : upcomingGames).every(g => selectedGameIds.includes(g.id)) && (showMobileGamesArchiv ? archivedGames : upcomingGames).length > 0 && styles.mobileGamesToolbarBtnActive]}
+                onPress={() => {
+                  const displayedGames = showMobileGamesArchiv ? archivedGames : upcomingGames;
+                  const allSelected = displayedGames.length > 0 && displayedGames.every(g => selectedGameIds.includes(g.id));
+                  if (allSelected) {
+                    setSelectedGameIds(prev => prev.filter(id => !displayedGames.some(g => g.id === id)));
                   } else {
-                    setGamesViewMode('upcoming');
+                    setSelectedGameIds(prev => [...new Set([...prev, ...displayedGames.map(g => g.id)])]);
                   }
                 }}
-              />
-              {gamesSearchQuery && (
-                <TouchableOpacity onPress={() => { setGamesSearchQuery(''); setGamesViewMode('upcoming'); }}>
-                  <Text style={styles.mobileSearchClear}>✕</Text>
-                </TouchableOpacity>
-              )}
+              >
+                <Text style={[styles.mobileGamesToolbarBtnText, { color: colors.textSecondary }]}>☐</Text>
+              </TouchableOpacity>
+
+              <View style={{ flex: 1 }} />
+
+              {/* Search Icon Button */}
+              <View style={[styles.mobileSearchContainerCompact, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
+                <Text style={styles.mobileSearchIcon}>🔍</Text>
+                <TextInput
+                  style={[styles.mobileSearchInputCompact, { color: colors.text }]}
+                  placeholder="Suchen..."
+                  placeholderTextColor={colors.textMuted}
+                  value={gamesSearchQuery}
+                  onChangeText={(text) => {
+                    setGamesSearchQuery(text);
+                    if (text.trim()) {
+                      setGamesViewMode('search');
+                    } else {
+                      setGamesViewMode('upcoming');
+                    }
+                  }}
+                />
+                {gamesSearchQuery && (
+                  <TouchableOpacity onPress={() => { setGamesSearchQuery(''); setGamesViewMode('upcoming'); }}>
+                    <Text style={styles.mobileSearchClear}>✕</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+
+            {/* Anstehend / Archiv Toggle */}
+            <View style={[styles.mobileGamesToggle, { backgroundColor: colors.surfaceSecondary }]}>
+              <TouchableOpacity
+                style={[styles.mobileGamesToggleBtn, !showMobileGamesArchiv && [styles.mobileGamesToggleBtnActive, { backgroundColor: colors.surface }]]}
+                onPress={() => setShowMobileGamesArchiv(false)}
+              >
+                <Text style={[styles.mobileGamesToggleBtnText, { color: colors.textSecondary }, !showMobileGamesArchiv && { color: colors.text }]}>
+                  Anstehend ({upcomingGames.length})
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.mobileGamesToggleBtn, showMobileGamesArchiv && [styles.mobileGamesToggleBtnActive, { backgroundColor: colors.surface }]]}
+                onPress={() => setShowMobileGamesArchiv(true)}
+              >
+                <Text style={[styles.mobileGamesToggleBtnText, { color: colors.textSecondary }, showMobileGamesArchiv && { color: colors.text }]}>
+                  Archiv ({archivedGames.length})
+                </Text>
+              </TouchableOpacity>
             </View>
 
             {/* Games List */}
             <ScrollView
               style={styles.mobileContentScroll}
-              contentContainerStyle={styles.mobileContentContainer}
+              contentContainerStyle={styles.mobileGamesListContent}
               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
             >
-              {upcomingGames.length === 0 ? (
-                <View style={styles.mobileEmptyState}>
-                  <Text style={[styles.mobileEmptyText, { color: colors.textMuted }]}>Keine kommenden Termine</Text>
-                </View>
-              ) : (
-                upcomingGames
-                  .filter(g => {
-                    if (!gamesSearchQuery) return true;
-                    const search = gamesSearchQuery.toLowerCase();
-                    return (
-                      g.home_team?.toLowerCase().includes(search) ||
-                      g.away_team?.toLowerCase().includes(search) ||
-                      g.venue?.toLowerCase().includes(search)
-                    );
-                  })
-                  .map(game => renderMobileGameCard(game))
-              )}
+              {(() => {
+                const displayedGames = showMobileGamesArchiv ? archivedGames : upcomingGames;
+                const filteredGames = displayedGames.filter(g => {
+                  if (!gamesSearchQuery) return true;
+                  const search = gamesSearchQuery.toLowerCase();
+                  return (
+                    g.home_team?.toLowerCase().includes(search) ||
+                    g.away_team?.toLowerCase().includes(search) ||
+                    g.description?.toLowerCase().includes(search) ||
+                    g.location?.toLowerCase().includes(search) ||
+                    g.game_type?.toLowerCase().includes(search)
+                  );
+                });
+
+                if (filteredGames.length === 0) {
+                  return (
+                    <View style={styles.mobileEmptyState}>
+                      <Text style={styles.mobileGamesEmptyIcon}>📅</Text>
+                      <Text style={[styles.mobileEmptyText, { color: colors.textMuted }]}>
+                        {showMobileGamesArchiv ? 'Keine vergangenen Termine' : 'Keine anstehenden Termine'}
+                      </Text>
+                      {!showMobileGamesArchiv && (
+                        <TouchableOpacity style={[styles.mobileGamesEmptyButton, { backgroundColor: colors.primary }]} onPress={() => setShowAddGameModal(true)}>
+                          <Text style={[styles.mobileGamesEmptyButtonText, { color: colors.primaryText }]}>Termin anlegen</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  );
+                }
+
+                return filteredGames.map(game => renderMobileGameCard(game, showMobileGamesArchiv));
+              })()}
             </ScrollView>
 
-            {/* FAB */}
-            <TouchableOpacity style={[styles.mobileFab, { backgroundColor: colors.primary }]} onPress={() => setShowAddGameModal(true)}>
+            {/* Floating Action Button for selected games */}
+            {selectedGameIds.length > 0 && (
+              <TouchableOpacity
+                style={[styles.mobileGamesFloatingAction, { backgroundColor: '#dc2626' }]}
+                onPress={() => {
+                  Alert.alert(
+                    'Termine löschen',
+                    `Möchtest du ${selectedGameIds.length} Termin(e) löschen?`,
+                    [
+                      { text: 'Abbrechen', style: 'cancel' },
+                      {
+                        text: 'Löschen',
+                        style: 'destructive',
+                        onPress: async () => {
+                          for (const id of selectedGameIds) {
+                            await supabase.from('scouting_games').delete().eq('id', id);
+                          }
+                          setSelectedGameIds([]);
+                          fetchScoutingGames();
+                        }
+                      }
+                    ]
+                  );
+                }}
+              >
+                <Text style={styles.mobileGamesFloatingActionText}>🗑 {selectedGameIds.length}</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* FAB for adding new game */}
+            <TouchableOpacity
+              style={[styles.mobileFab, { backgroundColor: colors.primary }, selectedGameIds.length > 0 && { bottom: 80 }]}
+              onPress={() => setShowAddGameModal(true)}
+            >
               <Text style={[styles.mobileFabIcon, { color: colors.primaryText }]}>+</Text>
             </TouchableOpacity>
           </>
@@ -4155,7 +4322,7 @@ const styles = StyleSheet.create({
   searchResultsTitle: { fontSize: 14, fontWeight: '600', color: '#1a1a1a' },
   clubSelectorContainer: { position: 'relative', zIndex: 9999 },
   clubDropdown: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', marginTop: 4, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 10, zIndex: 9999, elevation: 9999 },
-  clubDropdownScroll: { maxHeight: 200 },
+  clubDropdownScroll: { maxHeight: 300 },
   clubDropdownItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', backgroundColor: '#fff' },
   clubDropdownLogo: { width: 24, height: 24, resizeMode: 'contain', marginRight: 10 },
   clubDropdownText: { fontSize: 14, color: '#333' },
@@ -4555,21 +4722,103 @@ const styles = StyleSheet.create({
     borderTopColor: '#f1f5f9',
   },
 
-  // Mobile Game Card
+  // Mobile Game Card - New KMH-style design
   mobileGameCard: {
     backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 8,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: '#e2e8f0',
+    minHeight: 80,
+    justifyContent: 'space-between',
   },
   mobileGameCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
   },
+  mobileGameCardBadges: {
+    flexDirection: 'row',
+    gap: 6,
+    flexWrap: 'wrap',
+    flex: 1,
+  },
+  mobileGameCardBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+    backgroundColor: '#f1f5f9',
+  },
+  mobileGameCardBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  mobileGameCardDateNew: {
+    fontSize: 12,
+    color: '#64748b',
+    marginLeft: 8,
+  },
+  mobileGameCardCenter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+  },
+  mobileGameCardMatchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  mobileGameCardLogoSmall: {
+    width: 20,
+    height: 20,
+    resizeMode: 'contain',
+  },
+  mobileGameCardTitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1a1a1a',
+    textAlign: 'center',
+    flexShrink: 1,
+  },
+  mobileGameCardFooter: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 3,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+  },
+  mobileGameCardOrtLabel: {
+    fontSize: 13,
+  },
+  mobileGameCardOrt: {
+    fontSize: 13,
+    color: '#64748b',
+    flex: 1,
+  },
+  mobileGameCardCheckbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: '#cbd5e1',
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mobileGameCardCheckboxSelected: {
+    backgroundColor: '#10b981',
+    borderColor: '#10b981',
+  },
+  mobileGameCardCheckmark: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  // Legacy styles (kept for compatibility)
   mobileGameCardDate: {
     fontSize: 13,
     fontWeight: '600',
@@ -4613,6 +4862,126 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748b',
     marginTop: 8,
+  },
+  // Mobile Games Toolbar
+  mobileGamesToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    gap: 8,
+  },
+  mobileGamesToolbarBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mobileGamesToolbarBtnActive: {
+    backgroundColor: '#1a1a1a',
+    borderColor: '#1a1a1a',
+  },
+  mobileGamesToolbarBtnText: {
+    fontSize: 14,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  // Mobile Games Toggle (Anstehend / Archiv)
+  mobileGamesToggle: {
+    flexDirection: 'row',
+    margin: 12,
+    borderRadius: 8,
+    padding: 4,
+    backgroundColor: '#f1f5f9',
+  },
+  mobileGamesToggleBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  mobileGamesToggleBtnActive: {
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  mobileGamesToggleBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  mobileGamesListContent: {
+    padding: 12,
+    gap: 8,
+  },
+  mobileGamesEmptyIcon: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  mobileGamesEmptyButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  mobileGamesEmptyButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  mobileGamesFloatingAction: {
+    position: 'absolute',
+    bottom: 20,
+    right: 72,
+    height: 44,
+    paddingHorizontal: 16,
+    borderRadius: 22,
+    backgroundColor: '#dc2626',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  mobileGamesFloatingActionText: {
+    fontSize: 15,
+    color: '#fff',
+    fontWeight: '600',
+  },
+  // Mobile Search Compact
+  mobileSearchContainerCompact: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    backgroundColor: '#f8fafc',
+    maxWidth: 200,
+  },
+  mobileSearchInputCompact: {
+    flex: 1,
+    fontSize: 14,
+    marginLeft: 6,
+    paddingVertical: 2,
   },
 
   // Mobile FAB

@@ -239,6 +239,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const [selectedNationalities, setSelectedNationalities] = useState<string[]>([]);
   const [selectedResponsibilities, setSelectedResponsibilities] = useState<string[]>([]);
   const [showNationalityPicker, setShowNationalityPicker] = useState(false);
+  const [nationalitySearchText, setNationalitySearchText] = useState('');
   const [showHeightPicker, setShowHeightPicker] = useState(false);
   const [clubLogos, setClubLogos] = useState<Record<string, string>>({});
   const [allClubs, setAllClubs] = useState<string[]>([]);
@@ -1729,6 +1730,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     setShowFutureClubSuggestions(false);
     setActiveDatePicker(null);
     setActiveDatePart(null);
+    setNationalitySearchText('');
   };
 
   const handleSave = async () => {
@@ -2069,13 +2071,19 @@ export function PlayerDetailScreen({ route, navigation }: any) {
 
   const renderDateField = (label: string, field: keyof Player) => {
     const dateParts = parseDateToParts(editData?.[field] as string || '');
-    const currentDay = dateParts?.day || 1;
-    const currentMonth = dateParts?.month ?? 0;
-    const currentYear = dateParts?.year || 2000;
+    const hasDate = !!editData?.[field];
+    const currentDay = dateParts?.day || null;
+    const currentMonth = dateParts?.month ?? null;
+    const currentYear = dateParts?.year || null;
 
     const isActiveDay = activeDatePicker === field && activeDatePart === 'day';
     const isActiveMonth = activeDatePicker === field && activeDatePart === 'month';
     const isActiveYear = activeDatePicker === field && activeDatePart === 'year';
+
+    const clearDate = () => {
+      updateField(field, null);
+      setActiveDatePart(null);
+    };
 
     return (
       <View style={[styles.infoRow, { zIndex: activeDatePicker === field ? 500 : 1 }]}>
@@ -2087,14 +2095,17 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 style={[styles.dateDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker(field); setActiveDatePart('day'); }}
               >
-                <Text style={[currentDay ? styles.dateDropdownText : styles.dateDropdownPlaceholder, { color: currentDay ? colors.text : colors.textMuted }]}>{currentDay || 'Tag'}</Text>
+                <Text style={[currentDay ? styles.dateDropdownText : styles.dateDropdownPlaceholder, { color: currentDay ? colors.text : colors.textMuted }]}>{currentDay || '-'}</Text>
                 <Text style={{ color: colors.textMuted }}>▼</Text>
               </TouchableOpacity>
               {isActiveDay && (
                 <View style={[styles.pickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
+                    <TouchableOpacity style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, !currentDay && { backgroundColor: colors.primary }]} onPress={clearDate}>
+                      <Text style={[styles.pickerItemText, { color: colors.text }, !currentDay && { color: colors.primaryText }]}>-</Text>
+                    </TouchableOpacity>
                     {DAYS.map((d) => (
-                      <TouchableOpacity key={d} style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, currentDay === d && { backgroundColor: colors.primary }]} onPress={() => { updateField(field, buildDateFromParts(d, currentMonth, currentYear)); setActiveDatePart(null); }}>
+                      <TouchableOpacity key={d} style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, currentDay === d && { backgroundColor: colors.primary }]} onPress={() => { updateField(field, buildDateFromParts(d, currentMonth || 0, currentYear || 2000)); setActiveDatePart(null); }}>
                         <Text style={[styles.pickerItemText, { color: colors.text }, currentDay === d && { color: colors.primaryText }]}>{d}</Text>
                       </TouchableOpacity>
                     ))}
@@ -2107,14 +2118,17 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 style={[styles.dateDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker(field); setActiveDatePart('month'); }}
               >
-                <Text style={[MONTHS[currentMonth] ? styles.dateDropdownText : styles.dateDropdownPlaceholder, { color: MONTHS[currentMonth] ? colors.text : colors.textMuted }]}>{MONTHS[currentMonth] || 'Monat'}</Text>
+                <Text style={[currentMonth !== null ? styles.dateDropdownText : styles.dateDropdownPlaceholder, { color: currentMonth !== null ? colors.text : colors.textMuted }]}>{currentMonth !== null ? MONTHS[currentMonth] : '-'}</Text>
                 <Text style={{ color: colors.textMuted }}>▼</Text>
               </TouchableOpacity>
               {isActiveMonth && (
                 <View style={[styles.pickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
+                    <TouchableOpacity style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, currentMonth === null && { backgroundColor: colors.primary }]} onPress={clearDate}>
+                      <Text style={[styles.pickerItemText, { color: colors.text }, currentMonth === null && { color: colors.primaryText }]}>-</Text>
+                    </TouchableOpacity>
                     {MONTHS.map((m, idx) => (
-                      <TouchableOpacity key={m} style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, currentMonth === idx && { backgroundColor: colors.primary }]} onPress={() => { updateField(field, buildDateFromParts(currentDay, idx, currentYear)); setActiveDatePart(null); }}>
+                      <TouchableOpacity key={m} style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, currentMonth === idx && { backgroundColor: colors.primary }]} onPress={() => { updateField(field, buildDateFromParts(currentDay || 1, idx, currentYear || 2000)); setActiveDatePart(null); }}>
                         <Text style={[styles.pickerItemText, { color: colors.text }, currentMonth === idx && { color: colors.primaryText }]}>{m}</Text>
                       </TouchableOpacity>
                     ))}
@@ -2127,14 +2141,17 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 style={[styles.dateDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker(field); setActiveDatePart('year'); }}
               >
-                <Text style={[currentYear ? styles.dateDropdownText : styles.dateDropdownPlaceholder, { color: currentYear ? colors.text : colors.textMuted }]}>{currentYear || 'Jahr'}</Text>
+                <Text style={[currentYear ? styles.dateDropdownText : styles.dateDropdownPlaceholder, { color: currentYear ? colors.text : colors.textMuted }]}>{currentYear || '-'}</Text>
                 <Text style={{ color: colors.textMuted }}>▼</Text>
               </TouchableOpacity>
               {isActiveYear && (
                 <View style={[styles.pickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
+                    <TouchableOpacity style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, !currentYear && { backgroundColor: colors.primary }]} onPress={clearDate}>
+                      <Text style={[styles.pickerItemText, { color: colors.text }, !currentYear && { color: colors.primaryText }]}>-</Text>
+                    </TouchableOpacity>
                     {YEARS.map((y) => (
-                      <TouchableOpacity key={y} style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, currentYear === y && { backgroundColor: colors.primary }]} onPress={() => { updateField(field, buildDateFromParts(currentDay, currentMonth, y)); setActiveDatePart(null); }}>
+                      <TouchableOpacity key={y} style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, currentYear === y && { backgroundColor: colors.primary }]} onPress={() => { updateField(field, buildDateFromParts(currentDay || 1, currentMonth || 0, y)); setActiveDatePart(null); }}>
                         <Text style={[styles.pickerItemText, { color: colors.text }, currentYear === y && { color: colors.primaryText }]}>{y}</Text>
                       </TouchableOpacity>
                     ))}
@@ -2151,13 +2168,18 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const renderBirthDateField = () => {
     const birthday = isBirthday(player?.birth_date || '');
     const dateParts = parseDateToParts(editData?.birth_date || '');
-    const currentDay = dateParts?.day || 1;
-    const currentMonth = dateParts?.month ?? 0;
-    const currentYear = dateParts?.year || 2000;
+    const currentDay = dateParts?.day || null;
+    const currentMonth = dateParts?.month ?? null;
+    const currentYear = dateParts?.year || null;
 
     const isActiveDay = activeDatePicker === 'birth_date' && activeDatePart === 'day';
     const isActiveMonth = activeDatePicker === 'birth_date' && activeDatePart === 'month';
     const isActiveYear = activeDatePicker === 'birth_date' && activeDatePart === 'year';
+
+    const clearBirthDate = () => {
+      updateField('birth_date', null);
+      setActiveDatePart(null);
+    };
 
     return (
       <View style={[styles.infoRow, { zIndex: activeDatePicker === 'birth_date' ? 500 : 1 }]}>
@@ -2169,14 +2191,17 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 style={[styles.dateDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker('birth_date'); setActiveDatePart('day'); }}
               >
-                <Text style={[currentDay ? styles.dateDropdownText : styles.dateDropdownPlaceholder, { color: currentDay ? colors.text : colors.textMuted }]}>{currentDay || 'Tag'}</Text>
+                <Text style={[currentDay ? styles.dateDropdownText : styles.dateDropdownPlaceholder, { color: currentDay ? colors.text : colors.textMuted }]}>{currentDay || '-'}</Text>
                 <Text style={{ color: colors.textMuted }}>▼</Text>
               </TouchableOpacity>
               {isActiveDay && (
                 <View style={[styles.pickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
+                    <TouchableOpacity style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, !currentDay && { backgroundColor: colors.primary }]} onPress={clearBirthDate}>
+                      <Text style={[styles.pickerItemText, { color: colors.text }, !currentDay && { color: colors.primaryText }]}>-</Text>
+                    </TouchableOpacity>
                     {DAYS.map((d) => (
-                      <TouchableOpacity key={d} style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, currentDay === d && { backgroundColor: colors.primary }]} onPress={() => { updateField('birth_date', buildDateFromParts(d, currentMonth, currentYear)); setActiveDatePart(null); }}>
+                      <TouchableOpacity key={d} style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, currentDay === d && { backgroundColor: colors.primary }]} onPress={() => { updateField('birth_date', buildDateFromParts(d, currentMonth || 0, currentYear || 2000)); setActiveDatePart(null); }}>
                         <Text style={[styles.pickerItemText, { color: colors.text }, currentDay === d && { color: colors.primaryText }]}>{d}</Text>
                       </TouchableOpacity>
                     ))}
@@ -2189,14 +2214,17 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 style={[styles.dateDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker('birth_date'); setActiveDatePart('month'); }}
               >
-                <Text style={[MONTHS[currentMonth] ? styles.dateDropdownText : styles.dateDropdownPlaceholder, { color: MONTHS[currentMonth] ? colors.text : colors.textMuted }]}>{MONTHS[currentMonth] || 'Monat'}</Text>
+                <Text style={[currentMonth !== null ? styles.dateDropdownText : styles.dateDropdownPlaceholder, { color: currentMonth !== null ? colors.text : colors.textMuted }]}>{currentMonth !== null ? MONTHS[currentMonth] : '-'}</Text>
                 <Text style={{ color: colors.textMuted }}>▼</Text>
               </TouchableOpacity>
               {isActiveMonth && (
                 <View style={[styles.pickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
+                    <TouchableOpacity style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, currentMonth === null && { backgroundColor: colors.primary }]} onPress={clearBirthDate}>
+                      <Text style={[styles.pickerItemText, { color: colors.text }, currentMonth === null && { color: colors.primaryText }]}>-</Text>
+                    </TouchableOpacity>
                     {MONTHS.map((m, idx) => (
-                      <TouchableOpacity key={m} style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, currentMonth === idx && { backgroundColor: colors.primary }]} onPress={() => { updateField('birth_date', buildDateFromParts(currentDay, idx, currentYear)); setActiveDatePart(null); }}>
+                      <TouchableOpacity key={m} style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, currentMonth === idx && { backgroundColor: colors.primary }]} onPress={() => { updateField('birth_date', buildDateFromParts(currentDay || 1, idx, currentYear || 2000)); setActiveDatePart(null); }}>
                         <Text style={[styles.pickerItemText, { color: colors.text }, currentMonth === idx && { color: colors.primaryText }]}>{m}</Text>
                       </TouchableOpacity>
                     ))}
@@ -2209,14 +2237,17 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 style={[styles.dateDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker('birth_date'); setActiveDatePart('year'); }}
               >
-                <Text style={[currentYear ? styles.dateDropdownText : styles.dateDropdownPlaceholder, { color: currentYear ? colors.text : colors.textMuted }]}>{currentYear || 'Jahr'}</Text>
+                <Text style={[currentYear ? styles.dateDropdownText : styles.dateDropdownPlaceholder, { color: currentYear ? colors.text : colors.textMuted }]}>{currentYear || '-'}</Text>
                 <Text style={{ color: colors.textMuted }}>▼</Text>
               </TouchableOpacity>
               {isActiveYear && (
                 <View style={[styles.pickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
+                    <TouchableOpacity style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, !currentYear && { backgroundColor: colors.primary }]} onPress={clearBirthDate}>
+                      <Text style={[styles.pickerItemText, { color: colors.text }, !currentYear && { color: colors.primaryText }]}>-</Text>
+                    </TouchableOpacity>
                     {YEARS.map((y) => (
-                      <TouchableOpacity key={y} style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, currentYear === y && { backgroundColor: colors.primary }]} onPress={() => { updateField('birth_date', buildDateFromParts(currentDay, currentMonth, y)); setActiveDatePart(null); }}>
+                      <TouchableOpacity key={y} style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, currentYear === y && { backgroundColor: colors.primary }]} onPress={() => { updateField('birth_date', buildDateFromParts(currentDay || 1, currentMonth || 0, y)); setActiveDatePart(null); }}>
                         <Text style={[styles.pickerItemText, { color: colors.text }, currentYear === y && { color: colors.primaryText }]}>{y}</Text>
                       </TouchableOpacity>
                     ))}
@@ -2239,13 +2270,18 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     const inCurrentSeason = isContractInCurrentSeason(player?.contract_end || '');
     const hasSecuredFuture = hasFutureClubAndExpiringContract(player);
     const dateParts = parseDateToParts(editData?.contract_end || '');
-    const currentDay = dateParts?.day || 30;
-    const currentMonth = dateParts?.month ?? 5;
-    const currentYear = dateParts?.year || new Date().getFullYear() + 1;
+    const currentDay = dateParts?.day || null;
+    const currentMonth = dateParts?.month ?? null;
+    const currentYear = dateParts?.year || null;
 
     const isActiveDay = activeDatePicker === 'contract_end' && activeDatePart === 'day';
     const isActiveMonth = activeDatePicker === 'contract_end' && activeDatePart === 'month';
     const isActiveYear = activeDatePicker === 'contract_end' && activeDatePart === 'year';
+
+    const clearContractEnd = () => {
+      updateField('contract_end', null);
+      setActiveDatePart(null);
+    };
 
     return (
       <View style={[styles.infoRow, { zIndex: activeDatePicker === 'contract_end' ? 500 : 1 }]}>
@@ -2257,14 +2293,17 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 style={[styles.dateDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker('contract_end'); setActiveDatePart('day'); }}
               >
-                <Text style={[currentDay ? styles.dateDropdownText : styles.dateDropdownPlaceholder, { color: currentDay ? colors.text : colors.textMuted }]}>{currentDay || 'Tag'}</Text>
+                <Text style={[currentDay ? styles.dateDropdownText : styles.dateDropdownPlaceholder, { color: currentDay ? colors.text : colors.textMuted }]}>{currentDay || '-'}</Text>
                 <Text style={{ color: colors.textMuted }}>▼</Text>
               </TouchableOpacity>
               {isActiveDay && (
                 <View style={[styles.pickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
+                    <TouchableOpacity style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, !currentDay && { backgroundColor: colors.primary }]} onPress={clearContractEnd}>
+                      <Text style={[styles.pickerItemText, { color: colors.text }, !currentDay && { color: colors.primaryText }]}>-</Text>
+                    </TouchableOpacity>
                     {DAYS.map((d) => (
-                      <TouchableOpacity key={d} style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, currentDay === d && { backgroundColor: colors.primary }]} onPress={() => { updateField('contract_end', buildDateFromParts(d, currentMonth, currentYear)); setActiveDatePart(null); }}>
+                      <TouchableOpacity key={d} style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, currentDay === d && { backgroundColor: colors.primary }]} onPress={() => { updateField('contract_end', buildDateFromParts(d, currentMonth || 5, currentYear || new Date().getFullYear() + 1)); setActiveDatePart(null); }}>
                         <Text style={[styles.pickerItemText, { color: colors.text }, currentDay === d && { color: colors.primaryText }]}>{d}</Text>
                       </TouchableOpacity>
                     ))}
@@ -2277,14 +2316,17 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 style={[styles.dateDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker('contract_end'); setActiveDatePart('month'); }}
               >
-                <Text style={[MONTHS[currentMonth] ? styles.dateDropdownText : styles.dateDropdownPlaceholder, { color: MONTHS[currentMonth] ? colors.text : colors.textMuted }]}>{MONTHS[currentMonth] || 'Monat'}</Text>
+                <Text style={[currentMonth !== null ? styles.dateDropdownText : styles.dateDropdownPlaceholder, { color: currentMonth !== null ? colors.text : colors.textMuted }]}>{currentMonth !== null ? MONTHS[currentMonth] : '-'}</Text>
                 <Text style={{ color: colors.textMuted }}>▼</Text>
               </TouchableOpacity>
               {isActiveMonth && (
                 <View style={[styles.pickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
+                    <TouchableOpacity style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, currentMonth === null && { backgroundColor: colors.primary }]} onPress={clearContractEnd}>
+                      <Text style={[styles.pickerItemText, { color: colors.text }, currentMonth === null && { color: colors.primaryText }]}>-</Text>
+                    </TouchableOpacity>
                     {MONTHS.map((m, idx) => (
-                      <TouchableOpacity key={m} style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, currentMonth === idx && { backgroundColor: colors.primary }]} onPress={() => { updateField('contract_end', buildDateFromParts(currentDay, idx, currentYear)); setActiveDatePart(null); }}>
+                      <TouchableOpacity key={m} style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, currentMonth === idx && { backgroundColor: colors.primary }]} onPress={() => { updateField('contract_end', buildDateFromParts(currentDay || 30, idx, currentYear || new Date().getFullYear() + 1)); setActiveDatePart(null); }}>
                         <Text style={[styles.pickerItemText, { color: colors.text }, currentMonth === idx && { color: colors.primaryText }]}>{m}</Text>
                       </TouchableOpacity>
                     ))}
@@ -2297,14 +2339,17 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 style={[styles.dateDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
                 onPress={() => { closeAllDropdowns(); setActiveDatePicker('contract_end'); setActiveDatePart('year'); }}
               >
-                <Text style={[currentYear ? styles.dateDropdownText : styles.dateDropdownPlaceholder, { color: currentYear ? colors.text : colors.textMuted }]}>{currentYear || 'Jahr'}</Text>
+                <Text style={[currentYear ? styles.dateDropdownText : styles.dateDropdownPlaceholder, { color: currentYear ? colors.text : colors.textMuted }]}>{currentYear || '-'}</Text>
                 <Text style={{ color: colors.textMuted }}>▼</Text>
               </TouchableOpacity>
               {isActiveYear && (
                 <View style={[styles.pickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
+                    <TouchableOpacity style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, !currentYear && { backgroundColor: colors.primary }]} onPress={clearContractEnd}>
+                      <Text style={[styles.pickerItemText, { color: colors.text }, !currentYear && { color: colors.primaryText }]}>-</Text>
+                    </TouchableOpacity>
                     {YEARS.map((y) => (
-                      <TouchableOpacity key={y} style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, currentYear === y && { backgroundColor: colors.primary }]} onPress={() => { updateField('contract_end', buildDateFromParts(currentDay, currentMonth, y)); setActiveDatePart(null); }}>
+                      <TouchableOpacity key={y} style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, currentYear === y && { backgroundColor: colors.primary }]} onPress={() => { updateField('contract_end', buildDateFromParts(currentDay || 30, currentMonth || 5, y)); setActiveDatePart(null); }}>
                         <Text style={[styles.pickerItemText, { color: colors.text }, currentYear === y && { color: colors.primaryText }]}>{y}</Text>
                       </TouchableOpacity>
                     ))}
@@ -2536,12 +2581,54 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     );
   };
 
-  const renderNationalitySelector = () => (
-    <View style={[styles.infoRow, { zIndex: 280 }]}>
-      <Text style={[styles.label, { color: colors.textMuted }]}>Nationalität</Text>
-      {editing ? (<View style={{ position: 'relative' }}><TouchableOpacity style={[styles.dropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => { closeAllDropdowns(); setShowNationalityPicker(!showNationalityPicker); }}><Text style={[styles.dropdownButtonText, { color: colors.text }]}>{selectedNationalities.length > 0 ? selectedNationalities.join(', ') : 'Nationalität wählen...'}</Text><Text style={{ color: colors.textMuted }}>{showNationalityPicker ? '▲' : '▼'}</Text></TouchableOpacity>{showNationalityPicker && (<View style={[styles.pickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}><ScrollView style={styles.pickerScroll} nestedScrollEnabled>{COUNTRIES.map((country) => (<TouchableOpacity key={country} style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, selectedNationalities.includes(country) && { backgroundColor: colors.primary }]} onPress={() => toggleNationality(country)}><Text style={[styles.pickerItemText, { color: colors.text }, selectedNationalities.includes(country) && { color: colors.primaryText }]}>{selectedNationalities.includes(country) ? '✓ ' : ''}{country}</Text></TouchableOpacity>))}</ScrollView></View>)}</View>) : <Text style={[styles.value, { color: colors.text }]}>{selectedNationalities.length > 0 ? selectedNationalities.join(', ') : '-'}</Text>}
-    </View>
-  );
+  const renderNationalitySelector = () => {
+    const filteredCountries = nationalitySearchText.length > 0
+      ? COUNTRIES.filter(c => c.toLowerCase().startsWith(nationalitySearchText.toLowerCase()))
+      : COUNTRIES;
+    return (
+      <View style={[styles.infoRow, { zIndex: 280 }]}>
+        <Text style={[styles.label, { color: colors.textMuted }]}>Nationalität</Text>
+        {editing ? (
+          <View style={{ position: 'relative' }}>
+            <TouchableOpacity
+              style={[styles.dropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
+              onPress={() => { closeAllDropdowns(); setShowNationalityPicker(!showNationalityPicker); setNationalitySearchText(''); }}
+            >
+              <Text style={[styles.dropdownButtonText, { color: colors.text }]}>
+                {selectedNationalities.length > 0 ? selectedNationalities.join(', ') : 'Nationalität wählen...'}
+              </Text>
+              <Text style={{ color: colors.textMuted }}>{showNationalityPicker ? '▲' : '▼'}</Text>
+            </TouchableOpacity>
+            {showNationalityPicker && (
+              <View style={[styles.pickerList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <TextInput
+                  style={[styles.pickerSearchInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+                  value={nationalitySearchText}
+                  onChangeText={setNationalitySearchText}
+                  placeholder="Suchen..."
+                  placeholderTextColor={colors.textMuted}
+                  autoFocus
+                />
+                <ScrollView style={styles.pickerScroll} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                  {filteredCountries.map((country) => (
+                    <TouchableOpacity
+                      key={country}
+                      style={[styles.pickerItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }, selectedNationalities.includes(country) && { backgroundColor: colors.primary }]}
+                      onPress={() => toggleNationality(country)}
+                    >
+                      <Text style={[styles.pickerItemText, { color: colors.text }, selectedNationalities.includes(country) && { color: colors.primaryText }]}>
+                        {selectedNationalities.includes(country) ? '✓ ' : ''}{country}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+          </View>
+        ) : <Text style={[styles.value, { color: colors.text }]}>{selectedNationalities.length > 0 ? selectedNationalities.join(', ') : '-'}</Text>}
+      </View>
+    );
+  };
 
   const renderStrongFootSelector = () => (
     <View style={styles.infoRow}>
@@ -3626,6 +3713,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   pickerScroll: { maxHeight: 200 },
+  pickerSearchInput: { margin: 8, padding: 10, borderWidth: 1, borderRadius: 6, fontSize: 14 },
   pickerItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#eee', backgroundColor: '#fff' },
   pickerItemSelected: { backgroundColor: '#000' },
   pickerItemText: { fontSize: 14, color: '#333' },

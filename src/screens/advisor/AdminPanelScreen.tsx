@@ -55,9 +55,10 @@ export function AdminPanelScreen({ navigation }: any) {
 
   // Confirmation Modal State
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<'makeAdmin' | 'removeAdmin' | 'approve' | 'reject' | null>(null);
+  const [confirmAction, setConfirmAction] = useState<'makeAdmin' | 'removeAdmin' | 'approve' | 'reject' | 'deleteFeedback' | 'completeFeedback' | null>(null);
   const [selectedAdvisor, setSelectedAdvisor] = useState<Advisor | null>(null);
   const [selectedRequest, setSelectedRequest] = useState<AccessRequest | null>(null);
+  const [selectedFeedback, setSelectedFeedback] = useState<Feedback | null>(null);
 
   // Daten nur laden wenn Auth bereit ist
   useEffect(() => {
@@ -96,30 +97,41 @@ export function AdminPanelScreen({ navigation }: any) {
     if (data) setFeedbackList(data);
   };
 
-  const toggleFeedbackStatus = async (feedback: Feedback) => {
-    const newStatus = feedback.status === 'open' ? 'done' : 'open';
-    const { error } = await supabase
-      .from('feedback')
-      .update({ status: newStatus })
-      .eq('id', feedback.id);
-
-    if (!error) {
-      fetchFeedback();
-    }
+  const openFeedbackConfirmModal = (feedback: Feedback, action: 'deleteFeedback' | 'completeFeedback') => {
+    setSelectedFeedback(feedback);
+    setConfirmAction(action);
+    setShowConfirmModal(true);
   };
 
-  const deleteFeedback = async (feedback: Feedback) => {
-    if (Platform.OS === 'web') {
-      if (!window.confirm('Feedback wirklich löschen?')) return;
-    }
-    const { error } = await supabase
-      .from('feedback')
-      .delete()
-      .eq('id', feedback.id);
+  const confirmFeedbackAction = async () => {
+    if (!selectedFeedback || !confirmAction) return;
 
-    if (!error) {
-      fetchFeedback();
+    if (confirmAction === 'completeFeedback') {
+      const { error } = await supabase
+        .from('feedback')
+        .update({ status: 'done' })
+        .eq('id', selectedFeedback.id);
+
+      if (!error) {
+        fetchFeedback();
+      }
+    } else if (confirmAction === 'deleteFeedback') {
+      setFeedbackList(prev => prev.filter(f => f.id !== selectedFeedback.id));
+
+      const { error } = await supabase
+        .from('feedback')
+        .delete()
+        .eq('id', selectedFeedback.id);
+
+      if (error) {
+        console.error('Delete error:', error);
+        fetchFeedback();
+      }
     }
+
+    setShowConfirmModal(false);
+    setSelectedFeedback(null);
+    setConfirmAction(null);
   };
 
   const generatePrompt = (feedback: Feedback) => {
@@ -539,14 +551,14 @@ Achte dabei auf:
             ))}
           </View>
         ) : (
-          /* Feedback List */
-          feedbackList.length === 0 ? (
+          /* Feedback List - nur offene anzeigen */
+          feedbackList.filter(f => f.status === 'open').length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Text style={[styles.emptyText, { color: colors.textMuted }]}>Kein Feedback vorhanden</Text>
+              <Text style={[styles.emptyText, { color: colors.textMuted }]}>Kein offenes Feedback vorhanden</Text>
             </View>
           ) : (
-            feedbackList.map((feedback) => (
-              <View key={feedback.id} style={[styles.feedbackCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }, feedback.status === 'done' && { opacity: 0.6, backgroundColor: colors.surfaceSecondary }]}>
+            feedbackList.filter(f => f.status === 'open').map((feedback) => (
+              <View key={feedback.id} style={[styles.feedbackCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
                 <View style={styles.feedbackHeader}>
                   <View style={styles.feedbackHeaderLeft}>
                     <View style={[
@@ -575,16 +587,14 @@ Achte dabei auf:
                     <Text style={[styles.copyPromptButtonText, { color: colors.text }]}>AI-Prompt</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.toggleStatusButton, feedback.status === 'done' && { backgroundColor: colors.surfaceSecondary }]}
-                    onPress={() => toggleFeedbackStatus(feedback)}
+                    style={styles.toggleStatusButton}
+                    onPress={() => openFeedbackConfirmModal(feedback, 'completeFeedback')}
                   >
-                    <Text style={[styles.toggleStatusButtonText, feedback.status === 'done' && { color: colors.textSecondary }]}>
-                      {feedback.status === 'open' ? 'Erledigt' : 'Öffnen'}
-                    </Text>
+                    <Text style={styles.toggleStatusButtonText}>Erledigt</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.deleteFeedbackButton}
-                    onPress={() => deleteFeedback(feedback)}
+                    onPress={() => openFeedbackConfirmModal(feedback, 'deleteFeedback')}
                   >
                     <Text style={styles.deleteFeedbackButtonText}>Löschen</Text>
                   </TouchableOpacity>
@@ -596,7 +606,7 @@ Achte dabei auf:
       </ScrollView>
 
       {/* Confirmation Modal */}
-      {showConfirmModal && (selectedAdvisor || selectedRequest) && (
+      {showConfirmModal && (selectedAdvisor || selectedRequest || selectedFeedback) && (
         <Modal visible={showConfirmModal} transparent animationType="fade">
           <View style={styles.modalOverlay}>
             <View style={[styles.confirmModal, { backgroundColor: colors.surface }]}>
@@ -605,8 +615,10 @@ Achte dabei auf:
                 {confirmAction === 'removeAdmin' && 'Admin-Rechte entfernen'}
                 {confirmAction === 'approve' && 'Anfrage genehmigen'}
                 {confirmAction === 'reject' && 'Anfrage ablehnen'}
+                {confirmAction === 'deleteFeedback' && 'Feedback löschen'}
+                {confirmAction === 'completeFeedback' && 'Als erledigt markieren'}
               </Text>
-              <Text style={[styles.confirmText, { color: (confirmAction === 'removeAdmin' || confirmAction === 'reject') ? '#ef4444' : colors.textSecondary }]}>
+              <Text style={[styles.confirmText, { color: (confirmAction === 'removeAdmin' || confirmAction === 'reject' || confirmAction === 'deleteFeedback') ? '#ef4444' : colors.textSecondary }]}>
                 {confirmAction === 'makeAdmin' && selectedAdvisor &&
                   `Möchten Sie ${selectedAdvisor.first_name} ${selectedAdvisor.last_name} zum Admin machen?`}
                 {confirmAction === 'removeAdmin' && selectedAdvisor &&
@@ -615,23 +627,29 @@ Achte dabei auf:
                   `Möchten Sie ${selectedRequest.requester_name} Zugriff auf ${selectedRequest.player_name} gewähren?`}
                 {confirmAction === 'reject' && selectedRequest &&
                   `Möchten Sie die Anfrage von ${selectedRequest.requester_name} für ${selectedRequest.player_name} ablehnen?`}
+                {confirmAction === 'deleteFeedback' && selectedFeedback &&
+                  `Möchten Sie dieses Feedback wirklich löschen?`}
+                {confirmAction === 'completeFeedback' && selectedFeedback &&
+                  `Möchten Sie dieses Feedback als erledigt markieren?`}
               </Text>
               <View style={styles.confirmButtons}>
                 <TouchableOpacity
                   style={[styles.confirmCancelBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
-                  onPress={() => setShowConfirmModal(false)}
+                  onPress={() => { setShowConfirmModal(false); setSelectedFeedback(null); }}
                 >
                   <Text style={[styles.confirmCancelText, { color: colors.textSecondary }]}>Abbrechen</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.confirmActionBtn, (confirmAction === 'removeAdmin' || confirmAction === 'reject') ? { backgroundColor: '#ef4444' } : { backgroundColor: colors.primary }]}
-                  onPress={handleConfirmAction}
+                  style={[styles.confirmActionBtn, (confirmAction === 'removeAdmin' || confirmAction === 'reject' || confirmAction === 'deleteFeedback') ? { backgroundColor: '#ef4444' } : { backgroundColor: colors.primary }]}
+                  onPress={selectedFeedback ? confirmFeedbackAction : handleConfirmAction}
                 >
-                  <Text style={[styles.confirmActionText, { color: (confirmAction === 'removeAdmin' || confirmAction === 'reject') ? '#fff' : colors.primaryText }]}>
+                  <Text style={[styles.confirmActionText, { color: (confirmAction === 'removeAdmin' || confirmAction === 'reject' || confirmAction === 'deleteFeedback') ? '#fff' : colors.primaryText }]}>
                     {confirmAction === 'makeAdmin' && 'Bestätigen'}
                     {confirmAction === 'removeAdmin' && 'Entfernen'}
                     {confirmAction === 'approve' && 'Genehmigen'}
                     {confirmAction === 'reject' && 'Ablehnen'}
+                    {confirmAction === 'deleteFeedback' && 'Löschen'}
+                    {confirmAction === 'completeFeedback' && 'Erledigt'}
                   </Text>
                 </TouchableOpacity>
               </View>
