@@ -8,6 +8,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
+import { ImageCropper } from '../../components/ImageCropper';
 
 // WebView nur für Mobile importieren
 let WebView: any = null;
@@ -52,7 +53,7 @@ const TransfermarktIcon = require('../../../assets/transfermarkt-logo.png');
 const ArbeitsamtIcon = require('../../../assets/arbeitsamt.png');
 
 interface Player {
-  id: string; advisor_id: string | null; first_name: string; last_name: string; nationality: string; birth_date: string; club: string; league: string; position: string; contract_end: string; photo_url: string; strong_foot: string; height: number; secondary_position: string; salary_month: string; point_bonus: string; appearance_bonus: string; contract_option: string; contract_scope: string; fixed_fee: string; contract_notes: string; u23_player: boolean; provision: string; transfer_commission: string; mandate_until: string; responsibility: string; listing: string; phone: string; phone_country_code: string; email: string; education: string; training: string; instagram: string; linkedin: string; tiktok: string; transfermarkt_url: string; interests: string; father_name: string; father_phone: string; father_phone_country_code: string; father_job: string; mother_name: string; mother_phone: string; mother_phone_country_code: string; mother_job: string; siblings: string; other_notes: string; injuries: string; street: string; postal_code: string; city: string; internat: boolean; future_club: string; future_contract_end: string; contract_documents: any[]; provision_documents: any[]; transfer_commission_documents: any[]; fussball_de_url: string; strengths: string; potentials: string; in_transfer_list: boolean;
+  id: string; advisor_id: string | null; first_name: string; last_name: string; nationality: string; birth_date: string; club: string; league: string; position: string; contract_end: string; photo_url: string; strong_foot: string; height: number; secondary_position: string; salary_month: string; point_bonus: string; appearance_bonus: string; contract_option: string; contract_scope: string; fixed_fee: string; contract_notes: string; u23_player: boolean; provision: string; transfer_commission: string; mandate_until: string; responsibility: string; listing: string; phone: string; phone_country_code: string; email: string; education: string; training: string; instagram: string; linkedin: string; tiktok: string; transfermarkt_url: string; interests: string; father_name: string; father_phone: string; father_phone_country_code: string; father_job: string; mother_name: string; mother_phone: string; mother_phone_country_code: string; mother_job: string; siblings: string; other_notes: string; injuries: string; street: string; postal_code: string; city: string; internat: boolean; future_club: string; future_contract_end: string; contract_documents: any[]; provision_documents: any[]; transfer_commission_documents: any[]; fussball_de_url: string; strengths: string; potentials: string; in_transfer_list: boolean; future_salary_month: string;
 }
 
 interface ClubLogo {
@@ -64,6 +65,95 @@ interface Advisor {
   id: string;
   first_name: string;
   last_name: string;
+}
+
+// Vertrags-Parsing Interfaces
+interface SalaryPeriod {
+  from_date: string;
+  to_date: string | null;
+  amount: string;
+  description: string;
+}
+
+interface ContractBonus {
+  type: 'point' | 'appearance' | 'international' | 'other';
+  amount: string;
+  description: string;
+}
+
+interface ParsedContractData {
+  contract_type: string;
+  contract_start: string | null;
+  contract_end: string | null;
+  salary_periods: SalaryPeriod[];
+  bonuses: ContractBonus[];
+  notes: string | null;
+  parsed_at: string;
+  source: 'auto';
+}
+
+interface ContractDocument {
+  name: string;
+  url: string;
+  path: string;
+  parsed_data?: ParsedContractData | null;
+  parse_error?: string | null;
+}
+
+function getActiveSalaryFromDocuments(
+  documents: ContractDocument[],
+  today: Date = new Date()
+): { salary_month: string; point_bonus: string; appearance_bonus: string; future_salary_month: string } | null {
+  const parsedDocs = documents.filter(d => d.parsed_data?.salary_periods?.length);
+  if (parsedDocs.length === 0) return null;
+
+  // Alle Gehaltsperioden aus allen Dokumenten sammeln, chronologisch sortieren
+  const allPeriods = parsedDocs
+    .flatMap(d => d.parsed_data!.salary_periods)
+    .sort((a, b) => new Date(a.from_date).getTime() - new Date(b.from_date).getTime());
+
+  let currentSalary: SalaryPeriod | null = null;
+  let nextSalary: SalaryPeriod | null = null;
+
+  for (let i = 0; i < allPeriods.length; i++) {
+    const period = allPeriods[i];
+    const from = new Date(period.from_date);
+    const to = period.to_date ? new Date(period.to_date) : null;
+
+    if (from <= today && (!to || to >= today)) {
+      currentSalary = period;
+      if (i + 1 < allPeriods.length) {
+        nextSalary = allPeriods[i + 1];
+      }
+      break;
+    }
+    if (from > today && !nextSalary) {
+      nextSalary = period;
+    }
+  }
+
+  // Falls kein aktueller Zeitraum gefunden, letzten vergangenen nehmen
+  if (!currentSalary) {
+    for (let i = allPeriods.length - 1; i >= 0; i--) {
+      const to = allPeriods[i].to_date ? new Date(allPeriods[i].to_date!) : null;
+      if (to && to < today) {
+        currentSalary = allPeriods[i];
+        break;
+      }
+    }
+  }
+
+  // Bonuses aus allen geparsten Dokumenten sammeln
+  const allBonuses = parsedDocs.flatMap(d => d.parsed_data!.bonuses || []);
+  const pointBonus = allBonuses.find(b => b.type === 'point')?.amount || '';
+  const appearanceBonus = allBonuses.find(b => b.type === 'appearance')?.amount || '';
+
+  return {
+    salary_month: currentSalary?.amount || '',
+    point_bonus: pointBonus,
+    appearance_bonus: appearanceBonus,
+    future_salary_month: nextSalary?.amount || '',
+  };
 }
 
 // Transfermarkt Stats Interface
@@ -234,6 +324,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const [refreshing, setRefreshing] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<Player | null>(null);
+  const [parsingContract, setParsingContract] = useState(false);
   const [selectedPositions, setSelectedPositions] = useState<string[]>([]);
   const [selectedSecondaryPositions, setSelectedSecondaryPositions] = useState<string[]>([]);
   const [selectedNationalities, setSelectedNationalities] = useState<string[]>([]);
@@ -250,6 +341,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const [showSecondaryPositionPicker, setShowSecondaryPositionPicker] = useState(false);
   const [showPDFProfileModal, setShowPDFProfileModal] = useState(false);
   const [pdfEditMode, setPdfEditMode] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [pdfEditData, setPdfEditData] = useState<Player | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [loadingPdfPreview, setLoadingPdfPreview] = useState(false);
@@ -306,6 +398,10 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const [showClubSuggestions, setShowClubSuggestions] = useState(false);
   const [futureClubSearch, setFutureClubSearch] = useState('');
   const [showFutureClubSuggestions, setShowFutureClubSuggestions] = useState(false);
+
+  // Image Cropper State
+  const [cropperVisible, setCropperVisible] = useState(false);
+  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
 
   // Clean fussball.de URL (remove Google redirect wrapper if present)
   const cleanFussballDeUrl = (url: string): string => {
@@ -1432,16 +1528,43 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   };
 
   const checkAndApplyFutureClub = async (p: Player) => {
-    if (!p.future_club || !p.contract_end) return;
     const today = new Date();
-    const contractEnd = new Date(p.contract_end);
-    if (today > contractEnd) {
-      const updateData: any = {
-        club: p.future_club,
-        future_club: null,
-        contract_end: p.future_contract_end || null,
-        future_contract_end: null,
-      };
+    const contractEnd = p.contract_end ? new Date(p.contract_end) : null;
+    let needsUpdate = false;
+    const updateData: any = {};
+
+    // Vereinswechsel bei Vertragsende
+    if (p.future_club && contractEnd && today > contractEnd) {
+      updateData.club = p.future_club;
+      updateData.future_club = null;
+      updateData.contract_end = p.future_contract_end || null;
+      updateData.future_contract_end = null;
+      needsUpdate = true;
+    }
+
+    // Gehalt automatisch aktualisieren bei Vertragsende (einfacher future_salary Übergang)
+    if (p.future_salary_month && contractEnd && today > contractEnd) {
+      updateData.salary_month = p.future_salary_month;
+      updateData.future_salary_month = null;
+      needsUpdate = true;
+    }
+
+    // Gehalt aus geparsten Vertragsdaten prüfen (z.B. jährliche Steigerungen im Fördervertrag)
+    if (p.contract_documents?.length > 0 && !updateData.salary_month) {
+      const activeSalary = getActiveSalaryFromDocuments(p.contract_documents as ContractDocument[], today);
+      if (activeSalary) {
+        if (activeSalary.salary_month && activeSalary.salary_month !== p.salary_month) {
+          updateData.salary_month = activeSalary.salary_month;
+          needsUpdate = true;
+        }
+        if (activeSalary.future_salary_month && activeSalary.future_salary_month !== p.future_salary_month) {
+          updateData.future_salary_month = activeSalary.future_salary_month;
+          needsUpdate = true;
+        }
+      }
+    }
+
+    if (needsUpdate) {
       await supabase.from('player_details').update(updateData).eq('id', p.id);
       fetchPlayer();
     }
@@ -1638,12 +1761,131 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       
       const { data: urlData } = supabase.storage.from('contracts').getPublicUrl(fileName);
       const currentDocs = editData?.[field] || [];
-      const newDocs = [...currentDocs, { name: file.name, url: urlData.publicUrl, path: fileName }];
-      updateField(field, newDocs);
-      Alert.alert('Erfolg', 'Dokument hochgeladen');
-    } catch (error) { 
+
+      if (field === 'contract_documents') {
+        const newDoc: ContractDocument = { name: file.name, url: urlData.publicUrl, path: fileName, parsed_data: null, parse_error: null };
+        const newDocs = [...currentDocs, newDoc];
+        updateField(field, newDocs);
+        parseContractDocument(newDoc, newDocs.length - 1);
+      } else {
+        const newDocs = [...currentDocs, { name: file.name, url: urlData.publicUrl, path: fileName }];
+        updateField(field, newDocs);
+        Alert.alert('Erfolg', 'Dokument hochgeladen');
+      }
+    } catch (error) {
       console.error('Upload catch error:', error);
-      Alert.alert('Fehler', 'Dokument konnte nicht hochgeladen werden'); 
+      Alert.alert('Fehler', 'Dokument konnte nicht hochgeladen werden');
+    }
+  };
+
+  const parseContractDocument = async (doc: ContractDocument, docIndex: number) => {
+    setParsingContract(true);
+    try {
+      console.log('[parseContract] Starting parse for:', doc.url);
+      // Direkter fetch ohne den globalen 15s Timeout des Supabase-Clients
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+      const session = (await supabase.auth.getSession()).data.session;
+      const authToken = session?.access_token || supabaseAnonKey;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/parse-contract`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+          'apikey': supabaseAnonKey || '',
+        },
+        body: JSON.stringify({ pdf_url: doc.url, storage_path: doc.path, player_name: player ? `${player.first_name} ${player.last_name}` : undefined }),
+      });
+
+      const data = await response.json();
+      const error = response.ok ? null : new Error(`HTTP ${response.status}`);
+
+      console.log('[parseContract] Response - data:', JSON.stringify(data)?.substring(0, 200), 'error:', error);
+
+      if (error || data?.error) {
+        console.error('[parseContract] Parse error:', error, 'data.error:', data?.error);
+        setEditData(prev => {
+          if (!prev) return prev;
+          const docs = [...(prev.contract_documents || [])];
+          docs[docIndex] = { ...docs[docIndex], parse_error: (error?.message || data?.error || 'Analyse fehlgeschlagen') };
+          return { ...prev, contract_documents: docs };
+        });
+        Alert.alert('Vertrag hochgeladen', 'PDF wurde hochgeladen, konnte aber nicht automatisch analysiert werden. Bitte Gehalt manuell eingeben.');
+        return;
+      }
+
+      if (data?.parsed) {
+        const parsedData: ParsedContractData = { ...data.parsed, parsed_at: new Date().toISOString(), source: 'auto' as const };
+
+        // Dokument mit parsed_data aktualisieren + Vertragsende setzen
+        const contractEndDate = parsedData.contract_end || null;
+        setEditData(prev => {
+          if (!prev) return prev;
+          const docs = [...(prev.contract_documents || [])];
+          docs[docIndex] = { ...docs[docIndex], parsed_data: parsedData, parse_error: null };
+          const updates: any = { ...prev, contract_documents: docs };
+          if (contractEndDate) updates.contract_end = contractEndDate;
+          return updates;
+        });
+
+        // Aktives Gehalt aus ALLEN Dokumenten berechnen
+        const allDocs = [...(editData?.contract_documents || [])] as ContractDocument[];
+        allDocs[docIndex] = { ...allDocs[docIndex], parsed_data: parsedData };
+        const activeSalary = getActiveSalaryFromDocuments(allDocs);
+
+        const contractEndInfo = contractEndDate ? `\nVertragsende: ${new Date(contractEndDate).toLocaleDateString('de-DE')}` : '';
+
+        if (activeSalary && (activeSalary.salary_month || activeSalary.point_bonus || activeSalary.appearance_bonus)) {
+          const hasExistingValues = editData?.salary_month || editData?.point_bonus || editData?.appearance_bonus;
+
+          if (hasExistingValues) {
+            Alert.alert(
+              'Gehaltsdaten erkannt',
+              `Aus dem Vertrag extrahiert:\n\nGehalt: ${activeSalary.salary_month || '-'}\nPunktprämie: ${activeSalary.point_bonus || '-'}\nAuflaufprämie: ${activeSalary.appearance_bonus || '-'}` +
+              contractEndInfo +
+              (activeSalary.future_salary_month ? `\nZuk. Gehalt: ${activeSalary.future_salary_month}` : '') +
+              `\n\nSollen die bestehenden Werte überschrieben werden?`,
+              [
+                { text: 'Behalten', style: 'cancel' },
+                {
+                  text: 'Überschreiben',
+                  onPress: () => {
+                    setEditData(prev => prev ? {
+                      ...prev,
+                      salary_month: activeSalary.salary_month || prev.salary_month,
+                      point_bonus: activeSalary.point_bonus || prev.point_bonus,
+                      appearance_bonus: activeSalary.appearance_bonus || prev.appearance_bonus,
+                      future_salary_month: activeSalary.future_salary_month || prev.future_salary_month,
+                    } : prev);
+                  },
+                },
+              ]
+            );
+          } else {
+            setEditData(prev => prev ? {
+              ...prev,
+              salary_month: activeSalary.salary_month || '',
+              point_bonus: activeSalary.point_bonus || '',
+              appearance_bonus: activeSalary.appearance_bonus || '',
+              future_salary_month: activeSalary.future_salary_month || '',
+            } : prev);
+            Alert.alert(
+              'Vertrag analysiert',
+              `Gehaltsdaten automatisch eingetragen:\n\nGehalt: ${activeSalary.salary_month || '-'}\nPunktprämie: ${activeSalary.point_bonus || '-'}\nAuflaufprämie: ${activeSalary.appearance_bonus || '-'}` +
+              contractEndInfo +
+              (activeSalary.future_salary_month ? `\nZuk. Gehalt: ${activeSalary.future_salary_month}` : '')
+            );
+          }
+        } else {
+          Alert.alert('Vertrag analysiert', contractEndDate ? `Vertragsende eingetragen: ${new Date(contractEndDate).toLocaleDateString('de-DE')}\n\nKeine Gehaltsinformationen im Vertrag gefunden.` : 'Im Vertrag wurden keine Gehaltsinformationen gefunden.');
+        }
+      }
+    } catch (err: any) {
+      console.error('Parse contract error:', err);
+      Alert.alert('Vertrag hochgeladen', 'PDF wurde hochgeladen, Analyse fehlgeschlagen. Bitte Gehalt manuell eingeben.');
+    } finally {
+      setParsingContract(false);
     }
   };
 
@@ -1654,6 +1896,37 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     if (!error) {
       const newDocs = (editData?.[field] || []).filter((doc: any) => doc.path !== path);
       updateField(field, newDocs);
+
+      if (field === 'contract_documents') {
+        if (newDocs.length === 0) {
+          // Keine Verträge übrig → Gehaltsfelder leeren
+          setEditData(prev => prev ? { ...prev, [field]: newDocs, salary_month: '', point_bonus: '', appearance_bonus: '', future_salary_month: '' } : prev);
+        } else {
+          // Andere Verträge vorhanden → Gehalt aus verbleibenden Verträgen berechnen
+          const activeSalary = getActiveSalaryFromDocuments(newDocs as ContractDocument[]);
+          if (activeSalary && (activeSalary.salary_month || activeSalary.point_bonus)) {
+            Alert.alert(
+              'Vertrag entfernt',
+              `Gehaltsdaten basierend auf verbleibendem Vertrag:\n\nGehalt: ${activeSalary.salary_month || '-'}\nPunktprämie: ${activeSalary.point_bonus || '-'}\nAuflaufprämie: ${activeSalary.appearance_bonus || '-'}\n\nWerte aktualisieren?`,
+              [
+                { text: 'Behalten', style: 'cancel' },
+                {
+                  text: 'Aktualisieren',
+                  onPress: () => {
+                    setEditData(prev => prev ? {
+                      ...prev,
+                      salary_month: activeSalary.salary_month,
+                      point_bonus: activeSalary.point_bonus,
+                      appearance_bonus: activeSalary.appearance_bonus,
+                      future_salary_month: activeSalary.future_salary_month,
+                    } : prev);
+                  },
+                },
+              ]
+            );
+          }
+        }
+      }
     }
   };
 
@@ -1661,24 +1934,31 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [3, 4],
-        quality: 0.8,
+        allowsEditing: false,  // Eigener Cropper
+        quality: 1.0,          // Volle Qualität, Cropper komprimiert
       });
-      
+
       if (result.canceled) return;
-      
-      const image = result.assets[0];
-      const fileExtension = image.uri.split('.').pop()?.toLowerCase() || 'jpg';
+
+      // Cropper öffnen statt direkt hochladen
+      setSelectedImageUri(result.assets[0].uri);
+      setCropperVisible(true);
+    } catch (error) {
+      console.error('Photo picker error:', error);
+      Alert.alert('Fehler', 'Foto konnte nicht ausgewählt werden');
+    }
+  };
+
+  const uploadCroppedPhoto = async (croppedUri: string) => {
+    try {
+      const fileExtension = 'jpg'; // Cropper liefert immer JPEG
       const sanitizedName = `${playerId}_${Date.now()}.${fileExtension}`;
       const fileName = `${playerId}/${sanitizedName}`;
-      
+
       // Web-kompatible Upload-Methode
-      let fileData: Blob;
-      
-      const response = await fetch(image.uri);
-      fileData = await response.blob();
-      
+      const response = await fetch(croppedUri);
+      const fileData = await response.blob();
+
       // Altes Foto löschen falls vorhanden
       if (player?.photo_url && player.photo_url.includes('player-photos')) {
         const oldPath = player.photo_url.split('player-photos/')[1];
@@ -1686,26 +1966,26 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           await supabase.storage.from('player-photos').remove([oldPath]);
         }
       }
-      
+
       const { error: uploadError } = await supabase.storage
         .from('player-photos')
         .upload(fileName, fileData, {
-          contentType: `image/${fileExtension === 'jpg' ? 'jpeg' : fileExtension}`,
+          contentType: 'image/jpeg',
           upsert: true
         });
-      
-      if (uploadError) { 
+
+      if (uploadError) {
         console.error('Photo upload error:', uploadError);
-        Alert.alert('Fehler', uploadError.message); 
-        return; 
+        Alert.alert('Fehler', uploadError.message);
+        return;
       }
-      
+
       const { data: urlData } = supabase.storage.from('player-photos').getPublicUrl(fileName);
       updateField('photo_url', urlData.publicUrl);
       Alert.alert('Erfolg', 'Foto hochgeladen');
-    } catch (error) { 
+    } catch (error) {
       console.error('Photo upload catch error:', error);
-      Alert.alert('Fehler', 'Foto konnte nicht hochgeladen werden'); 
+      Alert.alert('Fehler', 'Foto konnte nicht hochgeladen werden');
     }
   };
 
@@ -1737,8 +2017,15 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     if (!editData) return;
     const u23Status = calculateU23Status(editData.birth_date);
     const updateData: any = {
-      first_name: editData.first_name, last_name: editData.last_name, nationality: selectedNationalities.join(', ') || null, birth_date: editData.birth_date || null, club: editData.club || null, league: editData.league || null, position: selectedPositions.join(', ') || null, contract_end: editData.contract_end || null, photo_url: editData.photo_url || null, strong_foot: editData.strong_foot || null, height: editData.height || null, secondary_position: selectedSecondaryPositions.join(', ') || null, salary_month: editData.salary_month || null, point_bonus: editData.point_bonus || null, appearance_bonus: editData.appearance_bonus || null, contract_option: editData.contract_option || null, contract_scope: editData.contract_scope || null, fixed_fee: editData.fixed_fee || null, contract_notes: editData.contract_notes || null, u23_player: u23Status.isU23, provision: editData.provision || null, transfer_commission: editData.transfer_commission || null, mandate_until: editData.mandate_until || null, listing: editData.listing || null, phone: editData.phone || null, phone_country_code: editData.phone_country_code || '+49', email: editData.email || null, education: editData.education || null, training: editData.training || null, instagram: editData.instagram || null, linkedin: editData.linkedin || null, tiktok: editData.tiktok || null, transfermarkt_url: editData.transfermarkt_url || null, interests: editData.interests || null, father_name: editData.father_name || null, father_phone: editData.father_phone || null, father_phone_country_code: editData.father_phone_country_code || '+49', father_job: editData.father_job || null, mother_name: editData.mother_name || null, mother_phone: editData.mother_phone || null, mother_phone_country_code: editData.mother_phone_country_code || '+49', mother_job: editData.mother_job || null, siblings: editData.siblings || null, other_notes: editData.other_notes || null, injuries: editData.injuries || null, street: editData.street || null, postal_code: editData.postal_code || null, city: editData.city || null, internat: editData.internat || false, future_club: editData.future_club || null, future_contract_end: editData.future_contract_end || null, contract_documents: editData.contract_documents || [], provision_documents: editData.provision_documents || [], transfer_commission_documents: editData.transfer_commission_documents || [], fussball_de_url: editData.fussball_de_url || null, strengths: editData.strengths || null, potentials: editData.potentials || null,
+      first_name: editData.first_name, last_name: editData.last_name, nationality: selectedNationalities.join(', ') || null, birth_date: editData.birth_date || null, club: editData.club || null, league: editData.league || null, position: selectedPositions.join(', ') || null, contract_end: editData.contract_end || null, photo_url: editData.photo_url || null, strong_foot: editData.strong_foot || null, height: editData.height || null, secondary_position: selectedSecondaryPositions.join(', ') || null, salary_month: editData.salary_month || null, point_bonus: editData.point_bonus || null, appearance_bonus: editData.appearance_bonus || null, contract_option: editData.contract_option || null, contract_scope: editData.contract_scope || null, fixed_fee: editData.fixed_fee || null, contract_notes: editData.contract_notes || null, u23_player: u23Status.isU23, provision: editData.provision || null, transfer_commission: editData.transfer_commission || null, mandate_until: editData.mandate_until || null, listing: editData.listing || null, phone: editData.phone || null, phone_country_code: editData.phone_country_code || '+49', email: editData.email || null, education: editData.education || null, training: editData.training || null, instagram: editData.instagram || null, linkedin: editData.linkedin || null, tiktok: editData.tiktok || null, transfermarkt_url: editData.transfermarkt_url || null, interests: editData.interests || null, father_name: editData.father_name || null, father_phone: editData.father_phone || null, father_phone_country_code: editData.father_phone_country_code || '+49', father_job: editData.father_job || null, mother_name: editData.mother_name || null, mother_phone: editData.mother_phone || null, mother_phone_country_code: editData.mother_phone_country_code || '+49', mother_job: editData.mother_job || null, siblings: editData.siblings || null, other_notes: editData.other_notes || null, injuries: editData.injuries || null, street: editData.street || null, postal_code: editData.postal_code || null, city: editData.city || null, internat: editData.internat || false, future_club: editData.future_club || null, future_contract_end: editData.future_contract_end || null, contract_documents: editData.contract_documents || [], provision_documents: editData.provision_documents || [], transfer_commission_documents: editData.transfer_commission_documents || [], fussball_de_url: editData.fussball_de_url || null, strengths: editData.strengths || null, potentials: editData.potentials || null, future_salary_month: editData.future_salary_month || null,
     };
+    // Kein Vertrag vorhanden → Gehaltsfelder leeren
+    if (!updateData.contract_documents || updateData.contract_documents.length === 0) {
+      updateData.salary_month = null;
+      updateData.point_bonus = null;
+      updateData.appearance_bonus = null;
+      updateData.future_salary_month = null;
+    }
     // Nur Admin kann Zuständigkeit ändern
     if (profile?.role === 'admin') {
       updateData.responsibility = selectedResponsibilities.join(', ') || null;
@@ -2679,23 +2966,36 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     );
   };
 
-  const renderDocuments = () => (
-    <View style={styles.infoRow}>
-      <Text style={[styles.label, { color: colors.textMuted }]}>Vertragsunterlagen</Text>
-      {editing && (<TouchableOpacity style={[styles.uploadButton, { backgroundColor: colors.primary }]} onPress={() => uploadDocument('contract_documents')}><Text style={[styles.uploadButtonText, { color: colors.primaryText }]}>+ PDF hochladen</Text></TouchableOpacity>)}
-      <View style={styles.documentList}>
-        {(player?.contract_documents || []).map((doc: any, index: number) => (
-          <View key={index} style={styles.documentItem}>
-            <TouchableOpacity onPress={() => openDocument(doc.url)} style={styles.documentLink}>
-              <Text style={styles.documentIcon}>📄</Text>
-              <Text style={styles.documentName}>{doc.name}</Text>
-            </TouchableOpacity>
-            {editing && (<TouchableOpacity onPress={() => deleteDocumentFromField(doc.path, 'contract_documents')} style={styles.documentDelete}><Text style={styles.documentDeleteText}>✕</Text></TouchableOpacity>)}
-          </View>
-        ))}
+  const renderDocuments = () => {
+    const docsToShow = editing ? (editData?.contract_documents || []) : (player?.contract_documents || []);
+    return (
+      <View style={styles.infoRow}>
+        <Text style={[styles.label, { color: colors.textMuted }]}>Vertragsunterlagen</Text>
+        {editing && (
+          <TouchableOpacity
+            style={[styles.uploadButton, { backgroundColor: colors.primary }, parsingContract && { opacity: 0.5 }]}
+            onPress={() => uploadDocument('contract_documents')}
+            disabled={parsingContract}
+          >
+            <Text style={[styles.uploadButtonText, { color: colors.primaryText }]}>
+              {parsingContract ? 'Analysiere...' : '+ PDF hochladen'}
+            </Text>
+          </TouchableOpacity>
+        )}
+        <View style={styles.documentList}>
+          {docsToShow.map((doc: any, index: number) => (
+            <View key={index} style={styles.documentItem}>
+              <TouchableOpacity onPress={() => openDocument(doc.url)} style={styles.documentLink}>
+                <Text style={styles.documentIcon}>{doc.parse_error ? '⚠️' : '📄'}</Text>
+                <Text style={styles.documentName}>{doc.name}</Text>
+              </TouchableOpacity>
+              {editing && (<TouchableOpacity onPress={() => deleteDocumentFromField(doc.path, 'contract_documents')} style={styles.documentDelete}><Text style={styles.documentDeleteText}>✕</Text></TouchableOpacity>)}
+            </View>
+          ))}
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   const renderDeleteModal = () => (
     <Modal visible={showDeleteModal} transparent animationType="fade">
@@ -3103,42 +3403,101 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         )}
         </Pressable>
       </ScrollView>
-      <View style={[isMobile ? styles.bottomButtonsMobile : styles.bottomButtons, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
-        <View style={isMobile ? styles.bottomButtonsRowMobile : styles.bottomButtonsLeft}>
+      {isMobile ? (
+        <View style={styles.bottomButtonsMobileDropdown}>
+          {showMobileMenu && (
+            <Pressable style={styles.mobileMenuOverlay} onPress={() => setShowMobileMenu(false)} />
+          )}
+          {showMobileMenu && (
+            <View style={[styles.mobileMenuDropdown, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              {editing ? (
+                <>
+                  <TouchableOpacity style={[styles.mobileMenuItem, { borderBottomColor: colors.border }]} onPress={() => { setShowDeleteModal(true); setShowMobileMenu(false); }}>
+                    <Text style={[styles.mobileMenuItemText, { color: colors.error }]}>Löschen</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.mobileMenuItem, { borderBottomColor: colors.border }]} onPress={() => { setEditing(false); setEditData(player); setClubSearch(player.club || ''); setFutureClubSearch(player.future_club || ''); fetchPlayer(); setShowMobileMenu(false); }}>
+                    <Text style={[styles.mobileMenuItemText, { color: colors.textSecondary }]}>Abbrechen</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.mobileMenuItem, { borderBottomColor: colors.border }]} onPress={() => { handleSave(); setShowMobileMenu(false); }}>
+                    <Text style={[styles.mobileMenuItemText, { color: colors.success }]}>Speichern</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <TouchableOpacity style={[styles.mobileMenuItem, { borderBottomColor: colors.border }]} onPress={() => { setEditing(true); setShowMobileMenu(false); }}>
+                  <Text style={[styles.mobileMenuItemText, { color: colors.text }]}>Bearbeiten</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity style={[styles.mobileMenuItem, { borderBottomColor: colors.border }]} onPress={() => { toggleTransferList(); setShowMobileMenu(false); }}>
+                <Text style={[styles.mobileMenuItemText, { color: player?.in_transfer_list ? colors.error : colors.text }]}>
+                  {player?.in_transfer_list ? 'Von Transfer entfernen' : 'Zu Transfer hinzufügen'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.mobileMenuItem, { borderBottomWidth: 0 }]} onPress={() => { setShowPDFProfileModal(true); setShowMobileMenu(false); }}>
+                <Text style={[styles.mobileMenuItemText, { color: colors.text }]}>PDF Profil</Text>
+              </TouchableOpacity>
+            </View>
+          )}
           <TouchableOpacity
-            style={[styles.transferButton, isMobile && styles.buttonMobile, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, player?.in_transfer_list && { backgroundColor: '#dc3545', borderColor: '#dc3545' }]}
-            onPress={toggleTransferList}
+            style={[styles.mobileMenuButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            onPress={() => setShowMobileMenu(!showMobileMenu)}
           >
-            <Text style={[styles.transferButtonText, isMobile && styles.buttonTextMobile, { color: player?.in_transfer_list ? '#fff' : colors.textSecondary }]}>
-              {player?.in_transfer_list ? 'Von Transfer entfernen' : 'Zu Transfer hinzufügen'}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.pdfProfileButton, isMobile && styles.buttonMobile, { backgroundColor: colors.primary }]} onPress={() => setShowPDFProfileModal(true)}>
-            <Text style={[styles.pdfProfileButtonText, isMobile && styles.buttonTextMobile, { color: colors.primaryText }]}>📄 PDF</Text>
+            <Text style={[styles.mobileMenuButtonText, { color: colors.text }]}>{showMobileMenu ? '✕' : '⋮'}</Text>
           </TouchableOpacity>
         </View>
-        <View style={isMobile ? styles.bottomButtonsRowMobile : styles.bottomButtonsRight}>
-        {editing ? (
-          <>
-            <TouchableOpacity style={[styles.deleteButton, isMobile && styles.buttonMobile, { backgroundColor: colors.surfaceSecondary }]} onPress={() => setShowDeleteModal(true)}>
-              <Text style={[styles.deleteButtonText, isMobile && styles.buttonTextMobile]}>Löschen</Text>
+      ) : (
+        <View style={[styles.bottomButtons, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
+          <View style={styles.bottomButtonsLeft}>
+            <TouchableOpacity
+              style={[styles.transferButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, player?.in_transfer_list && { backgroundColor: '#dc3545', borderColor: '#dc3545' }]}
+              onPress={toggleTransferList}
+            >
+              <Text style={[styles.transferButtonText, { color: player?.in_transfer_list ? '#fff' : colors.textSecondary }]}>
+                {player?.in_transfer_list ? 'Von Transfer entfernen' : 'Zu Transfer hinzufügen'}
+              </Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.cancelButton, isMobile && styles.buttonMobile, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => { setEditing(false); setEditData(player); setClubSearch(player.club || ''); setFutureClubSearch(player.future_club || ''); fetchPlayer(); }}>
-              <Text style={[styles.cancelButtonText, isMobile && styles.buttonTextMobile, { color: colors.textSecondary }]}>Abbrechen</Text>
+            <TouchableOpacity style={[styles.pdfProfileButton, { backgroundColor: colors.primary }]} onPress={() => setShowPDFProfileModal(true)}>
+              <Text style={[styles.pdfProfileButtonText, { color: colors.primaryText }]}>PDF</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.saveButton, isMobile && styles.buttonMobile, { backgroundColor: colors.surfaceSecondary }]} onPress={handleSave}>
-              <Text style={[styles.saveButtonText, isMobile && styles.buttonTextMobile]}>Speichern</Text>
+          </View>
+          <View style={styles.bottomButtonsRight}>
+          {editing ? (
+            <>
+              <TouchableOpacity style={[styles.deleteButton, { backgroundColor: colors.surfaceSecondary }]} onPress={() => setShowDeleteModal(true)}>
+                <Text style={styles.deleteButtonText}>Löschen</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.cancelButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => { setEditing(false); setEditData(player); setClubSearch(player.club || ''); setFutureClubSearch(player.future_club || ''); fetchPlayer(); }}>
+                <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.surfaceSecondary }]} onPress={handleSave}>
+                <Text style={styles.saveButtonText}>Speichern</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <TouchableOpacity style={[styles.editButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setEditing(true)}>
+              <Text style={[styles.editButtonText, { color: colors.textSecondary }]}>Bearbeiten</Text>
             </TouchableOpacity>
-          </>
-        ) : (
-          <TouchableOpacity style={[styles.editButton, isMobile && styles.buttonMobile, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setEditing(true)}>
-            <Text style={[styles.editButtonText, isMobile && styles.buttonTextMobile, { color: colors.textSecondary }]}>Bearbeiten</Text>
-          </TouchableOpacity>
-        )}
+          )}
+          </View>
         </View>
-      </View>
+      )}
       {renderDeleteModal()}
-      
+
+      {/* Image Cropper Modal */}
+      <ImageCropper
+        visible={cropperVisible}
+        imageUri={selectedImageUri || ''}
+        aspectRatio={3 / 4}
+        onCrop={(croppedUri) => {
+          setCropperVisible(false);
+          setSelectedImageUri(null);
+          uploadCroppedPhoto(croppedUri);
+        }}
+        onCancel={() => {
+          setCropperVisible(false);
+          setSelectedImageUri(null);
+        }}
+      />
+
       {/* PDF Profil Modal */}
       <Modal visible={showPDFProfileModal} animationType="fade" transparent>
         <View style={styles.pdfModalOverlay}>
@@ -3786,10 +4145,18 @@ const styles = StyleSheet.create({
   saveButton: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#10b981', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 10 },
   saveButtonText: { color: '#10b981', fontSize: 16, fontWeight: '600' },
   // Mobile button styles
-  bottomButtonsMobile: { flexDirection: 'row', padding: 10, paddingBottom: 30, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#e2e8f0', justifyContent: 'space-between', alignItems: 'center' },
-  bottomButtonsRowMobile: { flexDirection: 'row', gap: 6 },
-  buttonMobile: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, height: 36 },
-  buttonTextMobile: { fontSize: 13 },
+  bottomButtonsMobile: { flexDirection: 'column', padding: 10, paddingBottom: 30, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#e2e8f0', gap: 8 },
+  bottomButtonsRowMobile: { flexDirection: 'row', gap: 8, justifyContent: 'center', flexWrap: 'wrap' },
+  buttonMobile: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 8, minHeight: 40 },
+  buttonTextMobile: { fontSize: 14 },
+  // Mobile Dropdown Menu
+  mobileMenuOverlay: { position: 'absolute', top: -2000, left: -2000, right: -2000, bottom: 0, backgroundColor: 'transparent' },
+  bottomButtonsMobileDropdown: { height: 80, backgroundColor: 'transparent' },
+  mobileMenuDropdown: { position: 'absolute', bottom: 60, right: 10, backgroundColor: '#1a1a1a', borderRadius: 12, paddingVertical: 8, minWidth: 220, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 10, borderWidth: 1 },
+  mobileMenuItem: { paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#333' },
+  mobileMenuItemText: { color: '#fff', fontSize: 16 },
+  mobileMenuButton: { position: 'absolute', right: 16, bottom: 16, width: 50, height: 50, borderRadius: 25, backgroundColor: '#1a1a1a', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5, borderWidth: 1 },
+  mobileMenuButtonText: { color: '#fff', fontSize: 24, fontWeight: 'bold' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 400 },
   modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 12, textAlign: 'center' },
