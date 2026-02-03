@@ -422,14 +422,26 @@ export function TransfersScreen({ navigation }: any) {
   const fetchMyPlayerAccess = async (userId?: string) => {
     const uid = userId || currentUserId;
     if (!uid) return;
-    
-    const { data } = await supabase
-      .from('player_access')
+
+    // 1. Hole IDs aus advisor_access (OHNE access_type Filter)
+    const { data: accessData } = await supabase
+      .from('advisor_access')
       .select('player_id')
-      .eq('advisor_id', uid)
-      .in('access_type', ['owner', 'viewer']);
-    
-    if (data) setMyPlayerIds(data.map(d => d.player_id));
+      .eq('advisor_id', uid);
+
+    // 2. Hole IDs aus access_requests (approved)
+    const { data: requestData } = await supabase
+      .from('access_requests')
+      .select('player_id')
+      .eq('requester_id', uid)
+      .eq('status', 'approved');
+
+    // 3. Kombiniere beide Listen (ohne Duplikate)
+    const accessIds = accessData?.map(d => d.player_id) || [];
+    const requestIds = requestData?.map(d => d.player_id) || [];
+    const allIds = [...new Set([...accessIds, ...requestIds])];
+
+    setMyPlayerIds(allIds);
   };
 
   const fetchClubLogos = async () => {
