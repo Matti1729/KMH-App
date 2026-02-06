@@ -5,9 +5,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { supabase } from '../../config/supabase';
 
-// Fallback falls Datenbank nicht erreichbar
-const FALLBACK_CODE = 'KMH_Berater2026';
-
 // Platform-spezifischer Alert
 const showAlert = (title: string, message: string, onOk?: () => void) => {
   if (Platform.OS === 'web') {
@@ -26,7 +23,8 @@ export function LoginScreen({ navigation }: any) {
   const [loading, setLoading] = useState(false);
   const [showAdvisorModal, setShowAdvisorModal] = useState(false);
   const [advisorCode, setAdvisorCode] = useState('');
-  const [validCode, setValidCode] = useState<string>(FALLBACK_CODE);
+  const [validCode, setValidCode] = useState<string>('');
+  const [codeLoaded, setCodeLoaded] = useState(false);
   const [codeError, setCodeError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -43,9 +41,11 @@ export function LoginScreen({ navigation }: any) {
       
       if (data && data.value) {
         setValidCode(data.value);
+        setCodeLoaded(true);
       }
     } catch (e) {
-      console.log('Could not fetch invitation code, using fallback');
+      console.log('Could not fetch invitation code');
+      setCodeLoaded(false);
     }
   };
 
@@ -62,7 +62,12 @@ export function LoginScreen({ navigation }: any) {
 
   const handleAdvisorCode = () => {
     setCodeError(null);
-    
+
+    if (!codeLoaded || !validCode) {
+      setCodeError('Einladungscode konnte nicht geladen werden. Bitte versuche es später erneut.');
+      return;
+    }
+
     if (!advisorCode.trim()) {
       setCodeError('Bitte gib einen Einladungscode ein.');
       return;
