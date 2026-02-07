@@ -9,6 +9,25 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 }
 
+// Erlaubte Domains — nur diese dürfen geproxied werden
+const ALLOWED_DOMAINS = [
+  'api.fussball.de',
+  'api-fussball.de',
+  'www.transfermarkt.de',
+  'www.transfermarkt.com',
+  'transfermarkt.de',
+  'transfermarkt.com',
+]
+
+function isAllowedUrl(targetUrl: string): boolean {
+  try {
+    const parsed = new URL(targetUrl)
+    return ALLOWED_DOMAINS.includes(parsed.hostname)
+  } catch {
+    return false
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -24,6 +43,15 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'Missing url parameter' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Domain-Allowlist prüfen
+    if (!isAllowedUrl(targetUrl)) {
+      console.warn(`[PROXY] Blocked: ${targetUrl}`)
+      return new Response(
+        JSON.stringify({ error: 'Domain not allowed' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 

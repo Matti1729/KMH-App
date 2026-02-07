@@ -156,22 +156,31 @@ export async function saveApiToken(supabase: SupabaseClient, token: string): Pro
 }
 
 // Nächste Spiele eines Teams von der API holen (über Supabase Edge Function Proxy)
-export async function fetchTeamNextGames(teamId: string, token: string): Promise<ApiGame[]> {
+export async function fetchTeamNextGames(teamId: string, token: string, supabaseClient?: SupabaseClient): Promise<ApiGame[]> {
   try {
     // API URL die wir aufrufen wollen
     const apiUrl = `https://api-fussball.de/api/team/next_games/${teamId}`;
-    
+
     // Über Supabase Edge Function Proxy aufrufen
     const proxyUrl = `${SUPABASE_PROXY_URL}?type=fussball&url=${encodeURIComponent(apiUrl)}`;
-    
+
     console.log('Calling proxy:', proxyUrl);
-    
+
+    // Supabase Auth-Token für JWT-Verifizierung
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'x-auth-token': token
+    };
+    if (supabaseClient) {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+    }
+
     const response = await fetch(proxyUrl, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-auth-token': token
-      }
+      headers,
     });
     
     if (!response.ok) {
@@ -402,7 +411,7 @@ export async function syncAllPlayerGames(
     console.log(`Lade Spiele für ${playerName} (Team: ${teamId})...`);
     
     // Spiele von API holen
-    const games = await fetchTeamNextGames(teamId, token);
+    const games = await fetchTeamNextGames(teamId, token, supabase);
     console.log(`${games.length} Spiele für ${playerName} gefunden`);
 
     if (games.length === 0) {
