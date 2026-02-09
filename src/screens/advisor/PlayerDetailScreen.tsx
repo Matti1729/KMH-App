@@ -166,147 +166,205 @@ interface TransfermarktSeasonStats {
   assists: number;
 }
 
-// Funktion um Stats von Transfermarkt zu laden
+// Cache für Vereinsnamen (Vereins-ID → Name)
+const clubNameCache = new Map<string, string>();
+
+// Team-Suffixe entfernen: "Hertha BSC II" → "Hertha BSC", "FC Ingolstadt 04 U19" → "FC Ingolstadt 04"
+const normalizeClubName = (name: string): string => {
+  return name.replace(/\s+(II|III|IV|V|U\d{2}|B)\s*$/i, '').trim();
+};
+
+const fetchClubName = async (vereinId: string): Promise<string> => {
+  if (clubNameCache.has(vereinId)) return clubNameCache.get(vereinId)!;
+
+  try {
+    const clubUrl = `https://www.transfermarkt.de/a/startseite/verein/${vereinId}`;
+    const proxyUrl = `https://ozggtruvnwozhwjbznsm.supabase.co/functions/v1/proxy?type=transfermarkt&url=${encodeURIComponent(clubUrl)}`;
+
+    const response = await fetch(proxyUrl);
+    const html = await response.text();
+
+    // Vereinsname aus <h1> oder data-header extrahieren
+    const nameMatch = html.match(/<h1[^>]*class="data-header__headline-wrapper[^"]*"[^>]*>\s*([^<]+)/);
+    let name = nameMatch ? nameMatch[1].trim() : null;
+
+    // Fallback: aus <title> extrahieren
+    if (!name) {
+      const titleMatch = html.match(/<title>([^-<]+)/);
+      name = titleMatch ? titleMatch[1].trim() : `Verein ${vereinId}`;
+    }
+
+    const normalized = normalizeClubName(name);
+    clubNameCache.set(vereinId, normalized);
+    return normalized;
+  } catch (e) {
+    console.log(`Fehler beim Laden des Vereinsnamens für ID ${vereinId}:`, e);
+    return `Verein ${vereinId}`;
+  }
+};
+
+// Liga-Priorität: niedrigere Zahl = höhere Liga
+const getLeaguePriority = (league: string): number => {
+  const l = league.toLowerCase();
+  // Herren-Ligen
+  if (!l.includes('u19') && !l.includes('u17') && !l.includes('u21') && !l.includes('u23') && !l.includes('junioren') && !l.includes('jugend') && !l.includes('nachwuchs')) {
+    if (l === 'bundesliga' || l === '1. bundesliga') return 1;
+    if (l.includes('2. bundesliga')) return 2;
+    if (l.includes('3. liga')) return 3;
+    if (l.includes('regionalliga')) return 4;
+    if (l.includes('oberliga')) return 5;
+    if (l.includes('pokal')) return 10;
+    return 50;
+  }
+  // Junioren: U23 > U21 > U19 > U17
+  if (l.includes('u23')) return 101;
+  if (l.includes('u21')) return 102;
+  if (l.includes('u19')) return 103;
+  if (l.includes('u17')) return 104;
+  return 110;
+};
+
+// Funktion um Stats von Transfermarkt zu laden (letzte 3 Saisons, pro Wettbewerb)
 const fetchTransfermarktStats = async (transfermarktUrl: string): Promise<TransfermarktSeasonStats[]> => {
   if (!transfermarktUrl) return [];
 
   try {
-    // URL zur Leistungsdaten-Seite umwandeln
-    let statsUrl = transfermarktUrl;
-
     // Spieler-ID aus URL extrahieren
-    const playerIdMatch = statsUrl.match(/spieler\/(\d+)/);
+    const playerIdMatch = transfermarktUrl.match(/spieler\/(\d+)/);
     if (!playerIdMatch) {
-      console.error('Keine Spieler-ID in URL gefunden:', statsUrl);
+      console.error('Keine Spieler-ID in URL gefunden:', transfermarktUrl);
       return [];
     }
     const playerId = playerIdMatch[1];
 
-    // Spielername aus URL extrahieren
-    const nameMatch = statsUrl.match(/transfermarkt\.[a-z]+\/([^/]+)\//);
+    // Spielername-Slug aus URL extrahieren
+    const nameMatch = transfermarktUrl.match(/transfermarkt\.[a-z]+\/([^/]+)\//);
     const playerName = nameMatch ? nameMatch[1] : 'spieler';
 
-    // Leistungsdaten-URL bauen (normale Leistungsdaten-Seite, nicht Details)
-    statsUrl = `https://www.transfermarkt.de/${playerName}/leistungsdaten/spieler/${playerId}/plus/0?saession_id=`;
+    // Letzte 3 Saisons berechnen (Saison startet im Juli)
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+    const currentSeason = currentMonth >= 7 ? currentYear : currentYear - 1;
+    const seasonsToFetch = [currentSeason, currentSeason - 1, currentSeason - 2];
 
-    console.log('Fetching Transfermarkt stats from:', statsUrl);
+    console.log('Fetching Transfermarkt stats for seasons:', seasonsToFetch);
 
-    // Mehrere CORS Proxies versuchen
-    const proxies = [
-      `https://api.allorigins.win/raw?url=${encodeURIComponent(statsUrl)}`,
-      `https://corsproxy.io/?${encodeURIComponent(statsUrl)}`,
-    ];
+    // Phase 1: Alle Saisons parsen und Vereins-IDs sammeln
+    const rawStats: { season: string; vereinId: string; league: string; games: number; goals: number; assists: number }[] = [];
+    const uniqueClubIds = new Set<string>();
 
-    let html = '';
-    for (const proxyUrl of proxies) {
+    for (const seasonYear of seasonsToFetch) {
+      const statsUrl = `https://www.transfermarkt.de/${playerName}/leistungsdaten/spieler/${playerId}/plus/0?saison=${seasonYear}`;
+      const proxyUrl = `https://ozggtruvnwozhwjbznsm.supabase.co/functions/v1/proxy?type=transfermarkt&url=${encodeURIComponent(statsUrl)}`;
+
+      console.log(`Lade Saison ${seasonYear}/${seasonYear + 1}...`);
+
       try {
-        console.log('Versuche Proxy:', proxyUrl.substring(0, 50) + '...');
-        const response = await fetch(proxyUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          }
-        });
+        const response = await fetch(proxyUrl);
+        if (!response.ok) {
+          console.log(`Saison ${seasonYear}: HTTP ${response.status}`);
+          continue;
+        }
+        const html = await response.text();
+        if (!html || html.length < 1000) {
+          console.log(`Saison ${seasonYear}: Leere Antwort`);
+          continue;
+        }
 
-        if (response.ok) {
-          html = await response.text();
-          console.log('HTML geladen, Länge:', html.length);
-          if (html.length > 1000 && !html.includes('Access Denied')) {
-            break; // Erfolg
+        // Wettbewerb-Zeilen aus <tbody> parsen (class="odd" / class="even")
+        const rowRegex = /<tr[^>]*class="[^"]*(?:odd|even)[^"]*"[^>]*>([\s\S]*?)<\/tr>/gi;
+        let match;
+
+        while ((match = rowRegex.exec(html)) !== null) {
+          const row = match[0];
+
+          // Wettbewerbsname aus hauptlink-Zelle extrahieren
+          const compMatch = row.match(/<td[^>]*hauptlink[^>]*no-border-links[^>]*>[\s\S]*?<a[^>]*title="([^"]+)"/i);
+          if (!compMatch) continue;
+          const rawCompetition = compMatch[1].trim().replace(/\s+-\s+.*$/, '');
+          const competition = rawCompetition.toLowerCase().includes('regionalliga')
+            ? rawCompetition
+            : rawCompetition.replace(/\s+Gr\.\s*\S+$/i, '');
+
+          // Einsätze aus player-profile-performance-data Zelle
+          const appsMatch = row.match(/<td[^>]*player-profile-performance-data[^>]*>[\s\S]*?<a[^>]*>(\d+|-)<\/a>/i);
+          const apps = appsMatch ? (appsMatch[1] === '-' ? 0 : parseInt(appsMatch[1])) : 0;
+
+          // Überspringe Wettbewerbe ohne Einsätze
+          if (apps === 0) continue;
+
+          // Vereins-ID aus dem Einsätze-Link extrahieren (/verein/4795)
+          const vereinIdMatch = row.match(/\/verein\/(\d+)/);
+          const vereinId = vereinIdMatch ? vereinIdMatch[1] : '';
+
+          if (vereinId) {
+            uniqueClubIds.add(vereinId);
           }
+
+          // Tore und Vorlagen: die nächsten <td class="zentriert"> nach der Einsätze-Zelle
+          const afterApps = row.substring(row.indexOf('player-profile-performance-data'));
+          const zentCells: number[] = [];
+          const zentRegex = /<td[^>]*class="zentriert"[^>]*>\s*(\d+|-)\s*<\/td>/gi;
+          let zentMatch;
+          while ((zentMatch = zentRegex.exec(afterApps)) !== null) {
+            zentCells.push(zentMatch[1] === '-' ? 0 : parseInt(zentMatch[1]));
+          }
+
+          const goals = zentCells[0] || 0;
+          const assists = zentCells[1] || 0;
+
+          rawStats.push({
+            season: `${seasonYear}/${seasonYear + 1}`,
+            vereinId,
+            league: competition,
+            games: apps,
+            goals,
+            assists,
+          });
         }
       } catch (e) {
-        console.log('Proxy fehlgeschlagen:', e);
+        console.log(`Saison ${seasonYear}: Fehler -`, e);
       }
     }
 
-    if (!html || html.length < 1000) {
-      console.error('Konnte keine HTML-Daten laden');
-      return [];
+    // Phase 2: Alle eindeutigen Vereinsnamen parallel laden
+    console.log(`Lade Vereinsnamen für ${uniqueClubIds.size} Verein(e)...`);
+    const clubIdArray = Array.from(uniqueClubIds);
+    await Promise.all(clubIdArray.map(id => fetchClubName(id)));
+
+    // Phase 3: Ergebnisse mit korrekten Vereinsnamen zusammenstellen + gleiche Ligen zusammenfassen
+    const mergedMap = new Map<string, TransfermarktSeasonStats>();
+    for (const entry of rawStats) {
+      const club = entry.vereinId ? (clubNameCache.get(entry.vereinId) || `Verein ${entry.vereinId}`) : 'Unbekannt';
+      const key = `${entry.season}_${club}_${entry.league}`;
+      const existing = mergedMap.get(key);
+      if (existing) {
+        existing.games += entry.games;
+        existing.goals += entry.goals;
+        existing.assists += entry.assists;
+      } else {
+        mergedMap.set(key, {
+          season: entry.season,
+          club,
+          league: entry.league,
+          games: entry.games,
+          goals: entry.goals,
+          assists: entry.assists,
+        });
+      }
     }
 
-    // Debug: Prüfe ob es überhaupt Saison-Daten gibt
-    const hasSeasonData = /\d{2}\/\d{2}/.test(html);
-    console.log('HTML enthält Saison-Daten:', hasSeasonData);
+    const allStats = Array.from(mergedMap.values());
+    // Sortieren: pro Saison Herren vor Junioren, dann nach Liga-Hierarchie
+    allStats.sort((a, b) => {
+      if (a.season !== b.season) return b.season.localeCompare(a.season); // neueste Saison zuerst
+      if (a.club !== b.club) return a.club.localeCompare(b.club);
+      return getLeaguePriority(a.league) - getLeaguePriority(b.league);
+    });
+    allStats.forEach(s => console.log('Parsed:', s));
 
-    if (!hasSeasonData) {
-      console.log('Keine Saison-Daten im HTML gefunden. Seite könnte blockiert sein.');
-      return [];
-    }
-
-    const stats: TransfermarktSeasonStats[] = [];
-
-    // Suche nach Tabellenzeilen mit Saison-Daten
-    // Transfermarkt nutzt oft class="odd" oder class="even" für Tabellenzeilen
-    const rowRegex = /<tr[^>]*class="[^"]*(?:odd|even)[^"]*"[^>]*>([\s\S]*?)<\/tr>/gi;
-    let match;
-    let rowCount = 0;
-
-    while ((match = rowRegex.exec(html)) !== null && rowCount < 3) {
-      const row = match[0];
-
-      // Prüfe ob diese Zeile Saison-Daten enthält
-      const seasonMatch = row.match(/>(\d{2})\/(\d{2})</);
-      if (!seasonMatch) continue;
-
-      console.log('Zeile gefunden mit Saison:', seasonMatch[1] + '/' + seasonMatch[2]);
-
-      // Verein aus title-Attribut oder img alt extrahieren
-      let club = '';
-      const clubMatch = row.match(/title="([^"]{3,})"[^>]*class="[^"]*vereinprofil/i) ||
-                        row.match(/<img[^>]*alt="([^"]{3,})"[^>]*class="[^"]*tiny/i) ||
-                        row.match(/title="([^"]+)"[^>]*>\s*<img/i);
-      if (clubMatch) {
-        club = clubMatch[1].trim();
-      }
-
-      // Liga/Wettbewerb extrahieren
-      let league = '';
-      const leagueMatch = row.match(/title="([^"]*(?:liga|League|Division|Serie|Ligue|Primera)[^"]*)"/i);
-      if (leagueMatch) {
-        league = leagueMatch[1].trim();
-      }
-
-      // Alle Zahlen aus zentrierten td-Zellen extrahieren
-      const numbers: number[] = [];
-      const numRegex = /<td[^>]*class="[^"]*zentriert[^"]*"[^>]*>\s*(\d+|-)\s*<\/td>/gi;
-      let numMatch;
-      while ((numMatch = numRegex.exec(row)) !== null) {
-        const val = numMatch[1] === '-' ? 0 : parseInt(numMatch[1]);
-        if (!isNaN(val)) numbers.push(val);
-      }
-
-      // Falls keine zentrierten Zellen, suche nach beliebigen Zahlen in td
-      if (numbers.length === 0) {
-        const simpleNumRegex = /<td[^>]*>\s*(\d{1,3})\s*<\/td>/gi;
-        while ((numMatch = simpleNumRegex.exec(row)) !== null) {
-          const val = parseInt(numMatch[1]);
-          if (!isNaN(val) && val < 200) numbers.push(val); // Max 200 für Spiele
-        }
-      }
-
-      console.log('Gefundene Zahlen:', numbers);
-
-      // Typischerweise: Einsätze, Tore, Assists
-      const games = numbers[0] || 0;
-      const goals = numbers[1] || 0;
-      const assists = numbers[2] || 0;
-
-      const startYear = `20${seasonMatch[1]}`;
-      const endYear = `20${seasonMatch[2]}`;
-
-      stats.push({
-        season: `${startYear}/${endYear}`,
-        club: club,
-        league: league,
-        games: games,
-        goals: goals,
-        assists: assists,
-      });
-
-      console.log('Parsed season:', { season: `${startYear}/${endYear}`, club, league, games, goals, assists });
-    }
-
-    return stats;
+    return allStats;
   } catch (error) {
     console.error('Fehler beim Laden der Transfermarkt Stats:', error);
     return [];
@@ -364,6 +422,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const [careerEntries, setCareerEntries] = useState<CareerEntry[]>([]);
   const [loadingCareer, setLoadingCareer] = useState(false);
   const [careerEntriesLoaded, setCareerEntriesLoaded] = useState(false);
+  const [deletedCareerEntryIds, setDeletedCareerEntryIds] = useState<string[]>([]);
+  const [careerEntriesBackup, setCareerEntriesBackup] = useState<CareerEntry[]>([]);
   const [loadingStats, setLoadingStats] = useState(false);
   const [playerDescription, setPlayerDescription] = useState('');
 
@@ -477,6 +537,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       generatePdfPreview();
     }
   }, [showPDFProfileModal, pdfEditMode, careerEntriesLoaded]);
+
 
   // Telefonnummer und E-Mail des ersten Beraters laden
   const fetchFirstAdvisorData = async (advisorName: string) => {
@@ -592,26 +653,6 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         });
       }
 
-      // Prüfe ob aktueller Verein bereits als Karrierestation existiert
-      const hasCurrentClub = entries.some(e => e.is_current && e.club === player?.club);
-
-      // Wenn nicht, füge aktuellen Verein als erste Station hinzu
-      if (!hasCurrentClub && player?.club) {
-        const currentClubEntry: CareerEntry = {
-          club: player.club,
-          league: player.league || '',
-          from_date: '',
-          to_date: '',
-          stats: '',
-          games: '',
-          goals: '',
-          assists: '',
-          is_current: true,
-          sort_order: 0
-        };
-        entries = [currentClubEntry, ...entries];
-      }
-
       // Sortiere: is_current zuerst, dann nach from_date (neueste zuerst)
       entries.sort((a, b) => {
         if (a.is_current && !b.is_current) return -1;
@@ -699,8 +740,11 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     }
   };
 
-  const deleteCareerEntry = async (id: string) => {
-    await supabase.from('player_career').delete().eq('id', id);
+  const deleteCareerEntry = (id: string) => {
+    // Nur lokal entfernen — DB-Löschung erst beim Speichern
+    if (id) {
+      setDeletedCareerEntryIds(prev => [...prev, id]);
+    }
     setCareerEntries(careerEntries.filter(e => e.id !== id));
   };
 
@@ -721,9 +765,9 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   };
 
   // Transfermarkt Stats laden und in Karriere-Einträge einfügen
-  const loadTransfermarktStats = async () => {
+  const loadTransfermarktStats = async (silent = false) => {
     if (!player?.transfermarkt_url) {
-      Alert.alert('Fehler', 'Kein Transfermarkt-Link hinterlegt. Bitte füge zuerst einen Transfermarkt-Link zum Spieler hinzu.');
+      if (!silent) Alert.alert('Fehler', 'Kein Transfermarkt-Link hinterlegt. Bitte füge zuerst einen Transfermarkt-Link zum Spieler hinzu.');
       return;
     }
 
@@ -732,16 +776,18 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       const stats = await fetchTransfermarktStats(player.transfermarkt_url);
 
       if (stats.length === 0) {
-        Alert.alert(
-          'Keine Daten gefunden',
-          'Transfermarkt-Statistiken konnten nicht geladen werden.\n\n' +
-          'Mögliche Gründe:\n' +
-          '• Transfermarkt blockiert automatische Anfragen\n' +
-          '• Der Spieler hat keine Leistungsdaten\n' +
-          '• Der Link ist ungültig\n\n' +
-          'Du kannst die Statistiken manuell in die Felder eintragen.',
-          [{ text: 'OK' }]
-        );
+        if (!silent) {
+          Alert.alert(
+            'Keine Daten gefunden',
+            'Transfermarkt-Statistiken konnten nicht geladen werden.\n\n' +
+            'Mögliche Gründe:\n' +
+            '• Transfermarkt blockiert automatische Anfragen\n' +
+            '• Der Spieler hat keine Leistungsdaten\n' +
+            '• Der Link ist ungültig\n\n' +
+            'Du kannst die Statistiken manuell in die Felder eintragen.',
+            [{ text: 'OK' }]
+          );
+        }
         setLoadingStats(false);
         return;
       }
@@ -774,24 +820,45 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         };
       });
 
-      // Bestehende Einträge mit neuen zusammenführen (nur neue hinzufügen, keine überschreiben)
-      const existingClubSeasons = new Set(
-        careerEntries.map(e => `${e.club}_${e.from_date}`)
+      // Bestehende Einträge aktualisieren + neue hinzufügen
+      const existingMap = new Map(
+        careerEntries.map((e, i) => [`${e.club}_${e.league}_${e.from_date}`, i])
       );
 
-      const entriesToAdd = newEntries.filter(
-        e => !existingClubSeasons.has(`${e.club}_${e.from_date}`)
-      );
+      const updatedEntries = [...careerEntries];
+      const entriesToAdd: CareerEntry[] = [];
+      let updatedCount = 0;
 
-      if (entriesToAdd.length === 0) {
-        Alert.alert('Info', 'Alle gefundenen Statistiken sind bereits vorhanden.');
-      } else {
-        setCareerEntries([...careerEntries, ...entriesToAdd]);
-        Alert.alert('Erfolg', `${entriesToAdd.length} Saison-Statistik${entriesToAdd.length > 1 ? 'en' : ''} hinzugefügt. Du kannst sie jetzt bearbeiten.`);
+      for (const newEntry of newEntries) {
+        const key = `${newEntry.club}_${newEntry.league}_${newEntry.from_date}`;
+        const existingIndex = existingMap.get(key);
+        if (existingIndex !== undefined) {
+          // Bestehenden Eintrag aktualisieren (nur Stats)
+          updatedEntries[existingIndex] = {
+            ...updatedEntries[existingIndex],
+            games: newEntry.games,
+            goals: newEntry.goals,
+            assists: newEntry.assists,
+          };
+          updatedCount++;
+        } else {
+          entriesToAdd.push(newEntry);
+        }
+      }
+
+      setCareerEntries([...updatedEntries, ...entriesToAdd]);
+
+      if (entriesToAdd.length === 0 && updatedCount === 0) {
+        if (!silent) Alert.alert('Info', 'Alle gefundenen Statistiken sind bereits vorhanden.');
+      } else if (!silent) {
+        const parts = [];
+        if (updatedCount > 0) parts.push(`${updatedCount} aktualisiert`);
+        if (entriesToAdd.length > 0) parts.push(`${entriesToAdd.length} neu hinzugefügt`);
+        Alert.alert('Erfolg', `Statistiken: ${parts.join(', ')}.`);
       }
     } catch (error) {
       console.error('Fehler beim Laden der Transfermarkt Stats:', error);
-      Alert.alert('Fehler', 'Konnte Statistiken nicht laden. Bitte versuche es später erneut.');
+      if (!silent) Alert.alert('Fehler', 'Konnte Statistiken nicht laden. Bitte versuche es später erneut.');
     }
     setLoadingStats(false);
   };
@@ -845,20 +912,26 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   };
 
   const savePdfChanges = async () => {
+    // Gelöschte Einträge aus DB entfernen
+    for (const id of deletedCareerEntryIds) {
+      await supabase.from('player_career').delete().eq('id', id);
+    }
+    setDeletedCareerEntryIds([]);
+
     // Karrierestationen speichern
     for (const entry of careerEntries) {
       await saveCareerEntry(entry);
     }
-    
+
     // Spieler-Beschreibung speichern
     await supabase
       .from('player_details')
       .update({ pdf_description: playerDescription })
       .eq('id', playerId);
-    
+
     // Daten neu laden
     await fetchCareerEntries();
-    
+
     setPdfEditMode(false);
     Alert.alert('Erfolg', 'Karrierestationen wurden gespeichert');
   };
@@ -928,32 +1001,54 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     // Skalierte Werte - Funktion zum Skalieren
     const sc = (base: number) => Math.round(base * scale);
 
-    // Karrierestationen HTML
-    const careerHtml = careerEntries.map((entry, index) => {
+    // Karrierestationen nach Verein + Saison gruppieren
+    const groupedCareer: { club: string; from_date: string; to_date: string; is_current: boolean; competitions: { league: string; games: string; goals: string; assists: string; stats: string }[] }[] = [];
+    for (const entry of careerEntries) {
+      const key = `${entry.club}_${entry.from_date}`;
+      const existing = groupedCareer.find(g => `${g.club}_${g.from_date}` === key);
+      if (existing) {
+        existing.competitions.push({ league: entry.league, games: entry.games || '', goals: entry.goals || '', assists: entry.assists || '', stats: entry.stats || '' });
+      } else {
+        groupedCareer.push({ club: entry.club, from_date: entry.from_date, to_date: entry.to_date, is_current: entry.is_current, competitions: [{ league: entry.league, games: entry.games || '', goals: entry.goals || '', assists: entry.assists || '', stats: entry.stats || '' }] });
+      }
+    }
+    // Wettbewerbe innerhalb jeder Gruppe nach Liga-Hierarchie sortieren
+    for (const group of groupedCareer) {
+      group.competitions.sort((a, b) => getLeaguePriority(a.league) - getLeaguePriority(b.league));
+    }
+
+    const careerHtml = groupedCareer.map((group, index) => {
       let dateDisplay = '';
-      if (entry.is_current && entry.from_date) {
-        dateDisplay = `Seit ${formatDate(entry.from_date)}`;
-      } else if (!entry.is_current && entry.from_date && entry.to_date) {
-        dateDisplay = `${formatDate(entry.from_date)} - ${formatDate(entry.to_date)}`;
-      } else if (!entry.is_current && entry.from_date) {
-        dateDisplay = `Seit ${formatDate(entry.from_date)}`;
+      if (group.is_current && group.from_date) {
+        dateDisplay = `Seit ${formatDate(group.from_date)}`;
+      } else if (!group.is_current && group.from_date && group.to_date) {
+        dateDisplay = `${formatDate(group.from_date)} - ${formatDate(group.to_date)}`;
+      } else if (!group.is_current && group.from_date) {
+        dateDisplay = `Seit ${formatDate(group.from_date)}`;
       }
 
+      const hasMultipleComps = group.competitions.length > 1;
+
+      const statsHtml = group.competitions.map(comp => {
+        const statParts = [comp.games ? `${comp.games} Spiele` : '', comp.goals ? `${comp.goals} Tore` : '', comp.assists ? `${comp.assists} Assists` : ''].filter(Boolean).join(' | ');
+        const content = statParts || comp.stats || '';
+        const leagueLabel = `<div style="font-size: ${sc(8)}px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-top: ${sc(3)}px;">${(comp.league || '').toUpperCase()}</div>`;
+        const statsBox = content ? `<div style="background-color: #f7fafc !important; padding: ${sc(2)}px ${sc(6)}px; border-radius: 4px; border-left: 3px solid #e2e8f0; margin-top: ${sc(2)}px; -webkit-print-color-adjust: exact;"><span style="font-size: ${sc(8)}px; color: #4a5568;">${content}</span></div>` : '';
+        return leagueLabel + statsBox;
+      }).join('');
+
       return `
-      <div style="display: flex; margin-bottom: ${sc(12)}px; position: relative;">
-        ${index < careerEntries.length - 1 ? `<div style="position: absolute; left: 2px; top: ${sc(9)}px; height: calc(100% + ${sc(12)}px); width: 1px; background-color: #1a1a1a !important; -webkit-print-color-adjust: exact;"></div>` : ''}
-        <div style="width: ${sc(5)}px; height: ${sc(5)}px; border-radius: 50%; background-color: #1a1a1a !important; margin-top: ${sc(5)}px; margin-right: ${sc(10)}px; flex-shrink: 0; -webkit-print-color-adjust: exact; position: relative; z-index: 1;"></div>
-        <div style="flex: 1;">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: ${sc(6)}px;">
-            <div style="flex: 1;">
-              <div style="font-size: ${sc(12)}px; font-weight: 700; color: #1a202c; line-height: 1.2;">${entry.club}</div>
-              <div style="font-size: ${sc(8)}px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-top: ${sc(2)}px;">${(entry.league || '').toUpperCase()}</div>
-            </div>
-            ${dateDisplay ? `<div style="border: 1px solid #ddd; padding: 0px ${sc(4)}px; border-radius: 3px; white-space: nowrap; display: inline-flex; align-items: center; height: ${sc(14)}px;">
-              <span style="font-size: ${sc(8)}px; color: #666; font-weight: 500;">${dateDisplay}</span>
-            </div>` : ''}
-          </div>
-          ${(entry.games || entry.goals || entry.assists) ? `<div style="background-color: #f7fafc !important; padding: ${sc(2)}px ${sc(6)}px; border-radius: 4px; border-left: 3px solid #e2e8f0; margin-top: ${sc(3)}px; -webkit-print-color-adjust: exact;"><span style="font-size: ${sc(8)}px; color: #4a5568;">${[entry.games ? `${entry.games} Spiele` : '', entry.goals ? `${entry.goals} Tore` : '', entry.assists ? `${entry.assists} Assists` : ''].filter(Boolean).join(' | ')}</span></div>` : (entry.stats ? `<div style="background-color: #f7fafc !important; padding: ${sc(2)}px ${sc(6)}px; border-radius: 4px; border-left: 3px solid #e2e8f0; margin-top: ${sc(3)}px; -webkit-print-color-adjust: exact;"><span style="font-size: ${sc(8)}px; color: #4a5568;">${entry.stats}</span></div>` : '')}
+      <div style="margin-bottom: ${sc(12)}px; position: relative;">
+        ${index < groupedCareer.length - 1 ? `<div style="position: absolute; left: 2px; top: ${sc(9)}px; height: calc(100% + ${sc(12)}px); width: 1px; background-color: #1a1a1a !important; -webkit-print-color-adjust: exact;"></div>` : ''}
+        <div style="display: flex; align-items: center; gap: ${sc(6)}px;">
+          <div style="width: ${sc(5)}px; height: ${sc(5)}px; border-radius: 50%; background-color: #1a1a1a !important; flex-shrink: 0; -webkit-print-color-adjust: exact; position: relative; z-index: 1;"></div>
+          <div style="flex: 1; font-size: ${sc(12)}px; font-weight: 700; color: #1a202c; line-height: 1.2;">${group.club}</div>
+          ${dateDisplay ? `<div style="border: 1px solid #ddd; padding: 0px ${sc(4)}px; border-radius: 3px; white-space: nowrap; display: inline-flex; align-items: center; height: ${sc(14)}px;">
+            <span style="font-size: ${sc(8)}px; color: #666; font-weight: 500;">${dateDisplay}</span>
+          </div>` : ''}
+        </div>
+        <div style="padding-left: ${sc(11)}px;">
+          ${statsHtml}
         </div>
       </div>
     `}).join('');
@@ -1145,6 +1240,13 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const generateAIDescription = async () => {
     if (!player) return;
 
+    // Session prüfen bevor wir die Edge Function aufrufen
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) {
+      Alert.alert('Fehler', 'Bitte erneut einloggen — deine Sitzung ist abgelaufen.');
+      return;
+    }
+
     setGeneratingDescription(true);
     console.log('AI Generation - bulletPoints:', aiBulletPoints);
     try {
@@ -1161,6 +1263,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
             strengths: player.strengths,
             club: player.club,
             league: player.league,
+            strong_foot: player.strong_foot,
+            potentials: player.potentials,
           },
           careerEntries: careerEntries.map(e => ({
             club: e.club,
@@ -1180,7 +1284,12 @@ export function PlayerDetailScreen({ route, navigation }: any) {
 
       if (error) {
         console.error('AI Generation Error:', error);
-        Alert.alert('Fehler', error.message || 'Text konnte nicht generiert werden');
+        const msg = error.message || '';
+        if (msg.includes('401') || msg.includes('Unauthorized') || msg.includes('non-2xx')) {
+          Alert.alert('Fehler', 'Nicht autorisiert — bitte logge dich aus und erneut ein.');
+        } else {
+          Alert.alert('Fehler', msg || 'Text konnte nicht generiert werden');
+        }
         return;
       }
 
@@ -3514,9 +3623,22 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               <ScrollView style={[styles.pdfModalContent, { backgroundColor: colors.background }]}>
                 <View style={styles.pdfEditSection}>
                   <Text style={[styles.pdfEditSectionTitle, { color: colors.text }]}>Karriereverlauf der letzten Jahre</Text>
-                  <TouchableOpacity style={[styles.pdfAddCareerButton, { backgroundColor: colors.primary }]} onPress={addNewCareerEntry}>
-                    <Text style={[styles.pdfAddCareerButtonText, { color: colors.primaryText }]}>+ Station hinzufügen</Text>
-                  </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TouchableOpacity style={[styles.pdfAddCareerButton, { backgroundColor: colors.primary }]} onPress={addNewCareerEntry}>
+                      <Text style={[styles.pdfAddCareerButtonText, { color: colors.primaryText }]}>+ Station hinzufügen</Text>
+                    </TouchableOpacity>
+                    {player?.transfermarkt_url ? (
+                      <TouchableOpacity
+                        style={[styles.pdfAddCareerButton, { backgroundColor: '#1a1a2e', opacity: loadingStats ? 0.6 : 1 }]}
+                        onPress={() => loadTransfermarktStats(false)}
+                        disabled={loadingStats}
+                      >
+                        <Text style={[styles.pdfAddCareerButtonText, { color: '#fff' }]}>
+                          {loadingStats ? 'Laden...' : 'Von Transfermarkt laden'}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
                 </View>
 
                 {careerEntries.map((entry, index) => (
@@ -3636,50 +3758,6 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                   </View>
                 ))}
 
-                {/* Ansprechpartner Dropdown */}
-                {pdfAdvisors.length > 1 && (
-                  <View style={{ backgroundColor: colors.surfaceSecondary, borderRadius: 8, padding: 12, marginBottom: 12 }}>
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: colors.textSecondary, marginBottom: 8 }}>Telefon im PDF von:</Text>
-                    <View style={{ backgroundColor: colors.surface, borderRadius: 6, borderWidth: 1, borderColor: colors.border }}>
-                      {pdfAdvisors.map((advisor, index) => (
-                        <TouchableOpacity
-                          key={index}
-                          onPress={() => {
-                            // Setze diesen Berater an erste Stelle
-                            const newAdvisors = [...pdfAdvisors];
-                            newAdvisors.splice(index, 1);
-                            newAdvisors.unshift(advisor);
-                            setPdfAdvisors(newAdvisors);
-                            fetchFirstAdvisorData(advisor);
-                          }}
-                          style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            padding: 10,
-                            borderBottomWidth: index < pdfAdvisors.length - 1 ? 1 : 0,
-                            borderBottomColor: colors.border,
-                            backgroundColor: index === 0 ? colors.surfaceSecondary : colors.surface,
-                          }}
-                        >
-                          <View style={{
-                            width: 18,
-                            height: 18,
-                            borderRadius: 9,
-                            borderWidth: 2,
-                            borderColor: index === 0 ? colors.primary : colors.border,
-                            marginRight: 10,
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                          }}>
-                            {index === 0 && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.primary }} />}
-                          </View>
-                          <Text style={{ fontSize: 14, color: colors.text }}>{advisor}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-                )}
-
                 <Text style={[styles.pdfEditSectionTitle, { marginTop: 16, marginBottom: 8, color: colors.text }]}>Über den Spieler</Text>
 
                 {/* Feld 1: Stichpunkte eingeben */}
@@ -3789,7 +3867,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
             <View style={[styles.pdfButtonsContainer, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
               {pdfEditMode ? (
                 <>
-                  <TouchableOpacity style={[styles.pdfCancelButton, { backgroundColor: colors.surfaceSecondary }]} onPress={() => { setPdfEditMode(false); fetchCareerEntries(); }}>
+                  <TouchableOpacity style={[styles.pdfCancelButton, { backgroundColor: colors.surfaceSecondary }]} onPress={() => { setCareerEntries(careerEntriesBackup); setDeletedCareerEntryIds([]); setPdfEditMode(false); }}>
                     <Text style={[styles.pdfCancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={[styles.pdfSaveButton, { backgroundColor: colors.primary }]} onPress={savePdfChanges}>
@@ -3801,7 +3879,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                   <TouchableOpacity style={[styles.pdfDownloadButton, { backgroundColor: colors.primary }]} onPress={generatePDF}>
                     <Text style={[styles.pdfDownloadButtonText, { color: colors.primaryText }]}>Als PDF downloaden</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.pdfEditButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setPdfEditMode(true)}>
+                  <TouchableOpacity style={[styles.pdfEditButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => { setCareerEntriesBackup([...careerEntries]); setPdfEditMode(true); }}>
                     <Text style={[styles.pdfEditButtonText, { color: colors.textSecondary }]}>Bearbeiten</Text>
                   </TouchableOpacity>
                 </>

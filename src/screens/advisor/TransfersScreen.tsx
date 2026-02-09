@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Image, Pressable, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Image, Pressable, Modal, Alert, Platform, Linking } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { MobileHeader } from '../../components/MobileHeader';
 import { MobileSidebar } from '../../components/MobileSidebar';
@@ -56,6 +57,13 @@ type SortField = 'name' | 'birth_date' | 'position' | 'club' | 'league' | 'contr
 type SortDirection = 'asc' | 'desc';
 type ActiveTab = 'spieler' | 'vereine';
 
+interface OfferDocument {
+  name: string;
+  url: string;
+  path: string;
+  uploaded_at: string;
+}
+
 interface SearchingClub {
   id: string;
   club_name: string;
@@ -65,6 +73,7 @@ interface SearchingClub {
   contact_person: string;
   notes: string;
   created_at: string;
+  offer_documents: OfferDocument[];
 }
 
 export function TransfersScreen({ navigation }: any) {
@@ -122,6 +131,10 @@ export function TransfersScreen({ navigation }: any) {
   
   // Editing State
   const [editingClub, setEditingClub] = useState<SearchingClub | null>(null);
+
+  // Offer Documents State
+  const [clubOfferDocuments, setClubOfferDocuments] = useState<OfferDocument[]>([]);
+  const [uploadingOffer, setUploadingOffer] = useState(false);
   
   // Liste aller Vereine für Dropdown
   const [allClubNames, setAllClubNames] = useState<string[]>([]);
@@ -297,6 +310,7 @@ export function TransfersScreen({ navigation }: any) {
     setFormClubSearch('');
     setShowFormClubDropdown(false);
     setEditingClub(null);
+    setClubOfferDocuments([]);
   };
   
   const openEditClubModal = (club: SearchingClub) => {
@@ -311,6 +325,7 @@ export function TransfersScreen({ navigation }: any) {
     });
     setFormClubSearch(club.club_name);
     setFormPositions(club.position_needed ? club.position_needed.split(', ').filter(p => p.trim()) : []);
+    setClubOfferDocuments(club.offer_documents || []);
     setShowClubDetailModal(false);
     setShowAddClubModal(true);
   };
@@ -326,6 +341,7 @@ export function TransfersScreen({ navigation }: any) {
       year_range: newClub.year_range || '',
       contact_person: newClub.contact_person || '',
       notes: newClub.notes || '',
+      offer_documents: clubOfferDocuments,
     };
     
     if (editingClub) {
@@ -360,6 +376,68 @@ export function TransfersScreen({ navigation }: any) {
     }
   };
   
+  const uploadOfferDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({ type: 'application/pdf' });
+      if (result.canceled) return;
+      setUploadingOffer(true);
+
+      const file = result.assets[0];
+      const sanitizedName = file.name
+        .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue')
+        .replace(/Ä/g, 'Ae').replace(/Ö/g, 'Oe').replace(/Ü/g, 'Ue')
+        .replace(/ß/g, 'ss')
+        .replace(/[^a-zA-Z0-9._-]/g, '_');
+
+      const clubId = editingClub?.id || 'new';
+      const fileName = `${clubId}/${Date.now()}_${sanitizedName}`;
+
+      let fileData: Blob | ArrayBuffer;
+      if (file.file) {
+        fileData = file.file;
+      } else {
+        const response = await fetch(file.uri);
+        fileData = await response.blob();
+      }
+
+      const { error: uploadError } = await supabase.storage
+        .from('offers')
+        .upload(fileName, fileData, { contentType: 'application/pdf', upsert: false });
+
+      if (uploadError) {
+        Alert.alert('Fehler', uploadError.message);
+        setUploadingOffer(false);
+        return;
+      }
+
+      const { data: urlData } = supabase.storage.from('offers').getPublicUrl(fileName);
+      setClubOfferDocuments(prev => [...prev, {
+        name: file.name,
+        url: urlData.publicUrl,
+        path: fileName,
+        uploaded_at: new Date().toISOString(),
+      }]);
+      setUploadingOffer(false);
+    } catch (error) {
+      console.error('Upload error:', error);
+      Alert.alert('Fehler', 'Dokument konnte nicht hochgeladen werden');
+      setUploadingOffer(false);
+    }
+  };
+
+  const deleteOfferDocument = async (path: string) => {
+    await supabase.storage.from('offers').remove([path]);
+    setClubOfferDocuments(prev => prev.filter(doc => doc.path !== path));
+  };
+
+  const openOfferDocument = (url: string) => {
+    if (Platform.OS === 'web') {
+      window.open(url, '_blank');
+    } else {
+      Linking.openURL(url);
+    }
+  };
+
   const getFilteredClubsForForm = () => {
     if (!formClubSearch.trim()) return allClubNames.slice(0, 10);
     return allClubNames.filter(name => name.toLowerCase().includes(formClubSearch.toLowerCase())).slice(0, 10);
@@ -1160,6 +1238,28 @@ export function TransfersScreen({ navigation }: any) {
                     <Text style={styles.formLabel}>Notizen</Text>
                     <TextInput style={[styles.formInput, { minHeight: 60 }]} value={newClub.notes || ''} onChangeText={(t) => setNewClub({...newClub, notes: t})} placeholder="Weitere Infos..." placeholderTextColor="#9ca3af" multiline />
                   </View>
+                  <View style={styles.formField}>
+                    <Text style={styles.formLabel}>Angebote / Dokumente</Text>
+                    <TouchableOpacity
+                      style={[styles.uploadOfferButton, uploadingOffer && { opacity: 0.5 }]}
+                      onPress={uploadOfferDocument}
+                      disabled={uploadingOffer}
+                    >
+                      <Ionicons name="cloud-upload-outline" size={16} color="#fff" />
+                      <Text style={styles.uploadOfferButtonText}>{uploadingOffer ? 'Lädt hoch...' : 'PDF hochladen'}</Text>
+                    </TouchableOpacity>
+                    {clubOfferDocuments.map((doc, index) => (
+                      <View key={index} style={styles.offerDocItem}>
+                        <TouchableOpacity onPress={() => openOfferDocument(doc.url)} style={styles.offerDocLink}>
+                          <Text style={styles.offerDocIcon}>📄</Text>
+                          <Text style={styles.offerDocName} numberOfLines={1}>{doc.name}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => deleteOfferDocument(doc.path)} style={styles.offerDocDelete}>
+                          <Text style={styles.offerDocDeleteText}>✕</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
                 </ScrollView>
                 <View style={styles.modalButtons}>
                   <TouchableOpacity style={styles.cancelButton} onPress={() => { setShowAddClubModal(false); resetClubForm(); }}>
@@ -1204,6 +1304,17 @@ export function TransfersScreen({ navigation }: any) {
                       <View style={styles.detailRowNotes}>
                         <Text style={styles.detailLabel}>Notizen</Text>
                         <Text style={styles.detailNotesText}>{selectedClub.notes}</Text>
+                      </View>
+                    )}
+                    {(selectedClub.offer_documents || []).length > 0 && (
+                      <View style={styles.detailRowNotes}>
+                        <Text style={styles.detailLabel}>Angebote</Text>
+                        {(selectedClub.offer_documents || []).map((doc, index) => (
+                          <TouchableOpacity key={index} onPress={() => openOfferDocument(doc.url)} style={styles.offerDocDetailLink}>
+                            <Text style={styles.offerDocIcon}>📄</Text>
+                            <Text style={styles.offerDocDetailName}>{doc.name}</Text>
+                          </TouchableOpacity>
+                        ))}
                       </View>
                     )}
                     <View style={styles.detailActions}>
@@ -1531,6 +1642,29 @@ export function TransfersScreen({ navigation }: any) {
                   onFocus={() => setShowFormClubDropdown(false)}
                 />
               </View>
+
+              <View style={[styles.formField, { zIndex: 1 }]}>
+                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Angebote / Dokumente</Text>
+                <TouchableOpacity
+                  style={[styles.uploadOfferButton, { backgroundColor: colors.primary }, uploadingOffer && { opacity: 0.5 }]}
+                  onPress={uploadOfferDocument}
+                  disabled={uploadingOffer}
+                >
+                  <Ionicons name="cloud-upload-outline" size={16} color={colors.primaryText || '#fff'} />
+                  <Text style={[styles.uploadOfferButtonText, { color: colors.primaryText || '#fff' }]}>{uploadingOffer ? 'Lädt hoch...' : 'PDF hochladen'}</Text>
+                </TouchableOpacity>
+                {clubOfferDocuments.map((doc, index) => (
+                  <View key={index} style={[styles.offerDocItem, { backgroundColor: colors.surfaceSecondary }]}>
+                    <TouchableOpacity onPress={() => openOfferDocument(doc.url)} style={styles.offerDocLink}>
+                      <Text style={styles.offerDocIcon}>📄</Text>
+                      <Text style={[styles.offerDocName, { color: colors.text }]} numberOfLines={1}>{doc.name}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => deleteOfferDocument(doc.path)} style={styles.offerDocDelete}>
+                      <Text style={styles.offerDocDeleteText}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
             </ScrollView>
 
             <View style={[styles.modalButtonsSpaced, { borderTopColor: colors.border }]}>
@@ -1610,7 +1744,22 @@ export function TransfersScreen({ navigation }: any) {
                     <Text style={styles.detailNotesBoxText}>{selectedClub.notes || '-'}</Text>
                   </View>
                 </View>
-                
+
+                {/* Angebote / Dokumente */}
+                {(selectedClub.offer_documents || []).length > 0 && (
+                  <View style={styles.detailNotesCard}>
+                    <Text style={styles.detailCardLabel}>Angebote / Dokumente</Text>
+                    <View style={{ marginTop: 6 }}>
+                      {(selectedClub.offer_documents || []).map((doc, index) => (
+                        <TouchableOpacity key={index} onPress={() => openOfferDocument(doc.url)} style={styles.offerDocDetailItem}>
+                          <Text style={styles.offerDocIcon}>📄</Text>
+                          <Text style={styles.offerDocDetailName}>{doc.name}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                )}
+
                 {/* Action Buttons */}
                 <View style={styles.detailModalActions}>
                   <TouchableOpacity style={styles.detailEditButton} onPress={() => openEditClubModal(selectedClub)}>
@@ -2139,5 +2288,69 @@ const styles = StyleSheet.create({
   contractTextMobileGreen: {
     color: '#16a34a',
     fontWeight: '600',
+  },
+
+  // Offer Document Styles
+  uploadOfferButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2563eb',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    gap: 6,
+    marginBottom: 8,
+  },
+  uploadOfferButtonText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  offerDocItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 6,
+  },
+  offerDocLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  offerDocIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  offerDocName: {
+    fontSize: 13,
+    color: '#334155',
+    flex: 1,
+  },
+  offerDocDelete: {
+    padding: 4,
+    marginLeft: 8,
+  },
+  offerDocDeleteText: {
+    color: '#ef4444',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  offerDocDetailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  offerDocDetailLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  offerDocDetailName: {
+    fontSize: 14,
+    color: '#2563eb',
+    marginLeft: 6,
   },
 });

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Platform, Pressable, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Platform, Pressable, SafeAreaView, Alert, Linking } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../config/supabase';
 import { useIsMobile } from '../../hooks/useIsMobile';
@@ -62,6 +63,13 @@ const getDaysUntilReminder = (createdAt: string, reminderDays: number | null): n
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 };
 
+interface OfferDocument {
+  name: string;
+  url: string;
+  path: string;
+  uploaded_at: string;
+}
+
 interface TransferClub {
   id: string;
   player_id: string;
@@ -73,6 +81,7 @@ interface TransferClub {
   reminder_days: number;
   created_at: string;
   updated_at: string;
+  offer_documents: OfferDocument[];
 }
 
 interface Player {
@@ -125,6 +134,10 @@ export function TransferDetailScreen({ route, navigation }: any) {
     reminder_days: 30,
   });
   
+  // Offer documents state
+  const [clubOfferDocuments, setClubOfferDocuments] = useState<OfferDocument[]>([]);
+  const [uploadingOffer, setUploadingOffer] = useState(false);
+
   // Date picker states
   const [showDayPicker, setShowDayPicker] = useState(false);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
@@ -262,6 +275,67 @@ export function TransferDetailScreen({ route, navigation }: any) {
     setShowReminderPicker(false);
   };
 
+  const uploadOfferDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({ type: 'application/pdf' });
+      if (result.canceled) return;
+      setUploadingOffer(true);
+
+      const file = result.assets[0];
+      const sanitizedName = file.name
+        .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue')
+        .replace(/Ä/g, 'Ae').replace(/Ö/g, 'Oe').replace(/Ü/g, 'Ue')
+        .replace(/ß/g, 'ss')
+        .replace(/[^a-zA-Z0-9._-]/g, '_');
+
+      const fileName = `${playerId}/${Date.now()}_${sanitizedName}`;
+
+      let fileData: Blob | ArrayBuffer;
+      if (file.file) {
+        fileData = file.file;
+      } else {
+        const response = await fetch(file.uri);
+        fileData = await response.blob();
+      }
+
+      const { error: uploadError } = await supabase.storage
+        .from('offers')
+        .upload(fileName, fileData, { contentType: 'application/pdf', upsert: false });
+
+      if (uploadError) {
+        Alert.alert('Fehler', uploadError.message);
+        setUploadingOffer(false);
+        return;
+      }
+
+      const { data: urlData } = supabase.storage.from('offers').getPublicUrl(fileName);
+      setClubOfferDocuments(prev => [...prev, {
+        name: file.name,
+        url: urlData.publicUrl,
+        path: fileName,
+        uploaded_at: new Date().toISOString(),
+      }]);
+      setUploadingOffer(false);
+    } catch (error) {
+      console.error('Upload error:', error);
+      Alert.alert('Fehler', 'Dokument konnte nicht hochgeladen werden');
+      setUploadingOffer(false);
+    }
+  };
+
+  const deleteOfferDocument = async (path: string) => {
+    await supabase.storage.from('offers').remove([path]);
+    setClubOfferDocuments(prev => prev.filter(doc => doc.path !== path));
+  };
+
+  const openOfferDocument = (url: string) => {
+    if (Platform.OS === 'web') {
+      window.open(url, '_blank');
+    } else {
+      Linking.openURL(url);
+    }
+  };
+
   const addClub = async () => {
     if (!formData.club_name.trim()) return;
     
@@ -273,6 +347,7 @@ export function TransferDetailScreen({ route, navigation }: any) {
       last_contact: formData.last_contact || null,
       notes: formData.notes,
       reminder_days: formData.reminder_days === -1 ? null : formData.reminder_days,
+      offer_documents: clubOfferDocuments,
     });
     
     if (!error) {
@@ -296,6 +371,7 @@ export function TransferDetailScreen({ route, navigation }: any) {
         last_contact: formData.last_contact || null,
         notes: formData.notes,
         reminder_days: formData.reminder_days === -1 ? null : formData.reminder_days,
+        offer_documents: clubOfferDocuments,
         updated_at: now,
         // Wenn reminder_days geändert wurde, setze created_at auf jetzt damit die Berechnung stimmt
         ...(selectedClub.reminder_days !== formData.reminder_days ? { created_at: now } : {}),
@@ -335,6 +411,7 @@ export function TransferDetailScreen({ route, navigation }: any) {
       reminder_days: 30,
     });
     setClubSearch('');
+    setClubOfferDocuments([]);
     closeAllDropdowns();
   };
 
@@ -349,6 +426,7 @@ export function TransferDetailScreen({ route, navigation }: any) {
       reminder_days: club.reminder_days === null || club.reminder_days === undefined ? -1 : club.reminder_days,
     });
     setClubSearch(club.club_name);
+    setClubOfferDocuments(club.offer_documents || []);
     closeAllDropdowns();
     setShowEditModal(true);
   };
@@ -863,6 +941,29 @@ export function TransferDetailScreen({ route, navigation }: any) {
             placeholderTextColor={colors.textMuted}
             multiline
           />
+        </View>
+
+        <View style={styles.formRow}>
+          <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Angebote / Dokumente</Text>
+          <TouchableOpacity
+            style={[styles.uploadOfferButton, { backgroundColor: colors.primary }, uploadingOffer && { opacity: 0.5 }]}
+            onPress={uploadOfferDocument}
+            disabled={uploadingOffer}
+          >
+            <Ionicons name="cloud-upload-outline" size={16} color={colors.primaryText || '#fff'} />
+            <Text style={[styles.uploadOfferButtonText, { color: colors.primaryText || '#fff' }]}>{uploadingOffer ? 'Lädt hoch...' : 'PDF hochladen'}</Text>
+          </TouchableOpacity>
+          {clubOfferDocuments.map((doc, index) => (
+            <View key={index} style={[styles.offerDocItem, { backgroundColor: colors.surfaceSecondary }]}>
+              <TouchableOpacity onPress={() => openOfferDocument(doc.url)} style={styles.offerDocLink}>
+                <Text style={styles.offerDocIcon}>📄</Text>
+                <Text style={[styles.offerDocName, { color: colors.text }]} numberOfLines={1}>{doc.name}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => deleteOfferDocument(doc.path)} style={styles.offerDocDelete}>
+                <Text style={styles.offerDocDeleteText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
         </View>
       </Pressable>
     );
@@ -1749,5 +1850,50 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#ef4444',
+  },
+
+  // Offer Document Styles
+  uploadOfferButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    gap: 6,
+    marginBottom: 8,
+  },
+  uploadOfferButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  offerDocItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 6,
+  },
+  offerDocLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  offerDocIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  offerDocName: {
+    fontSize: 13,
+    flex: 1,
+  },
+  offerDocDelete: {
+    padding: 4,
+    marginLeft: 8,
+  },
+  offerDocDeleteText: {
+    color: '#ef4444',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

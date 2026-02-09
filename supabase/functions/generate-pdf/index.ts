@@ -124,43 +124,75 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
   // Telefon: Feste Nummern basierend auf Listung
   const phone = isKMH ? '089 72458696' : '+49 176 70809677';
 
-  const careerHtml = (careerEntries || []).map((entry, index) => {
-    // Stats aus games/goals/assists oder stats-String generieren
-    let statsDisplay = '';
-    if (entry.games || entry.goals || entry.assists) {
-      const parts = [];
-      if (entry.games) parts.push(`${entry.games} Spiele`);
-      if (entry.goals) parts.push(`${entry.goals} Tore`);
-      if (entry.assists) parts.push(`${entry.assists} Assists`);
-      statsDisplay = parts.join(' | ');
-    } else if (entry.stats) {
-      statsDisplay = entry.stats;
+  // Liga-Priorität: niedrigere Zahl = höhere Liga (wird zuerst angezeigt)
+  const getLeaguePriority = (league: string): number => {
+    const l = league.toLowerCase();
+    // Herren-Ligen
+    if (!l.includes('u19') && !l.includes('u17') && !l.includes('u21') && !l.includes('u23') && !l.includes('junioren') && !l.includes('jugend') && !l.includes('nachwuchs')) {
+      if (l === 'bundesliga' || l === '1. bundesliga') return 1;
+      if (l.includes('2. bundesliga')) return 2;
+      if (l.includes('3. liga')) return 3;
+      if (l.includes('regionalliga')) return 4;
+      if (l.includes('oberliga')) return 5;
+      if (l.includes('pokal')) return 10;
+      return 50;
+    }
+    // Junioren: U23 > U21 > U19 > U17
+    if (l.includes('u23')) return 101;
+    if (l.includes('u21')) return 102;
+    if (l.includes('u19')) return 103;
+    if (l.includes('u17')) return 104;
+    return 110;
+  };
+
+  // Karriere-Einträge nach Verein + Saison gruppieren
+  const groupedCareer: { club: string; from_date: string; to_date: string; is_current: boolean; competitions: { league: string; games: string; goals: string; assists: string; stats: string }[] }[] = [];
+  for (const entry of careerEntries || []) {
+    const key = `${entry.club}_${entry.from_date}`;
+    const existing = groupedCareer.find(g => `${g.club}_${g.from_date}` === key);
+    if (existing) {
+      existing.competitions.push({ league: entry.league, games: entry.games || '', goals: entry.goals || '', assists: entry.assists || '', stats: entry.stats || '' });
+    } else {
+      groupedCareer.push({ club: entry.club, from_date: entry.from_date, to_date: entry.to_date, is_current: entry.is_current, competitions: [{ league: entry.league, games: entry.games || '', goals: entry.goals || '', assists: entry.assists || '', stats: entry.stats || '' }] });
+    }
+  }
+  // Wettbewerbe innerhalb jeder Gruppe nach Liga-Hierarchie sortieren
+  for (const group of groupedCareer) {
+    group.competitions.sort((a, b) => getLeaguePriority(a.league) - getLeaguePriority(b.league));
+  }
+
+  const careerHtml = groupedCareer.map((group) => {
+    let dateDisplay = '';
+    if (group.is_current && group.from_date) {
+      dateDisplay = `Seit ${formatDate(group.from_date)}`;
+    } else if (group.from_date && group.to_date) {
+      dateDisplay = `${formatDate(group.from_date)} - ${formatDate(group.to_date)}`;
+    } else if (group.from_date) {
+      dateDisplay = `Seit ${formatDate(group.from_date)}`;
     }
 
-    // Datum-Anzeige
-    let dateDisplay = '';
-    if (entry.is_current && entry.from_date) {
-      dateDisplay = `Seit ${formatDate(entry.from_date)}`;
-    } else if (entry.from_date && entry.to_date) {
-      dateDisplay = `${formatDate(entry.from_date)} - ${formatDate(entry.to_date)}`;
-    } else if (entry.from_date) {
-      dateDisplay = `Seit ${formatDate(entry.from_date)}`;
-    }
+    const statsHtml = group.competitions.map(comp => {
+      const parts = [];
+      if (comp.games) parts.push(`${comp.games} Spiele`);
+      if (comp.goals) parts.push(`${comp.goals} Tore`);
+      if (comp.assists) parts.push(`${comp.assists} Assists`);
+      const content = parts.join(' | ') || comp.stats || '';
+      const leagueLabel = `<div style="font-size: 10px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-top: 4px;">${(comp.league || '').toUpperCase()}</div>`;
+      const statsBox = content ? `<div style="background-color: #f7fafc !important; padding: 4px 8px; border-radius: 4px; border-left: 3px solid #e2e8f0; margin-top: 3px; -webkit-print-color-adjust: exact; print-color-adjust: exact;"><span style="font-size: 11px; color: #4a5568;">${content}</span></div>` : '';
+      return leagueLabel + statsBox;
+    }).join('');
 
     return `
-    <div style="display: flex; margin-bottom: 20px; position: relative;">
-            <div style="width: 7px; height: 7px; border-radius: 50%; background-color: #888 !important; margin-top: 5px; margin-right: 10px; flex-shrink: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
-      <div style="flex: 1;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
-          <div style="flex: 1;">
-            <div style="font-size: 14px; font-weight: 700; color: #1a202c;">${entry.club || ''}</div>
-            <div style="font-size: 10px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-top: 4px;">${(entry.league || '').toUpperCase()}</div>
-          </div>
-          ${dateDisplay ? `<div style="border: 1px solid #ddd; padding: 2px 8px; border-radius: 4px; white-space: nowrap; flex-shrink: 0;">
-            <span style="font-size: 10px; color: #666; font-weight: 500;">${dateDisplay}</span>
-          </div>` : ''}
-        </div>
-        ${statsDisplay ? `<div style="background-color: #f7fafc !important; padding: 4px 8px; border-radius: 4px; border-left: 3px solid #e2e8f0; margin-top: 4px; -webkit-print-color-adjust: exact; print-color-adjust: exact;"><span style="font-size: 11px; color: #4a5568;">${statsDisplay}</span></div>` : ''}
+    <div style="margin-bottom: 20px; position: relative;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="width: 7px; height: 7px; border-radius: 50%; background-color: #888 !important; flex-shrink: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
+        <div style="flex: 1; font-size: 14px; font-weight: 700; color: #1a202c;">${group.club || ''}</div>
+        ${dateDisplay ? `<div style="border: 1px solid #ddd; padding: 2px 8px; border-radius: 4px; white-space: nowrap; flex-shrink: 0;">
+          <span style="font-size: 10px; color: #666; font-weight: 500;">${dateDisplay}</span>
+        </div>` : ''}
+      </div>
+      <div style="padding-left: 15px;">
+        ${statsHtml}
       </div>
     </div>
   `;
