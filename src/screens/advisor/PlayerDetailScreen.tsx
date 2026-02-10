@@ -939,6 +939,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const generatePdfHtml = (): string => {
     if (!player) return '';
 
+    const isKMH = !player.listing || player.listing.toLowerCase().includes('karl') || player.listing.toLowerCase().includes('kmh');
+
     const formatDate = (dateStr: string): string => {
       if (!dateStr) return '';
       if (dateStr.includes('.')) {
@@ -970,7 +972,10 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     
     // Berater untereinander
     const responsibility = player.responsibility || '';
-    const advisorNames = responsibility.split(/,\s*|&\s*/).map(s => s.trim()).filter(s => s);
+    let advisorNames = responsibility.split(/,\s*|&\s*/).map(s => s.trim()).filter(s => s);
+    if (!isKMH) {
+      advisorNames = ['Matti Langer'];
+    }
     const advisorsHtml = advisorNames.length > 0 
       ? advisorNames.map(name => `<div style="color: #fff !important; font-size: 10px;">${name}</div>`).join('')
       : '<div style="color: #fff !important; font-size: 10px;">-</div>';
@@ -1184,17 +1189,17 @@ export function PlayerDetailScreen({ route, navigation }: any) {
 
                 <div style="margin-bottom: ${sc(4)}px;">
                   <div style="font-size: ${sc(6)}px; color: #888 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">E-MAIL</div>
-                  <div style="color: #fff !important; font-size: ${sc(8)}px; font-weight: 600;">info@kmh-sportmanagement.de</div>
+                  <div style="color: #fff !important; font-size: ${sc(8)}px; font-weight: 600;">${isKMH ? 'office@kmhsport.com' : 'info@pm-sportmanagement.com'}</div>
                 </div>
 
                 <div style="margin-bottom: ${sc(4)}px;">
                   <div style="font-size: ${sc(6)}px; color: #888 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">TELEFON</div>
-                  <div style="color: #fff !important; font-size: ${sc(8)}px; font-weight: 600;">+49 170 1234567</div>
+                  <div style="color: #fff !important; font-size: ${sc(8)}px; font-weight: 600;">${isKMH ? '089 72458696' : '+49 173 4508619'}</div>
                 </div>
 
                 <div>
                   <div style="font-size: ${sc(6)}px; color: #888 !important; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">ADRESSE</div>
-                  <div style="color: #fff !important; font-size: ${sc(8)}px; font-weight: 600;">Musterstraße 1, 12345 Berlin</div>
+                  <div style="color: #fff !important; font-size: ${sc(8)}px; font-weight: 600;">${isKMH ? 'Klaußnerweg 6, 82061 Neuried' : 'Hermann-Müller-Straße 22, 04416 Markkleeberg'}</div>
                 </div>
               </div>
             </div>
@@ -1223,10 +1228,14 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           </div>
 
           <!-- Footer - Absolute positioniert um immer auf Seite 1 zu bleiben -->
-          <div style="position: absolute; bottom: ${sc(8)}px; right: ${sc(18)}px;">
+          <div style="position: absolute; bottom: ${sc(22)}px; right: ${sc(18)}px;">
             <div style="border: 1px solid #ddd; padding: ${sc(3)}px ${sc(6)}px; border-radius: 4px; background: #fff;">
               <span style="font-size: ${sc(8)}px; color: #666; font-weight: 500;">Stand: ${formatDateWithPadding(new Date().toISOString())}</span>
             </div>
+          </div>
+          <!-- Footer Badge -->
+          <div style="position: absolute; bottom: 0; left: 0; right: 0; background-color: #1a1a1a !important; padding: ${sc(4)}px 0; display: flex; justify-content: center; align-items: center; -webkit-print-color-adjust: exact;">
+            <span style="color: #fff !important; font-size: ${sc(7)}px; font-weight: 600; letter-spacing: ${isKMH ? sc(6) : sc(2)}px; text-transform: uppercase; padding-left: ${isKMH ? sc(6) : sc(2)}px;">${isKMH ? 'OFFICIAL LICENSED FIFA AGENTS' : 'PM SPORTMANAGEMENT X KARL HERZOG SPORTMANAGEMENT'}</span>
           </div>
         </div>
       </body>

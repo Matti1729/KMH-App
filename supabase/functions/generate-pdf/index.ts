@@ -107,14 +107,17 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
   const contractEndFormatted = formatDateDE(player.contract_end);
   const age = calculateAge(player.birth_date);
 
+  // Adresse basierend auf Listung
+  const isKMH = !player.listing || player.listing.toLowerCase().includes('karl') || player.listing.toLowerCase().includes('kmh');
+
   const responsibility = player.responsibility || '';
-  const advisorNames = responsibility.split(/,\s*|&\s*/).map(s => s.trim()).filter(s => s);
+  let advisorNames = responsibility.split(/,\s*|&\s*/).map(s => s.trim()).filter(s => s);
+  if (!isKMH) {
+    advisorNames = ['Matti Langer'];
+  }
   const advisorsHtml = advisorNames.length > 0
     ? advisorNames.map(name => `<div style="color: #fff !important; font-size: 13px;">${name}</div>`).join('')
     : '<div style="color: #fff !important; font-size: 13px;">-</div>';
-
-  // Adresse basierend auf Listung
-  const isKMH = !player.listing || player.listing.toLowerCase().includes('karl') || player.listing.toLowerCase().includes('kmh');
   const addressStreet = isKMH ? 'Klaußnerweg 6' : 'Hermann-Müller-Straße 22';
   const addressCity = isKMH ? '82061 Neuried' : '04416 Markkleeberg';
 
@@ -122,7 +125,7 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
   const email = isKMH ? 'office@kmhsport.com' : 'info@pm-sportmanagement.com';
 
   // Telefon: Feste Nummern basierend auf Listung
-  const phone = isKMH ? '089 72458696' : '+49 176 70809677';
+  const phone = isKMH ? '089 72458696' : '+49 173 4508619';
 
   // Liga-Priorität: niedrigere Zahl = höhere Liga (wird zuerst angezeigt)
   const getLeaguePriority = (league: string): number => {
@@ -367,9 +370,9 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
       </div>
     </div>
 
-    <!-- FIFA License Badge -->
+    <!-- Footer Badge -->
     <div style="position: absolute; bottom: 15px; left: 0; right: 0; background-color: #1a1a1a !important; padding: 6px 0; display: flex; justify-content: center; align-items: center; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
-      <span style="color: #fff !important; font-size: 10px; font-weight: 600; letter-spacing: 8px; text-transform: uppercase; padding-left: 8px;">OFFICIAL LICENSED FIFA AGENTS</span>
+      <span style="color: #fff !important; font-size: 10px; font-weight: 600; letter-spacing: ${isKMH ? '8' : '3'}px; text-transform: uppercase; padding-left: ${isKMH ? '8' : '3'}px;">${isKMH ? 'OFFICIAL LICENSED FIFA AGENTS' : 'PM SPORTMANAGEMENT X KARL HERZOG SPORTMANAGEMENT'}</span>
     </div>
   </div>
 </body>
