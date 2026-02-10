@@ -1178,11 +1178,24 @@ export function ScoutingScreen({ navigation }: any) {
       responsibility: transferResponsibility,
     };
 
-    const { error: insertError } = await supabase.from('player_details').insert(playerData);
-    
+    const { data: newPlayer, error: insertError } = await supabase
+      .from('player_details')
+      .insert(playerData)
+      .select()
+      .single();
+
     if (insertError) {
       alert('Fehler beim Übernehmen: ' + insertError.message);
       return;
+    }
+
+    // Zugriff für den aktuellen Berater erstellen
+    if (newPlayer && currentUserId) {
+      await supabase.from('advisor_access').insert({
+        player_id: newPlayer.id,
+        advisor_id: currentUserId,
+        granted_by: currentUserId,
+      });
     }
 
     // Spieler aus Scouting löschen
