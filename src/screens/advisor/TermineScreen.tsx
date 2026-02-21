@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Pressable, ActivityIndicator, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Pressable, ActivityIndicator, Image, Alert, Linking } from 'react-native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 import { MobileHeader } from '../../components/MobileHeader';
@@ -53,6 +53,7 @@ interface PlayerGame {
   league: string;
   matchday: string;
   result?: string;
+  game_url?: string;
   selected: boolean;
   player?: {
     id: string;
@@ -61,6 +62,7 @@ interface PlayerGame {
     club: string;
     responsibility: string;
     league: string;
+    fussball_de_url?: string;
   };
 }
 
@@ -110,7 +112,7 @@ export function TermineScreen({ navigation }: any) {
   const [showPlayerDropdown, setShowPlayerDropdown] = useState(false);
   const [syncingGames, setSyncingGames] = useState(false);
   const [syncProgress, setSyncProgress] = useState<{ current: number; total: number; playerName: string } | null>(null);
-  const [gameSyncResult, setGameSyncResult] = useState<{ added: number; updated: number; errors: string[] } | null>(null);
+  const [gameSyncResult, setGameSyncResult] = useState<{ added: number; updated: number; deleted: number; errors: string[] } | null>(null);
   const [showTokenModal, setShowTokenModal] = useState(false);
   const [apiToken, setApiToken] = useState('');
   const [playersWithUrl, setPlayersWithUrl] = useState<any[]>([]);
@@ -609,17 +611,24 @@ export function TermineScreen({ navigation }: any) {
     }
   };
 
-  const toggleGameSelection = async (gameId: string, currentValue: boolean) => {
-    const { error } = await supabase
+  const toggleGameSelection = (gameId: string, currentValue: boolean) => {
+    // Sofort UI updaten (optimistic update)
+    setPlayerGames(prev => prev.map(g =>
+      g.id === gameId ? { ...g, selected: !currentValue } : g
+    ));
+    // DB im Hintergrund updaten
+    supabase
       .from('player_games')
       .update({ selected: !currentValue })
-      .eq('id', gameId);
-    
-    if (!error) {
-      setPlayerGames(prev => prev.map(g => 
-        g.id === gameId ? { ...g, selected: !currentValue } : g
-      ));
-    }
+      .eq('id', gameId)
+      .then(({ error }) => {
+        if (error) {
+          // Bei Fehler: zurücksetzen
+          setPlayerGames(prev => prev.map(g =>
+            g.id === gameId ? { ...g, selected: currentValue } : g
+          ));
+        }
+      });
   };
 
   const getSelectedGamesCount = () => playerGames.filter(g => g.selected).length;
@@ -762,26 +771,32 @@ export function TermineScreen({ navigation }: any) {
   };
 
   // Alle gefilterten Spiele auswählen/abwählen
-  const toggleSelectAllFiltered = async () => {
+  const toggleSelectAllFiltered = () => {
     const allSelected = filteredGames.every(g => g.selected);
-    
-    for (const game of filteredGames) {
-      if (allSelected !== game.selected) continue; // Nur ändern wenn nötig
-      
-      await supabase
-        .from('player_games')
-        .update({ selected: !allSelected })
-        .eq('id', game.id);
-    }
-    
-    // State aktualisieren
+    const newValue = !allSelected;
+    const gameIds = filteredGames.filter(g => g.selected !== newValue).map(g => g.id);
+
+    if (gameIds.length === 0) return;
+
+    // Sofort UI updaten
     setPlayerGames(prev => prev.map(g => {
       const isFiltered = filteredGames.some(fg => fg.id === g.id);
-      if (isFiltered) {
-        return { ...g, selected: !allSelected };
-      }
-      return g;
+      return isFiltered ? { ...g, selected: newValue } : g;
     }));
+
+    // Ein einziger DB-Update für alle IDs
+    supabase
+      .from('player_games')
+      .update({ selected: newValue })
+      .in('id', gameIds)
+      .then(({ error }) => {
+        if (error) {
+          // Bei Fehler: zurücksetzen
+          setPlayerGames(prev => prev.map(g =>
+            gameIds.includes(g.id) ? { ...g, selected: !newValue } : g
+          ));
+        }
+      });
   };
 
   const areAllFilteredSelected = () => {
@@ -939,7 +954,28 @@ END:VEVENT
       }
     });
     
-    return Array.from(gameMap.values());
+    return Array.from(gameMap.values()).sort((a, b) => {
+      // 1. Datum aufsteigend
+      const dateCompare = (a.date || '').localeCompare(b.date || '');
+      if (dateCompare !== 0) return dateCompare;
+
+      // 2. Uhrzeit aufsteigend (Spiele ohne Zeit ans Ende)
+      const timeCompare = (a.time || '99:99').localeCompare(b.time || '99:99');
+      if (timeCompare !== 0) return timeCompare;
+
+      // 3. Mannschaft: Herren zuerst, dann U-Mannschaften absteigend (U19 > U17 > U15 > ...)
+      const getTeamRank = (g: any): number => {
+        const league = g.playerLeague || g.player?.league || '';
+        const m = league.match(/\bU[\s-]?(\d{2})\b/i);
+        if (!m) return 0; // Herren = höchste Priorität
+        return parseInt(m[1]);
+      };
+      const rankA = getTeamRank(a);
+      const rankB = getTeamRank(b);
+      if (rankA === 0 && rankB !== 0) return -1;
+      if (rankA !== 0 && rankB === 0) return 1;
+      return rankB - rankA; // U19 vor U17 vor U15
+    });
   }, [playerGames, gamesSearchText, selectedResponsibilities, selectedPlayers]);
 
   const toggleResponsibility = (resp: string) => {
@@ -1403,13 +1439,19 @@ END:VEVENT
 
         {/* Sync Result */}
         {gameSyncResult && !syncingGames && (
-          <View style={[styles.syncResultBanner, gameSyncResult.errors.length > 0 ? styles.syncResultWarning : styles.syncResultSuccess]}>
-            <Text style={[styles.syncResultText, { color: colors.text }]}>
-              ✓ {gameSyncResult.added} neue Spiele • {gameSyncResult.updated} aktualisiert
-              {gameSyncResult.errors.length > 0 && ` • ${gameSyncResult.errors.length} Fehler`}
-            </Text>
+          <View style={[styles.syncResultBanner, gameSyncResult.errors.length > 0 ? styles.syncResultWarning : { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : '#bbf7d0' }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.syncResultText, { color: gameSyncResult.errors.length > 0 ? '#991b1b' : colors.text }]}>
+                ✓ {gameSyncResult.added > 0 ? `${gameSyncResult.added} neue Spiele` : 'Spiele aktualisiert'}
+                {gameSyncResult.deleted > 0 && ` • ${gameSyncResult.deleted} Spiele entfernt`}
+                {gameSyncResult.errors.length > 0 && ` • ${gameSyncResult.errors.length} Fehler`}
+              </Text>
+              {gameSyncResult.errors.map((err, i) => (
+                <Text key={i} style={{ color: '#991b1b', fontSize: 12, marginTop: 2 }}>⚠ {err}</Text>
+              ))}
+            </View>
             <TouchableOpacity onPress={() => setGameSyncResult(null)}>
-              <Text style={[styles.syncResultClose, { color: colors.textSecondary }]}>✕</Text>
+              <Text style={[styles.syncResultClose, { color: gameSyncResult.errors.length > 0 ? '#991b1b' : colors.textSecondary }]}>✕</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -1541,11 +1583,12 @@ END:VEVENT
               </TouchableOpacity>
               <Text style={[styles.scoutingTableHeaderCell, { flex: 0.8, color: colors.textSecondary }]}>Datum</Text>
               <Text style={[styles.scoutingTableHeaderCell, { flex: 0.5, color: colors.textSecondary }]}>Zeit</Text>
-              <Text style={[styles.scoutingTableHeaderCell, { flex: 0.6, color: colors.textSecondary }]}>Mannschaft</Text>
-              <Text style={[styles.scoutingTableHeaderCell, { flex: 2, color: colors.textSecondary }]}>Spiel</Text>
-              <Text style={[styles.scoutingTableHeaderCell, { flex: 0.8, color: colors.textSecondary }]}>Art</Text>
-              <Text style={[styles.scoutingTableHeaderCell, { flex: 1, color: colors.textSecondary }]}>Spieler</Text>
-              <Text style={[styles.scoutingTableHeaderCell, { flex: 1, color: colors.textSecondary }]}>Zuständigkeit</Text>
+              <Text style={[styles.scoutingTableHeaderCell, { flex: 0.8, color: colors.textSecondary }]}>Mannschaft</Text>
+              <Text style={[styles.scoutingTableHeaderCell, { flex: 2.2, color: colors.textSecondary }]}>Spiel</Text>
+              <Text style={[styles.scoutingTableHeaderCell, { flex: 0.7, color: colors.textSecondary }]}>Art</Text>
+              <Text style={[styles.scoutingTableHeaderCell, { flex: 0.5, color: colors.textSecondary, textAlign: 'left' }]}>Link</Text>
+              <Text style={[styles.scoutingTableHeaderCell, { flex: 1.2, color: colors.textSecondary }]}>Spieler</Text>
+              <Text style={[styles.scoutingTableHeaderCell, { flex: 1.2, color: colors.textSecondary }]}>Zuständigkeit</Text>
             </View>
             <ScrollView onScrollBeginDrag={closeAllGameDropdowns}>
               {filteredGames.length === 0 ? (
@@ -1613,7 +1656,7 @@ END:VEVENT
                       <Text style={[styles.scoutingTableCell, { flex: 0.5, color: colors.text }]}>
                         {game.time || '-'}
                       </Text>
-                      <Text style={[styles.scoutingTableCell, { flex: 0.6, color: colors.text }]} numberOfLines={1}>
+                      <Text style={[styles.scoutingTableCell, { flex: 0.8, color: colors.text }]} numberOfLines={1}>
                         {(() => {
                           // Altersklasse aus Spielerprofil-Liga extrahieren (z.B. "U17 Bundesliga")
                           const playerLeague = (game as any).playerLeague || game.player?.league || '';
@@ -1626,20 +1669,38 @@ END:VEVENT
                           return 'Herren';
                         })()}
                       </Text>
-                      <Text style={[styles.scoutingTableCell, { flex: 2, color: colors.text }]} numberOfLines={1}>
+                      <Text style={[styles.scoutingTableCell, { flex: 2.2, color: colors.text }]} numberOfLines={1}>
                         {(() => {
                           const pl = (game as any).playerLeague || game.player?.league || '';
                           const isHerren = !pl.match(/\bU[\s-]?\d{2}\b/i);
                           return `${cleanTeamName(game.home_team, isHerren)} - ${cleanTeamName(game.away_team, isHerren)}`;
                         })()}
                       </Text>
-                      <Text style={[styles.scoutingTableCell, { flex: 0.8, color: colors.text }]} numberOfLines={1}>
+                      <Text style={[styles.scoutingTableCell, { flex: 0.7, color: colors.text }]} numberOfLines={1}>
                         {getGameArt(game.league)}
                       </Text>
-                      <Text style={[styles.scoutingTableCell, { flex: 1, fontWeight: '600', color: colors.text }]} numberOfLines={2}>
+                      <TouchableOpacity
+                        style={[styles.scoutingTableCell, { flex: 0.5, justifyContent: 'center', alignItems: 'flex-start' }]}
+                        onPress={() => {
+                          const url = game.game_url || game.player?.fussball_de_url;
+                          if (url) {
+                            const fullUrl = url.startsWith('http') ? url : `https://www.fussball.de${url}`;
+                            const clean = fullUrl.includes('google.com/url')
+                              ? decodeURIComponent(fullUrl.match(/[?&]q=([^&]+)/)?.[1] || fullUrl)
+                              : fullUrl;
+                            Linking.openURL(clean);
+                          }
+                        }}
+                        disabled={!game.game_url && !game.player?.fussball_de_url}
+                      >
+                        <Text style={{ fontSize: 14, color: (game.game_url || game.player?.fussball_de_url) ? '#3b82f6' : colors.textMuted }}>
+                          {(game.game_url || game.player?.fussball_de_url) ? '↗' : '-'}
+                        </Text>
+                      </TouchableOpacity>
+                      <Text style={[styles.scoutingTableCell, { flex: 1.2, fontWeight: '600', color: colors.text }]} numberOfLines={2}>
                         {(game as any).playerNames?.join(', ') || game.player_name}
                       </Text>
-                      <Text style={[styles.scoutingTableCell, { flex: 1, color: colors.text }]} numberOfLines={1}>
+                      <Text style={[styles.scoutingTableCell, { flex: 1.2, color: colors.text }]} numberOfLines={1}>
                         {(game as any).playerResponsibilities?.map((r: string) => formatResponsibilityInitials(r)).join(', ') || formatResponsibilityInitials(game.player?.responsibility)}
                       </Text>
                     </View>
@@ -3239,9 +3300,9 @@ const styles = StyleSheet.create({
   scoutingContent: { flex: 1, padding: 16 },
   scoutingGamesContainer: { flex: 1, borderRadius: 12, overflow: 'hidden' },
   scoutingTableHeader: { flexDirection: 'row', backgroundColor: '#f8fafc', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  scoutingTableHeaderCell: { fontSize: 12, fontWeight: '600', color: '#64748b', textTransform: 'uppercase' as any },
+  scoutingTableHeaderCell: { fontSize: 12, fontWeight: '600', color: '#64748b', textTransform: 'uppercase' as any, paddingRight: 12 },
   scoutingTableRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', alignItems: 'center' },
-  scoutingTableCell: { fontSize: 14, color: '#1a1a1a' },
+  scoutingTableCell: { fontSize: 14, color: '#1a1a1a', paddingRight: 12 },
   scoutingClubLogo: { width: 20, height: 20, resizeMode: 'contain' as any, marginHorizontal: 4 },
   scoutingMatchText: { fontWeight: '500', marginHorizontal: 4 },
   scoutingEmptyState: { padding: 60, alignItems: 'center' },
@@ -3252,7 +3313,7 @@ const styles = StyleSheet.create({
   emptyStateButtonText: { color: '#fff', fontWeight: '600', fontSize: 14 },
   
   // Game specific styles
-  gameCheckbox: { width: 22, height: 22, borderRadius: 4, borderWidth: 2, borderColor: '#cbd5e1', justifyContent: 'center', alignItems: 'center' },
+  gameCheckbox: { width: 20, height: 20, borderRadius: 4, borderWidth: 2, borderColor: '#cbd5e1', justifyContent: 'center', alignItems: 'center' },
   gameCheckboxSelected: { backgroundColor: '#10b981', borderColor: '#10b981' },
   gameCheckmark: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
   gameRowToday: { backgroundColor: '#d1fae5' },
@@ -3268,7 +3329,7 @@ const styles = StyleSheet.create({
   syncProgressText: { position: 'absolute' as any, left: 16, top: 8, fontSize: 12, color: '#1a1a1a', fontWeight: '500' },
   syncResultBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, paddingHorizontal: 16 },
   syncResultSuccess: { backgroundColor: '#d1fae5' },
-  syncResultWarning: { backgroundColor: '#fef3c7' },
+  syncResultWarning: { backgroundColor: '#fecaca' },
   syncResultText: { fontSize: 14, color: '#1a1a1a' },
   syncResultClose: { fontSize: 18, color: '#64748b', paddingHorizontal: 8 },
   

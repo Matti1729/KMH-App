@@ -2119,6 +2119,13 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   };
   const updateField = (field: string, value: any) => { if (editData) setEditData({ ...editData, [field]: value }); };
 
+  const startEditing = () => {
+    if (editData && !editData.contract_end) {
+      setEditData({ ...editData, contract_end: `${new Date().getFullYear()}-06-30` });
+    }
+    setEditing(true);
+  };
+
   const closeAllDropdowns = () => {
     setShowNationalityPicker(false);
     setShowHeightPicker(false);
@@ -3541,7 +3548,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                   </TouchableOpacity>
                 </>
               ) : (
-                <TouchableOpacity style={[styles.mobileMenuItem, { borderBottomColor: colors.border }]} onPress={() => { setEditing(true); setShowMobileMenu(false); }}>
+                <TouchableOpacity style={[styles.mobileMenuItem, { borderBottomColor: colors.border }]} onPress={() => { startEditing(); setShowMobileMenu(false); }}>
                   <Text style={[styles.mobileMenuItemText, { color: colors.text }]}>Bearbeiten</Text>
                 </TouchableOpacity>
               )}
@@ -3591,7 +3598,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               </TouchableOpacity>
             </>
           ) : (
-            <TouchableOpacity style={[styles.editButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setEditing(true)}>
+            <TouchableOpacity style={[styles.editButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={startEditing}>
               <Text style={[styles.editButtonText, { color: colors.textSecondary }]}>Bearbeiten</Text>
             </TouchableOpacity>
           )}

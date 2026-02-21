@@ -37,6 +37,7 @@ export interface ApiGame {
   league?: string;
   matchday?: string;
   result?: string;
+  gameUrl?: string;
 }
 
 export interface PlayerWithGames {
@@ -242,6 +243,83 @@ export async function fetchTeamNextGames(teamId: string, token: string, supabase
   }
 }
 
+// Normalisiere Teamnamen für URL-Slug-Matching (Umlaute → ae/oe/ue, nur alphanumerisch)
+function normalizeForMatch(name: string): string {
+  return name.toLowerCase()
+    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9]/g, '');
+}
+
+// Game-URLs von der fussball.de Teamseite scrapen (URL-Slug-basiertes Matching)
+async function fetchGameUrlsFromTeamPage(
+  teamPageUrl: string,
+  supabaseClient?: SupabaseClient
+): Promise<Map<string, string>> {
+  const results = new Map<string, string>(); // key: slug, value: full URL
+
+  try {
+    if (!teamPageUrl) return results;
+
+    // Google-Redirect bereinigen
+    let cleanUrl = teamPageUrl;
+    if (cleanUrl.includes('google.com/url')) {
+      const m = cleanUrl.match(/[?&]q=([^&]+)/);
+      if (m) cleanUrl = decodeURIComponent(m[1]);
+    }
+
+    // Fetch team page HTML via proxy (type=transfermarkt für Browser-Headers)
+    const proxyUrl = `${SUPABASE_PROXY_URL}?type=transfermarkt&url=${encodeURIComponent(cleanUrl)}`;
+
+    const headers: Record<string, string> = {};
+    if (supabaseClient) {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+    }
+
+    const response = await fetch(proxyUrl, { method: 'GET', headers });
+    if (!response.ok) {
+      console.warn('Teamseite nicht erreichbar:', response.status);
+      return results;
+    }
+
+    const html = await response.text();
+
+    // Alle Spiel-URLs extrahieren: /spiel/[team-slug]/-/spiel/[GAME_ID]
+    const urlRegex = /href="(\/spiel\/([^"]+)\/-\/spiel\/[A-Z0-9]+)"/gi;
+    let match;
+    while ((match = urlRegex.exec(html)) !== null) {
+      const fullPath = match[1];
+      const slug = match[2]; // z.B. "borussia-moenchengladbach-rasenballsport-leipzig-u19"
+      results.set(slug, `https://www.fussball.de${fullPath}`);
+    }
+
+    console.log(`${results.size} Game-URLs von Teamseite extrahiert`);
+  } catch (err) {
+    console.warn('Fehler beim Scrapen der Teamseite:', err);
+  }
+
+  return results;
+}
+
+// Matche API-Games mit gescrapten URLs anhand normalisierter Teamnamen im URL-Slug
+function matchGameUrls(games: ApiGame[], slugUrlMap: Map<string, string>): void {
+  for (const game of games) {
+    const homeNorm = normalizeForMatch(game.homeTeam);
+    const awayNorm = normalizeForMatch(game.awayTeam);
+
+    for (const [slug, url] of slugUrlMap) {
+      const slugNorm = slug.replace(/-/g, '');
+      // Matche erste 8 Zeichen jedes normalisierten Teamnamens gegen den Slug
+      if (slugNorm.includes(homeNorm.slice(0, 8)) && slugNorm.includes(awayNorm.slice(0, 8))) {
+        game.gameUrl = url;
+        break;
+      }
+    }
+  }
+}
+
 // Lösche alle zukünftigen Spiele eines Spielers (vor Neu-Sync)
 export async function deletePlayerFutureGames(
   supabase: SupabaseClient,
@@ -263,6 +341,48 @@ export async function deletePlayerFutureGames(
   }
 
   return data?.length || 0;
+}
+
+// Veraltete Spiele löschen (nur die, die NICHT mehr in der API-Antwort sind)
+export async function deleteStaleGames(
+  supabase: SupabaseClient,
+  playerId: string,
+  currentGames: ApiGame[]
+): Promise<number> {
+  const today = getGermanDateString(0);
+
+  // Alle zukünftigen Spiele des Spielers laden
+  const { data: futureGames } = await supabase
+    .from('player_games')
+    .select('id, date, home_team, away_team')
+    .eq('player_id', playerId)
+    .gte('date', today);
+
+  if (!futureGames || futureGames.length === 0) return 0;
+
+  // Welche Spiele sind in der API-Response?
+  const apiGameKeys = new Set(
+    currentGames.map(g => `${g.date}|${g.homeTeam}|${g.awayTeam}`)
+  );
+
+  // Spiele löschen die NICHT mehr in der API sind (abgesagt, verschoben etc.)
+  const staleIds = futureGames
+    .filter(fg => !apiGameKeys.has(`${fg.date}|${fg.home_team}|${fg.away_team}`))
+    .map(fg => fg.id);
+
+  if (staleIds.length === 0) return 0;
+
+  const { error } = await supabase
+    .from('player_games')
+    .delete()
+    .in('id', staleIds);
+
+  if (error) {
+    console.error('Fehler beim Löschen veralteter Spiele:', error);
+    return 0;
+  }
+
+  return staleIds.length;
 }
 
 // Alle Spieler mit fussball_de_url laden
@@ -322,6 +442,7 @@ export async function saveGamesToDatabase(
         league: game.league || null,
         matchday: game.matchday || null,
         result: game.result || null,
+        game_url: game.gameUrl || null,
         source: 'api-fussball.de',
         updated_at: new Date().toISOString()
       };
@@ -403,7 +524,7 @@ export async function syncAllPlayerGames(
     // Team-ID extrahieren
     const teamId = extractTeamId(player.fussball_de_url);
     if (!teamId) {
-      result.errors.push(`${playerName}: Keine Team-ID in URL gefunden`);
+      result.errors.push(`${playerName}: Falsche URL`);
       console.error(`Keine Team-ID für ${playerName}:`, player.fussball_de_url);
       continue;
     }
@@ -419,17 +540,24 @@ export async function syncAllPlayerGames(
       continue;
     }
 
-    // WICHTIG: Zuerst alte zukünftige Spiele löschen um Duplikate zu vermeiden
-    const deleted = await deletePlayerFutureGames(supabase, player.id);
-    result.deleted += deleted;
-    console.log(`${playerName}: ${deleted} alte Spiele gelöscht`);
+    // Game-URLs von fussball.de Teamseite scrapen und per Teamnamen-Slug matchen
+    try {
+      const slugUrlMap = await fetchGameUrlsFromTeamPage(player.fussball_de_url, supabase);
+      matchGameUrls(games, slugUrlMap);
+    } catch (err) {
+      console.warn(`Game-URLs scrapen fehlgeschlagen für ${playerName}:`, err);
+    }
 
-    // Spiele neu speichern
+    // Spiele speichern (Insert oder Update)
     const saveResult = await saveGamesToDatabase(supabase, player.id, playerName, games);
     result.added += saveResult.added;
     result.updated += saveResult.updated;
-    
-    console.log(`${playerName}: ${saveResult.added} neu, ${saveResult.updated} aktualisiert`);
+
+    // Veraltete Spiele entfernen (nicht mehr in API = abgesagt/verschoben)
+    const staleDeleted = await deleteStaleGames(supabase, player.id, games);
+    result.deleted += staleDeleted;
+
+    console.log(`${playerName}: ${saveResult.added} neu, ${saveResult.updated} aktualisiert, ${staleDeleted} entfernt`);
     
     // Kurze Pause um API nicht zu überlasten
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -459,9 +587,16 @@ export async function syncPlayerGames(
   const games = await fetchTeamNextGames(teamId, token);
 
   if (games.length > 0) {
-    // Zuerst alte zukünftige Spiele löschen um Duplikate zu vermeiden
-    await deletePlayerFutureGames(supabase, playerId);
+    // Game-URLs von fussball.de Teamseite scrapen und per Teamnamen-Slug matchen
+    try {
+      const slugUrlMap = await fetchGameUrlsFromTeamPage(fussballDeUrl, supabase);
+      matchGameUrls(games, slugUrlMap);
+    } catch (err) {
+      console.warn('Game-URLs scrapen fehlgeschlagen:', err);
+    }
+
     await saveGamesToDatabase(supabase, playerId, playerName, games);
+    await deleteStaleGames(supabase, playerId, games);
   }
 
   return { success: true, games };
@@ -477,7 +612,7 @@ export async function loadUpcomingGames(supabase: SupabaseClient): Promise<any[]
     .from('player_games')
     .select(`
       *,
-      player:player_details(id, first_name, last_name, club, responsibility, league)
+      player:player_details(id, first_name, last_name, club, responsibility, league, fussball_de_url)
     `)
     .gte('date', todayStr)
     .lte('date', in5WeeksStr)

@@ -390,6 +390,42 @@ export function AdvisorHomeScreen({ navigation }: any) {
                 </View>
               </DashboardCard>
 
+              {/* Finanzen - only for Matti */}
+              {session?.user?.id === '892d4dbc-3c5b-4908-9735-ac0ca3794dfc' && (
+                <DashboardCard
+                  id="finanzen"
+                  style={[styles.mobileCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
+                  onPress={() => navigation.navigate('Finanzen')}
+                  hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
+                >
+                  <View style={styles.mobileCardContent}>
+                    <View style={[styles.mobileCardIcon, { backgroundColor: colors.surfaceSecondary }]}><Text style={styles.mobileCardIconText}>💰</Text></View>
+                    <View style={styles.mobileCardText}>
+                      <Text style={[styles.mobileCardTitle, { color: colors.text }]}>Finanzen</Text>
+                      <Text style={[styles.mobileCardSubtitle, { color: colors.textSecondary }]}>Provisionen & Rechnungen</Text>
+                    </View>
+                  </View>
+                </DashboardCard>
+              )}
+
+              {/* Wissenswertes - only for Matti */}
+              {session?.user?.id === '892d4dbc-3c5b-4908-9735-ac0ca3794dfc' && (
+                <DashboardCard
+                  id="wissenswertes"
+                  style={[styles.mobileCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
+                  onPress={() => navigation.navigate('Wissenswertes')}
+                  hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
+                >
+                  <View style={styles.mobileCardContent}>
+                    <View style={[styles.mobileCardIcon, { backgroundColor: colors.surfaceSecondary }]}><Text style={styles.mobileCardIconText}>💡</Text></View>
+                    <View style={styles.mobileCardText}>
+                      <Text style={[styles.mobileCardTitle, { color: colors.text }]}>Wissenswertes</Text>
+                      <Text style={[styles.mobileCardSubtitle, { color: colors.textSecondary }]}>Tools & Informationen</Text>
+                    </View>
+                  </View>
+                </DashboardCard>
+              )}
+
               {/* Admin */}
               {profile?.role === 'admin' && (
                 <DashboardCard
@@ -587,7 +623,51 @@ export function AdvisorHomeScreen({ navigation }: any) {
                 </DashboardCard>
               </View>
 
-              {/* Row 3 - Admin */}
+              {/* Row 3 - Finanzen (only Matti) */}
+              {session?.user?.id === '892d4dbc-3c5b-4908-9735-ac0ca3794dfc' && (
+                <View style={styles.adminRow}>
+                  <DashboardCard
+                    id="finanzen"
+                    style={[styles.adminCardLight, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
+                    onPress={() => navigation.navigate('Finanzen')}
+                    hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
+                  >
+                    <View style={styles.lightBottomCardContent}>
+                      <View style={[styles.lightBottomCardIcon, { backgroundColor: colors.surfaceSecondary }]}>
+                        <Text style={styles.lightBottomCardIconText}>💰</Text>
+                      </View>
+                      <View style={styles.lightBottomCardText}>
+                        <Text style={[styles.lightBottomCardTitle, { color: colors.text }]}>Finanzen</Text>
+                        <Text style={[styles.lightBottomCardSubtitle, { color: colors.textMuted }]}>Provisionen & Rechnungen verwalten</Text>
+                      </View>
+                    </View>
+                  </DashboardCard>
+                </View>
+              )}
+
+              {/* Row - Wissenswertes (only Matti) */}
+              {session?.user?.id === '892d4dbc-3c5b-4908-9735-ac0ca3794dfc' && (
+                <View style={styles.adminRow}>
+                  <DashboardCard
+                    id="wissenswertes"
+                    style={[styles.adminCardLight, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
+                    onPress={() => navigation.navigate('Wissenswertes')}
+                    hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
+                  >
+                    <View style={styles.lightBottomCardContent}>
+                      <View style={[styles.lightBottomCardIcon, { backgroundColor: colors.surfaceSecondary }]}>
+                        <Text style={styles.lightBottomCardIconText}>💡</Text>
+                      </View>
+                      <View style={styles.lightBottomCardText}>
+                        <Text style={[styles.lightBottomCardTitle, { color: colors.text }]}>Wissenswertes</Text>
+                        <Text style={[styles.lightBottomCardSubtitle, { color: colors.textMuted }]}>Tools & Informationen</Text>
+                      </View>
+                    </View>
+                  </DashboardCard>
+                </View>
+              )}
+
+              {/* Row 4 - Admin */}
               {profile?.role === 'admin' && (
                 <View style={styles.adminRow}>
                   <DashboardCard

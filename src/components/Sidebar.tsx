@@ -206,6 +206,52 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
         ))}
       </View>
 
+      {/* Finanzen - only for Matti */}
+      {profile?.id === '892d4dbc-3c5b-4908-9735-ac0ca3794dfc' && (
+        <View style={{ marginTop: 4 }}>
+          <Pressable
+            onHoverIn={() => setHoveredNav('finanzen')}
+            onHoverOut={() => setHoveredNav(null)}
+            onPress={() => handleNavigation('Finanzen', 'finanzen')}
+            style={[
+              styles.navItem,
+              activeScreen === 'finanzen' && { backgroundColor: colors.surfaceSecondary },
+              hoveredNav === 'finanzen' && { backgroundColor: colors.surfaceSecondary },
+            ]}
+          >
+            <Text style={styles.navIcon}>💰</Text>
+            <Text style={[
+              styles.navLabel,
+              { color: colors.textSecondary },
+              activeScreen === 'finanzen' && { color: colors.text, fontWeight: '600' }
+            ]}>Finanzen</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {/* Wissenswertes - only for Matti */}
+      {profile?.id === '892d4dbc-3c5b-4908-9735-ac0ca3794dfc' && (
+        <View style={{ marginTop: 4 }}>
+          <Pressable
+            onHoverIn={() => setHoveredNav('wissenswertes')}
+            onHoverOut={() => setHoveredNav(null)}
+            onPress={() => handleNavigation('Wissenswertes', 'wissenswertes')}
+            style={[
+              styles.navItem,
+              activeScreen === 'wissenswertes' && { backgroundColor: colors.surfaceSecondary },
+              hoveredNav === 'wissenswertes' && { backgroundColor: colors.surfaceSecondary },
+            ]}
+          >
+            <Text style={styles.navIcon}>💡</Text>
+            <Text style={[
+              styles.navLabel,
+              { color: colors.textSecondary },
+              activeScreen === 'wissenswertes' && { color: colors.text, fontWeight: '600' }
+            ]}>Wissenswertes</Text>
+          </Pressable>
+        </View>
+      )}
+
       {/* Spacer */}
       <View style={{ flex: 1 }} />
 

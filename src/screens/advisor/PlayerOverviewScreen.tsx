@@ -536,12 +536,15 @@ export function PlayerOverviewScreen({ navigation }: any) {
       .single();
     
     if (!error && newPlayer) {
-      await supabase.from('advisor_access').insert({
+      const { error: accessError } = await supabase.from('advisor_access').insert({
         player_id: newPlayer.id,
         advisor_id: currentUserId,
         granted_by: currentUserId,
         granted_at: new Date().toISOString()
       });
+      if (accessError) {
+        console.error('advisor_access insert failed:', accessError);
+      }
       
       setNewFirstName('');
       setNewLastName('');

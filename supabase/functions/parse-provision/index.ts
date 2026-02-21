@@ -1,5 +1,5 @@
-// supabase/functions/parse-contract/index.ts
-// Vertrags-PDF per Claude API analysieren und strukturierte Gehaltsdaten extrahieren
+// supabase/functions/parse-provision/index.ts
+// Provisionsvereinbarungs-PDF per Claude API analysieren und strukturierte Daten extrahieren
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
@@ -12,45 +12,41 @@ const corsHeaders = {
 
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 
-const PARSE_PROMPT = `Du bist ein Experte für deutsche Fußball-Verträge, insbesondere Nachwuchsverträge.
+const PARSE_PROMPT = `Du bist ein Experte für Provisionsvereinbarungen im deutschen Fußball (Spielerberater/Agenturen).
 Analysiere das beigefügte PDF-Dokument und extrahiere die folgenden Informationen als JSON.
 
 Antworte NUR mit einem validen JSON-Objekt, ohne zusätzlichen Text oder Markdown-Formatierung.
 
 Extrahiere:
-1. contract_type: Art des Vertrags ("Vereinbarung", "Fördervertrag", "Arbeitsvertrag", oder "Sonstiges")
-2. contract_start: Vertragsbeginn als ISO-Datum (YYYY-MM-DD), z.B. "2024-07-01". Null wenn nicht gefunden.
-3. contract_end: Vertragsende als ISO-Datum (YYYY-MM-DD), z.B. "2026-06-30". Null wenn nicht gefunden.
-4. salary_periods: Array von Gehaltsperioden, chronologisch geordnet. Jede Periode hat:
-   - from_date: Startdatum (ISO)
-   - to_date: Enddatum (ISO) oder null
-   - amount: NUR die Zahl mit €-Zeichen, OHNE brutto/netto/mind./max. Beispiele: "250€", "350€", "1.500€"
-   - description: Kurze Beschreibung, z.B. "Taschengeld", "Grundgehalt 1. Jahr", "Grundgehalt 2. Jahr"
-5. bonuses: Array von Prämien. Jede Prämie hat:
-   - type: Einer von:
-     * "point" — NUR Punktprämie für LIGA-Spiele (z.B. pro Punkt in der Liga, pro Ligasieg). NICHT für Pokalspiele oder Länderspiele.
-     * "appearance" — NUR Auflaufprämie/Einsatzprämie für LIGA-Spiele (z.B. pro Ligaspiel, pro Ligaeinsatz). NICHT für Pokalspiele oder Länderspiele.
-     * "international" — Länderspielprämie (z.B. pro U15/U16/U17 Länderspiel)
-     * "other" — Alle sonstigen Prämien: DFB-Pokal-Prämien, Aufstiegsprämien, Titelprämien, etc.
-   - amount: Betrag als String, z.B. "100€ brutto"
-   - description: Beschreibung, z.B. "pro U15 Länderspiel", "pro Ligaspiel", "DFB-Pokal Sieg"
-6. contract_end_without_option: Falls der Vertrag eine Verlängerungsoption enthält, gib hier das Vertragsende OHNE Option an (ISO-Datum). Null wenn keine Option vorhanden oder identisch mit contract_end.
-7. notes: Sonstige relevante Informationen (Sonderbedingungen, Optionen, Sachleistungen etc.) als Text oder null.
+1. provision_basis: Wie wird die Provision berechnet? Einer der folgenden Werte:
+   - "prozent_jahresgehalt": Prozentsatz vom Jahresgehalt/Jahreseinkommen (z.B. "10% des Jahresbruttogehalts")
+   - "bruttomonatsgehalt": Anzahl Bruttomonatsgehälter (z.B. "ein Bruttomonatsgehalt", "2 Monatsgehälter")
+   - "festbetrag": Fester Betrag unabhängig vom Gehalt (z.B. "5.000 EUR Provision")
+   - "sonstiges": Andere Berechnungsgrundlage
+2. provision_percent: Provisionssatz in Prozent als Zahl (z.B. 10). Nur relevant bei basis "prozent_jahresgehalt". Null wenn nicht zutreffend.
+3. provision_salary_months: Anzahl der Bruttomonatsgehälter als Zahl (z.B. 1 oder 2). Nur relevant bei basis "bruttomonatsgehalt". Null wenn nicht zutreffend.
+4. total_amount: Gesamtsumme der Provision als Zahl (z.B. 15000). Null wenn die Summe vom Gehalt abhängt und nicht explizit genannt wird.
+5. currency: Währung als String ("EUR" oder "USD"). Standard: "EUR".
+6. rate_count: Anzahl der Raten/Zahlungen als Zahl. Null wenn nicht spezifiziert oder Einmalzahlung.
+7. rates: Array von Zahlungsraten, chronologisch geordnet. Jede Rate hat:
+   - amount: Betrag als Zahl (z.B. 5000). Null wenn vom Gehalt abhängig.
+   - due_date: Fälligkeitsdatum als ISO-Datum (YYYY-MM-DD). Null wenn nicht spezifiziert.
+   - description: Kurze Beschreibung (z.B. "1. Rate", "Rate bei Vertragsabschluss", "Rate zum 01.01.2025")
+8. notes: Sonstige relevante Informationen (Sonderbedingungen, Zahlungsmodalitäten, etc.) als Text oder null.
 
 Wichtig:
-- Bei Gehaltssteigerungen über die Vertragslaufzeit (z.B. 1. Jahr 350€, 2. Jahr 400€, 3. Jahr 450€), erstelle separate salary_periods für jede Stufe.
-- Verwende immer deutsche Saisonzeiträume: 01.07. bis 30.06.
-- Wenn keine Gehaltsinformationen vorhanden sind, gib ein leeres salary_periods Array zurück.
-- Wenn keine Prämien gefunden werden, gib ein leeres bonuses Array zurück.
-- Beachte den Unterschied zwischen brutto und netto - übernimm genau was im Vertrag steht.
-- "point" und "appearance" Prämien sind AUSSCHLIESSLICH für reguläre Liga-Spiele. DFB-Pokal, Länderspiele und sonstige Wettbewerbe gehören zu "other" bzw. "international".
-- contract_end ist IMMER das Vertragsende OHNE Option. Falls eine Option den Vertrag verlängern kann, gib das verlängerte Enddatum in den notes an.
+- Erkenne typische Formulierungen: "Beraterprovision", "Vermittlungsprovision", "Honorar", "Vergütung".
+- "ein Bruttomonatsgehalt" / "1 Monatsgehalt" → basis: "bruttomonatsgehalt", provision_salary_months: 1
+- "10% des Jahresgehalts" / "10% der Bruttobezüge" → basis: "prozent_jahresgehalt", provision_percent: 10
+- "5.000 EUR" als fester Betrag → basis: "festbetrag", total_amount: 5000
+- Wenn Fälligkeitsdaten genannt werden (z.B. "jeweils zum 1. des Monats", "zum 01.07.2025", "bei Vertragsabschluss"), extrahiere diese.
+- Bei Ratenzahlungen ohne explizite Beträge und bekannter Gesamtsumme, teile gleichmäßig auf.
+- Wenn die Provision vom Gehalt abhängt (prozent oder bruttomonatsgehalt), kann total_amount null sein.
 
 JSON-Antwort:`;
 
 interface RequestBody {
   pdf_url: string;
-  storage_path?: string;
   player_name?: string;
 }
 
@@ -61,7 +57,7 @@ serve(async (req: Request) => {
   }
 
   try {
-    console.log("parse-contract called");
+    console.log("parse-provision called");
 
     if (!ANTHROPIC_API_KEY) {
       console.error("ANTHROPIC_API_KEY is missing!");
@@ -117,7 +113,7 @@ serve(async (req: Request) => {
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       console.log(`Sending to Claude API... (Versuch ${attempt + 1}/${MAX_RETRIES})`);
       const apiController = new AbortController();
-      const apiTimeout = setTimeout(() => apiController.abort(), 120000);
+      const apiTimeout = setTimeout(() => apiController.abort(), 90000);
       claudeResponse = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         signal: apiController.signal,
@@ -189,16 +185,15 @@ serve(async (req: Request) => {
     } catch (e) {
       console.error("JSON parse error:", e, "Raw text:", responseText.substring(0, 200));
       return new Response(
-        JSON.stringify({ parsed: null, error: "Vertragsanalyse konnte nicht verarbeitet werden." }),
+        JSON.stringify({ parsed: null, error: "Provisionsanalyse konnte nicht verarbeitet werden." }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     // 4. Grundlegende Validierung
-    if (!parsed.salary_periods) parsed.salary_periods = [];
-    if (!parsed.bonuses) parsed.bonuses = [];
+    if (!parsed.rates) parsed.rates = [];
 
-    console.log("Parse successful:", parsed.contract_type, "Periods:", parsed.salary_periods.length, "Bonuses:", parsed.bonuses.length);
+    console.log("Parse successful: percent:", parsed.provision_percent, "total:", parsed.total_amount, "rates:", parsed.rates.length);
 
     return new Response(
       JSON.stringify({ parsed }),
