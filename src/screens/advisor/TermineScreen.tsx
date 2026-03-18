@@ -17,6 +17,31 @@ import {
   getPlayersWithFussballDeUrl
 } from '../../services/fussballDeApi';
 import { Ionicons } from '@expo/vector-icons';
+const STORAGE_KEY_PLAYERS = 'kmh_termine_selectedPlayers';
+const STORAGE_KEY_RESPONSIBILITIES = 'kmh_termine_selectedResponsibilities';
+
+const saveFilter = (key: string, value: string[]) => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(key, JSON.stringify(value));
+    }
+  } catch {}
+};
+
+const loadFilter = (key: string): string[] => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const val = window.localStorage.getItem(key);
+      console.log('[Filter] loading', key, ':', val);
+      if (val) return JSON.parse(val);
+    } else {
+      console.log('[Filter] localStorage not available');
+    }
+  } catch (e) {
+    console.log('[Filter] error loading:', e);
+  }
+  return [];
+};
 
 interface Termin {
   id: string;
@@ -106,8 +131,8 @@ export function TermineScreen({ navigation }: any) {
   const [termineJahrgangFilter, setTermineJahrgangFilter] = useState<string[]>([]);
   const [showTermineJahrgangDropdown, setShowTermineJahrgangDropdown] = useState(false);
   const [selectedTermineIds, setSelectedTermineIds] = useState<string[]>([]);
-  const [selectedResponsibilities, setSelectedResponsibilities] = useState<string[]>([]);
-  const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
+  const [selectedResponsibilities, setSelectedResponsibilities] = useState<string[]>(() => loadFilter(STORAGE_KEY_RESPONSIBILITIES));
+  const [selectedPlayers, setSelectedPlayers] = useState<string[]>(() => loadFilter(STORAGE_KEY_PLAYERS));
   const [showResponsibilityDropdown, setShowResponsibilityDropdown] = useState(false);
   const [showPlayerDropdown, setShowPlayerDropdown] = useState(false);
   const [syncingGames, setSyncingGames] = useState(false);
@@ -556,6 +581,24 @@ export function TermineScreen({ navigation }: any) {
 
   // === SPIELE SYNC FUNCTIONS ===
   
+  // Gefilterte Spieler-IDs für Sync ermitteln
+  const getFilteredPlayerIds = (): string[] | undefined => {
+    if (selectedPlayers.length > 0) {
+      return selectedPlayers;
+    }
+    if (selectedResponsibilities.length > 0) {
+      return playersWithUrl
+        .filter(p => {
+          const resp = p.responsibility || '';
+          return selectedResponsibilities.some((selected: string) =>
+            resp.split(/,\s*|&\s*/).map((s: string) => s.trim()).includes(selected)
+          );
+        })
+        .map((p: any) => p.id);
+    }
+    return undefined; // kein Filter → alle
+  };
+
   const handleSyncGames = async () => {
     // Prüfen ob Token vorhanden
     const token = await getApiToken(supabase);
@@ -563,29 +606,33 @@ export function TermineScreen({ navigation }: any) {
       setShowTokenModal(true);
       return;
     }
-    
+
     if (playersWithUrl.length === 0) {
       Alert.alert('Hinweis', 'Keine Spieler mit fussball.de URL gefunden.\n\nBitte trage zuerst im Spielerprofil die fussball.de URL ein.');
       return;
     }
-    
+
+    const filteredIds = getFilteredPlayerIds();
+    const syncCount = filteredIds ? filteredIds.length : playersWithUrl.length;
+
     setSyncingGames(true);
     setGameSyncResult(null);
-    setSyncProgress({ current: 0, total: playersWithUrl.length, playerName: '' });
-    
+    setSyncProgress({ current: 0, total: syncCount, playerName: '' });
+
     try {
       const result = await syncAllPlayerGames(
         supabase,
         (current, total, playerName) => {
           setSyncProgress({ current, total, playerName });
-        }
+        },
+        filteredIds
       );
-      
+
       setGameSyncResult(result);
-      
+
       // Spiele neu laden
       await fetchPlayerGames();
-      
+
     } catch (error: any) {
       console.error('Sync error:', error);
       Alert.alert('Fehler', 'Fehler bei der Synchronisierung: ' + error.message);
@@ -979,15 +1026,21 @@ END:VEVENT
   }, [playerGames, gamesSearchText, selectedResponsibilities, selectedPlayers]);
 
   const toggleResponsibility = (resp: string) => {
-    setSelectedResponsibilities(prev => 
-      prev.includes(resp) ? prev.filter(r => r !== resp) : [...prev, resp]
-    );
+    const next = selectedResponsibilities.includes(resp)
+      ? selectedResponsibilities.filter(r => r !== resp)
+      : [...selectedResponsibilities, resp];
+    setSelectedResponsibilities(next);
+    saveFilter(STORAGE_KEY_RESPONSIBILITIES, next);
+    console.log('[Filter] saved responsibilities:', next);
   };
 
   const togglePlayer = (playerId: string) => {
-    setSelectedPlayers(prev => 
-      prev.includes(playerId) ? prev.filter(p => p !== playerId) : [...prev, playerId]
-    );
+    const next = selectedPlayers.includes(playerId)
+      ? selectedPlayers.filter(p => p !== playerId)
+      : [...selectedPlayers, playerId];
+    setSelectedPlayers(next);
+    saveFilter(STORAGE_KEY_PLAYERS, next);
+    console.log('[Filter] saved players:', next);
   };
 
   const closeAllGameDropdowns = () => {
@@ -1297,7 +1350,7 @@ END:VEVENT
               <View style={[styles.mobileGamesFilterFooter, { borderTopColor: colors.border }]}>
                 <TouchableOpacity
                   style={[styles.mobileGamesFilterClearBtn, { backgroundColor: colors.surfaceSecondary }]}
-                  onPress={() => { setSelectedPlayers([]); setSelectedResponsibilities([]); }}
+                  onPress={() => { setSelectedPlayers([]); setSelectedResponsibilities([]); saveFilter(STORAGE_KEY_PLAYERS, []); saveFilter(STORAGE_KEY_RESPONSIBILITIES, []); }}
                 >
                   <Text style={[styles.mobileGamesFilterClearText, { color: colors.textSecondary }]}>Alle löschen</Text>
                 </TouchableOpacity>
@@ -1486,7 +1539,7 @@ END:VEVENT
                   <View style={[styles.scoutingFilterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
                     <Text style={[styles.scoutingFilterDropdownTitle, { color: colors.textSecondary }]}>Spieler wählen</Text>
                     {selectedPlayers.length > 0 && (
-                      <TouchableOpacity onPress={() => setSelectedPlayers([])}>
+                      <TouchableOpacity onPress={() => { setSelectedPlayers([]); saveFilter(STORAGE_KEY_PLAYERS, []); }}>
                         <Text style={styles.scoutingFilterClearText}>Alle löschen</Text>
                       </TouchableOpacity>
                     )}
@@ -1532,7 +1585,7 @@ END:VEVENT
                   <View style={[styles.scoutingFilterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
                     <Text style={[styles.scoutingFilterDropdownTitle, { color: colors.textSecondary }]}>Zuständigkeit wählen</Text>
                     {selectedResponsibilities.length > 0 && (
-                      <TouchableOpacity onPress={() => setSelectedResponsibilities([])}>
+                      <TouchableOpacity onPress={() => { setSelectedResponsibilities([]); saveFilter(STORAGE_KEY_RESPONSIBILITIES, []); }}>
                         <Text style={styles.scoutingFilterClearText}>Alle löschen</Text>
                       </TouchableOpacity>
                     )}

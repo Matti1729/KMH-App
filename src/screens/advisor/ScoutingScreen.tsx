@@ -2475,34 +2475,47 @@ export function ScoutingScreen({ navigation }: any) {
                         <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Status</Text>
                         <View style={styles.statusSelector}>
                           {SCOUTING_STATUS.map(status => (
-                            <View
+                            <TouchableOpacity
                               key={status.id}
                               style={[
                                 styles.statusOption,
                                 { backgroundColor: isDark ? colors.surface : '#f1f5f9', borderColor: colors.border },
                                 selectedPlayer.status === status.id && { backgroundColor: status.color, borderColor: status.color }
                               ]}
+                              onPress={() => {
+                                const updated = { ...selectedPlayer, status: status.id, archived: false };
+                                setSelectedPlayer(updated);
+                                setScoutedPlayers(prev => prev.map(p => p.id === selectedPlayer.id ? updated : p));
+                                supabase.from('scouted_players').update({ status: status.id, archived: false }).eq('id', selectedPlayer.id);
+                              }}
                             >
                               <Text style={[
                                 styles.statusOptionText,
                                 { color: colors.textSecondary },
                                 selectedPlayer.status === status.id && { color: '#fff' }
                               ]}>{status.label}</Text>
-                            </View>
+                            </TouchableOpacity>
                           ))}
-                          <View
+                          <TouchableOpacity
                             style={[
                               styles.statusOption,
                               { backgroundColor: isDark ? colors.surface : '#f1f5f9', borderColor: colors.border },
                               selectedPlayer.archived && { backgroundColor: '#64748b', borderColor: '#64748b' }
                             ]}
+                            onPress={() => {
+                              const newArchived = !selectedPlayer.archived;
+                              const updated = { ...selectedPlayer, archived: newArchived };
+                              setSelectedPlayer(updated);
+                              setScoutedPlayers(prev => prev.map(p => p.id === selectedPlayer.id ? updated : p));
+                              supabase.from('scouted_players').update({ archived: newArchived }).eq('id', selectedPlayer.id);
+                            }}
                           >
                             <Text style={[
                               styles.statusOptionText,
                               { color: colors.textSecondary },
                               selectedPlayer.archived && { color: '#fff' }
                             ]}>Archiv</Text>
-                          </View>
+                          </TouchableOpacity>
                         </View>
                       </View>
 
@@ -3963,30 +3976,43 @@ export function ScoutingScreen({ navigation }: any) {
                         <Text style={[styles.detailLabelSmall, { marginBottom: 6, color: colors.textSecondary }]}>Status</Text>
                         <View style={styles.statusSelector}>
                           {SCOUTING_STATUS.map(status => (
-                            <View
+                            <TouchableOpacity
                               key={status.id}
                               style={[
                                 styles.statusOption,
                                 selectedPlayer.status === status.id && { backgroundColor: status.color, borderColor: status.color }
                               ]}
+                              onPress={() => {
+                                const updated = { ...selectedPlayer, status: status.id, archived: false };
+                                setSelectedPlayer(updated);
+                                setScoutedPlayers(prev => prev.map(p => p.id === selectedPlayer.id ? updated : p));
+                                supabase.from('scouted_players').update({ status: status.id, archived: false }).eq('id', selectedPlayer.id);
+                              }}
                             >
                               <Text style={[
                                 styles.statusOptionText,
                                 selectedPlayer.status === status.id && { color: '#fff' }
                               ]}>{status.label}</Text>
-                            </View>
+                            </TouchableOpacity>
                           ))}
-                          <View
+                          <TouchableOpacity
                             style={[
                               styles.statusOption,
                               selectedPlayer.archived && { backgroundColor: '#64748b', borderColor: '#64748b' }
                             ]}
+                            onPress={() => {
+                              const newArchived = !selectedPlayer.archived;
+                              const updated = { ...selectedPlayer, archived: newArchived };
+                              setSelectedPlayer(updated);
+                              setScoutedPlayers(prev => prev.map(p => p.id === selectedPlayer.id ? updated : p));
+                              supabase.from('scouted_players').update({ archived: newArchived }).eq('id', selectedPlayer.id);
+                            }}
                           >
                             <Text style={[
                               styles.statusOptionText,
                               selectedPlayer.archived && { color: '#fff' }
                             ]}>Archiv</Text>
-                          </View>
+                          </TouchableOpacity>
                         </View>
                       </View>
 

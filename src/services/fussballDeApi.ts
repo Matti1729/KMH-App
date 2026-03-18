@@ -483,10 +483,11 @@ export async function saveGamesToDatabase(
   return { added, updated };
 }
 
-// Hauptfunktion: Alle Spieler-Spiele synchronisieren
+// Hauptfunktion: Spieler-Spiele synchronisieren (optional gefiltert)
 export async function syncAllPlayerGames(
   supabase: SupabaseClient,
-  onProgress?: (current: number, total: number, playerName: string) => void
+  onProgress?: (current: number, total: number, playerName: string) => void,
+  playerIds?: string[]
 ): Promise<SyncResult> {
   const result: SyncResult = {
     success: false,
@@ -495,16 +496,19 @@ export async function syncAllPlayerGames(
     deleted: 0,
     errors: []
   };
-  
+
   // API Token laden
   const token = await getApiToken(supabase);
   if (!token) {
     result.errors.push('Kein API Token konfiguriert. Bitte Token in Einstellungen hinterlegen.');
     return result;
   }
-  
-  // Spieler laden
-  const players = await getPlayersWithFussballDeUrl(supabase);
+
+  // Spieler laden (optional gefiltert)
+  let players = await getPlayersWithFussballDeUrl(supabase);
+  if (playerIds && playerIds.length > 0) {
+    players = players.filter(p => playerIds.includes(p.id));
+  }
   if (players.length === 0) {
     result.errors.push('Keine Spieler mit fussball.de URL gefunden.');
     return result;
