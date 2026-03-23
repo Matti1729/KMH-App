@@ -135,6 +135,8 @@ export function TermineScreen({ navigation }: any) {
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>(() => loadFilter(STORAGE_KEY_PLAYERS));
   const [showResponsibilityDropdown, setShowResponsibilityDropdown] = useState(false);
   const [showPlayerDropdown, setShowPlayerDropdown] = useState(false);
+  const [showMobilePlayerSection, setShowMobilePlayerSection] = useState(false);
+  const [showMobileRespSection, setShowMobileRespSection] = useState(false);
   const [syncingGames, setSyncingGames] = useState(false);
   const [syncProgress, setSyncProgress] = useState<{ current: number; total: number; playerName: string } | null>(null);
   const [gameSyncResult, setGameSyncResult] = useState<{ added: number; updated: number; deleted: number; errors: string[] } | null>(null);
@@ -1309,43 +1311,65 @@ END:VEVENT
                 </TouchableOpacity>
               </View>
               <ScrollView style={styles.mobileGamesFilterContent}>
-                {/* Spieler Filter */}
-                <Text style={[styles.mobileGamesFilterSectionTitle, { color: colors.text }]}>Spieler</Text>
-                <View style={styles.mobileGamesFilterChips}>
-                  {availablePlayers.map(player => {
-                    const isSelected = selectedPlayers.includes(player.id);
-                    return (
-                      <TouchableOpacity
-                        key={player.id}
-                        style={[styles.mobileGamesFilterChip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, isSelected && styles.mobileGamesFilterChipActive]}
-                        onPress={() => togglePlayer(player.id)}
-                      >
-                        <Text style={[styles.mobileGamesFilterChipText, { color: colors.textSecondary }, isSelected && styles.mobileGamesFilterChipTextActive]}>
-                          {player.name}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
+                {/* Spieler Filter - Dropdown */}
+                <TouchableOpacity
+                  style={[styles.mobileFilterDropdownBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
+                  onPress={() => setShowMobilePlayerSection(!showMobilePlayerSection)}
+                >
+                  <Text style={[styles.mobileFilterDropdownBtnText, { color: colors.text }]}>
+                    Spieler{selectedPlayers.length > 0 ? ` (${selectedPlayers.length})` : ''}
+                  </Text>
+                  <Ionicons name={showMobilePlayerSection ? "chevron-up" : "chevron-down"} size={18} color={colors.textSecondary} />
+                </TouchableOpacity>
+                {showMobilePlayerSection && (
+                  <View style={[styles.mobileFilterDropdownList, { borderColor: colors.border }]}>
+                    {availablePlayers.map(player => {
+                      const isSelected = selectedPlayers.includes(player.id);
+                      return (
+                        <TouchableOpacity
+                          key={player.id}
+                          style={[styles.mobileFilterDropdownItem, { borderBottomColor: colors.border }, isSelected && { backgroundColor: colors.primary + '22' }]}
+                          onPress={() => togglePlayer(player.id)}
+                        >
+                          <Text style={[styles.mobileFilterDropdownItemText, { color: colors.text }, isSelected && { color: colors.primary, fontWeight: '600' }]}>
+                            {player.name}
+                          </Text>
+                          {isSelected && <Ionicons name="checkmark" size={18} color={colors.primary} />}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
 
-                {/* Zuständigkeit Filter */}
-                <Text style={[styles.mobileGamesFilterSectionTitle, { color: colors.text }]}>Zuständigkeit</Text>
-                <View style={styles.mobileGamesFilterChips}>
-                  {availableResponsibilities.map(resp => {
-                    const isSelected = selectedResponsibilities.includes(resp);
-                    return (
-                      <TouchableOpacity
-                        key={resp}
-                        style={[styles.mobileGamesFilterChip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, isSelected && styles.mobileGamesFilterChipActive]}
-                        onPress={() => toggleResponsibility(resp)}
-                      >
-                        <Text style={[styles.mobileGamesFilterChipText, { color: colors.textSecondary }, isSelected && styles.mobileGamesFilterChipTextActive]}>
-                          {resp}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
+                {/* Zuständigkeit Filter - Dropdown */}
+                <TouchableOpacity
+                  style={[styles.mobileFilterDropdownBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
+                  onPress={() => setShowMobileRespSection(!showMobileRespSection)}
+                >
+                  <Text style={[styles.mobileFilterDropdownBtnText, { color: colors.text }]}>
+                    Zuständigkeit{selectedResponsibilities.length > 0 ? ` (${selectedResponsibilities.length})` : ''}
+                  </Text>
+                  <Ionicons name={showMobileRespSection ? "chevron-up" : "chevron-down"} size={18} color={colors.textSecondary} />
+                </TouchableOpacity>
+                {showMobileRespSection && (
+                  <View style={[styles.mobileFilterDropdownList, { borderColor: colors.border }]}>
+                    {availableResponsibilities.map(resp => {
+                      const isSelected = selectedResponsibilities.includes(resp);
+                      return (
+                        <TouchableOpacity
+                          key={resp}
+                          style={[styles.mobileFilterDropdownItem, { borderBottomColor: colors.border }, isSelected && { backgroundColor: colors.primary + '22' }]}
+                          onPress={() => toggleResponsibility(resp)}
+                        >
+                          <Text style={[styles.mobileFilterDropdownItemText, { color: colors.text }, isSelected && { color: colors.primary, fontWeight: '600' }]}>
+                            {resp}
+                          </Text>
+                          {isSelected && <Ionicons name="checkmark" size={18} color={colors.primary} />}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
               </ScrollView>
               <View style={[styles.mobileGamesFilterFooter, { borderTopColor: colors.border }]}>
                 <TouchableOpacity
@@ -3008,6 +3032,38 @@ const styles = StyleSheet.create({
     color: '#1a1a1a',
     marginBottom: 10,
     marginTop: 16,
+  },
+  mobileFilterDropdownBtn: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 12,
+  },
+  mobileFilterDropdownBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  mobileFilterDropdownList: {
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
+    overflow: 'hidden',
+  },
+  mobileFilterDropdownItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  mobileFilterDropdownItemText: {
+    fontSize: 14,
   },
   mobileGamesFilterChips: {
     flexDirection: 'row',

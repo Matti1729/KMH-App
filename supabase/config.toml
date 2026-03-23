@@ -402,3 +402,9 @@ entrypoint = "./functions/generate-pdf/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/generate-pdf/*.html" ]
+
+[functions.telegram-bot]
+enabled = true
+verify_jwt = false
+import_map = "./functions/telegram-bot/deno.json"
+entrypoint = "./functions/telegram-bot/index.ts"

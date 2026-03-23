@@ -242,9 +242,7 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
   <div style="width: 794px; height: 1123px; max-height: 1123px; background: #fff; overflow: hidden; position: relative;">
     <!-- Header -->
     <div style="position: relative; padding: 20px 32px; height: 210px; overflow: hidden;">
-      <div style="position: absolute; top: 0; left: 0; bottom: 0; width: 67%; background-color: #000000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
-      <div style="position: absolute; top: 0; right: 0; bottom: 0; width: 33%; background-color: #1c1c1c !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
-      <div style="position: absolute; top: 0; bottom: 0; left: 63%; width: 80px; background-color: #1c1c1c !important; transform: skewX(-8deg); -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
+      <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(105deg, #000000 62%, #1c1c1c 62%) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
 
       <div style="position: relative; z-index: 1; display: flex; align-items: center; height: 100%;">
         ${player.photo_url ? `

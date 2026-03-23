@@ -1104,9 +1104,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         <div style="width: 595px; height: 842px; max-height: 842px; background: #fff; display: flex; flex-direction: column; overflow: hidden; position: relative; -webkit-print-color-adjust: exact;">
           <!-- Header -->
           <div style="position: relative; padding: ${sc(18)}px ${sc(22)}px; height: ${sc(170)}px; overflow: hidden; flex-shrink: 0; -webkit-print-color-adjust: exact;">
-            <div style="position: absolute; top: 0; left: 0; bottom: 0; width: 67%; background-color: #000000 !important; -webkit-print-color-adjust: exact;"></div>
-            <div style="position: absolute; top: 0; right: 0; bottom: 0; width: 33%; background-color: #1c1c1c !important; -webkit-print-color-adjust: exact;"></div>
-            <div style="position: absolute; top: 0; bottom: 0; left: 63%; width: 60px; background-color: #1c1c1c !important; transform: skewX(-8deg); -webkit-print-color-adjust: exact;"></div>
+            <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(105deg, #000000 62%, #1c1c1c 62%) !important; -webkit-print-color-adjust: exact;"></div>
             
             <div style="position: relative; z-index: 1; display: flex; align-items: center; height: 100%;">
               <div style="margin-right: ${sc(20)}px; display: flex; align-items: center;">
