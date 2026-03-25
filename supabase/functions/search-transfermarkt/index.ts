@@ -78,7 +78,11 @@ serve(async (req: Request) => {
       const leagueMatch = html.match(/data-header__league-link"[^>]*>([\s\S]*?)<\/a>/);
       if (leagueMatch) {
         const leagueText = leagueMatch[1].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
-        if (leagueText) profile.league = leagueText;
+        if (leagueText) {
+          const countryMatch = html.match(/Ligahöhe:[\s\S]*?title="([^"]+)"[^>]*class="flaggenrahmen"/);
+          const country = countryMatch ? countryMatch[1] : '';
+          profile.league = country && country !== 'Deutschland' ? `${leagueText} (${country})` : leagueText;
+        }
       }
 
       console.log("Profile parsed:", JSON.stringify(profile));
