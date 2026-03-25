@@ -2178,7 +2178,7 @@ END:VEVENT
         </Pressable>
 
         <View style={styles.scoutingContent}>
-          <View style={[styles.scoutingGamesContainer, { backgroundColor: colors.cardBackground }]} onLayout={(e) => setTermineTableWidth(e.nativeEvent.layout.width - 2)}>
+          <View style={[styles.scoutingGamesContainer, { backgroundColor: colors.cardBackground }]} onLayout={(e) => setTermineTableWidth(e.nativeEvent.layout.width - 32)}>
             {termineTableWidth > 0 && (
               <TableHeader
                 columnDefs={TERMINE_COLUMNS}
@@ -2194,6 +2194,7 @@ END:VEVENT
                 sortAsc={sortDirection === 'asc'}
                 colors={colors}
                 setHeaderRef={termineTable.setHeaderRef}
+                style={{ paddingHorizontal: 16 }}
               />
             )}
 

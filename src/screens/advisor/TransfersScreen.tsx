@@ -1539,7 +1539,7 @@ export function TransfersScreen({ navigation }: any) {
 
         {activeTab === 'spieler' ? (
           <View style={styles.content}>
-            <View style={[styles.tableWrapper, { backgroundColor: colors.cardBackground, borderColor: colors.border }]} onLayout={(e) => setPlayerTableWidth(e.nativeEvent.layout.width - 2)}>
+            <View style={[styles.tableWrapper, { backgroundColor: colors.cardBackground, borderColor: colors.border }]} onLayout={(e) => setPlayerTableWidth(e.nativeEvent.layout.width - 32)}>
               {playerTableWidth > 0 && (
                 <TableHeader
                   columnDefs={PLAYER_COLUMNS}
@@ -1555,6 +1555,7 @@ export function TransfersScreen({ navigation }: any) {
                   sortAsc={sortDirection === 'asc'}
                   colors={colors}
                   setHeaderRef={playerTable.setHeaderRef}
+                  style={{ paddingHorizontal: 16 }}
                 />
               )}
 
@@ -1960,7 +1961,7 @@ export function TransfersScreen({ navigation }: any) {
         
         {/* Vereine Tabelle */}
         <View style={styles.content}>
-          <View style={[styles.tableWrapper, { backgroundColor: colors.cardBackground, borderColor: colors.border }]} onLayout={(e) => setClubTableWidth(e.nativeEvent.layout.width - 2)}>
+          <View style={[styles.tableWrapper, { backgroundColor: colors.cardBackground, borderColor: colors.border }]} onLayout={(e) => setClubTableWidth(e.nativeEvent.layout.width - 32)}>
             {clubTableWidth > 0 && (
               <TableHeader
                 columnDefs={CLUB_COLUMNS}
@@ -1973,6 +1974,7 @@ export function TransfersScreen({ navigation }: any) {
                 dragOverKey={clubTable.dragOverKey}
                 colors={colors}
                 setHeaderRef={clubTable.setHeaderRef}
+                style={{ paddingHorizontal: 16 }}
               />
             )}
 

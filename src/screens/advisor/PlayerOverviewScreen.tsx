@@ -1290,7 +1290,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
                 sortAsc={sortDirection === 'asc'}
                 colors={colors}
                 setHeaderRef={table.setHeaderRef}
-                style={{ backgroundColor: colors.surfaceSecondary, borderBottomWidth: 1, borderBottomColor: colors.border }}
+                style={{ backgroundColor: colors.surfaceSecondary, borderBottomWidth: 1, borderBottomColor: colors.border, paddingHorizontal: 16 }}
               />
             )}
 

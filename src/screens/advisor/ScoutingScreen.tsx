@@ -1443,7 +1443,7 @@ export function ScoutingScreen({ navigation }: any) {
   };
 
   const renderListView = () => (
-    <View style={[styles.tableContainer, { backgroundColor: colors.cardBackground }]} onLayout={(e) => setScoutingTableWidth(e.nativeEvent.layout.width)}>
+    <View style={[styles.tableContainer, { backgroundColor: colors.cardBackground }]} onLayout={(e) => setScoutingTableWidth(e.nativeEvent.layout.width - 32)}>
       <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceSecondary, borderBottomWidth: 1, borderBottomColor: colors.border }}>
         {scoutingTableWidth > 0 && (
           <TableHeader
@@ -1457,7 +1457,7 @@ export function ScoutingScreen({ navigation }: any) {
             dragOverKey={scoutingTable.dragOverKey}
             colors={colors}
             setHeaderRef={scoutingTable.setHeaderRef}
-            style={{ flex: 1, borderBottomWidth: 0 }}
+            style={{ flex: 1, borderBottomWidth: 0, paddingHorizontal: 16 }}
           />
         )}
       </View>

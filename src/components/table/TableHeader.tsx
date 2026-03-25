@@ -146,7 +146,6 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
     paddingVertical: 6,
     borderBottomWidth: 1,
   },

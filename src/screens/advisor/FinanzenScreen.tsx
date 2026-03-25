@@ -1294,7 +1294,7 @@ export function FinanzenScreen({ navigation }: any) {
 
           <Text style={[styles.rowCount, { color: colors.textMuted }]}>{provisionCount} Provisionen · {playerOnlyCount} Spieler ohne Einträge</Text>
 
-          <View style={[styles.tableWrapper, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]} onLayout={(e) => setTableWidth(e.nativeEvent.layout.width - 2)}>
+          <View style={[styles.tableWrapper, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]} onLayout={(e) => setTableWidth(e.nativeEvent.layout.width - 32)}>
             {tableWidth > 0 && (
               <TableHeader
                 columnDefs={FINANZEN_COLUMNS}
@@ -1310,6 +1310,7 @@ export function FinanzenScreen({ navigation }: any) {
                 sortAsc={sortDirection === 'asc'}
                 colors={colors}
                 setHeaderRef={table.setHeaderRef}
+                style={{ paddingHorizontal: 16 }}
               />
             )}
 
