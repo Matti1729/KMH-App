@@ -1065,17 +1065,12 @@ export function PlayerOverviewScreen({ navigation }: any) {
                 )}
                 {tmLoading && <Text style={{ color: colors.primary, fontSize: 11, marginBottom: 6 }}>Lade Spielerdaten von Transfermarkt...</Text>}
                 {tmSelected && (
-                  <View style={{ backgroundColor: colors.surfaceSecondary, borderRadius: 6, padding: 8, marginBottom: 6 }}>
-                    <Text style={{ color: colors.primary, fontSize: 11, fontWeight: '600', marginBottom: 4 }}>Transfermarkt-Daten übernommen</Text>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
-                      {tmSelected.dateOfBirth && <Text style={{ color: colors.textSecondary, fontSize: 11, backgroundColor: colors.surface, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 3 }}>🎂 {tmSelected.dateOfBirth}</Text>}
-                      {tmSelected.verein && <Text style={{ color: colors.textSecondary, fontSize: 11, backgroundColor: colors.surface, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 3 }}>⚽ {tmSelected.verein}</Text>}
-                      {tmSelected.position && <Text style={{ color: colors.textSecondary, fontSize: 11, backgroundColor: colors.surface, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 3 }}>📋 {tmSelected.position}</Text>}
-                      {tmSelected.nationality && <Text style={{ color: colors.textSecondary, fontSize: 11, backgroundColor: colors.surface, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 3 }}>🌍 {tmSelected.nationality}</Text>}
-                      {tmSelected.height && <Text style={{ color: colors.textSecondary, fontSize: 11, backgroundColor: colors.surface, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 3 }}>📏 {tmSelected.height}</Text>}
-                      {tmSelected.preferredFoot && <Text style={{ color: colors.textSecondary, fontSize: 11, backgroundColor: colors.surface, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 3 }}>🦶 {tmSelected.preferredFoot}</Text>}
-                      {tmSelected.contractUntil && <Text style={{ color: colors.textSecondary, fontSize: 11, backgroundColor: colors.surface, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 3 }}>📝 bis {tmSelected.contractUntil}</Text>}
-                    </View>
+                  <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: 6, padding: 8, marginBottom: 6, borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.3)' }}>
+                    <Text style={{ color: '#10b981', fontSize: 11, fontWeight: '600', marginBottom: 4 }}>Transfermarkt-Daten übernommen</Text>
+                    <Text style={{ color: colors.text, fontSize: 12 }}>
+                      <Text style={{ fontWeight: '600' }}>{newFirstName} {newLastName}</Text>
+                      <Text style={{ color: colors.textMuted, fontSize: 11 }}>{' '}{[tmSelected.verein, tmSelected.position, tmSelected.age ? tmSelected.age + 'J' : tmSelected.dateOfBirth].filter(Boolean).join(' · ')}</Text>
+                    </Text>
                   </View>
                 )}
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 28 }}>
