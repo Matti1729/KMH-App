@@ -628,7 +628,9 @@ export function PlayerOverviewScreen({ navigation }: any) {
   };
 
   const handleAddPlayer = async () => {
-    if (!newFirstName.trim() || !newLastName.trim() || !currentUserId) return;
+    console.log('[AddPlayer] firstName:', newFirstName, 'lastName:', newLastName, 'userId:', currentUserId, 'tmLoading:', tmLoading);
+    if (!newLastName.trim()) { window.alert('Bitte Nachname eingeben.'); return; }
+    if (!currentUserId) { window.alert('Nicht eingeloggt.'); return; }
 
     // Duplikat-Prüfung
     const existing = players.filter(p =>
