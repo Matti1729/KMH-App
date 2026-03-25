@@ -715,7 +715,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
 
       // Logo in club_logos speichern (wenn Verein + Logo vorhanden)
       if (tmSelected?.verein && tmSelected?.clubLogoUrl) {
-        supabase.from('club_logos').upsert({ club_name: tmSelected.verein, logo_url: tmSelected.clubLogoUrl }, { onConflict: 'club_name', ignoreDuplicates: true }).catch(() => {});
+        try { await supabase.from('club_logos').upsert({ club_name: tmSelected.verein, logo_url: tmSelected.clubLogoUrl }, { onConflict: 'club_name', ignoreDuplicates: true }); } catch {}
       }
 
       setNewFirstName('');
