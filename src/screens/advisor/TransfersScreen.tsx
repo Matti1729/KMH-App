@@ -31,7 +31,8 @@ const LISTINGS = ['Karl Herzog Sportmanagement', 'PM Sportmanagement'];
 const ArbeitsamtIcon = require('../../../assets/arbeitsamt.png');
 
 const PLAYER_COLUMNS: ColumnDef[] = [
-  { key: 'name', label: 'Name', defaultFlex: 1.5, minWidth: 100 },
+  { key: 'name', label: 'Name', defaultFlex: 1.2, minWidth: 100 },
+  { key: 'vorname', label: 'Vorname', defaultFlex: 1, minWidth: 70 },
   { key: 'birth_date', label: 'Geb.-Datum', defaultFlex: 1, minWidth: 85 },
   { key: 'position', label: 'Position', defaultFlex: 0.9, minWidth: 70 },
   { key: 'club', label: 'Verein', defaultFlex: 2.2, minWidth: 150 },
@@ -1588,11 +1589,13 @@ export function TransfersScreen({ navigation }: any) {
                               return (
                                 <View style={[styles.nameContainer]}>
                                   <Text style={[styles.tableCell, styles.nameCell, { color: colors.text }]} numberOfLines={1}>
-                                    {player.last_name}, {player.first_name}{birthday && ' 🎉'}
+                                    {player.last_name}{birthday && ' 🎉'}
                                   </Text>
                                   {!hasAccess && <Text style={styles.lockIcon}>🔒</Text>}
                                 </View>
                               );
+                            case 'vorname':
+                              return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{player.first_name || '-'}</Text>;
                             case 'birth_date':
                               return <Text style={[styles.tableCell, { color: colors.text }]}>{formatDate(player.birth_date)}</Text>;
                             case 'position':

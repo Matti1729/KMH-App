@@ -66,7 +66,8 @@ type SortField = 'name' | 'club' | 'league' | 'provision' | 'amount' | 'due';
 type SortDirection = 'asc' | 'desc';
 
 const FINANZEN_COLUMNS: ColumnDef[] = [
-  { key: 'name', label: 'Name', defaultFlex: 0.9, minWidth: 100 },
+  { key: 'name', label: 'Name', defaultFlex: 0.8, minWidth: 80 },
+  { key: 'vorname', label: 'Vorname', defaultFlex: 0.8, minWidth: 70 },
   { key: 'club', label: 'Verein', defaultFlex: 0.9, minWidth: 90 },
   { key: 'league', label: 'Liga', defaultFlex: 1.1, minWidth: 100 },
   { key: 'provision', label: 'Provision (%)', defaultFlex: 0.7, minWidth: 70 },
@@ -1340,9 +1341,11 @@ export function FinanzenScreen({ navigation }: any) {
                           case 'name':
                             return (
                               <Text style={[styles.tableCell, styles.nameCell, { color: colors.text }]} numberOfLines={1}>
-                                {row.last_name}, {row.first_name}
+                                {row.last_name}
                               </Text>
                             );
+                          case 'vorname':
+                            return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{row.first_name || '-'}</Text>;
                           case 'club':
                             return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{row.club || '-'}</Text>;
                           case 'league':

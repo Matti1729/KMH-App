@@ -39,7 +39,8 @@ type SortDirection = 'asc' | 'desc';
 
 const NETWORK_COLUMNS: ColumnDef[] = [
   { key: 'verein', label: 'Verein', defaultFlex: 1.3, minWidth: 80 },
-  { key: 'name', label: 'Name', defaultFlex: 1.2, minWidth: 80 },
+  { key: 'name', label: 'Name', defaultFlex: 1, minWidth: 80 },
+  { key: 'vorname', label: 'Vorname', defaultFlex: 1, minWidth: 70 },
   { key: 'bereich', label: 'Bereich', defaultFlex: 0.7, minWidth: 60 },
   { key: 'position', label: 'Position', defaultFlex: 0.8, minWidth: 60 },
   { key: 'mannschaft', label: 'Mannschaft', defaultFlex: 0.7, minWidth: 60 },
@@ -1100,7 +1101,9 @@ export function FootballNetworkScreen({ navigation }: any) {
                               </View>
                             );
                           case 'name':
-                            return <Text style={[styles.tableCell, styles.tableCellBold, { color: colors.text }]} numberOfLines={1}>{formatName(contact)}</Text>;
+                            return <Text style={[styles.tableCell, styles.tableCellBold, { color: colors.text }]} numberOfLines={1}>{contact.nachname || '-'}</Text>;
+                          case 'vorname':
+                            return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{contact.vorname || '-'}</Text>;
                           case 'bereich':
                             return contact.bereich ? (
                               <View style={[styles.bereichBadge, { backgroundColor: contact.bereich === 'Nachwuchs' ? (isDark ? 'rgba(251, 191, 36, 0.2)' : '#fef3c7') : (isDark ? 'rgba(34, 197, 94, 0.2)' : '#f0fdf4') }]}>

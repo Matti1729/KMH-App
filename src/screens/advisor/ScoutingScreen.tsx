@@ -16,7 +16,8 @@ import { TableRow } from '../../components/table/TableRow';
 const POSITIONS = ['TW', 'IV', 'LV', 'RV', 'DM', 'ZM', 'OM', 'LA', 'RA', 'ST'];
 
 const SCOUTING_LIST_COLUMNS: ColumnDef[] = [
-  { key: 'name', label: 'Name', defaultFlex: 2, minWidth: 100 },
+  { key: 'name', label: 'Name', defaultFlex: 1.5, minWidth: 100 },
+  { key: 'vorname', label: 'Vorname', defaultFlex: 1, minWidth: 70 },
   { key: 'position', label: 'Pos.', defaultFlex: 0.8, minWidth: 60 },
   { key: 'club', label: 'Verein', defaultFlex: 1.4, minWidth: 80 },
   { key: 'agent', label: 'Berater', defaultFlex: 1.2, minWidth: 80 },
@@ -1481,7 +1482,9 @@ export function ScoutingScreen({ navigation }: any) {
               renderCell={(key) => {
                 switch (key) {
                   case 'name':
-                    return <Text style={[styles.tableCell, styles.tableCellText, { color: colors.text }]} numberOfLines={1}>{player.last_name}, {player.first_name} <Text style={{ color: colors.textSecondary, fontWeight: '400' }}>({getYearFromDate(player.birth_date)})</Text></Text>;
+                    return <Text style={[styles.tableCell, styles.tableCellText, { color: colors.text }]} numberOfLines={1}>{player.last_name} <Text style={{ color: colors.textSecondary, fontWeight: '400' }}>({getYearFromDate(player.birth_date)})</Text></Text>;
+                  case 'vorname':
+                    return <Text style={[styles.tableCell, styles.tableCellText, { color: colors.text }]} numberOfLines={1}>{player.first_name || '-'}</Text>;
                   case 'position':
                     return (
                       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
