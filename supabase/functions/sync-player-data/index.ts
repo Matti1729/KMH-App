@@ -133,12 +133,10 @@ serve(async (req: Request) => {
           return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
         };
 
-        // NUR Verein, Liga und Geburtsdatum updaten — alles andere ist manuell!
+        // NUR Verein und Liga updaten — alles andere ist manuell!
         const updateData: any = {};
         if (profile.club) updateData.club = profile.club;
         if (profile.league) updateData.league = profile.league;
-        const dob = profile.birth_date ? toIso(profile.birth_date) : null;
-        if (dob) updateData.birth_date = dob;
 
         if (Object.keys(updateData).length > 0) {
           const { error: updateError } = await supabase
