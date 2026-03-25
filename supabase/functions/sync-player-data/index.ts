@@ -93,6 +93,9 @@ serve(async (req: Request) => {
       throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
     }
 
+    let fast = false;
+    try { const body = await req.json(); fast = body?.fast === true; } catch {}
+
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // Alle Spieler mit Transfermarkt-URL laden
@@ -166,9 +169,9 @@ serve(async (req: Request) => {
         errors.push(`${playerName}: Kein Profil gefunden`);
       }
 
-      // Pause: 30-60 Sekunden zwischen Anfragen (unauffällig)
+      // Pause zwischen Anfragen (nur bei regulärem Sync)
       if (i < players.length - 1) {
-        const delay = 30000 + Math.random() * 30000; // 30-60s
+        const delay = fast ? 500 : (30000 + Math.random() * 30000);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
