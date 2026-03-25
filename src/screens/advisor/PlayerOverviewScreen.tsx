@@ -87,6 +87,11 @@ export function PlayerOverviewScreen({ navigation }: any) {
   const dataLoadedRef = useRef(false);
   const [newFirstName, setNewFirstName] = useState('');
   const [newLastName, setNewLastName] = useState('');
+  const [tmSuggestions, setTmSuggestions] = useState<any[]>([]);
+  const [tmSearching, setTmSearching] = useState(false);
+  const [tmLoading, setTmLoading] = useState(false);
+  const [tmSelected, setTmSelected] = useState<any>(null);
+  const tmDebounceRef = useRef<any>(null);
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -542,19 +547,79 @@ export function PlayerOverviewScreen({ navigation }: any) {
     }
   };
 
+  const searchTmPlayers = async (query: string) => {
+    if (query.trim().length < 2) { setTmSuggestions([]); return; }
+    setTmSearching(true);
+    try {
+      const { data } = await supabase.functions.invoke('search-transfermarkt', { body: { name: query, type: 'player' } });
+      setTmSuggestions(data?.results?.slice(0, 8) || []);
+    } catch { setTmSuggestions([]); }
+    setTmSearching(false);
+  };
+
+  const handleLastNameChange = (text: string) => {
+    setNewLastName(text);
+    setTmSelected(null);
+    if (tmDebounceRef.current) clearTimeout(tmDebounceRef.current);
+    tmDebounceRef.current = setTimeout(() => searchTmPlayers(text), 500);
+  };
+
+  const selectTmPlayer = async (suggestion: any) => {
+    setTmSuggestions([]);
+    setTmLoading(true);
+    try {
+      // Name splitten
+      const parts = suggestion.name.split(' ');
+      const firstName = parts.slice(0, -1).join(' ');
+      const lastName = parts[parts.length - 1];
+      setNewFirstName(firstName);
+      setNewLastName(lastName);
+
+      // Detaillierte Daten von TM-Profil scrapen
+      const { data } = await supabase.functions.invoke('scrape-transfermarkt', { body: { url: suggestion.url } });
+      if (data) {
+        setTmSelected({
+          ...data,
+          transfermarkt_url: suggestion.url,
+          verein: data.currentClub || suggestion.verein || '',
+        });
+      } else {
+        setTmSelected({ transfermarkt_url: suggestion.url, verein: suggestion.verein || '' });
+      }
+    } catch (err) {
+      console.error('TM scrape error:', err);
+      setTmSelected({ transfermarkt_url: suggestion.url, verein: suggestion.verein || '' });
+    }
+    setTmLoading(false);
+  };
+
   const handleAddPlayer = async () => {
     if (!newFirstName.trim() || !newLastName.trim() || !currentUserId) return;
-    
+
+    const insertData: any = {
+      first_name: newFirstName.trim(),
+      last_name: newLastName.trim(),
+      responsibility: currentUserName,
+    };
+
+    // TM-Daten einfügen falls vorhanden
+    if (tmSelected) {
+      if (tmSelected.transfermarkt_url) insertData.transfermarkt_url = tmSelected.transfermarkt_url;
+      if (tmSelected.verein) insertData.club = tmSelected.verein;
+      if (tmSelected.dateOfBirth) insertData.birth_date = tmSelected.dateOfBirth;
+      if (tmSelected.position) insertData.position = tmSelected.position;
+      if (tmSelected.nationality) insertData.nationality = tmSelected.nationality;
+      if (tmSelected.height) insertData.height = tmSelected.height;
+      if (tmSelected.preferredFoot) insertData.strong_foot = tmSelected.preferredFoot;
+      if (tmSelected.contractUntil) insertData.contract_end = tmSelected.contractUntil;
+    }
+
     const { data: newPlayer, error } = await supabase
       .from('player_details')
-      .insert([{ 
-        first_name: newFirstName.trim(), 
-        last_name: newLastName.trim(),
-        responsibility: currentUserName
-      }])
+      .insert([insertData])
       .select()
       .single();
-    
+
     if (!error && newPlayer) {
       const { error: accessError } = await supabase.from('advisor_access').insert({
         player_id: newPlayer.id,
@@ -565,9 +630,11 @@ export function PlayerOverviewScreen({ navigation }: any) {
       if (accessError) {
         console.error('advisor_access insert failed:', accessError);
       }
-      
+
       setNewFirstName('');
       setNewLastName('');
+      setTmSelected(null);
+      setTmSuggestions([]);
       setShowAddModal(false);
       fetchPlayers();
       fetchMyPlayerAccess();
@@ -948,14 +1015,34 @@ export function PlayerOverviewScreen({ navigation }: any) {
           {/* Add Player Modal */}
           <Modal visible={showAddModal} transparent animationType="fade">
             <View style={styles.modalOverlay}>
-              <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+              <View style={[styles.modalContent, { backgroundColor: colors.surface, maxHeight: '80%' }]}>
                 <Text style={[styles.modalTitle, { color: colors.text }]}>Neuen Spieler anlegen</Text>
+                <TextInput style={[styles.modalInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Nachname" placeholderTextColor={colors.textMuted} value={newLastName} onChangeText={handleLastNameChange} autoFocus />
+                {tmSearching && <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 8 }}>Suche auf Transfermarkt...</Text>}
+                {tmSuggestions.length > 0 && (
+                  <ScrollView style={{ maxHeight: 200, borderWidth: 1, borderColor: colors.border, borderRadius: 8, marginBottom: 12 }}>
+                    {tmSuggestions.map((s, i) => (
+                      <TouchableOpacity key={i} style={{ padding: 10, borderBottomWidth: i < tmSuggestions.length - 1 ? 1 : 0, borderBottomColor: colors.border }} onPress={() => selectTmPlayer(s)}>
+                        <Text style={{ color: colors.text, fontSize: 14, fontWeight: '600' }}>{s.name}</Text>
+                        <Text style={{ color: colors.textSecondary, fontSize: 12 }}>{[s.verein, s.position, s.age ? `${s.age} Jahre` : ''].filter(Boolean).join(' · ')}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
                 <TextInput style={[styles.modalInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Vorname" placeholderTextColor={colors.textMuted} value={newFirstName} onChangeText={setNewFirstName} />
-                <TextInput style={[styles.modalInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Nachname" placeholderTextColor={colors.textMuted} value={newLastName} onChangeText={setNewLastName} />
+                {tmLoading && <Text style={{ color: colors.primary, fontSize: 12, marginBottom: 8 }}>Lade Spielerdaten von Transfermarkt...</Text>}
+                {tmSelected && (
+                  <View style={{ backgroundColor: colors.surfaceSecondary, borderRadius: 8, padding: 10, marginBottom: 12 }}>
+                    <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '600', marginBottom: 4 }}>Transfermarkt-Daten übernommen</Text>
+                    {tmSelected.verein && <Text style={{ color: colors.textSecondary, fontSize: 12 }}>Verein: {tmSelected.verein}</Text>}
+                    {tmSelected.position && <Text style={{ color: colors.textSecondary, fontSize: 12 }}>Position: {tmSelected.position}</Text>}
+                    {tmSelected.dateOfBirth && <Text style={{ color: colors.textSecondary, fontSize: 12 }}>Geburtsdatum: {tmSelected.dateOfBirth}</Text>}
+                  </View>
+                )}
                 <Text style={[styles.modalHint, { color: colors.textSecondary }]}>Zuständigkeit: {currentUserName || 'Sie'}</Text>
                 <View style={styles.modalButtons}>
-                  <TouchableOpacity style={[styles.modalCancelButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setShowAddModal(false)}><Text style={[styles.modalCancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text></TouchableOpacity>
-                  <TouchableOpacity style={[styles.modalSaveButton, { backgroundColor: colors.surface }]} onPress={handleAddPlayer}><Text style={styles.modalSaveButtonText}>Speichern</Text></TouchableOpacity>
+                  <TouchableOpacity style={[styles.modalCancelButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => { setShowAddModal(false); setTmSuggestions([]); setTmSelected(null); }}><Text style={[styles.modalCancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text></TouchableOpacity>
+                  <TouchableOpacity style={[styles.modalSaveButton, { backgroundColor: colors.surface }]} onPress={handleAddPlayer} disabled={tmLoading}><Text style={styles.modalSaveButtonText}>{tmLoading ? 'Laden...' : 'Speichern'}</Text></TouchableOpacity>
                 </View>
               </View>
             </View>

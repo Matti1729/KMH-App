@@ -1,5 +1,5 @@
 // supabase/functions/search-transfermarkt/index.ts
-// Transfermarkt Schnellsuche: Trainer/Funktionäre nach Name suchen
+// Transfermarkt Schnellsuche: Spieler und Trainer/Funktionäre nach Name suchen
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -15,7 +15,7 @@ serve(async (req: Request) => {
   }
 
   try {
-    const { name } = await req.json();
+    const { name, type = 'all' } = await req.json(); // type: 'player' | 'trainer' | 'all'
     if (!name) {
       return new Response(
         JSON.stringify({ error: "name is required" }),
@@ -52,7 +52,48 @@ serve(async (req: Request) => {
     const html = await response.text();
     const results: any[] = [];
 
+    // Spieler-Sektion parsen
+    if (type === 'player' || type === 'all') {
+      const playerSection = html.match(/id="player-grid"[\s\S]*?<\/tbody>/);
+      if (playerSection) {
+        const rows = playerSection[0].split(/<tr\s+class="(?:odd|even)"[^>]*>/).filter(r => r.includes("profil/spieler/"));
+
+        for (const row of rows) {
+          const profileMatch = row.match(/href="([^"]*\/profil\/spieler\/\d+)"[^>]*>([^<]+)<\/a>/);
+          if (!profileMatch) continue;
+
+          const profileUrl = `https://www.transfermarkt.de${profileMatch[1]}`;
+          const playerName = profileMatch[2].trim();
+
+          // Verein
+          const vereinMatch = row.match(/<a\s+title="([^"]+)"[^>]*href="[^"]*\/startseite\/verein\/\d+"/);
+          let verein = vereinMatch ? vereinMatch[1] : "";
+          if (verein === "Karriereende" || verein === "Vereinslos" || verein === "---") verein = "";
+
+          // Position (z.B. "HS", "IV", "TW", "Mittelfeld")
+          const posMatch = row.match(/<td[^>]*class="zentriert"[^>]*>([A-ZÄÖÜa-zäöü][A-ZÄÖÜa-zäöüß\/\- ]*)<\/td>/);
+          const position = posMatch ? posMatch[1].trim() : "";
+
+          // Alter
+          const ageMatch = row.match(/<td[^>]*class="zentriert"[^>]*>(\d{1,2})<\/td>/);
+          const age = ageMatch ? ageMatch[1] : "";
+
+          if (!results.find(r => r.url === profileUrl)) {
+            results.push({
+              name: playerName,
+              url: profileUrl,
+              verein,
+              position,
+              age,
+              type: "player",
+            });
+          }
+        }
+      }
+    }
+
     // Coach/Trainer Sektion parsen
+    if (type === 'trainer' || type === 'all') {
     const coachSection = html.match(/id="coach-grid"[\s\S]*?<\/tbody>/);
     if (coachSection) {
       // Auf äußere Tabellenzeilen splitten (class="odd" oder class="even")
@@ -99,6 +140,7 @@ serve(async (req: Request) => {
         }
       }
     }
+    } // end if type === trainer || all
 
     console.log(`Found ${results.length} results for "${name}"`);
 
