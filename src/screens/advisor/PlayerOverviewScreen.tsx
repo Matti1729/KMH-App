@@ -600,23 +600,28 @@ export function PlayerOverviewScreen({ navigation }: any) {
       setNewFirstName(firstName);
       setNewLastName(lastName);
 
-      // Detaillierte Daten von TM-Profil scrapen
-      const { data } = await supabase.functions.invoke('scrape-transfermarkt', { body: { url: suggestion.url } });
-      if (data && data.name) {
-        // Scraper hat funktioniert — volle Daten
+      // Detaillierte Daten von TM-Profil fetchen (ohne Browserless)
+      const { data } = await supabase.functions.invoke('search-transfermarkt', { body: { profileUrl: suggestion.url } });
+      const p = data?.profile;
+      if (p && Object.keys(p).length > 0) {
         setTmSelected({
-          ...data,
           transfermarkt_url: suggestion.url,
-          verein: data.currentClub || suggestion.verein || '',
-          tmPosition: suggestion.position || data.position || '',
+          verein: p.currentClub || suggestion.verein || '',
+          dateOfBirth: p.dateOfBirth || '',
+          position: p.position || suggestion.position || '',
+          nationality: p.nationality || suggestion.nationality || '',
+          height: p.height || '',
+          preferredFoot: p.preferredFoot || '',
+          contractUntil: p.contractUntil || '',
+          league: p.league || '',
+          tmPosition: suggestion.position || '',
           tmAge: suggestion.age || '',
         });
       } else {
-        // Scraper fehlgeschlagen — Daten aus Suche nutzen
         setTmSelected({ transfermarkt_url: suggestion.url, verein: suggestion.verein || '', tmPosition: suggestion.position || '', tmAge: suggestion.age || '', nationality: suggestion.nationality || '', position: suggestion.position || '' });
       }
     } catch (err) {
-      console.error('TM scrape error:', err);
+      console.error('TM profile fetch error:', err);
       setTmSelected({ transfermarkt_url: suggestion.url, verein: suggestion.verein || '', tmPosition: suggestion.position || '', tmAge: suggestion.age || '', nationality: suggestion.nationality || '', position: suggestion.position || '' });
     }
     setTmLoading(false);

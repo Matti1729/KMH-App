@@ -15,7 +15,69 @@ serve(async (req: Request) => {
   }
 
   try {
-    const { name, type = 'all' } = await req.json(); // type: 'player' | 'trainer' | 'all'
+    const { name, type = 'all', profileUrl } = await req.json();
+
+    // Profil-Modus: Spielerprofil direkt fetchen und parsen
+    if (profileUrl) {
+      console.log(`Fetching profile: ${profileUrl}`);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      const resp = await fetch(profileUrl, {
+        method: "GET",
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+          "Accept": "text/html",
+          "Accept-Language": "de-DE,de;q=0.9",
+        },
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      const html = await resp.text();
+
+      const profile: any = {};
+
+      // Geburtsdatum
+      const dobMatch = html.match(/Geb\.\/Alter:[\s\S]*?(\d{2}\.\d{2}\.\d{4})/);
+      if (dobMatch) profile.dateOfBirth = dobMatch[1];
+
+      // Größe (suche nach "X,XX m" Pattern im info-table Bereich)
+      const heightMatch = html.match(/Größe:<\/span>\s*<span[^>]*>(\d[,\.]\d+)\s*(?:&nbsp;|\s)*m/);
+      if (heightMatch) profile.height = heightMatch[1].replace(',', ',') + ' m';
+
+      // Fuß
+      const footMatch = html.match(/Fuß:[\s\S]*?info-table__content--bold[^>]*>\s*(rechts|links|beidfüßig)/i);
+      if (footMatch) profile.preferredFoot = footMatch[1].trim();
+
+      // Position (aus data-header, nicht info-table)
+      const posMatch = html.match(/data-header__label">Position:\s*<span[^>]*>\s*([^<]+)/);
+      if (posMatch) profile.position = posMatch[1].trim().replace(/\s+/g, ' ');
+
+      // Nationalität
+      const natMatch = html.match(/Staatsbürgerschaft:[\s\S]*?&nbsp;&nbsp;([^<\n]+)/);
+      if (natMatch) profile.nationality = natMatch[1].trim();
+
+      // Verein
+      const clubMatch = html.match(/Aktueller Verein:[\s\S]*?title="([^"]+)"[^>]*href="[^"]*\/startseite\/verein/);
+      if (clubMatch) profile.currentClub = clubMatch[1];
+
+      // Vertrag bis
+      const contractMatch = html.match(/Vertrag bis:[\s\S]*?info-table__content--bold[^>]*>\s*(\d{2}\.\d{2}\.\d{4})/);
+      if (contractMatch) profile.contractUntil = contractMatch[1];
+
+      // Liga
+      const leagueMatch = html.match(/data-header__league-link"[^>]*>([\s\S]*?)<\/a>/);
+      if (leagueMatch) {
+        const leagueText = leagueMatch[1].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+        if (leagueText) profile.league = leagueText;
+      }
+
+      console.log("Profile parsed:", JSON.stringify(profile));
+      return new Response(
+        JSON.stringify({ profile }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     if (!name) {
       return new Response(
         JSON.stringify({ error: "name is required" }),
