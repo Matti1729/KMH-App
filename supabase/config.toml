@@ -408,3 +408,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/telegram-bot/deno.json"
 entrypoint = "./functions/telegram-bot/index.ts"
+
+[functions.search-transfermarkt]
+enabled = true
+verify_jwt = true
+import_map = "./functions/search-transfermarkt/deno.json"
+entrypoint = "./functions/search-transfermarkt/index.ts"

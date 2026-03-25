@@ -67,6 +67,7 @@ export function FootballNetworkScreen({ navigation }: any) {
   // vCard Import
   const [vcfContacts, setVcfContacts] = useState<{ vorname: string; nachname: string; telefon: string; email: string; selected: boolean }[]>([]);
   const [showVcfPicker, setShowVcfPicker] = useState(false);
+  const [importProgress, setImportProgress] = useState<{ current: number; total: number; name: string } | null>(null);
 
   // Sorting State
   const [sortField, setSortField] = useState<SortField>('verein');
@@ -196,12 +197,43 @@ export function FootballNetworkScreen({ navigation }: any) {
     input.click();
   };
 
+  const searchTransfermarkt = async (name: string): Promise<{ verein: string; position: string; url: string; bereich: string } | null> => {
+    try {
+      const { data } = await supabase.functions.invoke('search-transfermarkt', { body: { name } });
+      if (data?.results?.length > 0) {
+        const result = data.results[0];
+        // Position-Mapping: TM "Trainer" → unser System
+        const posMap: Record<string, string> = {
+          'Trainer': 'Trainer', 'Co-Trainer': 'Co-Trainer', 'Torwarttrainer': 'Torwarttrainer',
+          'Sportdirektor': 'Sportdirektor', 'Sportvorstand': 'Vorstand', 'Geschäftsführer Sport': 'Geschäftsführer',
+          'Präsident': 'Präsident', 'Vorstandsvorsitzender': 'Vorstand',
+        };
+        return {
+          verein: result.verein || '',
+          position: posMap[result.funktion] || result.funktion || '',
+          url: result.url || '',
+          bereich: 'Herren',
+        };
+      }
+    } catch (err) {
+      console.error(`TM search failed for ${name}:`, err);
+    }
+    return null;
+  };
+
   const importSelectedVcfContacts = async () => {
     const selected = vcfContacts.filter(c => c.selected);
     if (selected.length === 0) return;
 
+    setShowVcfPicker(false);
     let added = 0;
-    for (const contact of selected) {
+    let enriched = 0;
+
+    for (let i = 0; i < selected.length; i++) {
+      const contact = selected[i];
+      const fullName = (contact.vorname + ' ' + contact.nachname).trim();
+      setImportProgress({ current: i + 1, total: selected.length, name: fullName });
+
       let code = '+49';
       let number = contact.telefon;
       const matched = COUNTRY_CODES.find(cc => contact.telefon.startsWith(cc.code));
@@ -210,25 +242,37 @@ export function FootballNetworkScreen({ navigation }: any) {
         number = contact.telefon.slice(matched.code.length);
       }
 
+      // Transfermarkt-Suche
+      const tmData = await searchTransfermarkt(fullName);
+
       const { error } = await supabase.from('football_network_contacts').insert({
         vorname: contact.vorname,
         nachname: contact.nachname,
         telefon_code: code,
         telefon: number,
         email: contact.email,
-        verein: '',
+        verein: tmData?.verein || '',
         liga: '',
-        bereich: '',
-        position: '',
+        bereich: tmData?.bereich || '',
+        position: tmData?.position || '',
         mannschaft: '',
+        transfermarkt_url: tmData?.url || '',
       });
-      if (!error) added++;
+      if (!error) {
+        added++;
+        if (tmData?.verein) enriched++;
+      }
+
+      // Kurze Pause um Transfermarkt nicht zu überlasten
+      if (i < selected.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 800));
+      }
     }
 
-    setShowVcfPicker(false);
+    setImportProgress(null);
     setVcfContacts([]);
     fetchContacts();
-    Alert.alert('Import abgeschlossen', `${added} Kontakt${added !== 1 ? 'e' : ''} importiert.`);
+    Alert.alert('Import abgeschlossen', `${added} Kontakt${added !== 1 ? 'e' : ''} importiert.\n${enriched > 0 ? `${enriched} davon mit Transfermarkt-Daten angereichert.` : 'Keine Transfermarkt-Treffer gefunden.'}`);
   };
 
   const getAvailablePositions = () => newContact.bereich === 'Herren' ? POSITIONS_HERREN : newContact.bereich === 'Nachwuchs' ? POSITIONS_NACHWUCHS : [];
@@ -412,9 +456,24 @@ export function FootballNetworkScreen({ navigation }: any) {
             <Text style={[styles.mobileSubheaderText, { color: colors.textSecondary }]}>{filteredContacts.length} Kontakte</Text>
           </View>
 
+          {/* Import Progress */}
+          {importProgress && (
+            <View style={{ padding: 12, backgroundColor: colors.primary + '15', borderRadius: 8, marginHorizontal: 16, marginBottom: 8 }}>
+              <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '600', marginBottom: 4 }}>
+                Importiere {importProgress.current}/{importProgress.total}...
+              </Text>
+              <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                Suche "{importProgress.name}" auf Transfermarkt
+              </Text>
+              <View style={{ height: 3, backgroundColor: colors.border, borderRadius: 2, marginTop: 6 }}>
+                <View style={{ height: 3, backgroundColor: colors.primary, borderRadius: 2, width: `${(importProgress.current / importProgress.total) * 100}%` }} />
+              </View>
+            </View>
+          )}
+
           {/* Contact Cards */}
           <ScrollView style={styles.mobileCardList} contentContainerStyle={styles.mobileCardListContent}>
-            {filteredContacts.length === 0 ? (
+            {filteredContacts.length === 0 && !importProgress ? (
               <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
                 {contacts.length === 0 ? 'Noch keine Kontakte vorhanden' : 'Keine Kontakte gefunden'}
               </Text>
@@ -898,8 +957,21 @@ export function FootballNetworkScreen({ navigation }: any) {
                 <Text style={[styles.tableHeaderCell, { color: colors.textSecondary }]}>E-Mail {getSortIndicator('email')}</Text>
               </TouchableOpacity>
             </View>
+            {importProgress && (
+              <View style={{ padding: 12, backgroundColor: colors.primary + '15', borderRadius: 8, margin: 12 }}>
+                <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '600', marginBottom: 4 }}>
+                  Importiere {importProgress.current}/{importProgress.total}...
+                </Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                  Suche "{importProgress.name}" auf Transfermarkt
+                </Text>
+                <View style={{ height: 3, backgroundColor: colors.border, borderRadius: 2, marginTop: 6 }}>
+                  <View style={{ height: 3, backgroundColor: colors.primary, borderRadius: 2, width: `${(importProgress.current / importProgress.total) * 100}%` }} />
+                </View>
+              </View>
+            )}
             <ScrollView>
-              {filteredContacts.length === 0 ? (
+              {filteredContacts.length === 0 && !importProgress ? (
                 <View style={styles.emptyState}><Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>{contacts.length === 0 ? 'Noch keine Kontakte vorhanden' : 'Keine Kontakte gefunden'}</Text></View>
               ) : (
                 filteredContacts.map(contact => (
