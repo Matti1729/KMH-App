@@ -607,13 +607,15 @@ export function PlayerOverviewScreen({ navigation }: any) {
           ...data,
           transfermarkt_url: suggestion.url,
           verein: data.currentClub || suggestion.verein || '',
+          tmPosition: suggestion.position || data.position || '',
+          tmAge: suggestion.age || '',
         });
       } else {
-        setTmSelected({ transfermarkt_url: suggestion.url, verein: suggestion.verein || '' });
+        setTmSelected({ transfermarkt_url: suggestion.url, verein: suggestion.verein || '', tmPosition: suggestion.position || '', tmAge: suggestion.age || '' });
       }
     } catch (err) {
       console.error('TM scrape error:', err);
-      setTmSelected({ transfermarkt_url: suggestion.url, verein: suggestion.verein || '' });
+      setTmSelected({ transfermarkt_url: suggestion.url, verein: suggestion.verein || '', tmPosition: suggestion.position || '', tmAge: suggestion.age || '' });
     }
     setTmLoading(false);
   };
@@ -1066,11 +1068,8 @@ export function PlayerOverviewScreen({ navigation }: any) {
                 {tmLoading && <Text style={{ color: colors.primary, fontSize: 11, marginBottom: 6 }}>Lade Spielerdaten von Transfermarkt...</Text>}
                 {tmSelected && (
                   <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: 6, padding: 8, marginBottom: 6, borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.3)' }}>
-                    <Text style={{ color: '#10b981', fontSize: 11, fontWeight: '600', marginBottom: 4 }}>Transfermarkt-Daten übernommen</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-                      <Text style={{ color: colors.text, fontSize: 12, fontWeight: '600' }}>{newFirstName} {newLastName}</Text>
-                      <Text style={{ color: colors.textMuted, fontSize: 11, marginLeft: 6 }}>{[tmSelected.verein, tmSelected.position, tmSelected.age ? tmSelected.age + 'J' : tmSelected.dateOfBirth].filter(Boolean).join(' · ')}</Text>
-                    </View>
+                    <Text style={{ color: '#10b981', fontSize: 11, fontWeight: '600', marginBottom: 3 }}>Transfermarkt-Daten übernommen</Text>
+                    <Text style={{ fontSize: 12 }} numberOfLines={1}><Text style={{ color: colors.text, fontWeight: '600' }}>{newFirstName} {newLastName}</Text>{'  '}<Text style={{ color: colors.textMuted, fontSize: 11 }}>{[tmSelected.verein, tmSelected.tmPosition, tmSelected.tmAge ? tmSelected.tmAge + 'J' : ''].filter(Boolean).join(' · ')}</Text></Text>
                   </View>
                 )}
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 28 }}>
@@ -1541,10 +1540,8 @@ export function PlayerOverviewScreen({ navigation }: any) {
               {tmLoading && <Text style={{ color: colors.primary, fontSize: 11, marginBottom: 6 }}>Lade Spielerdaten von Transfermarkt...</Text>}
               {tmSelected && (
                 <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: 6, padding: 8, marginBottom: 6, borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.3)' }}>
-                  <Text style={{ color: '#10b981', fontSize: 11, fontWeight: '600', marginBottom: 4 }}>Transfermarkt-Daten übernommen</Text>
-                  <Text style={{ color: colors.text, fontSize: 12 }}>
-                    <Text style={{ fontWeight: '600' }}>{newFirstName} {newLastName}</Text>
-                    <Text style={{ color: colors.textMuted, fontSize: 11 }}>{' '}{[tmSelected.verein, tmSelected.position, tmSelected.age ? tmSelected.age + 'J' : tmSelected.dateOfBirth].filter(Boolean).join(' · ')}</Text>
+                  <Text style={{ color: '#10b981', fontSize: 11, fontWeight: '600', marginBottom: 3 }}>Transfermarkt-Daten übernommen</Text>
+                  <Text style={{ fontSize: 12 }} numberOfLines={1}><Text style={{ color: colors.text, fontWeight: '600' }}>{newFirstName} {newLastName}</Text>{'  '}<Text style={{ color: colors.textMuted, fontSize: 11 }}>{[tmSelected.verein, tmSelected.tmPosition, tmSelected.tmAge ? tmSelected.tmAge + 'J' : ''].filter(Boolean).join(' · ')}</Text>
                   </Text>
                 </View>
               )}
