@@ -684,7 +684,11 @@ export function PlayerOverviewScreen({ navigation }: any) {
       const pos = mapTmPosition(tmSelected.position);
       if (pos) insertData.position = pos;
       if (tmSelected.nationality) insertData.nationality = tmSelected.nationality;
-      if (tmSelected.height) insertData.height = tmSelected.height;
+      if (tmSelected.height) {
+        // "1,86 m" → 186 (cm als Integer)
+        const hMatch = tmSelected.height.match(/(\d)[,.](\d+)/);
+        if (hMatch) insertData.height = parseInt(hMatch[1] + hMatch[2]);
+      }
       if (tmSelected.preferredFoot) insertData.strong_foot = tmSelected.preferredFoot;
       const contractEnd = tmSelected.contractUntil ? toIsoDate(tmSelected.contractUntil) : null;
       if (contractEnd) insertData.contract_end = contractEnd;
