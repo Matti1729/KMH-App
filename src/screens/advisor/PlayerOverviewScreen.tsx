@@ -85,6 +85,13 @@ export function PlayerOverviewScreen({ navigation }: any) {
   const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const dataLoadedRef = useRef(false);
+  const scrollRef = useRef<any>(null);
+  const getScrollY = () => {
+    try { return parseFloat(window.sessionStorage?.getItem('playerListScrollY') || '0'); } catch { return 0; }
+  };
+  const saveScrollY = (y: number) => {
+    try { window.sessionStorage?.setItem('playerListScrollY', String(y)); } catch {}
+  };
   const [newFirstName, setNewFirstName] = useState('');
   const [newLastName, setNewLastName] = useState('');
   const [tmSuggestions, setTmSuggestions] = useState<any[]>([]);
@@ -959,9 +966,13 @@ export function PlayerOverviewScreen({ navigation }: any) {
 
           {/* Player Cards */}
           <ScrollView
+            ref={scrollRef}
             style={styles.mobileCardList}
             contentContainerStyle={styles.mobileCardListContent}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+            onScroll={(e: any) => { savedScrollY.current = e.nativeEvent.contentOffset.y; }}
+            scrollEventThrottle={100}
+            onLayout={() => { if (savedScrollY.current > 0 && scrollRef.current?.scrollTo) { scrollRef.current.scrollTo({ y: savedScrollY.current, animated: false }); } }}
           >
             {(authLoading || loading) ? (
               <Text style={styles.loadingText}>Laden...</Text>
@@ -1473,7 +1484,13 @@ export function PlayerOverviewScreen({ navigation }: any) {
               />
             )}
 
-            <ScrollView style={styles.tableBody}>
+            <ScrollView
+              ref={scrollRef}
+              style={styles.tableBody}
+              onScroll={(e: any) => { saveScrollY(e.nativeEvent.contentOffset.y); }}
+              scrollEventThrottle={100}
+              onContentSizeChange={() => { const y = getScrollY(); if (y > 0 && scrollRef.current?.scrollTo) { setTimeout(() => scrollRef.current?.scrollTo({ y, animated: false }), 50); } }}
+            >
               {(authLoading || loading) ? (
                 <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Laden...</Text>
               ) : error ? (
