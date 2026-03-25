@@ -1483,14 +1483,34 @@ export function PlayerOverviewScreen({ navigation }: any) {
         {/* Add Player Modal */}
         <Modal visible={showAddModal} transparent animationType="fade">
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+            <View style={[styles.modalContent, { backgroundColor: colors.surface, maxHeight: '80%' }]}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>Neuen Spieler anlegen</Text>
+              <TextInput style={[styles.modalInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Nachname" placeholderTextColor={colors.textMuted} value={newLastName} onChangeText={handleLastNameChange} autoFocus />
+              {tmSearching && <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 8 }}>Suche auf Transfermarkt...</Text>}
+              {tmSuggestions.length > 0 && (
+                <ScrollView style={{ maxHeight: 200, borderWidth: 1, borderColor: colors.border, borderRadius: 8, marginBottom: 12 }}>
+                  {tmSuggestions.map((s, i) => (
+                    <TouchableOpacity key={i} style={{ padding: 10, borderBottomWidth: i < tmSuggestions.length - 1 ? 1 : 0, borderBottomColor: colors.border }} onPress={() => selectTmPlayer(s)}>
+                      <Text style={{ color: colors.text, fontSize: 14, fontWeight: '600' }}>{s.name}</Text>
+                      <Text style={{ color: colors.textSecondary, fontSize: 12 }}>{[s.verein, s.position, s.age ? `${s.age} Jahre` : ''].filter(Boolean).join(' · ')}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
               <TextInput style={[styles.modalInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Vorname" placeholderTextColor={colors.textMuted} value={newFirstName} onChangeText={setNewFirstName} />
-              <TextInput style={[styles.modalInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Nachname" placeholderTextColor={colors.textMuted} value={newLastName} onChangeText={setNewLastName} />
+              {tmLoading && <Text style={{ color: colors.primary, fontSize: 12, marginBottom: 8 }}>Lade Spielerdaten von Transfermarkt...</Text>}
+              {tmSelected && (
+                <View style={{ backgroundColor: colors.surfaceSecondary, borderRadius: 8, padding: 10, marginBottom: 12 }}>
+                  <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '600', marginBottom: 4 }}>Transfermarkt-Daten übernommen</Text>
+                  {tmSelected.verein && <Text style={{ color: colors.textSecondary, fontSize: 12 }}>Verein: {tmSelected.verein}</Text>}
+                  {tmSelected.position && <Text style={{ color: colors.textSecondary, fontSize: 12 }}>Position: {tmSelected.position}</Text>}
+                  {tmSelected.dateOfBirth && <Text style={{ color: colors.textSecondary, fontSize: 12 }}>Geburtsdatum: {tmSelected.dateOfBirth}</Text>}
+                </View>
+              )}
               <Text style={[styles.modalHint, { color: colors.textSecondary }]}>Zuständigkeit: {currentUserName || 'Sie'}</Text>
               <View style={styles.modalButtons}>
-                <TouchableOpacity style={[styles.modalCancelButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setShowAddModal(false)}><Text style={[styles.modalCancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text></TouchableOpacity>
-                <TouchableOpacity style={[styles.modalSaveButton, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={handleAddPlayer}><Text style={[styles.modalSaveButtonText, { color: '#10b981' }]}>Speichern</Text></TouchableOpacity>
+                <TouchableOpacity style={[styles.modalCancelButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => { setShowAddModal(false); setTmSuggestions([]); setTmSelected(null); }}><Text style={[styles.modalCancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text></TouchableOpacity>
+                <TouchableOpacity style={[styles.modalSaveButton, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={handleAddPlayer} disabled={tmLoading}><Text style={[styles.modalSaveButtonText, { color: '#10b981' }]}>{tmLoading ? 'Laden...' : 'Speichern'}</Text></TouchableOpacity>
               </View>
             </View>
           </View>
