@@ -414,3 +414,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/search-transfermarkt/deno.json"
 entrypoint = "./functions/search-transfermarkt/index.ts"
+
+[functions.sync-player-data]
+enabled = true
+verify_jwt = false
+import_map = "./functions/sync-player-data/deno.json"
+entrypoint = "./functions/sync-player-data/index.ts"
