@@ -1039,8 +1039,8 @@ export function FootballNetworkScreen({ navigation }: any) {
               </TouchableOpacity>
             </View>
           )}
-          <View style={[styles.tableContainer, { backgroundColor: colors.cardBackground }]} onLayout={(e) => setTableWidth(e.nativeEvent.layout.width - 36)}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceSecondary, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+          <View style={[styles.tableContainer, { backgroundColor: colors.cardBackground }]} onLayout={(e) => setTableWidth(e.nativeEvent.layout.width - 36 - 32)}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceSecondary, borderBottomWidth: 1, borderBottomColor: colors.border, paddingHorizontal: 16 }}>
               <TouchableOpacity onPress={toggleAllExport} style={{ width: 36, alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}>
                 <Ionicons name={selectedExportIds.length === filteredContacts.length && filteredContacts.length > 0 ? "checkbox" : "square-outline"} size={18} color={selectedExportIds.length > 0 ? colors.primary : colors.textMuted} />
               </TouchableOpacity>
