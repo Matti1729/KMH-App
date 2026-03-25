@@ -263,7 +263,7 @@ export function ScoutingScreen({ navigation }: any) {
 
   // Table columns for list view
   const [scoutingTableWidth, setScoutingTableWidth] = useState(0);
-  const scoutingTable = useTableColumns(SCOUTING_LIST_COLUMNS, scoutingTableWidth);
+  const scoutingTable = useTableColumns(SCOUTING_LIST_COLUMNS, scoutingTableWidth, 'scouting');
 
   const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
   const [showAddGameModal, setShowAddGameModal] = useState(false);

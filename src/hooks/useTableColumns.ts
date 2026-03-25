@@ -2,9 +2,40 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { Platform } from 'react-native';
 import { ColumnDef } from '../types/tableColumns';
 
-export function useTableColumns(defs: ColumnDef[], containerWidth: number) {
-  const [columnOrder, setColumnOrder] = useState<string[]>(() => defs.map(d => d.key));
-  const [columnWidths, setColumnWidths] = useState<Map<string, number>>(new Map());
+const loadSaved = (tableId?: string) => {
+  if (!tableId || typeof window === 'undefined' || !window.localStorage) return null;
+  try {
+    const raw = window.localStorage.getItem(`kmh_table_${tableId}`);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return null;
+};
+
+const saveSetting = (tableId: string | undefined, order: string[], widths: Map<string, number>) => {
+  if (!tableId || typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    window.localStorage.setItem(`kmh_table_${tableId}`, JSON.stringify({
+      order,
+      widths: Array.from(widths.entries()),
+    }));
+  } catch {}
+};
+
+export function useTableColumns(defs: ColumnDef[], containerWidth: number, tableId?: string) {
+  const saved = loadSaved(tableId);
+  const [columnOrder, setColumnOrder] = useState<string[]>(() => {
+    if (saved?.order) {
+      const defKeys = defs.map(d => d.key);
+      const valid = saved.order.filter((k: string) => defKeys.includes(k));
+      const newKeys = defKeys.filter((k: string) => !valid.includes(k));
+      return [...valid, ...newKeys];
+    }
+    return defs.map(d => d.key);
+  });
+  const [columnWidths, setColumnWidths] = useState<Map<string, number>>(() => {
+    if (saved?.widths) return new Map(saved.widths);
+    return new Map();
+  });
   const [resizingKey, setResizingKey] = useState<string | null>(null);
   const [draggingKey, setDraggingKey] = useState<string | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
@@ -111,6 +142,7 @@ export function useTableColumns(defs: ColumnDef[], containerWidth: number) {
       resizeRef.current = null;
       setResizingKey(null);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      saveSetting(tableId, orderRef.current, widthsRef.current);
       document.removeEventListener('pointermove', handleMove);
       document.removeEventListener('pointerup', handleUp);
     };
@@ -189,6 +221,7 @@ export function useTableColumns(defs: ColumnDef[], containerWidth: number) {
       }
       dragRef.current = null;
       setDraggingKey(null);
+      setTimeout(() => saveSetting(tableId, orderRef.current, widthsRef.current), 0);
       document.removeEventListener('pointermove', handleMove);
       document.removeEventListener('pointerup', handleUp);
     };

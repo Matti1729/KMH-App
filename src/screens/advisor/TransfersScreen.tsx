@@ -183,9 +183,9 @@ export function TransfersScreen({ navigation }: any) {
 
   // Table columns (drag & drop + resize)
   const [playerTableWidth, setPlayerTableWidth] = useState(0);
-  const playerTable = useTableColumns(PLAYER_COLUMNS, playerTableWidth);
+  const playerTable = useTableColumns(PLAYER_COLUMNS, playerTableWidth, 'transfers_players');
   const [clubTableWidth, setClubTableWidth] = useState(0);
-  const clubTable = useTableColumns(CLUB_COLUMNS, clubTableWidth);
+  const clubTable = useTableColumns(CLUB_COLUMNS, clubTableWidth, 'transfers_clubs');
 
   // Dynamische Jahrgänge aus den vorhandenen Spielerdaten
   const availableYears = React.useMemo(() => {

@@ -112,7 +112,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
 
   // Table columns
   const [tableWidth, setTableWidth] = useState(0);
-  const table = useTableColumns(PLAYER_COLUMNS, tableWidth);
+  const table = useTableColumns(PLAYER_COLUMNS, tableWidth, 'players');
 
   // Separate Dropdown States wie in Scouting
   const [showYearDropdown, setShowYearDropdown] = useState(false);

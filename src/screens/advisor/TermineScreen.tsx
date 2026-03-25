@@ -164,7 +164,7 @@ export function TermineScreen({ navigation }: any) {
 
   // Table columns (drag & drop + resize)
   const [termineTableWidth, setTermineTableWidth] = useState(0);
-  const termineTable = useTableColumns(TERMINE_COLUMNS, termineTableWidth);
+  const termineTable = useTableColumns(TERMINE_COLUMNS, termineTableWidth, 'termine');
 
   // Form state
   const [formDatum, setFormDatum] = useState('');

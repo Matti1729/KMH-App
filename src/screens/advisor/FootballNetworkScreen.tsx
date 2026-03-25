@@ -93,7 +93,7 @@ export function FootballNetworkScreen({ navigation }: any) {
 
   // Table columns
   const [tableWidth, setTableWidth] = useState(0);
-  const table = useTableColumns(NETWORK_COLUMNS, tableWidth);
+  const table = useTableColumns(NETWORK_COLUMNS, tableWidth, 'network');
 
   // Daten nur laden wenn Auth bereit ist
   useEffect(() => {

@@ -161,7 +161,7 @@ export function FinanzenScreen({ navigation }: any) {
 
   // Table columns (drag & drop + resize)
   const [tableWidth, setTableWidth] = useState(0);
-  const table = useTableColumns(FINANZEN_COLUMNS, tableWidth);
+  const table = useTableColumns(FINANZEN_COLUMNS, tableWidth, 'finanzen');
 
   // Inline status toggle
   const cycleStatus = async (provId: string, currentStatus: string) => {
