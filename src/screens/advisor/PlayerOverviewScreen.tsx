@@ -1976,11 +1976,11 @@ const styles = StyleSheet.create({
   modalSubText: { fontSize: 12, color: '#64748b', textAlign: 'center', marginBottom: 16 },
   modalHint: { fontSize: 12, color: '#64748b', textAlign: 'center', marginBottom: 10, fontStyle: 'italic' },
   modalInput: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, padding: 8, fontSize: 13, marginBottom: 10 },
-  modalButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8, gap: 8 },
-  modalCancelButton: { flex: 1, padding: 10, borderRadius: 6, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center' },
-  modalCancelButtonText: { color: '#64748b', fontWeight: '600', fontSize: 13 },
-  modalSaveButton: { flex: 1, padding: 10, borderRadius: 6, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#10b981', alignItems: 'center' },
-  modalSaveButtonText: { color: '#10b981', fontWeight: '600', fontSize: 13 },
+  modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8, gap: 8 },
+  modalCancelButton: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 5, backgroundColor: 'transparent', alignItems: 'center' },
+  modalCancelButtonText: { color: '#64748b', fontWeight: '500', fontSize: 12 },
+  modalSaveButton: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 5, backgroundColor: 'transparent', borderWidth: 1, borderColor: '#10b981', alignItems: 'center' },
+  modalSaveButtonText: { color: '#10b981', fontWeight: '600', fontSize: 12 },
 
   // Player Detail Modal Styles
   mobileDetailHeader: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1 },
