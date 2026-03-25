@@ -66,26 +66,31 @@ async function fetchTrainerProfile(url: string): Promise<any> {
     const logoMatch = html.match(/tmssl\.akamaized\.net\/\/images\/wappen\/(?:normquad|small|big)\/(\d+)\.png/);
     if (logoMatch) profile.logoUrl = `https://tmssl.akamaized.net//images/wappen/big/${logoMatch[1]}.png`;
 
-    // Funktion/Position (kann mehrere sein, z.B. "Spielanalyst" oder "Trainer")
-    // Primäre Funktion aus data-header
-    const funktionMatch = html.match(/data-header__label">\s*<b>\s*([^<]+)/);
-    if (funktionMatch) profile.position = funktionMatch[1].trim();
-
-    // Zusätzliche Funktionen aus Stationen-Tabelle (aktuelle)
-    const additionalPositions: string[] = [];
-    // Suche nach weiteren aktiven Rollen in der Stationstabelle
-    const stationRegex = /class="hauptlink[^"]*">\s*<a[^>]*>([^<]*)<\/a>[\s\S]*?class="hauptlink[^"]*">\s*<a[^>]*>([^<]*)<\/a>/g;
-    // Einfacher: alle Funktionen aus dem Header-Bereich
-    const allFunktionen = html.match(/data-header__label">\s*<b>\s*([^<]+)/g);
-    if (allFunktionen) {
-      for (const m of allFunktionen) {
-        const f = m.replace(/data-header__label">\s*<b>\s*/, '').trim();
-        if (f && !additionalPositions.includes(f)) additionalPositions.push(f);
+    // Positionen: Alle aktiven Stationen extrahieren (Amtsaustritt = "-")
+    const positions = new Set<string>();
+    // Aktive Stationen: Zeilen mit "ausfallzeiten_k" die kein Enddatum haben
+    const stationRows = html.split(/<tr class="ausfallzeiten_k">/);
+    for (const row of stationRows) {
+      // Prüfen ob aktiv (Amtsaustritt = "-")
+      const cells = row.match(/<td class="zentriert">([^<]*)<\/td>/g);
+      if (cells && cells.length >= 2) {
+        const amtsaustritt = cells[1].replace(/<[^>]*>/g, '').trim();
+        if (amtsaustritt === '-') {
+          // Funktion extrahieren (steht nach <br> im hauptlink-Bereich)
+          const funktionMatch = row.match(/<br\s*\/?>\s*([^<]+)<\/td>/);
+          if (funktionMatch) {
+            const funktion = funktionMatch[1].trim();
+            if (funktion && funktion !== '-') positions.add(funktion);
+          }
+        }
       }
     }
-    if (additionalPositions.length > 1) {
-      profile.position = additionalPositions.join(', ');
+    // Fallback: Hauptfunktion aus Header
+    if (positions.size === 0) {
+      const headerFunktion = html.match(/data-header__label">\s*<b>\s*([^<]+)/);
+      if (headerFunktion) positions.add(headerFunktion[1].trim());
     }
+    profile.position = Array.from(positions).join(', ');
 
     // Mannschaft (aus Vereinsname, z.B. "Bayern München U19" → "U19")
     const mannschaftMatch = profile.verein?.match(/\b(U\d{2}|II|2\.\s*Mannschaft)\b/i);
