@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Pressable, Linking, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Pressable, Linking, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Contacts from 'expo-contacts';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 import { MobileHeader } from '../../components/MobileHeader';
@@ -65,10 +64,9 @@ export function FootballNetworkScreen({ navigation }: any) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showDesktopDetailModal, setShowDesktopDetailModal] = useState(false);
 
-  // Phone Contacts Import
-  const [phoneContacts, setPhoneContacts] = useState<Contacts.Contact[]>([]);
-  const [showPhoneContactsPicker, setShowPhoneContactsPicker] = useState(false);
-  const [phoneContactSearch, setPhoneContactSearch] = useState('');
+  // vCard Import
+  const [vcfContacts, setVcfContacts] = useState<{ vorname: string; nachname: string; telefon: string; email: string; selected: boolean }[]>([]);
+  const [showVcfPicker, setShowVcfPicker] = useState(false);
 
   // Sorting State
   const [sortField, setSortField] = useState<SortField>('verein');
@@ -148,56 +146,89 @@ export function FootballNetworkScreen({ navigation }: any) {
     setVereinSearch(''); setLigaSearch(''); setActiveDropdown(null);
   };
 
-  const importFromContacts = async () => {
-    try {
-      const { status } = await Contacts.requestPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Berechtigung', 'Zugriff auf Kontakte wurde nicht erlaubt.');
-        return;
+  const parseVcf = (text: string) => {
+    const contacts: { vorname: string; nachname: string; telefon: string; email: string; selected: boolean }[] = [];
+    const cards = text.split('BEGIN:VCARD').filter(c => c.trim());
+    for (const card of cards) {
+      let vorname = '', nachname = '', telefon = '', email = '';
+      const lines = card.split(/\r?\n/);
+      for (const line of lines) {
+        if (line.startsWith('N:') || line.startsWith('N;')) {
+          const nValue = line.replace(/^N[^:]*:/, '');
+          const parts = nValue.split(';');
+          nachname = parts[0] || '';
+          vorname = parts[1] || '';
+        }
+        if ((line.startsWith('TEL') || line.startsWith('tel')) && !telefon) {
+          telefon = line.replace(/^TEL[^:]*:/i, '').replace(/\s/g, '');
+        }
+        if ((line.startsWith('EMAIL') || line.startsWith('email')) && !email) {
+          email = line.replace(/^EMAIL[^:]*:/i, '').trim();
+        }
       }
-      const { data } = await Contacts.getContactsAsync({
-        fields: [Contacts.Fields.FirstName, Contacts.Fields.LastName, Contacts.Fields.PhoneNumbers, Contacts.Fields.Emails],
-      });
-      if (!data || data.length === 0) {
-        Alert.alert('Hinweis', 'Keine Kontakte gefunden.');
-        return;
+      if (vorname || nachname) {
+        contacts.push({ vorname, nachname, telefon, email, selected: true });
       }
-      // Kontaktliste als Auswahl anzeigen - nimm die ersten 500
-      const sorted = data.slice(0, 500).sort((a, b) => ((a.firstName || '') + (a.lastName || '')).localeCompare((b.firstName || '') + (b.lastName || '')));
-      // Für Mobile: Einfache Alert-basierte Lösung nicht ideal bei vielen Kontakten
-      // Besser: Wir nutzen presentFormAsync oder eine Suche
-      // Alternativ: direkt alle Kontakte laden und ein Modal mit Suche zeigen
-      setPhoneContacts(sorted);
-      setShowPhoneContactsPicker(true);
-    } catch (err) {
-      console.error('Kontakt-Import Fehler:', err);
-      Alert.alert('Fehler', 'Kontakte konnten nicht geladen werden.');
     }
+    return contacts.sort((a, b) => (a.nachname + a.vorname).localeCompare(b.nachname + b.vorname));
   };
 
-  const selectPhoneContact = (contact: Contacts.Contact) => {
-    const phone = contact.phoneNumbers?.[0]?.number?.replace(/\s/g, '') || '';
-    // Telefon-Code extrahieren falls vorhanden
-    let code = '+49';
-    let number = phone;
-    const codeMatch = phone.match(/^(\+\d{2,3})/);
-    if (codeMatch) {
-      const matched = COUNTRY_CODES.find(cc => phone.startsWith(cc.code));
+  const handleVcfUpload = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.vcf,.vcard';
+    input.onchange = (e: any) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const text = ev.target?.result as string;
+        const parsed = parseVcf(text);
+        if (parsed.length === 0) {
+          Alert.alert('Hinweis', 'Keine Kontakte in der Datei gefunden.');
+          return;
+        }
+        setVcfContacts(parsed);
+        setShowVcfPicker(true);
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  };
+
+  const importSelectedVcfContacts = async () => {
+    const selected = vcfContacts.filter(c => c.selected);
+    if (selected.length === 0) return;
+
+    let added = 0;
+    for (const contact of selected) {
+      let code = '+49';
+      let number = contact.telefon;
+      const matched = COUNTRY_CODES.find(cc => contact.telefon.startsWith(cc.code));
       if (matched) {
         code = matched.code;
-        number = phone.slice(matched.code.length);
+        number = contact.telefon.slice(matched.code.length);
       }
+
+      const { error } = await supabase.from('football_network_contacts').insert({
+        vorname: contact.vorname,
+        nachname: contact.nachname,
+        telefon_code: code,
+        telefon: number,
+        email: contact.email,
+        verein: '',
+        liga: '',
+        bereich: '',
+        position: '',
+        mannschaft: '',
+      });
+      if (!error) added++;
     }
-    setNewContact({
-      ...newContact,
-      vorname: contact.firstName || '',
-      nachname: contact.lastName || '',
-      telefon_code: code,
-      telefon: number,
-      email: contact.emails?.[0]?.email || '',
-    });
-    setShowPhoneContactsPicker(false);
-    setPhoneContactSearch('');
+
+    setShowVcfPicker(false);
+    setVcfContacts([]);
+    fetchContacts();
+    Alert.alert('Import abgeschlossen', `${added} Kontakt${added !== 1 ? 'e' : ''} importiert.`);
   };
 
   const getAvailablePositions = () => newContact.bereich === 'Herren' ? POSITIONS_HERREN : newContact.bereich === 'Nachwuchs' ? POSITIONS_NACHWUCHS : [];
@@ -600,13 +631,13 @@ export function FootballNetworkScreen({ navigation }: any) {
                 <TouchableOpacity onPress={closeModal} style={styles.closeButton}><Text style={[styles.closeButtonText, { color: colors.textSecondary }]}>✕</Text></TouchableOpacity>
               </View>
               <ScrollView style={styles.modalScroll}>
-                {Platform.OS !== 'web' && !editingContact && (
+                {!editingContact && (
                   <TouchableOpacity
                     style={[styles.importContactBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
-                    onPress={importFromContacts}
+                    onPress={handleVcfUpload}
                   >
-                    <Ionicons name="person-add-outline" size={18} color={colors.primary} style={{ marginRight: 8 }} />
-                    <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '600' }}>Aus Telefonbuch importieren</Text>
+                    <Ionicons name="cloud-upload-outline" size={18} color={colors.primary} style={{ marginRight: 8 }} />
+                    <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '600' }}>Kontakte importieren (.vcf)</Text>
                   </TouchableOpacity>
                 )}
                 <View style={styles.formField}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>Vorname</Text><TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.vorname} onChangeText={(t) => setNewContact({...newContact, vorname: t})} placeholder="Vorname" placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} /></View>
@@ -998,13 +1029,13 @@ export function FootballNetworkScreen({ navigation }: any) {
               <TouchableOpacity onPress={closeModal} style={styles.closeButton}><Text style={[styles.closeButtonText, { color: colors.textSecondary }]}>✕</Text></TouchableOpacity>
             </View>
             <ScrollView style={styles.modalScroll}>
-              {Platform.OS !== 'web' && !editingContact && (
+              {!editingContact && (
                 <TouchableOpacity
                   style={[styles.importContactBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
-                  onPress={importFromContacts}
+                  onPress={handleVcfUpload}
                 >
-                  <Ionicons name="person-add-outline" size={18} color={colors.primary} style={{ marginRight: 8 }} />
-                  <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '600' }}>Aus Telefonbuch importieren</Text>
+                  <Ionicons name="cloud-upload-outline" size={18} color={colors.primary} style={{ marginRight: 8 }} />
+                  <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '600' }}>Kontakte importieren (.vcf)</Text>
                 </TouchableOpacity>
               )}
               <View style={styles.formField}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>Vorname</Text><TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.vorname} onChangeText={(t) => setNewContact({...newContact, vorname: t})} placeholder="Vorname" placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} /></View>
@@ -1159,51 +1190,60 @@ export function FootballNetworkScreen({ navigation }: any) {
         </Pressable>
       </Modal>
 
-      {/* Telefon-Kontakte Picker Modal */}
-      <Modal visible={showPhoneContactsPicker} transparent animationType="slide">
+      {/* vCard Import Picker Modal */}
+      <Modal visible={showVcfPicker} transparent animationType="slide">
         <View style={[styles.modalOverlay, { justifyContent: 'flex-end' }]}>
           <View style={[styles.phoneContactsModal, { backgroundColor: colors.surface }]}>
             <View style={[styles.phoneContactsHeader, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.phoneContactsTitle, { color: colors.text }]}>Kontakt auswählen</Text>
-              <TouchableOpacity onPress={() => { setShowPhoneContactsPicker(false); setPhoneContactSearch(''); }}>
+              <Text style={[styles.phoneContactsTitle, { color: colors.text }]}>Kontakte importieren ({vcfContacts.filter(c => c.selected).length}/{vcfContacts.length})</Text>
+              <TouchableOpacity onPress={() => { setShowVcfPicker(false); setVcfContacts([]); }}>
                 <Text style={{ fontSize: 18, color: colors.textSecondary }}>✕</Text>
               </TouchableOpacity>
             </View>
-            <View style={{ paddingHorizontal: 16, paddingVertical: 10 }}>
-              <TextInput
-                style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
-                placeholder="Kontakt suchen..."
-                placeholderTextColor={colors.textMuted}
-                value={phoneContactSearch}
-                onChangeText={setPhoneContactSearch}
-                autoFocus
-              />
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10 }}>
+              <TouchableOpacity onPress={() => setVcfContacts(vcfContacts.map(c => ({ ...c, selected: true })))}>
+                <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '600' }}>Alle auswählen</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setVcfContacts(vcfContacts.map(c => ({ ...c, selected: false })))}>
+                <Text style={{ color: colors.textSecondary, fontSize: 13 }}>Keine auswählen</Text>
+              </TouchableOpacity>
             </View>
             <ScrollView style={{ flex: 1 }}>
-              {phoneContacts
-                .filter(c => {
-                  if (!phoneContactSearch) return true;
-                  const name = ((c.firstName || '') + ' ' + (c.lastName || '')).toLowerCase();
-                  return name.includes(phoneContactSearch.toLowerCase());
-                })
-                .map((contact, i) => (
-                  <TouchableOpacity
-                    key={contact.id || i}
-                    style={[styles.phoneContactItem, { borderBottomColor: colors.border }]}
-                    onPress={() => selectPhoneContact(contact)}
-                  >
-                    <View>
-                      <Text style={[styles.phoneContactName, { color: colors.text }]}>
-                        {((contact.firstName || '') + ' ' + (contact.lastName || '')).trim() || 'Kein Name'}
+              {vcfContacts.map((contact, i) => (
+                <TouchableOpacity
+                  key={i}
+                  style={[styles.phoneContactItem, { borderBottomColor: colors.border }]}
+                  onPress={() => {
+                    const updated = [...vcfContacts];
+                    updated[i] = { ...updated[i], selected: !updated[i].selected };
+                    setVcfContacts(updated);
+                  }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.phoneContactName, { color: colors.text }]}>
+                      {(contact.vorname + ' ' + contact.nachname).trim() || 'Kein Name'}
+                    </Text>
+                    {(contact.telefon || contact.email) && (
+                      <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
+                        {[contact.telefon, contact.email].filter(Boolean).join(' · ')}
                       </Text>
-                      {contact.phoneNumbers?.[0]?.number && (
-                        <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{contact.phoneNumbers[0].number}</Text>
-                      )}
-                    </View>
-                    <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-                  </TouchableOpacity>
-                ))}
+                    )}
+                  </View>
+                  <Ionicons name={contact.selected ? "checkbox" : "square-outline"} size={22} color={contact.selected ? colors.primary : colors.textMuted} />
+                </TouchableOpacity>
+              ))}
             </ScrollView>
+            <View style={{ padding: 16, borderTopWidth: 1, borderTopColor: colors.border }}>
+              <TouchableOpacity
+                style={[styles.saveButton, { backgroundColor: vcfContacts.some(c => c.selected) ? colors.primary : colors.surfaceSecondary }]}
+                onPress={importSelectedVcfContacts}
+                disabled={!vcfContacts.some(c => c.selected)}
+              >
+                <Text style={[styles.saveButtonText, { color: vcfContacts.some(c => c.selected) ? colors.primaryText : colors.textMuted }]}>
+                  {vcfContacts.filter(c => c.selected).length} Kontakt{vcfContacts.filter(c => c.selected).length !== 1 ? 'e' : ''} importieren
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
