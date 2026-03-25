@@ -1069,7 +1069,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
                 {tmSelected && (
                   <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: 6, padding: 8, marginBottom: 6, borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.3)' }}>
                     <Text style={{ color: '#10b981', fontSize: 11, fontWeight: '600', marginBottom: 3 }}>Transfermarkt-Daten übernommen</Text>
-                    <Text style={{ fontSize: 12 }} numberOfLines={1}><Text style={{ color: colors.text, fontWeight: '600' }}>{newFirstName} {newLastName}</Text>{'  '}<Text style={{ color: colors.textMuted, fontSize: 11 }}>{[tmSelected.verein, tmSelected.tmPosition, tmSelected.tmAge ? tmSelected.tmAge + 'J' : ''].filter(Boolean).join(' · ')}</Text></Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}><Text style={{ color: colors.text, fontSize: 12, fontWeight: '600', lineHeight: 16 }}>{newFirstName} {newLastName}</Text><Text style={{ color: colors.textMuted, fontSize: 11, marginLeft: 8, lineHeight: 16 }}>{[tmSelected.verein, tmSelected.tmPosition, tmSelected.tmAge ? tmSelected.tmAge + 'J' : ''].filter(Boolean).join(' · ')}</Text></View>
                   </View>
                 )}
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 28 }}>
