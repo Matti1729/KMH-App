@@ -552,7 +552,21 @@ export function PlayerOverviewScreen({ navigation }: any) {
     setTmSearching(true);
     try {
       const { data } = await supabase.functions.invoke('search-transfermarkt', { body: { name: query, type: 'player' } });
-      setTmSuggestions(data?.results?.slice(0, 20) || []);
+      const results = data?.results || [];
+      // Sortieren: exakte Namens-Matches zuerst, dann mit Verein, dann Rest
+      const q = query.toLowerCase().trim();
+      results.sort((a: any, b: any) => {
+        const aName = (a.name || '').toLowerCase();
+        const bName = (b.name || '').toLowerCase();
+        const aExact = aName === q || aName.startsWith(q) ? 0 : 1;
+        const bExact = bName === q || bName.startsWith(q) ? 0 : 1;
+        if (aExact !== bExact) return aExact - bExact;
+        const aClub = a.verein ? 0 : 1;
+        const bClub = b.verein ? 0 : 1;
+        if (aClub !== bClub) return aClub - bClub;
+        return 0;
+      });
+      setTmSuggestions(results.slice(0, 20));
     } catch { setTmSuggestions([]); }
     setTmSearching(false);
   };
@@ -1971,7 +1985,7 @@ const styles = StyleSheet.create({
 
   // Modal - dezente Buttons
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { borderRadius: 16, padding: 24, width: '90%', maxWidth: 400 },
+  modalContent: { borderRadius: 16, paddingTop: 20, paddingHorizontal: 20, paddingBottom: 12, width: '90%', maxWidth: 400 },
   modalTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 12, textAlign: 'center' },
   modalText: { fontSize: 13, color: '#334155', textAlign: 'center', marginBottom: 8 },
   modalPlayerName: { fontWeight: 'bold' },
