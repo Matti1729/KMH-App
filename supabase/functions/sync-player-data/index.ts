@@ -132,36 +132,13 @@ serve(async (req: Request) => {
           const m = d?.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
           return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
         };
-        // Position-Mapping TM → DB
-        const posMap: Record<string, string> = {
-          'Torwart': 'TW', 'Innenverteidiger': 'IV', 'Linker Verteidiger': 'LV', 'Rechter Verteidiger': 'RV',
-          'Defensives Mittelfeld': 'DM', 'Zentrales Mittelfeld': 'ZM', 'Offensives Mittelfeld': 'OM',
-          'Linkes Mittelfeld': 'LA', 'Rechtes Mittelfeld': 'RA', 'Linksaußen': 'LA', 'Rechtsaußen': 'RA',
-          'Hängende Spitze': 'OM', 'Mittelstürmer': 'ST', 'Sturm': 'ST', 'Abwehr': 'IV', 'Mittelfeld': 'ZM',
-        };
-        const mapPos = (p: string) => {
-          if (!p) return null;
-          if (posMap[p]) return posMap[p];
-          for (const [k, v] of Object.entries(posMap)) { if (p.includes(k)) return v; }
-          return null;
-        };
 
-        // Nur Felder updaten die tatsächlich Werte haben
+        // NUR Verein, Liga und Geburtsdatum updaten — alles andere ist manuell!
         const updateData: any = {};
         if (profile.club) updateData.club = profile.club;
         if (profile.league) updateData.league = profile.league;
-        const pos = mapPos(profile.position);
-        if (pos) updateData.position = pos;
-        if (profile.nationality) updateData.nationality = profile.nationality;
         const dob = profile.birth_date ? toIso(profile.birth_date) : null;
         if (dob) updateData.birth_date = dob;
-        if (profile.height) {
-          const hm = profile.height.match(/(\d)[,.](\d+)/);
-          if (hm) updateData.height = parseInt(hm[1] + hm[2]);
-        }
-        if (profile.strong_foot) updateData.strong_foot = profile.strong_foot;
-        const ce = profile.contract_end ? toIso(profile.contract_end) : null;
-        if (ce) updateData.contract_end = ce;
 
         if (Object.keys(updateData).length > 0) {
           const { error: updateError } = await supabase
