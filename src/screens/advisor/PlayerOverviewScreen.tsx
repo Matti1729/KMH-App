@@ -566,7 +566,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
         if (aClub !== bClub) return aClub - bClub;
         return 0;
       });
-      setTmSuggestions(results.slice(0, 20));
+      setTmSuggestions(results.slice(0, 30));
     } catch { setTmSuggestions([]); }
     setTmSearching(false);
   };
@@ -1041,39 +1041,41 @@ export function PlayerOverviewScreen({ navigation }: any) {
           {/* Add Player Modal */}
           <Modal visible={showAddModal} transparent animationType="fade">
             <View style={styles.modalOverlay}>
-              <View style={[styles.modalContent, { backgroundColor: colors.surface, maxHeight: '85%', width: '90%', maxWidth: 500 }]}>
+              <View style={[styles.modalContent, { backgroundColor: colors.surface, maxHeight: '85%', width: '90%', maxWidth: 480 }]}>
                 <Text style={[styles.modalTitle, { color: colors.text }]}>Neuen Spieler anlegen</Text>
-                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 4 }}>
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 2 }}>
                   <TextInput style={[styles.modalInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Nachname" placeholderTextColor={colors.textMuted} value={newLastName} onChangeText={handleLastNameChange} autoFocus />
                   <TextInput style={[styles.modalInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Vorname" placeholderTextColor={colors.textMuted} value={newFirstName} onChangeText={handleFirstNameChange} />
                 </View>
-                {tmSearching && <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 8 }}>Suche auf Transfermarkt...</Text>}
+                {tmSearching && <Text style={{ color: colors.textMuted, fontSize: 11, marginBottom: 4 }}>Suche auf Transfermarkt...</Text>}
                 {tmSuggestions.length > 0 && (
-                  <ScrollView style={{ maxHeight: 220, borderWidth: 1, borderColor: colors.border, borderRadius: 8, marginBottom: 12 }}>
+                  <ScrollView style={{ maxHeight: 280, borderWidth: 1, borderColor: colors.border, borderRadius: 6, marginBottom: 8 }}>
                     {tmSuggestions.map((s, i) => (
-                      <TouchableOpacity key={i} style={{ padding: 10, borderBottomWidth: i < tmSuggestions.length - 1 ? 1 : 0, borderBottomColor: colors.border }} onPress={() => selectTmPlayer(s)}>
-                        <Text style={{ color: colors.text, fontSize: 14, fontWeight: '600' }}>{s.name}</Text>
-                        <Text style={{ color: colors.textSecondary, fontSize: 12 }}>{[s.verein, s.position, s.age ? `${s.age} Jahre` : ''].filter(Boolean).join(' · ')}</Text>
+                      <TouchableOpacity key={i} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 5, paddingHorizontal: 8, borderBottomWidth: i < tmSuggestions.length - 1 ? StyleSheet.hairlineWidth : 0, borderBottomColor: colors.border }} onPress={() => selectTmPlayer(s)}>
+                        <Text style={{ color: colors.text, fontSize: 12, fontWeight: '600' }}>{s.name}</Text>
+                        {s.verein ? <Text style={{ color: colors.textMuted, fontSize: 11, marginLeft: 6 }}>{s.verein}</Text> : null}
+                        <View style={{ flex: 1 }} />
+                        <Text style={{ color: colors.textMuted, fontSize: 11 }}>{[s.position, s.age ? s.age + 'J' : ''].filter(Boolean).join(' · ')}</Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
                 )}
-                {tmLoading && <Text style={{ color: colors.primary, fontSize: 12, marginBottom: 8 }}>Lade Spielerdaten von Transfermarkt...</Text>}
+                {tmLoading && <Text style={{ color: colors.primary, fontSize: 11, marginBottom: 6 }}>Lade Spielerdaten von Transfermarkt...</Text>}
                 {tmSelected && (
-                  <View style={{ backgroundColor: colors.surfaceSecondary, borderRadius: 8, padding: 12, marginBottom: 12 }}>
-                    <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '600', marginBottom: 6 }}>Transfermarkt-Daten übernommen</Text>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                      {tmSelected.dateOfBirth && <Text style={{ color: colors.textSecondary, fontSize: 12, backgroundColor: colors.surface, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 }}>🎂 {tmSelected.dateOfBirth}</Text>}
-                      {tmSelected.verein && <Text style={{ color: colors.textSecondary, fontSize: 12, backgroundColor: colors.surface, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 }}>⚽ {tmSelected.verein}</Text>}
-                      {tmSelected.position && <Text style={{ color: colors.textSecondary, fontSize: 12, backgroundColor: colors.surface, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 }}>📋 {tmSelected.position}</Text>}
-                      {tmSelected.nationality && <Text style={{ color: colors.textSecondary, fontSize: 12, backgroundColor: colors.surface, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 }}>🌍 {tmSelected.nationality}</Text>}
-                      {tmSelected.height && <Text style={{ color: colors.textSecondary, fontSize: 12, backgroundColor: colors.surface, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 }}>📏 {tmSelected.height}</Text>}
-                      {tmSelected.preferredFoot && <Text style={{ color: colors.textSecondary, fontSize: 12, backgroundColor: colors.surface, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 }}>🦶 {tmSelected.preferredFoot}</Text>}
-                      {tmSelected.contractUntil && <Text style={{ color: colors.textSecondary, fontSize: 12, backgroundColor: colors.surface, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 }}>📝 Vertrag bis {tmSelected.contractUntil}</Text>}
+                  <View style={{ backgroundColor: colors.surfaceSecondary, borderRadius: 6, padding: 8, marginBottom: 6 }}>
+                    <Text style={{ color: colors.primary, fontSize: 11, fontWeight: '600', marginBottom: 4 }}>Transfermarkt-Daten übernommen</Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
+                      {tmSelected.dateOfBirth && <Text style={{ color: colors.textSecondary, fontSize: 11, backgroundColor: colors.surface, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 3 }}>🎂 {tmSelected.dateOfBirth}</Text>}
+                      {tmSelected.verein && <Text style={{ color: colors.textSecondary, fontSize: 11, backgroundColor: colors.surface, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 3 }}>⚽ {tmSelected.verein}</Text>}
+                      {tmSelected.position && <Text style={{ color: colors.textSecondary, fontSize: 11, backgroundColor: colors.surface, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 3 }}>📋 {tmSelected.position}</Text>}
+                      {tmSelected.nationality && <Text style={{ color: colors.textSecondary, fontSize: 11, backgroundColor: colors.surface, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 3 }}>🌍 {tmSelected.nationality}</Text>}
+                      {tmSelected.height && <Text style={{ color: colors.textSecondary, fontSize: 11, backgroundColor: colors.surface, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 3 }}>📏 {tmSelected.height}</Text>}
+                      {tmSelected.preferredFoot && <Text style={{ color: colors.textSecondary, fontSize: 11, backgroundColor: colors.surface, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 3 }}>🦶 {tmSelected.preferredFoot}</Text>}
+                      {tmSelected.contractUntil && <Text style={{ color: colors.textSecondary, fontSize: 11, backgroundColor: colors.surface, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 3 }}>📝 bis {tmSelected.contractUntil}</Text>}
                     </View>
                   </View>
                 )}
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Text style={[styles.modalHint, { color: colors.textSecondary }]}>Zuständigkeit: {currentUserName || 'Sie'}</Text>
                   <View style={styles.modalButtons}>
                     <TouchableOpacity style={styles.modalCancelButton} onPress={() => { setShowAddModal(false); setTmSuggestions([]); setTmSelected(null); setNewFirstName(''); setNewLastName(''); }}><Text style={[styles.modalCancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text></TouchableOpacity>
