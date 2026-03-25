@@ -60,9 +60,15 @@ serve(async (req: Request) => {
       const clubMatch = html.match(/Aktueller Verein:[\s\S]*?title="([^"]+)"[^>]*href="[^"]*\/startseite\/verein/);
       if (clubMatch) profile.currentClub = clubMatch[1];
 
-      // Vertrag bis
-      const contractMatch = html.match(/Vertrag bis:[\s\S]*?info-table__content--bold[^>]*>\s*(\d{2}\.\d{2}\.\d{4})/);
-      if (contractMatch) profile.contractUntil = contractMatch[1];
+      // Vertrag bis (aus data-header — zuverlässiger als info-table)
+      const contractMatch = html.match(/Vertrag bis:\s*<span[^>]*data-header__content[^>]*>\s*(\d{2}\.\d{2}\.\d{4})/);
+      if (contractMatch) {
+        profile.contractUntil = contractMatch[1];
+      } else {
+        // Fallback: info-table (direkt nach "Vertrag bis:" Label)
+        const contractMatch2 = html.match(/info-table__content--regular">\s*Vertrag bis:<\/span>\s*<span[^>]*info-table__content--bold[^>]*>\s*(\d{2}\.\d{2}\.\d{4})/);
+        if (contractMatch2) profile.contractUntil = contractMatch2[1];
+      }
 
       // Liga
       const leagueMatch = html.match(/data-header__league-link"[^>]*>([\s\S]*?)<\/a>/);
