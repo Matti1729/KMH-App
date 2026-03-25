@@ -62,7 +62,7 @@ serve(async (req: Request) => {
 
       // Vereins-Logo (small wappen)
       const logoMatch = html.match(/tmssl\.akamaized\.net\/\/images\/wappen\/small\/(\d+)\.png[^"]*/);
-      if (logoMatch) profile.clubLogoUrl = `https://tmssl.akamaized.net//images/wappen/small/${logoMatch[1]}.png`;
+      if (logoMatch) profile.clubLogoUrl = `https://tmssl.akamaized.net//images/wappen/homepage/${logoMatch[1]}.png`;
 
       // Vertrag bis (aus data-header — zuverlässiger als info-table)
       const contractMatch = html.match(/Vertrag bis:\s*<span[^>]*data-header__content[^>]*>\s*(\d{2}\.\d{2}\.\d{4})/);
@@ -156,7 +156,7 @@ serve(async (req: Request) => {
 
           // Vereins-Logo URL
           const logoMatch = row.match(/tmssl\.akamaized\.net\/\/images\/wappen\/tiny\/(\d+)\.png/);
-          const logoUrl = logoMatch ? `https://tmssl.akamaized.net//images/wappen/small/${logoMatch[1]}.png` : "";
+          const logoUrl = logoMatch ? `https://tmssl.akamaized.net//images/wappen/homepage/${logoMatch[1]}.png` : "";
 
           if (!results.find(r => r.url === profileUrl)) {
             results.push({
