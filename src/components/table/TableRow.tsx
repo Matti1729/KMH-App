@@ -18,12 +18,18 @@ export function TableRow({
   onPress,
   activeOpacity = 0.7,
 }: TableRowProps) {
-  const cells = columnOrder.map((key) => {
-    const width = getColumnWidth(key);
+  const DIVIDER_WIDTH = 12;
+  const cells = columnOrder.map((key, idx) => {
+    const rawWidth = getColumnWidth(key);
+    const isLast = idx === columnOrder.length - 1;
+    const width = isLast ? rawWidth : rawWidth - DIVIDER_WIDTH;
     return (
-      <View key={key} style={[styles.cell, { width }]}>
-        {renderCell(key, width)}
-      </View>
+      <React.Fragment key={key}>
+        <View style={[styles.cell, { width }]}>
+          {renderCell(key, width)}
+        </View>
+        {!isLast && <View style={{ width: DIVIDER_WIDTH }} />}
+      </React.Fragment>
     );
   });
 
