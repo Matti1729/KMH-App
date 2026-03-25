@@ -60,6 +60,10 @@ serve(async (req: Request) => {
       const clubMatch = html.match(/Aktueller Verein:[\s\S]*?title="([^"]+)"[^>]*href="[^"]*\/startseite\/verein/);
       if (clubMatch) profile.currentClub = clubMatch[1];
 
+      // Vereins-Logo (small wappen)
+      const logoMatch = html.match(/tmssl\.akamaized\.net\/\/images\/wappen\/small\/(\d+)\.png[^"]*/);
+      if (logoMatch) profile.clubLogoUrl = `https://tmssl.akamaized.net//images/wappen/small/${logoMatch[1]}.png`;
+
       // Vertrag bis (aus data-header — zuverlässiger als info-table)
       const contractMatch = html.match(/Vertrag bis:\s*<span[^>]*data-header__content[^>]*>\s*(\d{2}\.\d{2}\.\d{4})/);
       if (contractMatch) {
@@ -150,6 +154,10 @@ serve(async (req: Request) => {
           const natMatch = row.match(/title="([^"]+)"[^>]*class="flaggenrahmen"/);
           const nationality = natMatch ? natMatch[1] : "";
 
+          // Vereins-Logo URL
+          const logoMatch = row.match(/tmssl\.akamaized\.net\/\/images\/wappen\/tiny\/(\d+)\.png/);
+          const logoUrl = logoMatch ? `https://tmssl.akamaized.net//images/wappen/small/${logoMatch[1]}.png` : "";
+
           if (!results.find(r => r.url === profileUrl)) {
             results.push({
               name: playerName,
@@ -158,6 +166,7 @@ serve(async (req: Request) => {
               verein,
               position,
               age,
+              logoUrl,
               type: "player",
             });
           }

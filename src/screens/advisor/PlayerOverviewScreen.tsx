@@ -607,6 +607,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
         setTmSelected({
           transfermarkt_url: suggestion.url,
           verein: p.currentClub || suggestion.verein || '',
+          clubLogoUrl: p.clubLogoUrl || suggestion.logoUrl || '',
           dateOfBirth: p.dateOfBirth || '',
           position: p.position || suggestion.position || '',
           nationality: p.nationality || suggestion.nationality || '',
@@ -618,7 +619,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
           tmAge: suggestion.age || '',
         });
       } else {
-        setTmSelected({ transfermarkt_url: suggestion.url, verein: suggestion.verein || '', tmPosition: suggestion.position || '', tmAge: suggestion.age || '', nationality: suggestion.nationality || '', position: suggestion.position || '' });
+        setTmSelected({ transfermarkt_url: suggestion.url, verein: suggestion.verein || '', clubLogoUrl: suggestion.logoUrl || '', tmPosition: suggestion.position || '', tmAge: suggestion.age || '', nationality: suggestion.nationality || '', position: suggestion.position || '' });
       }
     } catch (err) {
       console.error('TM profile fetch error:', err);
@@ -710,6 +711,11 @@ export function PlayerOverviewScreen({ navigation }: any) {
       });
       if (accessError) {
         console.error('advisor_access insert failed:', accessError);
+      }
+
+      // Logo in club_logos speichern (wenn Verein + Logo vorhanden)
+      if (tmSelected?.verein && tmSelected?.clubLogoUrl) {
+        supabase.from('club_logos').upsert({ club_name: tmSelected.verein, logo_url: tmSelected.clubLogoUrl }, { onConflict: 'club_name', ignoreDuplicates: true }).catch(() => {});
       }
 
       setNewFirstName('');

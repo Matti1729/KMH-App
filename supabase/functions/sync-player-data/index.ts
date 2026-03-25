@@ -56,6 +56,10 @@ async function fetchProfile(url: string): Promise<any> {
     const clubMatch = html.match(/Aktueller Verein:[\s\S]*?title="([^"]+)"[^>]*href="[^"]*\/startseite\/verein/);
     if (clubMatch) profile.club = clubMatch[1];
 
+    // Vereins-Logo
+    const logoMatch = html.match(/tmssl\.akamaized\.net\/\/images\/wappen\/small\/(\d+)\.png/);
+    if (logoMatch) profile.clubLogoUrl = `https://tmssl.akamaized.net//images/wappen/small/${logoMatch[1]}.png`;
+
     // Vertrag bis (aus data-header — nicht info-table, sonst wird "Im Team seit" erwischt)
     const contractMatch = html.match(/Vertrag bis:\s*<span[^>]*data-header__content[^>]*>\s*(\d{2}\.\d{2}\.\d{4})/);
     if (contractMatch) {
@@ -149,6 +153,13 @@ serve(async (req: Request) => {
           } else {
             synced++;
             console.log(`  ✓ ${playerName} updated: ${Object.keys(updateData).join(", ")}`);
+          }
+
+          // Logo in club_logos speichern (wenn noch nicht vorhanden)
+          if (profile.club && profile.clubLogoUrl) {
+            await supabase
+              .from("club_logos")
+              .upsert({ club_name: profile.club, logo_url: profile.clubLogoUrl }, { onConflict: 'club_name', ignoreDuplicates: true });
           }
         }
       } else {
