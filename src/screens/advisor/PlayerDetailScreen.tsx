@@ -31,6 +31,15 @@ const POSITION_MAP: Record<string, string> = {
 };
 const POSITIONS = ['Torwart', 'Innenverteidiger', 'Linker Verteidiger', 'Rechter Verteidiger', 'Defensives Mittelfeld', 'Zentrales Mittelfeld', 'Offensives Mittelfeld', 'Linke Außenbahn', 'Rechte Außenbahn', 'Stürmer'];
 const LISTINGS = ['Karl Herzog Sportmanagement', 'PM Sportmanagement'];
+const LEAGUES = [
+  '1. Bundesliga', '2. Bundesliga', '3. Liga',
+  'Regionalliga Nord', 'Regionalliga Nordost', 'Regionalliga West', 'Regionalliga Südwest', 'Regionalliga Bayern',
+  'Oberliga Niedersachsen', 'Oberliga Schleswig-Holstein', 'Oberliga Hamburg', 'Oberliga Nordost-Nord', 'Oberliga Nordost-Süd', 'Oberliga Westfalen', 'Oberliga Niederrhein', 'Oberliga Mittelrhein', 'Oberliga Hessen', 'Oberliga Rheinland-Pfalz/Saar', 'Oberliga Baden-Württemberg', 'Oberliga Bayern',
+  'U19 Bundesliga', 'U19-Nachwuchsliga', 'U17 Bundesliga', 'U17-Nachwuchsliga',
+  'U16-Verbandsliga', 'U15-Verbandsliga', 'U14-Verbandsliga',
+  'DFB-Pokal', 'DFB-Pokal der Frauen',
+  'Österreichische Bundesliga', 'Schweizer Super League',
+];
 const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
 const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
 const YEARS = Array.from({ length: 91 }, (_, i) => 1980 + i);
@@ -382,6 +391,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const [refreshing, setRefreshing] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<Player | null>(null);
+  const [showLeagueDropdown, setShowLeagueDropdown] = useState(false);
+  const [leagueSearch, setLeagueSearch] = useState('');
   const [parsingContract, setParsingContract] = useState(false);
   const [selectedPositions, setSelectedPositions] = useState<string[]>([]);
   const [selectedSecondaryPositions, setSelectedSecondaryPositions] = useState<string[]>([]);
@@ -2223,6 +2234,65 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     </View>
   );
 
+  const renderLeagueField = () => {
+    const currentLeague = editing ? (editData?.league || '') : (player?.league || '');
+    const filteredLeagues = leagueSearch
+      ? LEAGUES.filter(l => l.toLowerCase().includes(leagueSearch.toLowerCase()))
+      : LEAGUES;
+    // Wenn aktuelle Liga nicht in der Liste ist (z.B. internationale), trotzdem anzeigen
+    const showCurrent = currentLeague && !LEAGUES.includes(currentLeague);
+
+    if (!editing) {
+      return (
+        <View style={styles.infoRow}>
+          <Text style={[styles.label, { color: colors.textMuted }]}>Liga</Text>
+          <Text style={[styles.value, { color: colors.text }]}>{currentLeague || '-'}</Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={[styles.infoRow, { zIndex: 50 }]}>
+        <Text style={[styles.label, { color: colors.textMuted }]}>Liga</Text>
+        <TouchableOpacity
+          style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, justifyContent: 'center' }]}
+          onPress={() => setShowLeagueDropdown(!showLeagueDropdown)}
+        >
+          <Text style={{ color: currentLeague ? colors.text : colors.textMuted, fontSize: 14 }}>{currentLeague || 'Liga auswählen...'}</Text>
+        </TouchableOpacity>
+        {showLeagueDropdown && (
+          <View style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, maxHeight: 250, zIndex: 999 }}>
+            <TextInput
+              style={{ padding: 8, borderBottomWidth: 1, borderBottomColor: colors.border, fontSize: 13, color: colors.text, backgroundColor: colors.inputBackground }}
+              placeholder="Liga suchen..."
+              placeholderTextColor={colors.textMuted}
+              value={leagueSearch}
+              onChangeText={setLeagueSearch}
+              autoFocus
+            />
+            <ScrollView style={{ maxHeight: 200 }}>
+              {showCurrent && (
+                <TouchableOpacity style={{ padding: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, backgroundColor: colors.primary + '15' }} onPress={() => { setShowLeagueDropdown(false); setLeagueSearch(''); }}>
+                  <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '600' }}>{currentLeague} (aktuell)</Text>
+                </TouchableOpacity>
+              )}
+              {filteredLeagues.map(league => (
+                <TouchableOpacity key={league} style={{ padding: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }} onPress={() => { updateField('league', league); setShowLeagueDropdown(false); setLeagueSearch(''); }}>
+                  <Text style={{ color: currentLeague === league ? colors.primary : colors.text, fontSize: 13, fontWeight: currentLeague === league ? '600' : '400' }}>{league}</Text>
+                </TouchableOpacity>
+              ))}
+              {leagueSearch && !filteredLeagues.length && (
+                <TouchableOpacity style={{ padding: 10 }} onPress={() => { updateField('league', leagueSearch); setShowLeagueDropdown(false); setLeagueSearch(''); }}>
+                  <Text style={{ color: colors.primary, fontSize: 13 }}>"{leagueSearch}" als Liga eintragen</Text>
+                </TouchableOpacity>
+              )}
+            </ScrollView>
+          </View>
+        )}
+      </View>
+    );
+  };
+
   const renderSpielplanButton = () => {
     // Extract team level from league (e.g., "U17 Bundesliga" -> "U17")
     const teamMatch = player?.league?.match(/U\d+/i);
@@ -3332,7 +3402,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 <View style={[styles.splitColumn, { overflow: 'visible', zIndex: 100 }]}>
                   {renderClubField()}
                   {renderFutureClubField()}
-                  {renderField('Liga', 'league')}
+                  {renderLeagueField()}
                   {renderU23Status()}
                   {renderContractEndField()}
                   {renderField('Vertrag gilt für', 'contract_scope')}
@@ -3476,7 +3546,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                   <View style={[styles.splitColumn, { overflow: 'visible', zIndex: 100 }]}>
                     {renderClubField()}
                     {renderFutureClubField()}
-                    {renderField('Liga', 'league')}
+                    {renderLeagueField()}
                     {renderU23Status()}
                     {renderContractEndField()}
                     {renderField('Vertrag gilt für', 'contract_scope')}
