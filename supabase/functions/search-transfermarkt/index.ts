@@ -78,10 +78,15 @@ serve(async (req: Request) => {
           const ageMatch = row.match(/<td[^>]*class="zentriert"[^>]*>(\d{1,2})<\/td>/);
           const age = ageMatch ? ageMatch[1] : "";
 
+          // Nationalität (aus Flaggen-Bild — title steht vor class)
+          const natMatch = row.match(/title="([^"]+)"[^>]*class="flaggenrahmen"/);
+          const nationality = natMatch ? natMatch[1] : "";
+
           if (!results.find(r => r.url === profileUrl)) {
             results.push({
               name: playerName,
               url: profileUrl,
+              nationality,
               verein,
               position,
               age,

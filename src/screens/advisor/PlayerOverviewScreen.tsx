@@ -602,7 +602,8 @@ export function PlayerOverviewScreen({ navigation }: any) {
 
       // Detaillierte Daten von TM-Profil scrapen
       const { data } = await supabase.functions.invoke('scrape-transfermarkt', { body: { url: suggestion.url } });
-      if (data) {
+      if (data && data.name) {
+        // Scraper hat funktioniert — volle Daten
         setTmSelected({
           ...data,
           transfermarkt_url: suggestion.url,
@@ -611,11 +612,12 @@ export function PlayerOverviewScreen({ navigation }: any) {
           tmAge: suggestion.age || '',
         });
       } else {
-        setTmSelected({ transfermarkt_url: suggestion.url, verein: suggestion.verein || '', tmPosition: suggestion.position || '', tmAge: suggestion.age || '' });
+        // Scraper fehlgeschlagen — Daten aus Suche nutzen
+        setTmSelected({ transfermarkt_url: suggestion.url, verein: suggestion.verein || '', tmPosition: suggestion.position || '', tmAge: suggestion.age || '', nationality: suggestion.nationality || '', position: suggestion.position || '' });
       }
     } catch (err) {
       console.error('TM scrape error:', err);
-      setTmSelected({ transfermarkt_url: suggestion.url, verein: suggestion.verein || '', tmPosition: suggestion.position || '', tmAge: suggestion.age || '' });
+      setTmSelected({ transfermarkt_url: suggestion.url, verein: suggestion.verein || '', tmPosition: suggestion.position || '', tmAge: suggestion.age || '', nationality: suggestion.nationality || '', position: suggestion.position || '' });
     }
     setTmLoading(false);
   };
