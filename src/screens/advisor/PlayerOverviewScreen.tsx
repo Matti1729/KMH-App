@@ -1041,11 +1041,11 @@ export function PlayerOverviewScreen({ navigation }: any) {
           {/* Add Player Modal */}
           <Modal visible={showAddModal} transparent animationType="fade">
             <View style={styles.modalOverlay}>
-              <View style={[styles.modalContent, { backgroundColor: colors.surface, maxHeight: '85%', width: '90%', maxWidth: 480 }]}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <Text style={[styles.modalTitle, { color: colors.text, marginBottom: 0 }]}>Neuen Spieler anlegen</Text>
-                  <TouchableOpacity onPress={() => { setShowAddModal(false); setTmSuggestions([]); setTmSelected(null); setNewFirstName(''); setNewLastName(''); }} style={{ padding: 4 }}>
-                    <Text style={{ color: colors.textSecondary, fontSize: 18 }}>✕</Text>
+              <View style={[styles.modalContent, { backgroundColor: colors.surface, maxHeight: '90%', width: '92%', maxWidth: 540 }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 20, position: 'relative' }}>
+                  <Text style={[styles.modalTitle, { color: colors.text, marginBottom: 0, textAlign: 'center' }]}>Neuen Spieler anlegen</Text>
+                  <TouchableOpacity onPress={() => { setShowAddModal(false); setTmSuggestions([]); setTmSelected(null); setNewFirstName(''); setNewLastName(''); }} style={{ position: 'absolute', right: 0, width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ color: colors.textSecondary, fontSize: 14, lineHeight: 16 }}>✕</Text>
                   </TouchableOpacity>
                 </View>
                 <View style={{ flexDirection: 'row', gap: 8, marginBottom: 2 }}>
@@ -1078,7 +1078,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
                     </View>
                   </View>
                 )}
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 28 }}>
                   <Text style={[styles.modalHint, { color: colors.textSecondary }]}>Zuständigkeit: {currentUserName || 'Sie'}</Text>
                   <TouchableOpacity style={[styles.modalSaveButton, { borderColor: '#10b981' }]} onPress={handleAddPlayer} disabled={tmLoading}><Text style={[styles.modalSaveButtonText, { color: '#10b981' }]}>{tmLoading ? 'Laden...' : 'Spieler anlegen'}</Text></TouchableOpacity>
                 </View>
