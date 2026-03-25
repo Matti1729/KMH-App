@@ -155,11 +155,11 @@ serve(async (req: Request) => {
             console.log(`  ✓ ${playerName} updated: ${Object.keys(updateData).join(", ")}`);
           }
 
-          // Logo in club_logos speichern (wenn noch nicht vorhanden)
+          // Logo in club_logos speichern/aktualisieren (immer TM-Logo)
           if (profile.club && profile.clubLogoUrl) {
             await supabase
               .from("club_logos")
-              .upsert({ club_name: profile.club, logo_url: profile.clubLogoUrl }, { onConflict: 'club_name', ignoreDuplicates: true });
+              .upsert({ club_name: profile.club, logo_url: profile.clubLogoUrl }, { onConflict: 'club_name' });
           }
         }
       } else {
