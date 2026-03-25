@@ -91,18 +91,11 @@ export function PlayerOverviewScreen({ navigation }: any) {
     try { if (typeof window !== 'undefined') window.sessionStorage?.setItem('playerListScrollY', String(y)); } catch {}
   };
 
-  // Scroll-Position wiederherstellen nachdem Spieler geladen sind
+  // Debug: Screen Mount/Unmount tracking
   useEffect(() => {
-    if (players.length > 0 && !scrollRestoredRef.current && scrollRef.current?.scrollTo) {
-      try {
-        const y = parseFloat(window.sessionStorage?.getItem('playerListScrollY') || '0');
-        if (y > 0) {
-          setTimeout(() => scrollRef.current?.scrollTo({ y, animated: false }), 100);
-        }
-      } catch {}
-      scrollRestoredRef.current = true;
-    }
-  }, [players]);
+    console.log('[PlayerOverview] MOUNTED');
+    return () => console.log('[PlayerOverview] UNMOUNTED');
+  }, []);
   const [newFirstName, setNewFirstName] = useState('');
   const [newLastName, setNewLastName] = useState('');
   const [tmSuggestions, setTmSuggestions] = useState<any[]>([]);
