@@ -650,16 +650,44 @@ export function PlayerOverviewScreen({ navigation }: any) {
       responsibility: currentUserName,
     };
 
+    // DD.MM.YYYY → YYYY-MM-DD konvertieren
+    const toIsoDate = (d: string) => {
+      const m = d?.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+      return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
+    };
+
+    // TM-Position → DB-Kurzform
+    const tmPosMap: Record<string, string> = {
+      'Torwart': 'TW', 'Innenverteidiger': 'IV', 'Linker Verteidiger': 'LV', 'Rechter Verteidiger': 'RV',
+      'Defensives Mittelfeld': 'DM', 'Zentrales Mittelfeld': 'ZM', 'Offensives Mittelfeld': 'OM',
+      'Linkes Mittelfeld': 'LA', 'Rechtes Mittelfeld': 'RA', 'Linksaußen': 'LA', 'Rechtsaußen': 'RA',
+      'Hängende Spitze': 'OM', 'Mittelstürmer': 'ST', 'Sturm': 'ST',
+      'Abwehr': 'IV', 'Mittelfeld': 'ZM',
+    };
+    const mapTmPosition = (pos: string): string | null => {
+      if (!pos) return null;
+      // Direkt-Match
+      if (tmPosMap[pos]) return tmPosMap[pos];
+      // Teilstring-Match (z.B. "Mittelfeld - Defensives Mittelfeld")
+      for (const [key, val] of Object.entries(tmPosMap)) {
+        if (pos.includes(key)) return val;
+      }
+      return null;
+    };
+
     // TM-Daten einfügen falls vorhanden
     if (tmSelected) {
       if (tmSelected.transfermarkt_url) insertData.transfermarkt_url = tmSelected.transfermarkt_url;
       if (tmSelected.verein) insertData.club = tmSelected.verein;
-      if (tmSelected.dateOfBirth) insertData.birth_date = tmSelected.dateOfBirth;
-      if (tmSelected.position) insertData.position = tmSelected.position;
+      const dob = tmSelected.dateOfBirth ? toIsoDate(tmSelected.dateOfBirth) : null;
+      if (dob) insertData.birth_date = dob;
+      const pos = mapTmPosition(tmSelected.position);
+      if (pos) insertData.position = pos;
       if (tmSelected.nationality) insertData.nationality = tmSelected.nationality;
       if (tmSelected.height) insertData.height = tmSelected.height;
       if (tmSelected.preferredFoot) insertData.strong_foot = tmSelected.preferredFoot;
-      if (tmSelected.contractUntil) insertData.contract_end = tmSelected.contractUntil;
+      const contractEnd = tmSelected.contractUntil ? toIsoDate(tmSelected.contractUntil) : null;
+      if (contractEnd) insertData.contract_end = contractEnd;
       if (tmSelected.league) insertData.league = tmSelected.league;
     }
 
