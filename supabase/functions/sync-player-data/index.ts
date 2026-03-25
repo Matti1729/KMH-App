@@ -56,9 +56,14 @@ async function fetchProfile(url: string): Promise<any> {
     const clubMatch = html.match(/Aktueller Verein:[\s\S]*?title="([^"]+)"[^>]*href="[^"]*\/startseite\/verein/);
     if (clubMatch) profile.club = clubMatch[1];
 
-    // Vertrag bis
-    const contractMatch = html.match(/Vertrag bis:[\s\S]*?info-table__content--bold[^>]*>\s*(\d{2}\.\d{2}\.\d{4})/);
-    if (contractMatch) profile.contract_end = contractMatch[1];
+    // Vertrag bis (aus data-header — nicht info-table, sonst wird "Im Team seit" erwischt)
+    const contractMatch = html.match(/Vertrag bis:\s*<span[^>]*data-header__content[^>]*>\s*(\d{2}\.\d{2}\.\d{4})/);
+    if (contractMatch) {
+      profile.contract_end = contractMatch[1];
+    } else {
+      const contractMatch2 = html.match(/info-table__content--regular">\s*Vertrag bis:<\/span>\s*<span[^>]*info-table__content--bold[^>]*>\s*(\d{2}\.\d{2}\.\d{4})/);
+      if (contractMatch2) profile.contract_end = contractMatch2[1];
+    }
 
     // Liga
     const leagueMatch = html.match(/data-header__league-link"[^>]*>([\s\S]*?)<\/a>/);
@@ -122,16 +127,41 @@ serve(async (req: Request) => {
       const profile = await fetchProfile(player.transfermarkt_url);
 
       if (profile && Object.keys(profile).length > 0) {
+        // DD.MM.YYYY → YYYY-MM-DD
+        const toIso = (d: string) => {
+          const m = d?.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+          return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
+        };
+        // Position-Mapping TM → DB
+        const posMap: Record<string, string> = {
+          'Torwart': 'TW', 'Innenverteidiger': 'IV', 'Linker Verteidiger': 'LV', 'Rechter Verteidiger': 'RV',
+          'Defensives Mittelfeld': 'DM', 'Zentrales Mittelfeld': 'ZM', 'Offensives Mittelfeld': 'OM',
+          'Linkes Mittelfeld': 'LA', 'Rechtes Mittelfeld': 'RA', 'Linksaußen': 'LA', 'Rechtsaußen': 'RA',
+          'Hängende Spitze': 'OM', 'Mittelstürmer': 'ST', 'Sturm': 'ST', 'Abwehr': 'IV', 'Mittelfeld': 'ZM',
+        };
+        const mapPos = (p: string) => {
+          if (!p) return null;
+          if (posMap[p]) return posMap[p];
+          for (const [k, v] of Object.entries(posMap)) { if (p.includes(k)) return v; }
+          return null;
+        };
+
         // Nur Felder updaten die tatsächlich Werte haben
         const updateData: any = {};
         if (profile.club) updateData.club = profile.club;
         if (profile.league) updateData.league = profile.league;
-        if (profile.position) updateData.position = profile.position;
+        const pos = mapPos(profile.position);
+        if (pos) updateData.position = pos;
         if (profile.nationality) updateData.nationality = profile.nationality;
-        if (profile.birth_date) updateData.birth_date = profile.birth_date;
-        if (profile.height) updateData.height = profile.height;
+        const dob = profile.birth_date ? toIso(profile.birth_date) : null;
+        if (dob) updateData.birth_date = dob;
+        if (profile.height) {
+          const hm = profile.height.match(/(\d)[,.](\d+)/);
+          if (hm) updateData.height = parseInt(hm[1] + hm[2]);
+        }
         if (profile.strong_foot) updateData.strong_foot = profile.strong_foot;
-        if (profile.contract_end) updateData.contract_end = profile.contract_end;
+        const ce = profile.contract_end ? toIso(profile.contract_end) : null;
+        if (ce) updateData.contract_end = ce;
 
         if (Object.keys(updateData).length > 0) {
           const { error: updateError } = await supabase
