@@ -58,7 +58,7 @@ async function fetchProfile(url: string): Promise<any> {
 
     // Vereins-Logo
     const logoMatch = html.match(/tmssl\.akamaized\.net\/\/images\/wappen\/small\/(\d+)\.png/);
-    if (logoMatch) profile.clubLogoUrl = `https://tmssl.akamaized.net//images/wappen/homepage/${logoMatch[1]}.png`;
+    if (logoMatch) profile.clubLogoUrl = `https://tmssl.akamaized.net//images/wappen/big/${logoMatch[1]}.png`;
 
     // Vertrag bis (aus data-header — nicht info-table, sonst wird "Im Team seit" erwischt)
     const contractMatch = html.match(/Vertrag bis:\s*<span[^>]*data-header__content[^>]*>\s*(\d{2}\.\d{2}\.\d{4})/);
