@@ -623,6 +623,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
       if (tmSelected.height) insertData.height = tmSelected.height;
       if (tmSelected.preferredFoot) insertData.strong_foot = tmSelected.preferredFoot;
       if (tmSelected.contractUntil) insertData.contract_end = tmSelected.contractUntil;
+      if (tmSelected.league) insertData.league = tmSelected.league;
     }
 
     const { data: newPlayer, error } = await supabase
@@ -1026,12 +1027,15 @@ export function PlayerOverviewScreen({ navigation }: any) {
           {/* Add Player Modal */}
           <Modal visible={showAddModal} transparent animationType="fade">
             <View style={styles.modalOverlay}>
-              <View style={[styles.modalContent, { backgroundColor: colors.surface, maxHeight: '80%' }]}>
+              <View style={[styles.modalContent, { backgroundColor: colors.surface, maxHeight: '85%', width: '90%', maxWidth: 500 }]}>
                 <Text style={[styles.modalTitle, { color: colors.text }]}>Neuen Spieler anlegen</Text>
-                <TextInput style={[styles.modalInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Nachname" placeholderTextColor={colors.textMuted} value={newLastName} onChangeText={handleLastNameChange} autoFocus />
+                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 4 }}>
+                  <TextInput style={[styles.modalInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Nachname" placeholderTextColor={colors.textMuted} value={newLastName} onChangeText={handleLastNameChange} autoFocus />
+                  <TextInput style={[styles.modalInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Vorname" placeholderTextColor={colors.textMuted} value={newFirstName} onChangeText={handleFirstNameChange} />
+                </View>
                 {tmSearching && <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 8 }}>Suche auf Transfermarkt...</Text>}
                 {tmSuggestions.length > 0 && (
-                  <ScrollView style={{ maxHeight: 200, borderWidth: 1, borderColor: colors.border, borderRadius: 8, marginBottom: 12 }}>
+                  <ScrollView style={{ maxHeight: 220, borderWidth: 1, borderColor: colors.border, borderRadius: 8, marginBottom: 12 }}>
                     {tmSuggestions.map((s, i) => (
                       <TouchableOpacity key={i} style={{ padding: 10, borderBottomWidth: i < tmSuggestions.length - 1 ? 1 : 0, borderBottomColor: colors.border }} onPress={() => selectTmPlayer(s)}>
                         <Text style={{ color: colors.text, fontSize: 14, fontWeight: '600' }}>{s.name}</Text>
@@ -1040,20 +1044,25 @@ export function PlayerOverviewScreen({ navigation }: any) {
                     ))}
                   </ScrollView>
                 )}
-                <TextInput style={[styles.modalInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Vorname" placeholderTextColor={colors.textMuted} value={newFirstName} onChangeText={handleFirstNameChange} />
                 {tmLoading && <Text style={{ color: colors.primary, fontSize: 12, marginBottom: 8 }}>Lade Spielerdaten von Transfermarkt...</Text>}
                 {tmSelected && (
-                  <View style={{ backgroundColor: colors.surfaceSecondary, borderRadius: 8, padding: 10, marginBottom: 12 }}>
-                    <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '600', marginBottom: 4 }}>Transfermarkt-Daten übernommen</Text>
-                    {tmSelected.verein && <Text style={{ color: colors.textSecondary, fontSize: 12 }}>Verein: {tmSelected.verein}</Text>}
-                    {tmSelected.position && <Text style={{ color: colors.textSecondary, fontSize: 12 }}>Position: {tmSelected.position}</Text>}
-                    {tmSelected.dateOfBirth && <Text style={{ color: colors.textSecondary, fontSize: 12 }}>Geburtsdatum: {tmSelected.dateOfBirth}</Text>}
+                  <View style={{ backgroundColor: colors.surfaceSecondary, borderRadius: 8, padding: 12, marginBottom: 12 }}>
+                    <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '600', marginBottom: 6 }}>Transfermarkt-Daten übernommen</Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                      {tmSelected.dateOfBirth && <Text style={{ color: colors.textSecondary, fontSize: 12, backgroundColor: colors.surface, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 }}>🎂 {tmSelected.dateOfBirth}</Text>}
+                      {tmSelected.verein && <Text style={{ color: colors.textSecondary, fontSize: 12, backgroundColor: colors.surface, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 }}>⚽ {tmSelected.verein}</Text>}
+                      {tmSelected.position && <Text style={{ color: colors.textSecondary, fontSize: 12, backgroundColor: colors.surface, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 }}>📋 {tmSelected.position}</Text>}
+                      {tmSelected.nationality && <Text style={{ color: colors.textSecondary, fontSize: 12, backgroundColor: colors.surface, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 }}>🌍 {tmSelected.nationality}</Text>}
+                      {tmSelected.height && <Text style={{ color: colors.textSecondary, fontSize: 12, backgroundColor: colors.surface, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 }}>📏 {tmSelected.height}</Text>}
+                      {tmSelected.preferredFoot && <Text style={{ color: colors.textSecondary, fontSize: 12, backgroundColor: colors.surface, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 }}>🦶 {tmSelected.preferredFoot}</Text>}
+                      {tmSelected.contractUntil && <Text style={{ color: colors.textSecondary, fontSize: 12, backgroundColor: colors.surface, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 }}>📝 Vertrag bis {tmSelected.contractUntil}</Text>}
+                    </View>
                   </View>
                 )}
                 <Text style={[styles.modalHint, { color: colors.textSecondary }]}>Zuständigkeit: {currentUserName || 'Sie'}</Text>
                 <View style={styles.modalButtons}>
-                  <TouchableOpacity style={[styles.modalCancelButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => { setShowAddModal(false); setTmSuggestions([]); setTmSelected(null); }}><Text style={[styles.modalCancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text></TouchableOpacity>
-                  <TouchableOpacity style={[styles.modalSaveButton, { backgroundColor: colors.surface }]} onPress={handleAddPlayer} disabled={tmLoading}><Text style={styles.modalSaveButtonText}>{tmLoading ? 'Laden...' : 'Speichern'}</Text></TouchableOpacity>
+                  <TouchableOpacity style={[styles.modalCancelButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => { setShowAddModal(false); setTmSuggestions([]); setTmSelected(null); setNewFirstName(''); setNewLastName(''); }}><Text style={[styles.modalCancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text></TouchableOpacity>
+                  <TouchableOpacity style={[styles.modalSaveButton, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={handleAddPlayer} disabled={tmLoading}><Text style={[styles.modalSaveButtonText, { color: '#10b981' }]}>{tmLoading ? 'Laden...' : 'Speichern'}</Text></TouchableOpacity>
                 </View>
               </View>
             </View>
