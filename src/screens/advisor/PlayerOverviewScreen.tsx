@@ -86,12 +86,23 @@ export function PlayerOverviewScreen({ navigation }: any) {
   const [showAddModal, setShowAddModal] = useState(false);
   const dataLoadedRef = useRef(false);
   const scrollRef = useRef<any>(null);
-  const getScrollY = () => {
-    try { return parseFloat(window.sessionStorage?.getItem('playerListScrollY') || '0'); } catch { return 0; }
-  };
+  const scrollRestoredRef = useRef(false);
   const saveScrollY = (y: number) => {
-    try { window.sessionStorage?.setItem('playerListScrollY', String(y)); } catch {}
+    try { if (typeof window !== 'undefined') window.sessionStorage?.setItem('playerListScrollY', String(y)); } catch {}
   };
+
+  // Scroll-Position wiederherstellen nachdem Spieler geladen sind
+  useEffect(() => {
+    if (players.length > 0 && !scrollRestoredRef.current && scrollRef.current?.scrollTo) {
+      try {
+        const y = parseFloat(window.sessionStorage?.getItem('playerListScrollY') || '0');
+        if (y > 0) {
+          setTimeout(() => scrollRef.current?.scrollTo({ y, animated: false }), 100);
+        }
+      } catch {}
+      scrollRestoredRef.current = true;
+    }
+  }, [players]);
   const [newFirstName, setNewFirstName] = useState('');
   const [newLastName, setNewLastName] = useState('');
   const [tmSuggestions, setTmSuggestions] = useState<any[]>([]);
@@ -1489,7 +1500,6 @@ export function PlayerOverviewScreen({ navigation }: any) {
               style={styles.tableBody}
               onScroll={(e: any) => { saveScrollY(e.nativeEvent.contentOffset.y); }}
               scrollEventThrottle={100}
-              onContentSizeChange={() => { const y = getScrollY(); if (y > 0 && scrollRef.current?.scrollTo) { setTimeout(() => scrollRef.current?.scrollTo({ y, animated: false }), 50); } }}
             >
               {(authLoading || loading) ? (
                 <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Laden...</Text>
