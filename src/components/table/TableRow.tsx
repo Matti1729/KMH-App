@@ -52,9 +52,10 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 10,
   },
   cell: {
-    paddingHorizontal: 6,
+    paddingHorizontal: 4,
     justifyContent: 'center',
     alignItems: 'flex-start',
   },
