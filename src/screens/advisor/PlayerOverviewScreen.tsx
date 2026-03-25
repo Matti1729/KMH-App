@@ -10,6 +10,10 @@ import { SlideUpModal } from '../../components/SlideUpModal';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { ColumnDef } from '../../types/tableColumns';
+import { useTableColumns } from '../../hooks/useTableColumns';
+import { TableHeader } from '../../components/table/TableHeader';
+import { TableRow } from '../../components/table/TableRow';
 
 const POSITIONS = ['Torwart', 'Innenverteidiger', 'Linker Verteidiger', 'Rechter Verteidiger', 'Defensives Mittelfeld', 'Zentrales Mittelfeld', 'Offensives Mittelfeld', 'Linke Außenbahn', 'Rechte Außenbahn', 'Stürmer'];
 const POSITION_SHORT: Record<string, string> = {
@@ -57,6 +61,17 @@ interface ClubLogo {
 type SortField = 'name' | 'birth_date' | 'position' | 'club' | 'league' | 'contract_end' | 'listing' | 'responsibility';
 type SortDirection = 'asc' | 'desc';
 
+const PLAYER_COLUMNS: ColumnDef[] = [
+  { key: 'name', label: 'Name', defaultFlex: 1.5, minWidth: 100 },
+  { key: 'birth_date', label: 'Geb.-Datum', defaultFlex: 1, minWidth: 85 },
+  { key: 'position', label: 'Position', defaultFlex: 0.9, minWidth: 70 },
+  { key: 'club', label: 'Verein', defaultFlex: 2.2, minWidth: 150 },
+  { key: 'league', label: 'Liga', defaultFlex: 1.8, minWidth: 120 },
+  { key: 'contract_end', label: 'Vertragsende', defaultFlex: 1.2, minWidth: 100 },
+  { key: 'listing', label: 'Listung', defaultFlex: 0.7, minWidth: 50 },
+  { key: 'responsibility', label: 'Zuständigkeit', defaultFlex: 1, minWidth: 85 },
+];
+
 export function PlayerOverviewScreen({ navigation }: any) {
   const isMobile = useIsMobile();
   const { session, loading: authLoading } = useAuth();
@@ -93,6 +108,10 @@ export function PlayerOverviewScreen({ navigation }: any) {
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+
+  // Table columns
+  const [tableWidth, setTableWidth] = useState(0);
+  const table = useTableColumns(PLAYER_COLUMNS, tableWidth);
 
   // Separate Dropdown States wie in Scouting
   const [showYearDropdown, setShowYearDropdown] = useState(false);
@@ -1255,17 +1274,25 @@ export function PlayerOverviewScreen({ navigation }: any) {
         )}
 
         <View style={styles.content}>
-          <View style={[styles.tableWrapper, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
-            <View style={[styles.tableHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
-              {renderSortableHeader('Name', 'name', styles.colName)}
-              {renderSortableHeader('Geb.-Datum', 'birth_date', styles.colBirthDate)}
-              {renderSortableHeader('Position', 'position', styles.colPosition)}
-              {renderSortableHeader('Verein', 'club', styles.colClub)}
-              {renderSortableHeader('Liga', 'league', styles.colLeague)}
-              {renderSortableHeader('Vertragsende', 'contract_end', styles.colContract)}
-              {renderSortableHeader('Listung', 'listing', styles.colListing)}
-              {renderSortableHeader('Zuständigkeit', 'responsibility', styles.colResponsibility)}
-            </View>
+          <View style={[styles.tableWrapper, { backgroundColor: colors.cardBackground, borderColor: colors.border }]} onLayout={(e) => setTableWidth(e.nativeEvent.layout.width - 32)}>
+            {tableWidth > 0 && (
+              <TableHeader
+                columnDefs={PLAYER_COLUMNS}
+                columnOrder={table.columnOrder}
+                getColumnWidth={table.getColumnWidth}
+                onResizeStart={table.onResizeStart}
+                onDragStart={table.onDragStart}
+                resizingKey={table.resizingKey}
+                draggingKey={table.draggingKey}
+                dragOverKey={table.dragOverKey}
+                onSort={(key) => handleSort(key as SortField)}
+                sortKey={sortField}
+                sortAsc={sortDirection === 'asc'}
+                colors={colors}
+                setHeaderRef={table.setHeaderRef}
+                style={{ backgroundColor: colors.surfaceSecondary, borderBottomWidth: 1, borderBottomColor: colors.border }}
+              />
+            )}
 
             <ScrollView style={styles.tableBody}>
               {(authLoading || loading) ? (
@@ -1280,7 +1307,84 @@ export function PlayerOverviewScreen({ navigation }: any) {
               ) : filteredPlayers.length === 0 ? (
                 <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Keine Spieler gefunden</Text>
               ) : (
-                filteredPlayers.map((player) => renderPlayerRow(player))
+                filteredPlayers.map((player) => {
+                  const hasAccess = hasAccessToPlayer(player.id);
+                  const birthday = isBirthday(player.birth_date);
+                  const positionDisplay = player.position
+                    ? player.position.split(', ').map(p => POSITION_SHORT[p.trim()] || p).join(', ')
+                    : '-';
+                  return (
+                    <TableRow
+                      key={player.id}
+                      columnOrder={table.columnOrder}
+                      getColumnWidth={table.getColumnWidth}
+                      onPress={() => handlePlayerClick(player)}
+                      style={[
+                        { paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
+                        !hasAccess && { backgroundColor: colors.surfaceSecondary },
+                        birthday && styles.birthdayRow,
+                      ]}
+                      renderCell={(key) => {
+                        switch (key) {
+                          case 'name':
+                            return (
+                              <View style={styles.nameContainer}>
+                                {!hasAccess && <Text style={styles.lockIcon}>🔒 </Text>}
+                                <Text style={[styles.tableCell, styles.nameCell, { color: colors.text }]} numberOfLines={1}>
+                                  {player.last_name}, {player.first_name}{birthday && ' 🎉'}
+                                </Text>
+                              </View>
+                            );
+                          case 'birth_date':
+                            return (
+                              <View style={styles.birthDateCell}>
+                                <Text style={[styles.tableCell, { color: colors.text }]}>{formatDate(player.birth_date)}</Text>
+                              </View>
+                            );
+                          case 'position':
+                            return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{positionDisplay}</Text>;
+                          case 'club': {
+                            const expired = isContractExpired(player.contract_end);
+                            const displayClub = getDisplayClub(player);
+                            const logoUrl = expired ? null : getClubLogo(player.club);
+                            return (
+                              <View style={styles.clubCell}>
+                                {expired ? <Image source={ArbeitsamtIcon} style={styles.clubLogo} /> : logoUrl ? <Image source={{ uri: logoUrl }} style={styles.clubLogo} /> : null}
+                                <Text style={[styles.tableCell, { color: colors.text }, expired && styles.clubTextRed]} numberOfLines={1}>{displayClub}</Text>
+                              </View>
+                            );
+                          }
+                          case 'league':
+                            return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{player.league || '-'}</Text>;
+                          case 'contract_end': {
+                            const inCurrentSeason = isContractInCurrentSeason(player.contract_end);
+                            const hasSecuredFuture = hasFutureClubAndExpiringContract(player);
+                            if (hasSecuredFuture) {
+                              return (
+                                <View style={styles.contractBadgeGreen}>
+                                  <Text style={styles.contractBadgeTextGreen}>{formatDate(player.contract_end)}</Text>
+                                </View>
+                              );
+                            } else if (inCurrentSeason && player.contract_end) {
+                              return (
+                                <View style={styles.contractBadge}>
+                                  <Text style={styles.contractBadgeText}>{formatDate(player.contract_end)}</Text>
+                                </View>
+                              );
+                            }
+                            return <Text style={[styles.tableCell, { color: colors.text }]}>{formatDate(player.contract_end)}</Text>;
+                          }
+                          case 'listing':
+                            return renderListingBadge(player.listing);
+                          case 'responsibility':
+                            return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{getResponsibilityInitials(player.responsibility)}</Text>;
+                          default:
+                            return null;
+                        }
+                      }}
+                    />
+                  );
+                })
               )}
             </ScrollView>
           </View>

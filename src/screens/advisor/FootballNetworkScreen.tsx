@@ -9,6 +9,10 @@ import { SlideUpModal } from '../../components/SlideUpModal';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { ColumnDef } from '../../types/tableColumns';
+import { useTableColumns } from '../../hooks/useTableColumns';
+import { TableHeader } from '../../components/table/TableHeader';
+import { TableRow } from '../../components/table/TableRow';
 
 const LEAGUES = ['1. Bundesliga', '2. Bundesliga', '3. Liga', 'Regionalliga Nordost', 'Regionalliga Südwest', 'Regionalliga West', 'Regionalliga Nord', 'Regionalliga Bayern', 'Oberliga'];
 const BEREICHE = ['Herren', 'Nachwuchs'];
@@ -32,6 +36,16 @@ interface Contact {
 
 type SortField = 'verein' | 'name' | 'bereich' | 'position' | 'mannschaft' | 'telefon' | 'email';
 type SortDirection = 'asc' | 'desc';
+
+const NETWORK_COLUMNS: ColumnDef[] = [
+  { key: 'verein', label: 'Verein', defaultFlex: 1.3, minWidth: 80 },
+  { key: 'name', label: 'Name', defaultFlex: 1.2, minWidth: 80 },
+  { key: 'bereich', label: 'Bereich', defaultFlex: 0.7, minWidth: 60 },
+  { key: 'position', label: 'Position', defaultFlex: 0.8, minWidth: 60 },
+  { key: 'mannschaft', label: 'Mannschaft', defaultFlex: 0.7, minWidth: 60 },
+  { key: 'telefon', label: 'Telefon', defaultFlex: 1, minWidth: 80 },
+  { key: 'email', label: 'E-Mail', defaultFlex: 1.2, minWidth: 80 },
+];
 
 export function FootballNetworkScreen({ navigation }: any) {
   const isMobile = useIsMobile();
@@ -75,6 +89,10 @@ export function FootballNetworkScreen({ navigation }: any) {
   // Sorting State
   const [sortField, setSortField] = useState<SortField>('verein');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+  // Table columns
+  const [tableWidth, setTableWidth] = useState(0);
+  const table = useTableColumns(NETWORK_COLUMNS, tableWidth);
 
   // Daten nur laden wenn Auth bereit ist
   useEffect(() => {
@@ -1021,32 +1039,29 @@ export function FootballNetworkScreen({ navigation }: any) {
               </TouchableOpacity>
             </View>
           )}
-          <View style={[styles.tableContainer, { backgroundColor: colors.cardBackground }]}>
-            <View style={[styles.tableHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
-              <TouchableOpacity onPress={toggleAllExport} style={{ width: 36, alignItems: 'center', justifyContent: 'center' }}>
+          <View style={[styles.tableContainer, { backgroundColor: colors.cardBackground }]} onLayout={(e) => setTableWidth(e.nativeEvent.layout.width - 36)}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceSecondary, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+              <TouchableOpacity onPress={toggleAllExport} style={{ width: 36, alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}>
                 <Ionicons name={selectedExportIds.length === filteredContacts.length && filteredContacts.length > 0 ? "checkbox" : "square-outline"} size={18} color={selectedExportIds.length > 0 ? colors.primary : colors.textMuted} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleSort('verein')} style={[styles.sortableHeaderCell, { flex: 1.3 }]}>
-                <Text style={[styles.tableHeaderCell, { color: colors.textSecondary }]}>Verein {getSortIndicator('verein')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleSort('name')} style={[styles.sortableHeaderCell, { flex: 1.2 }]}>
-                <Text style={[styles.tableHeaderCell, { color: colors.textSecondary }]}>Name {getSortIndicator('name')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleSort('bereich')} style={[styles.sortableHeaderCell, { flex: 0.7 }]}>
-                <Text style={[styles.tableHeaderCell, { color: colors.textSecondary }]}>Bereich {getSortIndicator('bereich')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleSort('position')} style={[styles.sortableHeaderCell, { flex: 0.8, marginRight: -8 }]}>
-                <Text style={[styles.tableHeaderCell, { color: colors.textSecondary }]}>Position {getSortIndicator('position')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleSort('mannschaft')} style={[styles.sortableHeaderCell, { flex: 0.7 }]}>
-                <Text style={[styles.tableHeaderCell, { color: colors.textSecondary }]}>Mannschaft {getSortIndicator('mannschaft')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleSort('telefon')} style={[styles.sortableHeaderCell, { flex: 1 }]}>
-                <Text style={[styles.tableHeaderCell, { color: colors.textSecondary }]}>Telefon {getSortIndicator('telefon')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleSort('email')} style={[styles.sortableHeaderCell, { flex: 1.2 }]}>
-                <Text style={[styles.tableHeaderCell, { color: colors.textSecondary }]}>E-Mail {getSortIndicator('email')}</Text>
-              </TouchableOpacity>
+              {tableWidth > 0 && (
+                <TableHeader
+                  columnDefs={NETWORK_COLUMNS}
+                  columnOrder={table.columnOrder}
+                  getColumnWidth={table.getColumnWidth}
+                  onResizeStart={table.onResizeStart}
+                  onDragStart={table.onDragStart}
+                  resizingKey={table.resizingKey}
+                  draggingKey={table.draggingKey}
+                  dragOverKey={table.dragOverKey}
+                  onSort={(key) => handleSort(key as SortField)}
+                  sortKey={sortField}
+                  sortAsc={sortDirection === 'asc'}
+                  colors={colors}
+                  setHeaderRef={table.setHeaderRef}
+                  style={{ flex: 1, borderBottomWidth: 0 }}
+                />
+              )}
             </View>
             {importProgress && (
               <View style={{ padding: 12, backgroundColor: colors.primary + '15', borderRadius: 8, margin: 12 }}>
@@ -1066,25 +1081,50 @@ export function FootballNetworkScreen({ navigation }: any) {
                 <View style={styles.emptyState}><Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>{contacts.length === 0 ? 'Noch keine Kontakte vorhanden' : 'Keine Kontakte gefunden'}</Text></View>
               ) : (
                 filteredContacts.map(contact => (
-                  <TouchableOpacity key={contact.id} style={[styles.tableRow, { borderBottomColor: colors.border }]} onPress={() => { setSelectedContact(contact); setShowDesktopDetailModal(true); }}>
-                    <TouchableOpacity style={{ width: 36, alignItems: 'center', justifyContent: 'center' }} onPress={(e) => { e.stopPropagation(); toggleExportId(contact.id); }}>
+                  <View key={contact.id} style={[styles.tableRow, { borderBottomColor: colors.border }]}>
+                    <TouchableOpacity style={{ width: 36, alignItems: 'center', justifyContent: 'center' }} onPress={() => toggleExportId(contact.id)}>
                       <Ionicons name={selectedExportIds.includes(contact.id) ? "checkbox" : "square-outline"} size={18} color={selectedExportIds.includes(contact.id) ? colors.primary : colors.textMuted} />
                     </TouchableOpacity>
-                    <View style={[styles.tableCellView, { flex: 1.3, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start' }]}>
-                      {getClubLogo(contact.verein) && <Image source={{ uri: getClubLogo(contact.verein)! }} style={styles.tableClubLogo} />}
-                      <Text style={[styles.tableCell, styles.tableCellBold, { color: colors.text }]} numberOfLines={1}>{contact.verein || '-'}</Text>
-                    </View>
-                    <Text style={[styles.tableCell, styles.tableCellBold, { flex: 1.2, color: colors.text }]}>{formatName(contact)}</Text>
-                    <View style={[styles.tableCellView, { flex: 0.7 }]}>
-                      {contact.bereich ? <View style={[styles.bereichBadge, { backgroundColor: contact.bereich === 'Nachwuchs' ? (isDark ? 'rgba(251, 191, 36, 0.2)' : '#fef3c7') : (isDark ? 'rgba(34, 197, 94, 0.2)' : '#f0fdf4') }]}><Text style={[styles.bereichText, { color: contact.bereich === 'Nachwuchs' ? (isDark ? '#fbbf24' : '#92400e') : (isDark ? '#4ade80' : '#166534') }]}>{contact.bereich}</Text></View> : <Text style={[styles.tableCell, { color: colors.text }]}>-</Text>}
-                    </View>
-                    <View style={[styles.tableCellView, { flex: 0.8, marginRight: -8 }]}>
-                      {contact.position ? <View style={[styles.positionBadge, { backgroundColor: isDark ? 'rgba(14, 165, 233, 0.2)' : '#e0f2fe' }]}><Text style={[styles.positionText, { color: isDark ? '#38bdf8' : '#0369a1' }]}>{contact.position}</Text></View> : <Text style={[styles.tableCell, { color: colors.text }]}>-</Text>}
-                    </View>
-                    <Text style={[styles.tableCell, { flex: 0.7, color: colors.text }]}>{contact.mannschaft || '-'}</Text>
-                    <Text style={[styles.tableCell, { flex: 1, color: colors.text }]}>{formatPhone(contact)}</Text>
-                    <Text style={[styles.tableCell, { flex: 1.2, color: '#3b82f6' }]}>{contact.email || '-'}</Text>
-                  </TouchableOpacity>
+                    <TableRow
+                      columnOrder={table.columnOrder}
+                      getColumnWidth={table.getColumnWidth}
+                      onPress={() => { setSelectedContact(contact); setShowDesktopDetailModal(true); }}
+                      style={{ flex: 1 }}
+                      renderCell={(key) => {
+                        switch (key) {
+                          case 'verein':
+                            return (
+                              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                {getClubLogo(contact.verein) && <Image source={{ uri: getClubLogo(contact.verein)! }} style={styles.tableClubLogo} />}
+                                <Text style={[styles.tableCell, styles.tableCellBold, { color: colors.text }]} numberOfLines={1}>{contact.verein || '-'}</Text>
+                              </View>
+                            );
+                          case 'name':
+                            return <Text style={[styles.tableCell, styles.tableCellBold, { color: colors.text }]} numberOfLines={1}>{formatName(contact)}</Text>;
+                          case 'bereich':
+                            return contact.bereich ? (
+                              <View style={[styles.bereichBadge, { backgroundColor: contact.bereich === 'Nachwuchs' ? (isDark ? 'rgba(251, 191, 36, 0.2)' : '#fef3c7') : (isDark ? 'rgba(34, 197, 94, 0.2)' : '#f0fdf4') }]}>
+                                <Text style={[styles.bereichText, { color: contact.bereich === 'Nachwuchs' ? (isDark ? '#fbbf24' : '#92400e') : (isDark ? '#4ade80' : '#166534') }]}>{contact.bereich}</Text>
+                              </View>
+                            ) : <Text style={[styles.tableCell, { color: colors.text }]}>-</Text>;
+                          case 'position':
+                            return contact.position ? (
+                              <View style={[styles.positionBadge, { backgroundColor: isDark ? 'rgba(14, 165, 233, 0.2)' : '#e0f2fe' }]}>
+                                <Text style={[styles.positionText, { color: isDark ? '#38bdf8' : '#0369a1' }]}>{contact.position}</Text>
+                              </View>
+                            ) : <Text style={[styles.tableCell, { color: colors.text }]}>-</Text>;
+                          case 'mannschaft':
+                            return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{contact.mannschaft || '-'}</Text>;
+                          case 'telefon':
+                            return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{formatPhone(contact)}</Text>;
+                          case 'email':
+                            return <Text style={[styles.tableCell, { color: '#3b82f6' }]} numberOfLines={1}>{contact.email || '-'}</Text>;
+                          default:
+                            return null;
+                        }
+                      }}
+                    />
+                  </View>
                 ))
               )}
             </ScrollView>

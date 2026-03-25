@@ -8,8 +8,23 @@ import { SlideUpModal } from '../../components/SlideUpModal';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { ColumnDef } from '../../types/tableColumns';
+import { useTableColumns } from '../../hooks/useTableColumns';
+import { TableHeader } from '../../components/table/TableHeader';
+import { TableRow } from '../../components/table/TableRow';
 
 const POSITIONS = ['TW', 'IV', 'LV', 'RV', 'DM', 'ZM', 'OM', 'LA', 'RA', 'ST'];
+
+const SCOUTING_LIST_COLUMNS: ColumnDef[] = [
+  { key: 'name', label: 'Name', defaultFlex: 2, minWidth: 100 },
+  { key: 'position', label: 'Pos.', defaultFlex: 0.8, minWidth: 60 },
+  { key: 'club', label: 'Verein', defaultFlex: 1.4, minWidth: 80 },
+  { key: 'agent', label: 'Berater', defaultFlex: 1.2, minWidth: 80 },
+  { key: 'rating', label: 'Rating', defaultFlex: 0.7, minWidth: 50 },
+  { key: 'scout', label: 'Scout', defaultFlex: 1, minWidth: 60 },
+  { key: 'status', label: 'Status', defaultFlex: 1.1, minWidth: 60 },
+  { key: 'tm', label: 'TM', defaultFlex: 0.3, minWidth: 30 },
+];
 
 const SCOUTING_STATUS = [
   { id: 'gesichtet', label: 'Talentpool', description: 'Empfohlen oder gescoutet, aber noch weitere Sichtung nötig', color: '#10b981' },
@@ -244,6 +259,10 @@ export function ScoutingScreen({ navigation }: any) {
   const [showPositionDropdown, setShowPositionDropdown] = useState(false);
   const [showYearDropdown, setShowYearDropdown] = useState(false);
   const [showRatingDropdown, setShowRatingDropdown] = useState(false);
+
+  // Table columns for list view
+  const [scoutingTableWidth, setScoutingTableWidth] = useState(0);
+  const scoutingTable = useTableColumns(SCOUTING_LIST_COLUMNS, scoutingTableWidth);
 
   const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
   const [showAddGameModal, setShowAddGameModal] = useState(false);
@@ -1424,52 +1443,79 @@ export function ScoutingScreen({ navigation }: any) {
   };
 
   const renderListView = () => (
-    <View style={[styles.tableContainer, { backgroundColor: colors.cardBackground }]}>
-      <View style={[styles.tableHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
-        <Text style={[styles.tableHeaderCell, { flex: 2, color: colors.textSecondary }]}>Name</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 0.8, color: colors.textSecondary }]}>Pos.</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 1.4, color: colors.textSecondary }]}>Verein</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 1.2, color: colors.textSecondary }]}>Berater</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 0.7, color: colors.textSecondary }]}>Rating</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 1, color: colors.textSecondary }]}>Scout</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 1.1, color: colors.textSecondary }]}>Status</Text>
-        <Text style={[styles.tableHeaderCell, { flex: 0.3, color: colors.textSecondary }]}>TM</Text>
+    <View style={[styles.tableContainer, { backgroundColor: colors.cardBackground }]} onLayout={(e) => setScoutingTableWidth(e.nativeEvent.layout.width)}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceSecondary, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+        {scoutingTableWidth > 0 && (
+          <TableHeader
+            columnDefs={SCOUTING_LIST_COLUMNS}
+            columnOrder={scoutingTable.columnOrder}
+            getColumnWidth={scoutingTable.getColumnWidth}
+            onResizeStart={scoutingTable.onResizeStart}
+            onDragStart={scoutingTable.onDragStart}
+            resizingKey={scoutingTable.resizingKey}
+            draggingKey={scoutingTable.draggingKey}
+            dragOverKey={scoutingTable.dragOverKey}
+            colors={colors}
+            setHeaderRef={scoutingTable.setHeaderRef}
+            style={{ flex: 1, borderBottomWidth: 0 }}
+          />
+        )}
       </View>
       <ScrollView>
         {filteredPlayers.map(player => (
-          <TouchableOpacity key={player.id} style={[styles.tableRow, { borderBottomColor: colors.border }]} onPress={() => {
-            setSelectedPlayer(player);
-            setEditData({ first_name: player.first_name, last_name: player.last_name, birth_date: player.birth_date,
-              position: player.position, club: player.club, rating: player.rating, status: player.status,
-              notes: player.notes, photo_url: player.photo_url, transfermarkt_url: player.transfermarkt_url,
-              agent_name: player.agent_name, phone: player.phone, additional_info: player.additional_info,
-              current_status: player.current_status });
-            setEditClubSearchText(player.club || '');
-            setShowPlayerDetailModal(true);
-          }}>
-            <Text style={[styles.tableCell, styles.tableCellText, { flex: 2, color: colors.text }]}>{player.last_name}, {player.first_name} <Text style={{ color: colors.textSecondary, fontWeight: '400' }}>({getYearFromDate(player.birth_date)})</Text></Text>
-            <View style={[styles.tableCell, { flex: 0.8, flexDirection: 'row', flexWrap: 'wrap', gap: 4 }]}>
-              {parsePositions(player.position).map((pos, idx) => (
-                <View key={idx} style={styles.positionBadgeSmall}><Text style={styles.positionTextSmall}>{pos}</Text></View>
-              ))}
-            </View>
-            <Text style={[styles.tableCell, { flex: 1.4, color: colors.text }]} numberOfLines={1}>{player.club}</Text>
-            <Text style={[styles.tableCell, { flex: 1.2, color: colors.text }]} numberOfLines={1}>{player.agent_name || '-'}</Text>
-            <View style={[styles.tableCell, { flex: 0.7, flexDirection: 'row' }]}>
-              {player.rating ? <View style={styles.ratingBadgeList}><Text style={styles.ratingTextList}>⭐ {player.rating}/10</Text></View> : <Text style={[styles.tableCell, { color: colors.text }]}>-</Text>}
-            </View>
-            <Text style={[styles.tableCell, { flex: 1, color: colors.text }]} numberOfLines={1}>{player.scout_name}</Text>
-            <Text style={[styles.tableCell, { flex: 1.1, color: SCOUTING_STATUS.find(s => s.id === player.status)?.color }]}>
-              {SCOUTING_STATUS.find(s => s.id === player.status)?.label}
-            </Text>
-            <View style={[styles.tableCell, { flex: 0.3 }]}>
-              {player.transfermarkt_url && (
-                <TouchableOpacity onPress={(e) => { e.stopPropagation(); openTransfermarkt(player.transfermarkt_url!); }}>
-                  <Image source={TransfermarktLogo} style={styles.tmLogoSmall} />
-                </TouchableOpacity>
-              )}
-            </View>
-          </TouchableOpacity>
+          <View key={player.id} style={[styles.tableRow, { borderBottomColor: colors.border }]}>
+            <TableRow
+              columnOrder={scoutingTable.columnOrder}
+              getColumnWidth={scoutingTable.getColumnWidth}
+              onPress={() => {
+                setSelectedPlayer(player);
+                setEditData({ first_name: player.first_name, last_name: player.last_name, birth_date: player.birth_date,
+                  position: player.position, club: player.club, rating: player.rating, status: player.status,
+                  notes: player.notes, photo_url: player.photo_url, transfermarkt_url: player.transfermarkt_url,
+                  agent_name: player.agent_name, phone: player.phone, additional_info: player.additional_info,
+                  current_status: player.current_status });
+                setEditClubSearchText(player.club || '');
+                setShowPlayerDetailModal(true);
+              }}
+              style={{ flex: 1 }}
+              renderCell={(key) => {
+                switch (key) {
+                  case 'name':
+                    return <Text style={[styles.tableCell, styles.tableCellText, { color: colors.text }]} numberOfLines={1}>{player.last_name}, {player.first_name} <Text style={{ color: colors.textSecondary, fontWeight: '400' }}>({getYearFromDate(player.birth_date)})</Text></Text>;
+                  case 'position':
+                    return (
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
+                        {parsePositions(player.position).map((pos, idx) => (
+                          <View key={idx} style={styles.positionBadgeSmall}><Text style={styles.positionTextSmall}>{pos}</Text></View>
+                        ))}
+                      </View>
+                    );
+                  case 'club':
+                    return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{player.club}</Text>;
+                  case 'agent':
+                    return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{player.agent_name || '-'}</Text>;
+                  case 'rating':
+                    return player.rating ? <View style={styles.ratingBadgeList}><Text style={styles.ratingTextList}>⭐ {player.rating}/10</Text></View> : <Text style={[styles.tableCell, { color: colors.text }]}>-</Text>;
+                  case 'scout':
+                    return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{player.scout_name}</Text>;
+                  case 'status':
+                    return (
+                      <Text style={[styles.tableCell, { color: SCOUTING_STATUS.find(s => s.id === player.status)?.color }]}>
+                        {SCOUTING_STATUS.find(s => s.id === player.status)?.label}
+                      </Text>
+                    );
+                  case 'tm':
+                    return player.transfermarkt_url ? (
+                      <TouchableOpacity onPress={(e) => { e.stopPropagation(); openTransfermarkt(player.transfermarkt_url!); }}>
+                        <Image source={TransfermarktLogo} style={styles.tmLogoSmall} />
+                      </TouchableOpacity>
+                    ) : null;
+                  default:
+                    return null;
+                }
+              }}
+            />
+          </View>
         ))}
       </ScrollView>
     </View>

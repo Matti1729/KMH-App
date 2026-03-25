@@ -7,6 +7,10 @@ import { MobileSidebar } from '../../components/MobileSidebar';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { ColumnDef } from '../../types/tableColumns';
+import { useTableColumns } from '../../hooks/useTableColumns';
+import { TableHeader } from '../../components/table/TableHeader';
+import { TableRow } from '../../components/table/TableRow';
 import { getRelevantTermine, convertToDbFormat, getLastUpdateDisplay, getDFBTermineCount, getHallenTermineCount } from '../../services/dfbTermine';
 import { 
   syncAllPlayerGames, 
@@ -100,6 +104,16 @@ type ViewMode = 'dashboard' | 'spiele' | 'termine' | 'kalender';
 type SortField = 'datum' | 'art' | 'titel' | 'jahrgang' | 'ort' | 'uebernahme';
 type SortDirection = 'asc' | 'desc';
 
+const TERMINE_COLUMNS: ColumnDef[] = [
+  { key: 'datum', label: 'Datum', defaultFlex: 1, minWidth: 90 },
+  { key: 'zeit', label: 'Zeit', defaultFlex: 0.6, minWidth: 50 },
+  { key: 'art', label: 'Art', defaultFlex: 1.3, minWidth: 120 },
+  { key: 'titel', label: 'Beschreibung', defaultFlex: 2, minWidth: 150 },
+  { key: 'jahrgang', label: 'Jahrgang', defaultFlex: 0.6, minWidth: 55 },
+  { key: 'ort', label: 'Ort', defaultFlex: 1.1, minWidth: 90 },
+  { key: 'uebernahme', label: 'Übernahme', defaultFlex: 1.1, minWidth: 90 },
+];
+
 const TERMIN_ARTEN = ['Nationalmannschaft', 'Hallenturnier', 'Sonstiges'];
 const JAHRGAENGE = ['U13', 'U14', 'U15', 'U16', 'U17', 'U18', 'U19', 'U20', 'U21', 'U23', 'Herren', 'Sonstige'];
 
@@ -147,7 +161,11 @@ export function TermineScreen({ navigation }: any) {
   // Sorting state
   const [sortField, setSortField] = useState<SortField>('datum');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
-  
+
+  // Table columns (drag & drop + resize)
+  const [termineTableWidth, setTermineTableWidth] = useState(0);
+  const termineTable = useTableColumns(TERMINE_COLUMNS, termineTableWidth);
+
   // Form state
   const [formDatum, setFormDatum] = useState('');
   const [formDatumEnde, setFormDatumEnde] = useState('');
@@ -2160,16 +2178,24 @@ END:VEVENT
         </Pressable>
 
         <View style={styles.scoutingContent}>
-          <View style={[styles.scoutingGamesContainer, { backgroundColor: colors.cardBackground }]}>
-            <View style={[styles.termineTableHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
-              <SortableHeader field="datum" label="Datum" style={styles.termineColDatum} />
-              <View style={styles.termineColZeit}><Text style={[styles.termineTableHeaderText, { color: colors.textSecondary }]}>Zeit</Text></View>
-              <SortableHeader field="art" label="Art" style={styles.termineColArt} />
-              <SortableHeader field="titel" label="Beschreibung" style={styles.termineColTitel} />
-              <SortableHeader field="jahrgang" label="Jahrgang" style={styles.termineColJahrgang} />
-              <SortableHeader field="ort" label="Ort" style={styles.termineColOrt} />
-              <SortableHeader field="uebernahme" label="Übernahme" style={styles.termineColUebernahme} />
-            </View>
+          <View style={[styles.scoutingGamesContainer, { backgroundColor: colors.cardBackground }]} onLayout={(e) => setTermineTableWidth(e.nativeEvent.layout.width - 2)}>
+            {termineTableWidth > 0 && (
+              <TableHeader
+                columnDefs={TERMINE_COLUMNS}
+                columnOrder={termineTable.columnOrder}
+                getColumnWidth={termineTable.getColumnWidth}
+                onResizeStart={termineTable.onResizeStart}
+                onDragStart={termineTable.onDragStart}
+                resizingKey={termineTable.resizingKey}
+                draggingKey={termineTable.draggingKey}
+                dragOverKey={termineTable.dragOverKey}
+                onSort={(key) => { if (key !== 'zeit') handleSort(key as SortField); }}
+                sortKey={sortField}
+                sortAsc={sortDirection === 'asc'}
+                colors={colors}
+                setHeaderRef={termineTable.setHeaderRef}
+              />
+            )}
 
             <ScrollView>
               {loading ? (
@@ -2199,37 +2225,51 @@ END:VEVENT
                   const time = formatTime(termin.datum);
 
                   return (
-                    <TouchableOpacity
+                    <TableRow
                       key={termin.id}
+                      columnOrder={termineTable.columnOrder}
+                      getColumnWidth={termineTable.getColumnWidth}
+                      onPress={() => openEditModal(termin)}
                       style={[
                         styles.termineTableRow,
                         { backgroundColor: colors.cardBackground, borderBottomColor: colors.border },
                         isRunning && !isPast && { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#dcfce7' },
                         isPast && { backgroundColor: colors.surfaceSecondary }
                       ]}
-                      onPress={() => openEditModal(termin)}
-                    >
-                      <Text style={[styles.termineTableCell, styles.termineColDatum, { color: isPast ? colors.textMuted : colors.text }]}>{formatDate(termin)}</Text>
-                      <Text style={[styles.termineTableCell, styles.termineColZeit, { color: isPast ? colors.textMuted : colors.text }]}>{time || '-'}</Text>
-                      <View style={styles.termineColArt}>
-                        <View style={[
-                          styles.artBadge,
-                          isNM ? styles.artNationalmannschaft : isHT ? styles.artHallenturnier : styles.artSonstige,
-                          isPast && styles.artBadgeArchiv
-                        ]}>
-                          <Text style={[
-                            styles.artBadgeText,
-                            isNM ? styles.artNationalmannschaftText : isHT ? styles.artHallenturnierText : null
-                          ]}>
-                            {isNM ? 'Nationalmannschaft' : isHT ? 'Hallenturnier' : getDisplayArt(termin.art)}
-                          </Text>
-                        </View>
-                      </View>
-                      <Text style={[styles.termineTableCell, styles.termineColTitel, { color: isPast ? colors.textMuted : colors.text }]} numberOfLines={1}>{termin.titel}</Text>
-                      <Text style={[styles.termineTableCell, styles.termineColJahrgang, { color: isPast ? colors.textMuted : colors.text }]}>{termin.jahrgang || '-'}</Text>
-                      <Text style={[styles.termineTableCell, styles.termineColOrt, { color: isPast ? colors.textMuted : colors.text }]} numberOfLines={1}>{termin.ort || '-'}</Text>
-                      <Text style={[styles.termineTableCell, styles.termineColUebernahme, { color: isPast ? colors.textMuted : colors.text }]}>{getAdvisorName(termin.uebernahme_advisor_id)}</Text>
-                    </TouchableOpacity>
+                      renderCell={(key) => {
+                        switch (key) {
+                          case 'datum':
+                            return <Text style={[styles.termineTableCell, { color: isPast ? colors.textMuted : colors.text }]}>{formatDate(termin)}</Text>;
+                          case 'zeit':
+                            return <Text style={[styles.termineTableCell, { color: isPast ? colors.textMuted : colors.text }]}>{time || '-'}</Text>;
+                          case 'art':
+                            return (
+                              <View style={[
+                                styles.artBadge,
+                                isNM ? styles.artNationalmannschaft : isHT ? styles.artHallenturnier : styles.artSonstige,
+                                isPast && styles.artBadgeArchiv
+                              ]}>
+                                <Text style={[
+                                  styles.artBadgeText,
+                                  isNM ? styles.artNationalmannschaftText : isHT ? styles.artHallenturnierText : null
+                                ]}>
+                                  {isNM ? 'Nationalmannschaft' : isHT ? 'Hallenturnier' : getDisplayArt(termin.art)}
+                                </Text>
+                              </View>
+                            );
+                          case 'titel':
+                            return <Text style={[styles.termineTableCell, { color: isPast ? colors.textMuted : colors.text }]} numberOfLines={1}>{termin.titel}</Text>;
+                          case 'jahrgang':
+                            return <Text style={[styles.termineTableCell, { color: isPast ? colors.textMuted : colors.text }]}>{termin.jahrgang || '-'}</Text>;
+                          case 'ort':
+                            return <Text style={[styles.termineTableCell, { color: isPast ? colors.textMuted : colors.text }]} numberOfLines={1}>{termin.ort || '-'}</Text>;
+                          case 'uebernahme':
+                            return <Text style={[styles.termineTableCell, { color: isPast ? colors.textMuted : colors.text }]}>{getAdvisorName(termin.uebernahme_advisor_id)}</Text>;
+                          default:
+                            return null;
+                        }
+                      }}
+                    />
                   );
                 })
               )}

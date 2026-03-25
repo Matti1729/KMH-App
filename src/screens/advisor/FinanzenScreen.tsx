@@ -11,6 +11,10 @@ import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { supabase } from '../../config/supabase';
+import { ColumnDef } from '../../types/tableColumns';
+import { useTableColumns } from '../../hooks/useTableColumns';
+import { TableHeader } from '../../components/table/TableHeader';
+import { TableRow } from '../../components/table/TableRow';
 
 // --- Types ---
 
@@ -60,6 +64,15 @@ interface RateEntry {
 
 type SortField = 'name' | 'club' | 'league' | 'provision' | 'amount' | 'due';
 type SortDirection = 'asc' | 'desc';
+
+const FINANZEN_COLUMNS: ColumnDef[] = [
+  { key: 'name', label: 'Name', defaultFlex: 0.9, minWidth: 100 },
+  { key: 'club', label: 'Verein', defaultFlex: 0.9, minWidth: 90 },
+  { key: 'league', label: 'Liga', defaultFlex: 1.1, minWidth: 100 },
+  { key: 'provision', label: 'Provision (%)', defaultFlex: 0.7, minWidth: 70 },
+  { key: 'amount', label: 'Summe (€)', defaultFlex: 1, minWidth: 90 },
+  { key: 'due', label: 'Fälligkeit', defaultFlex: 0.9, minWidth: 90 },
+];
 
 // --- Constants ---
 
@@ -144,6 +157,10 @@ export function FinanzenScreen({ navigation }: any) {
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+
+  // Table columns (drag & drop + resize)
+  const [tableWidth, setTableWidth] = useState(0);
+  const table = useTableColumns(FINANZEN_COLUMNS, tableWidth);
 
   // Inline status toggle
   const cycleStatus = async (provId: string, currentStatus: string) => {
@@ -1277,15 +1294,24 @@ export function FinanzenScreen({ navigation }: any) {
 
           <Text style={[styles.rowCount, { color: colors.textMuted }]}>{provisionCount} Provisionen · {playerOnlyCount} Spieler ohne Einträge</Text>
 
-          <View style={[styles.tableWrapper, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
-            <View style={[styles.tableHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
-              {renderSortableHeader('Name', 'name', styles.colName)}
-              {renderSortableHeader('Verein', 'club', styles.colClub)}
-              {renderSortableHeader('Liga', 'league', styles.colLeague)}
-              {renderSortableHeader('Provision (%)', 'provision', styles.colProvision)}
-              {renderSortableHeader('Summe (€)', 'amount', styles.colAmount)}
-              {renderSortableHeader('Fälligkeit', 'due', styles.colDue)}
-            </View>
+          <View style={[styles.tableWrapper, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]} onLayout={(e) => setTableWidth(e.nativeEvent.layout.width - 2)}>
+            {tableWidth > 0 && (
+              <TableHeader
+                columnDefs={FINANZEN_COLUMNS}
+                columnOrder={table.columnOrder}
+                getColumnWidth={table.getColumnWidth}
+                onResizeStart={table.onResizeStart}
+                onDragStart={table.onDragStart}
+                resizingKey={table.resizingKey}
+                draggingKey={table.draggingKey}
+                dragOverKey={table.dragOverKey}
+                onSort={(key) => handleSort(key as SortField)}
+                sortKey={sortField}
+                sortAsc={sortDirection === 'asc'}
+                colors={colors}
+                setHeaderRef={table.setHeaderRef}
+              />
+            )}
 
             <ScrollView style={styles.tableBody}>
               {loading ? (
@@ -1293,7 +1319,50 @@ export function FinanzenScreen({ navigation }: any) {
               ) : sortedRows.length === 0 ? (
                 <Text style={[styles.emptyText, { color: colors.textMuted }]}>Keine Spieler gefunden.</Text>
               ) : (
-                sortedRows.map(renderRow)
+                sortedRows.map((row) => {
+                  const isProv = row.type === 'provision';
+                  const rowBg = getRowBg(row);
+
+                  return (
+                    <TableRow
+                      key={row.key}
+                      columnOrder={table.columnOrder}
+                      getColumnWidth={table.getColumnWidth}
+                      onPress={() => openDetail(row.player_id)}
+                      style={[
+                        styles.tableRow, { borderBottomColor: colors.border },
+                        !isProv && { opacity: 0.5 },
+                        rowBg ? { backgroundColor: rowBg } : undefined,
+                      ]}
+                      renderCell={(key) => {
+                        switch (key) {
+                          case 'name':
+                            return (
+                              <Text style={[styles.tableCell, styles.nameCell, { color: colors.text }]} numberOfLines={1}>
+                                {row.last_name}, {row.first_name}
+                              </Text>
+                            );
+                          case 'club':
+                            return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{row.club || '-'}</Text>;
+                          case 'league':
+                            return <Text style={[styles.tableCell, { color: colors.textMuted, fontSize: 12 }]} numberOfLines={1}>{row.league || '-'}</Text>;
+                          case 'provision':
+                            return <Text style={[styles.tableCell, { color: colors.text }]}>{row.provisionPercent ? `${row.provisionPercent}%` : '-'}</Text>;
+                          case 'amount':
+                            return (
+                              <Text style={[styles.tableCell, { color: colors.text, fontWeight: isProv ? '600' : '400' }]}>
+                                {isProv && row.amount > 0 ? formatCurrency(row.amount) : '-'}
+                              </Text>
+                            );
+                          case 'due':
+                            return <Text style={[styles.tableCell, { color: colors.text }]}>{isProv ? formatDateDE(row.due_date) : '-'}</Text>;
+                          default:
+                            return null;
+                        }
+                      }}
+                    />
+                  );
+                })
               )}
             </ScrollView>
           </View>
