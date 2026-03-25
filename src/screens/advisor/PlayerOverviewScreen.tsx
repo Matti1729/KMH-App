@@ -1059,10 +1059,12 @@ export function PlayerOverviewScreen({ navigation }: any) {
                     </View>
                   </View>
                 )}
-                <Text style={[styles.modalHint, { color: colors.textSecondary }]}>Zuständigkeit: {currentUserName || 'Sie'}</Text>
-                <View style={styles.modalButtons}>
-                  <TouchableOpacity style={[styles.modalCancelButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => { setShowAddModal(false); setTmSuggestions([]); setTmSelected(null); setNewFirstName(''); setNewLastName(''); }}><Text style={[styles.modalCancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text></TouchableOpacity>
-                  <TouchableOpacity style={[styles.modalSaveButton, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={handleAddPlayer} disabled={tmLoading}><Text style={[styles.modalSaveButtonText, { color: '#10b981' }]}>{tmLoading ? 'Laden...' : 'Speichern'}</Text></TouchableOpacity>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                  <Text style={[styles.modalHint, { color: colors.textSecondary }]}>Zuständigkeit: {currentUserName || 'Sie'}</Text>
+                  <View style={styles.modalButtons}>
+                    <TouchableOpacity style={styles.modalCancelButton} onPress={() => { setShowAddModal(false); setTmSuggestions([]); setTmSelected(null); setNewFirstName(''); setNewLastName(''); }}><Text style={[styles.modalCancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text></TouchableOpacity>
+                    <TouchableOpacity style={[styles.modalSaveButton, { borderColor: colors.border }]} onPress={handleAddPlayer} disabled={tmLoading}><Text style={[styles.modalSaveButtonText, { color: '#10b981' }]}>{tmLoading ? 'Laden...' : 'Speichern'}</Text></TouchableOpacity>
+                  </View>
                 </View>
               </View>
             </View>
@@ -1974,9 +1976,9 @@ const styles = StyleSheet.create({
   modalText: { fontSize: 13, color: '#334155', textAlign: 'center', marginBottom: 8 },
   modalPlayerName: { fontWeight: 'bold' },
   modalSubText: { fontSize: 12, color: '#64748b', textAlign: 'center', marginBottom: 16 },
-  modalHint: { fontSize: 12, color: '#64748b', textAlign: 'center', marginBottom: 10, fontStyle: 'italic' },
+  modalHint: { fontSize: 11, color: '#64748b', textAlign: 'left', marginBottom: 0, fontStyle: 'italic' },
   modalInput: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, padding: 8, fontSize: 13, marginBottom: 10 },
-  modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8, gap: 8 },
+  modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 2, gap: 8 },
   modalCancelButton: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 5, backgroundColor: 'transparent', alignItems: 'center' },
   modalCancelButtonText: { color: '#64748b', fontWeight: '500', fontSize: 12 },
   modalSaveButton: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 5, backgroundColor: 'transparent', borderWidth: 1, borderColor: '#10b981', alignItems: 'center' },
