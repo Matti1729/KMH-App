@@ -1558,7 +1558,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
                   </View>
                 </View>
               )}
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 12 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 28 }}>
                 <Text style={[styles.modalHint, { color: colors.textSecondary }]}>Zuständigkeit: {currentUserName || 'Sie'}</Text>
                 <TouchableOpacity style={[styles.modalSaveButton, { borderColor: '#10b981' }]} onPress={handleAddPlayer} disabled={tmLoading}><Text style={[styles.modalSaveButtonText, { color: '#10b981' }]}>{tmLoading ? 'Laden...' : 'Spieler anlegen'}</Text></TouchableOpacity>
               </View>
