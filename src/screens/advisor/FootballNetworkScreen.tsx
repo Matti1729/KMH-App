@@ -69,6 +69,9 @@ export function FootballNetworkScreen({ navigation }: any) {
   const [showVcfPicker, setShowVcfPicker] = useState(false);
   const [importProgress, setImportProgress] = useState<{ current: number; total: number; name: string } | null>(null);
 
+  // Export Selection
+  const [selectedExportIds, setSelectedExportIds] = useState<string[]>([]);
+
   // Sorting State
   const [sortField, setSortField] = useState<SortField>('verein');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -275,6 +278,55 @@ export function FootballNetworkScreen({ navigation }: any) {
     Alert.alert('Import abgeschlossen', `${added} Kontakt${added !== 1 ? 'e' : ''} importiert.\n${enriched > 0 ? `${enriched} davon mit Transfermarkt-Daten angereichert.` : 'Keine Transfermarkt-Treffer gefunden.'}`);
   };
 
+  const toggleExportId = (id: string) => {
+    setSelectedExportIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const toggleAllExport = () => {
+    if (selectedExportIds.length === filteredContacts.length) {
+      setSelectedExportIds([]);
+    } else {
+      setSelectedExportIds(filteredContacts.map(c => c.id));
+    }
+  };
+
+  const generateVcf = (contactList: Contact[]): string => {
+    return contactList.map(c => {
+      const lines = [
+        'BEGIN:VCARD',
+        'VERSION:3.0',
+        `N:${c.nachname};${c.vorname};;;`,
+        `FN:${c.vorname} ${c.nachname}`,
+      ];
+      if (c.telefon) lines.push(`TEL;TYPE=CELL:${c.telefon_code}${c.telefon}`);
+      if (c.email) lines.push(`EMAIL:${c.email}`);
+      if (c.verein) lines.push(`ORG:${c.verein}`);
+      if (c.position) lines.push(`TITLE:${c.position}`);
+      if (c.notes) lines.push(`NOTE:${c.notes}`);
+      lines.push('END:VCARD');
+      return lines.join('\r\n');
+    }).join('\r\n');
+  };
+
+  const downloadVcf = () => {
+    const selected = contacts.filter(c => selectedExportIds.includes(c.id));
+    if (selected.length === 0) return;
+
+    const vcf = generateVcf(selected);
+    const blob = new Blob([vcf], { type: 'text/vcard;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = selected.length === 1
+      ? `${selected[0].vorname}_${selected[0].nachname}.vcf`
+      : `KMH_Kontakte_${selected.length}.vcf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setSelectedExportIds([]);
+  };
+
   const getAvailablePositions = () => newContact.bereich === 'Herren' ? POSITIONS_HERREN : newContact.bereich === 'Nachwuchs' ? POSITIONS_NACHWUCHS : [];
   const getAvailableMannschaften = () => newContact.bereich === 'Herren' ? MANNSCHAFTEN_HERREN : newContact.bereich === 'Nachwuchs' ? MANNSCHAFTEN_NACHWUCHS : [];
   const filteredClubs = useMemo(() => !vereinSearch.trim() ? clubs : clubs.filter(c => c.toLowerCase().includes(vereinSearch.toLowerCase())), [clubs, vereinSearch]);
@@ -366,9 +418,14 @@ export function FootballNetworkScreen({ navigation }: any) {
         style={[styles.mobileCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
         onPress={() => handleContactClick(contact)}
       >
-        {/* Row 1: Name (left) | Position badges (right) */}
+        {/* Row 1: Checkbox + Name (left) | Position badges (right) */}
         <View style={styles.mobileCardRow}>
-          <Text style={[styles.mobileCardName, { color: colors.text }]}>{formatName(contact)}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+            <TouchableOpacity onPress={(e) => { e.stopPropagation(); toggleExportId(contact.id); }} style={{ marginRight: 10 }}>
+              <Ionicons name={selectedExportIds.includes(contact.id) ? "checkbox" : "square-outline"} size={20} color={selectedExportIds.includes(contact.id) ? colors.primary : colors.textMuted} />
+            </TouchableOpacity>
+            <Text style={[styles.mobileCardName, { color: colors.text }]}>{formatName(contact)}</Text>
+          </View>
           <View style={styles.mobileCardBadgesRow}>
             {(contact.position || contact.mannschaft) && (
               <View style={[styles.mobilePositionBadge, { backgroundColor: isDark ? 'rgba(14, 165, 233, 0.2)' : '#e0f2fe', borderColor: isDark ? 'rgba(14, 165, 233, 0.4)' : '#bae6fd' }]}>
@@ -451,10 +508,29 @@ export function FootballNetworkScreen({ navigation }: any) {
             </TouchableOpacity>
           </View>
 
-          {/* Contact Count */}
-          <View style={[styles.mobileSubheader, { backgroundColor: colors.surfaceSecondary }]}>
+          {/* Contact Count + Export */}
+          <View style={[styles.mobileSubheader, { backgroundColor: colors.surfaceSecondary, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
             <Text style={[styles.mobileSubheaderText, { color: colors.textSecondary }]}>{filteredContacts.length} Kontakte</Text>
+            <TouchableOpacity onPress={toggleAllExport}>
+              <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '500' }}>
+                {selectedExportIds.length === filteredContacts.length && filteredContacts.length > 0 ? 'Keine auswählen' : 'Alle auswählen'}
+              </Text>
+            </TouchableOpacity>
           </View>
+
+          {/* Export Toolbar */}
+          {selectedExportIds.length > 0 && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 10, backgroundColor: colors.primary + '15', borderRadius: 8, marginHorizontal: 16, marginBottom: 8 }}>
+              <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '600' }}>{selectedExportIds.length} ausgewählt</Text>
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6 }}
+                onPress={downloadVcf}
+              >
+                <Ionicons name="download-outline" size={15} color="#fff" style={{ marginRight: 5 }} />
+                <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>.vcf herunterladen</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* Import Progress */}
           {importProgress && (
@@ -933,8 +1009,23 @@ export function FootballNetworkScreen({ navigation }: any) {
         </View>
 
         <View style={styles.content}>
+          {selectedExportIds.length > 0 && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 10, backgroundColor: colors.primary + '15', borderRadius: 8, marginBottom: 8 }}>
+              <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '600' }}>{selectedExportIds.length} ausgewählt</Text>
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary, paddingVertical: 6, paddingHorizontal: 14, borderRadius: 6 }}
+                onPress={downloadVcf}
+              >
+                <Ionicons name="download-outline" size={16} color="#fff" style={{ marginRight: 6 }} />
+                <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>Als .vcf herunterladen</Text>
+              </TouchableOpacity>
+            </View>
+          )}
           <View style={[styles.tableContainer, { backgroundColor: colors.cardBackground }]}>
             <View style={[styles.tableHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+              <TouchableOpacity onPress={toggleAllExport} style={{ width: 36, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name={selectedExportIds.length === filteredContacts.length && filteredContacts.length > 0 ? "checkbox" : "square-outline"} size={18} color={selectedExportIds.length > 0 ? colors.primary : colors.textMuted} />
+              </TouchableOpacity>
               <TouchableOpacity onPress={() => handleSort('verein')} style={[styles.sortableHeaderCell, { flex: 1.3 }]}>
                 <Text style={[styles.tableHeaderCell, { color: colors.textSecondary }]}>Verein {getSortIndicator('verein')}</Text>
               </TouchableOpacity>
@@ -976,6 +1067,9 @@ export function FootballNetworkScreen({ navigation }: any) {
               ) : (
                 filteredContacts.map(contact => (
                   <TouchableOpacity key={contact.id} style={[styles.tableRow, { borderBottomColor: colors.border }]} onPress={() => { setSelectedContact(contact); setShowDesktopDetailModal(true); }}>
+                    <TouchableOpacity style={{ width: 36, alignItems: 'center', justifyContent: 'center' }} onPress={(e) => { e.stopPropagation(); toggleExportId(contact.id); }}>
+                      <Ionicons name={selectedExportIds.includes(contact.id) ? "checkbox" : "square-outline"} size={18} color={selectedExportIds.includes(contact.id) ? colors.primary : colors.textMuted} />
+                    </TouchableOpacity>
                     <View style={[styles.tableCellView, { flex: 1.3, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start' }]}>
                       {getClubLogo(contact.verein) && <Image source={{ uri: getClubLogo(contact.verein)! }} style={styles.tableClubLogo} />}
                       <Text style={[styles.tableCell, styles.tableCellBold, { color: colors.text }]} numberOfLines={1}>{contact.verein || '-'}</Text>
