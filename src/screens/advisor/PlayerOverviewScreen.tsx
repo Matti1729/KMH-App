@@ -1522,7 +1522,12 @@ export function PlayerOverviewScreen({ navigation }: any) {
         <Modal visible={showAddModal} transparent animationType="fade">
           <View style={styles.modalOverlay}>
             <View style={[styles.modalContent, { backgroundColor: colors.surface, maxHeight: '85%', width: '90%', maxWidth: 480 }]}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Neuen Spieler anlegen</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <Text style={[styles.modalTitle, { color: colors.text, marginBottom: 0 }]}>Neuen Spieler anlegen</Text>
+                <TouchableOpacity onPress={() => { setShowAddModal(false); setTmSuggestions([]); setTmSelected(null); setNewFirstName(''); setNewLastName(''); }} style={{ padding: 4 }}>
+                  <Text style={{ color: colors.textSecondary, fontSize: 18 }}>✕</Text>
+                </TouchableOpacity>
+              </View>
               <View style={{ flexDirection: 'row', gap: 8, marginBottom: 2 }}>
                 <TextInput style={[styles.modalInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Nachname" placeholderTextColor={colors.textMuted} value={newLastName} onChangeText={handleLastNameChange} autoFocus />
                 <TextInput style={[styles.modalInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Vorname" placeholderTextColor={colors.textMuted} value={newFirstName} onChangeText={handleFirstNameChange} />
@@ -1531,11 +1536,9 @@ export function PlayerOverviewScreen({ navigation }: any) {
               {tmSuggestions.length > 0 && (
                 <ScrollView style={{ maxHeight: 280, borderWidth: 1, borderColor: colors.border, borderRadius: 6, marginBottom: 8 }}>
                   {tmSuggestions.map((s, i) => (
-                    <TouchableOpacity key={i} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 5, paddingHorizontal: 8, borderBottomWidth: i < tmSuggestions.length - 1 ? StyleSheet.hairlineWidth : 0, borderBottomColor: colors.border }} onPress={() => selectTmPlayer(s)}>
+                    <TouchableOpacity key={i} style={{ flexDirection: 'row', alignItems: 'baseline', paddingVertical: 5, paddingHorizontal: 8, borderBottomWidth: i < tmSuggestions.length - 1 ? StyleSheet.hairlineWidth : 0, borderBottomColor: colors.border }} onPress={() => selectTmPlayer(s)}>
                       <Text style={{ color: colors.text, fontSize: 12, fontWeight: '600' }}>{s.name}</Text>
-                      {s.verein ? <Text style={{ color: colors.textMuted, fontSize: 11, marginLeft: 6 }}>{s.verein}</Text> : null}
-                      <View style={{ flex: 1 }} />
-                      <Text style={{ color: colors.textMuted, fontSize: 11 }}>{[s.position, s.age ? s.age + 'J' : ''].filter(Boolean).join(' · ')}</Text>
+                      <Text style={{ color: colors.textMuted, fontSize: 11, marginLeft: 6 }}>{[s.verein, s.position, s.age ? s.age + 'J' : ''].filter(Boolean).join(' · ')}</Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -1557,10 +1560,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
               )}
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Text style={[styles.modalHint, { color: colors.textSecondary }]}>Zuständigkeit: {currentUserName || 'Sie'}</Text>
-                <View style={styles.modalButtons}>
-                  <TouchableOpacity style={styles.modalCancelButton} onPress={() => { setShowAddModal(false); setTmSuggestions([]); setTmSelected(null); setNewFirstName(''); setNewLastName(''); }}><Text style={[styles.modalCancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text></TouchableOpacity>
-                  <TouchableOpacity style={[styles.modalSaveButton, { borderColor: colors.border }]} onPress={handleAddPlayer} disabled={tmLoading}><Text style={[styles.modalSaveButtonText, { color: '#10b981' }]}>{tmLoading ? 'Laden...' : 'Speichern'}</Text></TouchableOpacity>
-                </View>
+                <TouchableOpacity style={[styles.modalSaveButton, { borderColor: '#10b981' }]} onPress={handleAddPlayer} disabled={tmLoading}><Text style={[styles.modalSaveButtonText, { color: '#10b981' }]}>{tmLoading ? 'Laden...' : 'Spieler anlegen'}</Text></TouchableOpacity>
               </View>
             </View>
           </View>
