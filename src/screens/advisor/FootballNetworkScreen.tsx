@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Pressable } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Pressable, Linking, Platform, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Contacts from 'expo-contacts';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 import { MobileHeader } from '../../components/MobileHeader';
@@ -27,7 +28,7 @@ const COUNTRY_CODES = [
 interface Contact {
   id: string; vorname: string; nachname: string; verein: string; liga: string;
   bereich: string; position: string; mannschaft: string; telefon_code: string; telefon: string;
-  email: string; notes?: string; created_at: string;
+  email: string; notes?: string; transfermarkt_url?: string; created_at: string;
 }
 
 type SortField = 'verein' | 'name' | 'bereich' | 'position' | 'mannschaft' | 'telefon' | 'email';
@@ -51,7 +52,7 @@ export function FootballNetworkScreen({ navigation }: any) {
   const [showBereichDropdown, setShowBereichDropdown] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
-  const [newContact, setNewContact] = useState({ vorname: '', nachname: '', verein: '', liga: '', bereich: '', position: '', mannschaft: '', telefon_code: '+49', telefon: '', email: '', notes: '' });
+  const [newContact, setNewContact] = useState({ vorname: '', nachname: '', verein: '', liga: '', bereich: '', position: '', mannschaft: '', telefon_code: '+49', telefon: '', email: '', notes: '', transfermarkt_url: '' });
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [vereinSearch, setVereinSearch] = useState('');
   const [ligaSearch, setLigaSearch] = useState('');
@@ -63,6 +64,11 @@ export function FootballNetworkScreen({ navigation }: any) {
   const [showContactDetailModal, setShowContactDetailModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showDesktopDetailModal, setShowDesktopDetailModal] = useState(false);
+
+  // Phone Contacts Import
+  const [phoneContacts, setPhoneContacts] = useState<Contacts.Contact[]>([]);
+  const [showPhoneContactsPicker, setShowPhoneContactsPicker] = useState(false);
+  const [phoneContactSearch, setPhoneContactSearch] = useState('');
 
   // Sorting State
   const [sortField, setSortField] = useState<SortField>('verein');
@@ -130,7 +136,7 @@ export function FootballNetworkScreen({ navigation }: any) {
 
   const openEditModal = (contact: Contact) => {
     setEditingContact(contact);
-    setNewContact({ vorname: contact.vorname || '', nachname: contact.nachname || '', verein: contact.verein || '', liga: contact.liga || '', bereich: contact.bereich || '', position: contact.position || '', mannschaft: contact.mannschaft || '', telefon_code: contact.telefon_code || '+49', telefon: contact.telefon || '', email: contact.email || '', notes: contact.notes || '' });
+    setNewContact({ vorname: contact.vorname || '', nachname: contact.nachname || '', verein: contact.verein || '', liga: contact.liga || '', bereich: contact.bereich || '', position: contact.position || '', mannschaft: contact.mannschaft || '', telefon_code: contact.telefon_code || '+49', telefon: contact.telefon || '', email: contact.email || '', notes: contact.notes || '', transfermarkt_url: contact.transfermarkt_url || '' });
     setVereinSearch(contact.verein || '');
     setLigaSearch(contact.liga || '');
     setShowAddModal(true);
@@ -138,8 +144,60 @@ export function FootballNetworkScreen({ navigation }: any) {
 
   const closeModal = () => {
     setShowAddModal(false); setEditingContact(null);
-    setNewContact({ vorname: '', nachname: '', verein: '', liga: '', bereich: '', position: '', mannschaft: '', telefon_code: '+49', telefon: '', email: '', notes: '' });
+    setNewContact({ vorname: '', nachname: '', verein: '', liga: '', bereich: '', position: '', mannschaft: '', telefon_code: '+49', telefon: '', email: '', notes: '', transfermarkt_url: '' });
     setVereinSearch(''); setLigaSearch(''); setActiveDropdown(null);
+  };
+
+  const importFromContacts = async () => {
+    try {
+      const { status } = await Contacts.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Berechtigung', 'Zugriff auf Kontakte wurde nicht erlaubt.');
+        return;
+      }
+      const { data } = await Contacts.getContactsAsync({
+        fields: [Contacts.Fields.FirstName, Contacts.Fields.LastName, Contacts.Fields.PhoneNumbers, Contacts.Fields.Emails],
+      });
+      if (!data || data.length === 0) {
+        Alert.alert('Hinweis', 'Keine Kontakte gefunden.');
+        return;
+      }
+      // Kontaktliste als Auswahl anzeigen - nimm die ersten 500
+      const sorted = data.slice(0, 500).sort((a, b) => ((a.firstName || '') + (a.lastName || '')).localeCompare((b.firstName || '') + (b.lastName || '')));
+      // Für Mobile: Einfache Alert-basierte Lösung nicht ideal bei vielen Kontakten
+      // Besser: Wir nutzen presentFormAsync oder eine Suche
+      // Alternativ: direkt alle Kontakte laden und ein Modal mit Suche zeigen
+      setPhoneContacts(sorted);
+      setShowPhoneContactsPicker(true);
+    } catch (err) {
+      console.error('Kontakt-Import Fehler:', err);
+      Alert.alert('Fehler', 'Kontakte konnten nicht geladen werden.');
+    }
+  };
+
+  const selectPhoneContact = (contact: Contacts.Contact) => {
+    const phone = contact.phoneNumbers?.[0]?.number?.replace(/\s/g, '') || '';
+    // Telefon-Code extrahieren falls vorhanden
+    let code = '+49';
+    let number = phone;
+    const codeMatch = phone.match(/^(\+\d{2,3})/);
+    if (codeMatch) {
+      const matched = COUNTRY_CODES.find(cc => phone.startsWith(cc.code));
+      if (matched) {
+        code = matched.code;
+        number = phone.slice(matched.code.length);
+      }
+    }
+    setNewContact({
+      ...newContact,
+      vorname: contact.firstName || '',
+      nachname: contact.lastName || '',
+      telefon_code: code,
+      telefon: number,
+      email: contact.emails?.[0]?.email || '',
+    });
+    setShowPhoneContactsPicker(false);
+    setPhoneContactSearch('');
   };
 
   const getAvailablePositions = () => newContact.bereich === 'Herren' ? POSITIONS_HERREN : newContact.bereich === 'Nachwuchs' ? POSITIONS_NACHWUCHS : [];
@@ -487,31 +545,39 @@ export function FootballNetworkScreen({ navigation }: any) {
                       </View>
                     </View>
 
-                    {/* Telefon | E-Mail */}
+                    {/* Kontaktdaten mit Icons - vertikal */}
                     <View style={[styles.mobileDetailBox, { backgroundColor: colors.surfaceSecondary }]}>
-                      <View style={{ flexDirection: 'row', gap: 16 }}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Telefon</Text>
-                          <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{formatPhone(selectedContact)}</Text>
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>E-Mail</Text>
-                          <Text style={[styles.mobileDetailValue, { color: selectedContact.email ? '#3b82f6' : colors.text }]} numberOfLines={1}>{selectedContact.email || '-'}</Text>
-                        </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                        <Ionicons name="business-outline" size={15} color={colors.textMuted} style={{ marginRight: 10, width: 18 }} />
+                        <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{selectedContact.verein || '-'}</Text>
                       </View>
-                    </View>
-
-                    {/* Liga */}
-                    <View style={[styles.mobileDetailBox, { backgroundColor: colors.surfaceSecondary }]}>
-                      <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Liga (Zugehörigkeit 1. Mannschaft)</Text>
-                      <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{selectedContact.liga || '-'}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                        <Ionicons name="football-outline" size={15} color={colors.textMuted} style={{ marginRight: 10, width: 18 }} />
+                        <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{selectedContact.liga || '-'}</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                        <Ionicons name="mail-outline" size={15} color={colors.textMuted} style={{ marginRight: 10, width: 18 }} />
+                        <Text style={[styles.mobileDetailValue, { color: selectedContact.email ? '#3b82f6' : colors.text }]}>{selectedContact.email || '-'}</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: selectedContact.transfermarkt_url ? 10 : 0 }}>
+                        <Ionicons name="call-outline" size={15} color={colors.textMuted} style={{ marginRight: 10, width: 18 }} />
+                        <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{formatPhone(selectedContact)}</Text>
+                      </View>
+                      {selectedContact.transfermarkt_url && (
+                        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => Linking.openURL(selectedContact.transfermarkt_url!)}>
+                          <Ionicons name="link-outline" size={15} color={colors.textMuted} style={{ marginRight: 10, width: 18 }} />
+                          <Text style={[styles.mobileDetailValue, { color: '#3b82f6' }]}>Transfermarkt Profil</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
 
                     {/* Weitere Informationen */}
                     {selectedContact.notes && (
                       <View style={[styles.mobileDetailBox, { marginBottom: 0, backgroundColor: colors.surfaceSecondary }]}>
-                        <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Weitere Informationen</Text>
-                        <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{selectedContact.notes}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                          <Ionicons name="document-text-outline" size={15} color={colors.textMuted} style={{ marginRight: 10, width: 18, marginTop: 2 }} />
+                          <Text style={[styles.mobileDetailValue, { color: colors.text, flex: 1 }]}>{selectedContact.notes}</Text>
+                        </View>
                       </View>
                     )}
                   </ScrollView>
@@ -534,6 +600,15 @@ export function FootballNetworkScreen({ navigation }: any) {
                 <TouchableOpacity onPress={closeModal} style={styles.closeButton}><Text style={[styles.closeButtonText, { color: colors.textSecondary }]}>✕</Text></TouchableOpacity>
               </View>
               <ScrollView style={styles.modalScroll}>
+                {Platform.OS !== 'web' && !editingContact && (
+                  <TouchableOpacity
+                    style={[styles.importContactBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
+                    onPress={importFromContacts}
+                  >
+                    <Ionicons name="person-add-outline" size={18} color={colors.primary} style={{ marginRight: 8 }} />
+                    <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '600' }}>Aus Telefonbuch importieren</Text>
+                  </TouchableOpacity>
+                )}
                 <View style={styles.formField}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>Vorname</Text><TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.vorname} onChangeText={(t) => setNewContact({...newContact, vorname: t})} placeholder="Vorname" placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} /></View>
                 <View style={styles.formField}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>Nachname *</Text><TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.nachname} onChangeText={(t) => setNewContact({...newContact, nachname: t})} placeholder="Nachname" placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} /></View>
 
@@ -645,6 +720,7 @@ export function FootballNetworkScreen({ navigation }: any) {
                 </View>
 
                 <View style={styles.formField}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>E-Mail</Text><TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.email} onChangeText={(t) => setNewContact({...newContact, email: t})} placeholder="email@beispiel.de" placeholderTextColor={colors.textMuted} keyboardType="email-address" onFocus={() => setActiveDropdown(null)} /></View>
+                <View style={styles.formField}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>Transfermarkt URL</Text><TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.transfermarkt_url} onChangeText={(t) => setNewContact({...newContact, transfermarkt_url: t})} placeholder="https://www.transfermarkt.de/..." placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} /></View>
                 <View style={styles.formField}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>Weitere Informationen</Text><TextInput style={[styles.formInput, styles.textArea, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.notes} onChangeText={(t) => setNewContact({...newContact, notes: t})} placeholder="Zusätzliche Informationen..." placeholderTextColor={colors.textMuted} multiline numberOfLines={3} onFocus={() => setActiveDropdown(null)} /></View>
               </ScrollView>
               <View style={[styles.modalButtonsSpaced, { borderTopColor: colors.border }]}>
@@ -867,30 +943,38 @@ export function FootballNetworkScreen({ navigation }: any) {
                     </View>
                   </View>
 
-                  {/* Telefon, E-Mail - grouped */}
+                  {/* Kontaktdaten mit Icons - vertikal */}
                   <View style={[styles.detailModalBox, { backgroundColor: colors.surfaceSecondary }]}>
-                    <View style={styles.detailModalRow}>
-                      <View style={styles.detailModalField}>
-                        <Text style={[styles.detailModalLabel, { color: colors.textMuted }]}>Telefon</Text>
-                        <Text style={[styles.detailModalValue, { color: colors.text }]}>{formatPhone(selectedContact)}</Text>
-                      </View>
-                      <View style={styles.detailModalField}>
-                        <Text style={[styles.detailModalLabel, { color: colors.textMuted }]}>E-Mail</Text>
-                        <Text style={[styles.detailModalValue, { color: selectedContact.email ? '#3b82f6' : colors.text }]}>{selectedContact.email || '-'}</Text>
-                      </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                      <Ionicons name="business-outline" size={16} color={colors.textMuted} style={{ marginRight: 10, width: 20 }} />
+                      <Text style={[styles.detailModalValue, { color: colors.text }]}>{selectedContact.verein || '-'}</Text>
                     </View>
-                  </View>
-
-                  {/* Liga - separate at bottom */}
-                  <View style={[styles.detailModalBox, { backgroundColor: colors.surfaceSecondary }]}>
-                    <Text style={[styles.detailModalLabel, { color: colors.textMuted }]}>Liga (Zugehörigkeit 1. Mannschaft)</Text>
-                    <Text style={[styles.detailModalValue, { color: colors.text }]}>{selectedContact.liga || '-'}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                      <Ionicons name="football-outline" size={16} color={colors.textMuted} style={{ marginRight: 10, width: 20 }} />
+                      <Text style={[styles.detailModalValue, { color: colors.text }]}>{selectedContact.liga || '-'}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                      <Ionicons name="mail-outline" size={16} color={colors.textMuted} style={{ marginRight: 10, width: 20 }} />
+                      <Text style={[styles.detailModalValue, { color: selectedContact.email ? '#3b82f6' : colors.text }]}>{selectedContact.email || '-'}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: selectedContact.transfermarkt_url ? 12 : 0 }}>
+                      <Ionicons name="call-outline" size={16} color={colors.textMuted} style={{ marginRight: 10, width: 20 }} />
+                      <Text style={[styles.detailModalValue, { color: colors.text }]}>{formatPhone(selectedContact)}</Text>
+                    </View>
+                    {selectedContact.transfermarkt_url && (
+                      <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => Linking.openURL(selectedContact.transfermarkt_url!)}>
+                        <Ionicons name="link-outline" size={16} color={colors.textMuted} style={{ marginRight: 10, width: 20 }} />
+                        <Text style={[styles.detailModalValue, { color: '#3b82f6' }]}>Transfermarkt Profil</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
 
                   {selectedContact.notes && (
                     <View style={[styles.detailModalBox, { backgroundColor: colors.surfaceSecondary }]}>
-                      <Text style={[styles.detailModalLabel, { color: colors.textMuted }]}>Weitere Informationen</Text>
-                      <Text style={[styles.detailModalValue, { color: colors.text }]}>{selectedContact.notes}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                        <Ionicons name="document-text-outline" size={16} color={colors.textMuted} style={{ marginRight: 10, width: 20, marginTop: 2 }} />
+                        <Text style={[styles.detailModalValue, { color: colors.text, flex: 1 }]}>{selectedContact.notes}</Text>
+                      </View>
                     </View>
                   )}
                 </View>
@@ -914,6 +998,15 @@ export function FootballNetworkScreen({ navigation }: any) {
               <TouchableOpacity onPress={closeModal} style={styles.closeButton}><Text style={[styles.closeButtonText, { color: colors.textSecondary }]}>✕</Text></TouchableOpacity>
             </View>
             <ScrollView style={styles.modalScroll}>
+              {Platform.OS !== 'web' && !editingContact && (
+                <TouchableOpacity
+                  style={[styles.importContactBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
+                  onPress={importFromContacts}
+                >
+                  <Ionicons name="person-add-outline" size={18} color={colors.primary} style={{ marginRight: 8 }} />
+                  <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '600' }}>Aus Telefonbuch importieren</Text>
+                </TouchableOpacity>
+              )}
               <View style={styles.formField}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>Vorname</Text><TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.vorname} onChangeText={(t) => setNewContact({...newContact, vorname: t})} placeholder="Vorname" placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} /></View>
               <View style={styles.formField}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>Nachname *</Text><TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.nachname} onChangeText={(t) => setNewContact({...newContact, nachname: t})} placeholder="Nachname" placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} /></View>
 
@@ -1030,6 +1123,7 @@ export function FootballNetworkScreen({ navigation }: any) {
               </View>
 
               <View style={styles.formField}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>E-Mail</Text><TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.email} onChangeText={(t) => setNewContact({...newContact, email: t})} placeholder="email@beispiel.de" placeholderTextColor={colors.textMuted} keyboardType="email-address" onFocus={() => setActiveDropdown(null)} /></View>
+              <View style={styles.formField}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>Transfermarkt URL</Text><TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.transfermarkt_url} onChangeText={(t) => setNewContact({...newContact, transfermarkt_url: t})} placeholder="https://www.transfermarkt.de/..." placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} /></View>
               <View style={styles.formField}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>Weitere Informationen</Text><TextInput style={[styles.formInput, styles.textArea, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.notes} onChangeText={(t) => setNewContact({...newContact, notes: t})} placeholder="Zusätzliche Informationen..." placeholderTextColor={colors.textMuted} multiline numberOfLines={3} onFocus={() => setActiveDropdown(null)} /></View>
             </ScrollView>
             <View style={[styles.modalButtonsSpaced, { borderTopColor: colors.border }]}>
@@ -1063,6 +1157,55 @@ export function FootballNetworkScreen({ navigation }: any) {
             </View>
           </View>
         </Pressable>
+      </Modal>
+
+      {/* Telefon-Kontakte Picker Modal */}
+      <Modal visible={showPhoneContactsPicker} transparent animationType="slide">
+        <View style={[styles.modalOverlay, { justifyContent: 'flex-end' }]}>
+          <View style={[styles.phoneContactsModal, { backgroundColor: colors.surface }]}>
+            <View style={[styles.phoneContactsHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.phoneContactsTitle, { color: colors.text }]}>Kontakt auswählen</Text>
+              <TouchableOpacity onPress={() => { setShowPhoneContactsPicker(false); setPhoneContactSearch(''); }}>
+                <Text style={{ fontSize: 18, color: colors.textSecondary }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={{ paddingHorizontal: 16, paddingVertical: 10 }}>
+              <TextInput
+                style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+                placeholder="Kontakt suchen..."
+                placeholderTextColor={colors.textMuted}
+                value={phoneContactSearch}
+                onChangeText={setPhoneContactSearch}
+                autoFocus
+              />
+            </View>
+            <ScrollView style={{ flex: 1 }}>
+              {phoneContacts
+                .filter(c => {
+                  if (!phoneContactSearch) return true;
+                  const name = ((c.firstName || '') + ' ' + (c.lastName || '')).toLowerCase();
+                  return name.includes(phoneContactSearch.toLowerCase());
+                })
+                .map((contact, i) => (
+                  <TouchableOpacity
+                    key={contact.id || i}
+                    style={[styles.phoneContactItem, { borderBottomColor: colors.border }]}
+                    onPress={() => selectPhoneContact(contact)}
+                  >
+                    <View>
+                      <Text style={[styles.phoneContactName, { color: colors.text }]}>
+                        {((contact.firstName || '') + ' ' + (contact.lastName || '')).trim() || 'Kein Name'}
+                      </Text>
+                      {contact.phoneNumbers?.[0]?.number && (
+                        <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{contact.phoneNumbers[0].number}</Text>
+                      )}
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                  </TouchableOpacity>
+                ))}
+            </ScrollView>
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -1190,6 +1333,12 @@ const styles = StyleSheet.create({
   deleteConfirmCancelText: { fontSize: 14, color: '#64748b', fontWeight: '500' },
   deleteConfirmDeleteBtn: { flex: 1, paddingVertical: 12, borderRadius: 8, backgroundColor: '#ef4444', alignItems: 'center' },
   deleteConfirmDeleteText: { fontSize: 14, color: '#fff', fontWeight: '500' },
+  importContactBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 8, borderWidth: 1, borderStyle: 'dashed', marginBottom: 16 },
+  phoneContactsModal: { height: '80%', borderTopLeftRadius: 16, borderTopRightRadius: 16 },
+  phoneContactsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1 },
+  phoneContactsTitle: { fontSize: 17, fontWeight: '600' },
+  phoneContactItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: StyleSheet.hairlineWidth },
+  phoneContactName: { fontSize: 15, fontWeight: '500' },
 
   // Mobile Styles
   containerMobile: { flex: 1, backgroundColor: '#f8fafc' },
