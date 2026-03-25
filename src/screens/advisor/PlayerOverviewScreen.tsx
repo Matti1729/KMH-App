@@ -623,6 +623,18 @@ export function PlayerOverviewScreen({ navigation }: any) {
   const handleAddPlayer = async () => {
     if (!newFirstName.trim() || !newLastName.trim() || !currentUserId) return;
 
+    // Duplikat-Prüfung
+    const existing = players.filter(p =>
+      p.last_name?.toLowerCase() === newLastName.trim().toLowerCase() &&
+      p.first_name?.toLowerCase() === newFirstName.trim().toLowerCase()
+    );
+    if (existing.length > 0) {
+      const confirmed = window.confirm
+        ? window.confirm(`Ein Spieler mit dem Namen "${newFirstName.trim()} ${newLastName.trim()}" existiert bereits in der Kartei.\n\nTrotzdem anlegen?`)
+        : true;
+      if (!confirmed) return;
+    }
+
     const insertData: any = {
       first_name: newFirstName.trim(),
       last_name: newLastName.trim(),
