@@ -91,11 +91,8 @@ export function PlayerOverviewScreen({ navigation }: any) {
     try { if (typeof window !== 'undefined') window.sessionStorage?.setItem('playerListScrollY', String(y)); } catch {}
   };
 
-  // Debug: Screen Mount/Unmount tracking
-  useEffect(() => {
-    console.log('[PlayerOverview] MOUNTED');
-    return () => console.log('[PlayerOverview] UNMOUNTED');
-  }, []);
+  // Scroll-Position nach Focus-Refresh wiederherstellen
+  const pendingScrollRestore = useRef(false);
   const [newFirstName, setNewFirstName] = useState('');
   const [newLastName, setNewLastName] = useState('');
   const [tmSuggestions, setTmSuggestions] = useState<any[]>([]);
@@ -249,12 +246,24 @@ export function PlayerOverviewScreen({ navigation }: any) {
   useFocusEffect(
     useCallback(() => {
       if (!authLoading && session && dataLoadedRef.current) {
+        // Scroll-Position merken vor dem Refresh
+        pendingScrollRestore.current = true;
         fetchPlayers();
       }
     }, [authLoading, session])
   );
 
-  useEffect(() => { applyFilters(); }, [searchText, players, selectedYears, selectedPositions, selectedListings, selectedResponsibilities, selectedContractYears, sortField, sortDirection]);
+  useEffect(() => {
+    applyFilters();
+    // Scroll-Position wiederherstellen nach Daten-Refresh
+    if (pendingScrollRestore.current && players.length > 0) {
+      pendingScrollRestore.current = false;
+      const y = (() => { try { return parseFloat(window.sessionStorage?.getItem('playerListScrollY') || '0'); } catch { return 0; } })();
+      if (y > 0 && scrollRef.current?.scrollTo) {
+        setTimeout(() => scrollRef.current?.scrollTo({ y, animated: false }), 150);
+      }
+    }
+  }, [searchText, players, selectedYears, selectedPositions, selectedListings, selectedResponsibilities, selectedContractYears, sortField, sortDirection]);
 
   const fetchAdvisors = async () => {
     try {
