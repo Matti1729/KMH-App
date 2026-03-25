@@ -552,16 +552,27 @@ export function PlayerOverviewScreen({ navigation }: any) {
     setTmSearching(true);
     try {
       const { data } = await supabase.functions.invoke('search-transfermarkt', { body: { name: query, type: 'player' } });
-      setTmSuggestions(data?.results?.slice(0, 8) || []);
+      setTmSuggestions(data?.results?.slice(0, 20) || []);
     } catch { setTmSuggestions([]); }
     setTmSearching(false);
+  };
+
+  const triggerTmSearch = (lastName: string, firstName: string) => {
+    if (tmDebounceRef.current) clearTimeout(tmDebounceRef.current);
+    const query = firstName.trim() ? `${firstName.trim()} ${lastName.trim()}` : lastName.trim();
+    tmDebounceRef.current = setTimeout(() => searchTmPlayers(query), 500);
   };
 
   const handleLastNameChange = (text: string) => {
     setNewLastName(text);
     setTmSelected(null);
-    if (tmDebounceRef.current) clearTimeout(tmDebounceRef.current);
-    tmDebounceRef.current = setTimeout(() => searchTmPlayers(text), 500);
+    triggerTmSearch(text, newFirstName);
+  };
+
+  const handleFirstNameChange = (text: string) => {
+    setNewFirstName(text);
+    setTmSelected(null);
+    triggerTmSearch(newLastName, text);
   };
 
   const selectTmPlayer = async (suggestion: any) => {
@@ -1029,7 +1040,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
                     ))}
                   </ScrollView>
                 )}
-                <TextInput style={[styles.modalInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Vorname" placeholderTextColor={colors.textMuted} value={newFirstName} onChangeText={setNewFirstName} />
+                <TextInput style={[styles.modalInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Vorname" placeholderTextColor={colors.textMuted} value={newFirstName} onChangeText={handleFirstNameChange} />
                 {tmLoading && <Text style={{ color: colors.primary, fontSize: 12, marginBottom: 8 }}>Lade Spielerdaten von Transfermarkt...</Text>}
                 {tmSelected && (
                   <View style={{ backgroundColor: colors.surfaceSecondary, borderRadius: 8, padding: 10, marginBottom: 12 }}>
@@ -1497,7 +1508,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
                   ))}
                 </ScrollView>
               )}
-              <TextInput style={[styles.modalInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Vorname" placeholderTextColor={colors.textMuted} value={newFirstName} onChangeText={setNewFirstName} />
+              <TextInput style={[styles.modalInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Vorname" placeholderTextColor={colors.textMuted} value={newFirstName} onChangeText={handleFirstNameChange} />
               {tmLoading && <Text style={{ color: colors.primary, fontSize: 12, marginBottom: 8 }}>Lade Spielerdaten von Transfermarkt...</Text>}
               {tmSelected && (
                 <View style={{ backgroundColor: colors.surfaceSecondary, borderRadius: 8, padding: 10, marginBottom: 12 }}>
