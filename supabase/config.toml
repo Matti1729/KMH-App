@@ -420,3 +420,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/sync-player-data/deno.json"
 entrypoint = "./functions/sync-player-data/index.ts"
+
+[functions.sync-network-data]
+enabled = true
+verify_jwt = false
+import_map = "./functions/sync-network-data/deno.json"
+entrypoint = "./functions/sync-network-data/index.ts"
