@@ -975,13 +975,14 @@ export function FootballNetworkScreen({ navigation }: any) {
         {/* Desktop Header */}
         {!isMobile && (
           <View style={[styles.headerBanner, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-            <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => navigation.navigate('AdvisorDashboard')}><Text style={[styles.backButtonText, { color: colors.textSecondary }]}>← Zurück</Text></TouchableOpacity>
+            <View style={{ width: 100 }} />
             <View style={styles.headerBannerCenter}><Text style={[styles.title, { color: colors.text }]}>Football Network</Text><Text style={[styles.subtitle, { color: colors.textSecondary }]}>Kontakte zu Vereinen und Entscheidern</Text></View>
             <View style={{ width: 100 }} />
           </View>
         )}
 
         <View style={[styles.toolbar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+          <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => navigation.navigate('AdvisorDashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
           <View style={[styles.searchContainer, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
             <Text style={styles.searchIcon}>🔍</Text>
             <TextInput style={[styles.searchInput, { color: colors.text }]} placeholder="Verein, Namen suchen..." placeholderTextColor={colors.textMuted} value={searchText} onChangeText={setSearchText} />
@@ -1024,7 +1025,7 @@ export function FootballNetworkScreen({ navigation }: any) {
               )}
             </View>
           </View>
-          <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setShowAddModal(true)}><Ionicons name="person-add-outline" size={11} color={colors.textSecondary} /></TouchableOpacity>
+          <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setShowAddModal(true)}><Ionicons name="person-add-outline" size={13} color={colors.textSecondary} /></TouchableOpacity>
         </View>
 
         <View style={styles.content}>
