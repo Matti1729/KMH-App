@@ -275,7 +275,7 @@ export function FootballNetworkScreen({ navigation }: any) {
         email: contact.email,
         verein: tmData?.verein || '',
         liga: '',
-        bereich: tmData?.bereich || '',
+        bereich: '',
         position: tmData?.position || '',
         mannschaft: '',
         transfermarkt_url: tmData?.url || '',
