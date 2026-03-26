@@ -740,14 +740,14 @@ export function FootballNetworkScreen({ navigation }: any) {
                         <Ionicons name="football-outline" size={15} color={colors.textMuted} style={{ marginRight: 10, width: 18 }} />
                         <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{selectedContact.liga || '-'}</Text>
                       </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                      <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }} onPress={() => selectedContact.email && Linking.openURL(`mailto:${selectedContact.email}`)} disabled={!selectedContact.email}>
                         <Ionicons name="mail-outline" size={15} color={colors.textMuted} style={{ marginRight: 10, width: 18 }} />
                         <Text style={[styles.mobileDetailValue, { color: selectedContact.email ? '#3b82f6' : colors.text }]}>{selectedContact.email || '-'}</Text>
-                      </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: selectedContact.transfermarkt_url ? 10 : 0 }}>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', marginBottom: selectedContact.transfermarkt_url ? 10 : 0 }} onPress={() => selectedContact.telefon && Linking.openURL(`tel:${selectedContact.telefon_code}${selectedContact.telefon}`)} disabled={!selectedContact.telefon}>
                         <Ionicons name="call-outline" size={15} color={colors.textMuted} style={{ marginRight: 10, width: 18 }} />
-                        <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{formatPhone(selectedContact)}</Text>
-                      </View>
+                        <Text style={[styles.mobileDetailValue, { color: selectedContact.telefon ? '#3b82f6' : colors.text }]}>{formatPhone(selectedContact)}</Text>
+                      </TouchableOpacity>
                       {selectedContact.transfermarkt_url && (
                         <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => Linking.openURL(selectedContact.transfermarkt_url!)}>
                           <Ionicons name="link-outline" size={15} color={colors.textMuted} style={{ marginRight: 10, width: 18 }} />
@@ -1197,14 +1197,14 @@ export function FootballNetworkScreen({ navigation }: any) {
                       <Ionicons name="football-outline" size={16} color={colors.textMuted} style={{ marginRight: 10, width: 20 }} />
                       <Text style={[styles.detailModalValue, { color: colors.text }]}>{selectedContact.liga || '-'}</Text>
                     </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                    <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }} onPress={() => selectedContact.email && Linking.openURL(`mailto:${selectedContact.email}`)} disabled={!selectedContact.email}>
                       <Ionicons name="mail-outline" size={16} color={colors.textMuted} style={{ marginRight: 10, width: 20 }} />
                       <Text style={[styles.detailModalValue, { color: selectedContact.email ? '#3b82f6' : colors.text }]}>{selectedContact.email || '-'}</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: selectedContact.transfermarkt_url ? 12 : 0 }}>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', marginBottom: selectedContact.transfermarkt_url ? 12 : 0 }} onPress={() => selectedContact.telefon && Linking.openURL(`tel:${selectedContact.telefon_code}${selectedContact.telefon}`)} disabled={!selectedContact.telefon}>
                       <Ionicons name="call-outline" size={16} color={colors.textMuted} style={{ marginRight: 10, width: 20 }} />
-                      <Text style={[styles.detailModalValue, { color: colors.text }]}>{formatPhone(selectedContact)}</Text>
-                    </View>
+                      <Text style={[styles.detailModalValue, { color: selectedContact.telefon ? '#3b82f6' : colors.text }]}>{formatPhone(selectedContact)}</Text>
+                    </TouchableOpacity>
                     {selectedContact.transfermarkt_url && (
                       <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => Linking.openURL(selectedContact.transfermarkt_url!)}>
                         <Ionicons name="link-outline" size={16} color={colors.textMuted} style={{ marginRight: 10, width: 20 }} />
