@@ -4380,7 +4380,6 @@ export function ScoutingScreen({ navigation }: any) {
                 {isEditing ? (
                   <>
                     <TouchableOpacity style={styles.deleteButton} onPress={() => setShowDeleteConfirm(true)}><Text style={styles.deleteButtonText}>Löschen</Text></TouchableOpacity>
-                    <TouchableOpacity style={styles.cancelButton} onPress={() => { setIsEditing(false); setShowEditClubDropdown(false); }}><Text style={styles.cancelButtonText}>Abbrechen</Text></TouchableOpacity>
                     <TouchableOpacity style={styles.saveButton} onPress={updateScoutedPlayer}><Text style={styles.saveButtonText}>Speichern</Text></TouchableOpacity>
                   </>
                 ) : (
@@ -4683,8 +4682,8 @@ const styles = StyleSheet.create({
   detailInfoScout: { backgroundColor: '#f8fafc', borderRadius: 12, padding: 16, flex: 1 },
   formRow: { flexDirection: 'row', gap: 16, marginBottom: 16 },
   formField: { flex: 1, marginBottom: 8 },
-  formLabel: { fontSize: 13, color: '#64748b', marginBottom: 6, fontWeight: '500' },
-  formInput: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 12, fontSize: 11, backgroundColor: '#fff' },
+  formLabel: { fontSize: 10, color: '#94a3b8', marginBottom: 4, fontWeight: '500', textTransform: 'uppercase' },
+  formInput: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, padding: 6, fontSize: 11, backgroundColor: '#fff' },
   inputDisabled: { backgroundColor: '#f8fafc', color: '#64748b' },
   textArea: { minHeight: 80, textAlignVertical: 'top' },
   positionPickerSmall: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, flex: 1 },
@@ -4720,7 +4719,7 @@ const styles = StyleSheet.create({
   detailSection: { marginBottom: 16 },
   detailSectionTitle: { fontSize: 11, fontWeight: '600', color: '#1a1a1a', marginBottom: 12 },
   notesText: { fontSize: 11, color: '#475569', lineHeight: 16, backgroundColor: '#f8fafc', padding: 12, borderRadius: 8 },
-  editInput: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, padding: 8, fontSize: 11, backgroundColor: '#fff' },
+  editInput: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, padding: 6, fontSize: 11, backgroundColor: '#fff' },
   // IST-Stand auf Kanban-Karte
   currentStatusRow: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#f1f5f9' },
   currentStatusText: { fontSize: 9, color: '#94a3b8', fontStyle: 'italic' },
