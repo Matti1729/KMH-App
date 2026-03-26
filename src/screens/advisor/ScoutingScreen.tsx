@@ -4355,8 +4355,8 @@ const styles = StyleSheet.create({
   clubLogoCard: { width: 32, height: 32, resizeMode: 'contain', marginRight: 10 },
   cardInfo: { flex: 1 },
   playerName: { fontSize: 11, fontWeight: '700', color: '#1a1a1a' },
-  playerYearInline: { fontSize: 12, fontWeight: '400', color: '#64748b' },
-  playerClubName: { fontSize: 12, color: '#64748b', marginTop: 2 },
+  playerYearInline: { fontSize: 9, fontWeight: '400', color: '#94a3b8' },
+  playerClubName: { fontSize: 9, color: '#94a3b8', marginTop: 1 },
   playerClub: { fontSize: 12, color: '#64748b', marginTop: 2 },
   cardRight: { alignItems: 'flex-end', gap: 4 },
   positionBadgesRow: { flexDirection: 'row', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' },
@@ -4476,7 +4476,7 @@ const styles = StyleSheet.create({
   editInput: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, padding: 8, fontSize: 11, backgroundColor: '#fff' },
   // IST-Stand auf Kanban-Karte
   currentStatusRow: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#f1f5f9' },
-  currentStatusText: { fontSize: 12, color: '#64748b', fontStyle: 'italic' },
+  currentStatusText: { fontSize: 9, color: '#94a3b8', fontStyle: 'italic' },
   // Archiv
   emptyArchiv: { padding: 40, alignItems: 'center' },
   emptyArchivText: { fontSize: 11, color: '#94a3b8' },
