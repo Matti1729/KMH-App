@@ -371,7 +371,7 @@ export function FootballNetworkScreen({ navigation }: any) {
         case 'bereich': valueA = a.bereich?.toLowerCase() || ''; valueB = b.bereich?.toLowerCase() || ''; break;
         case 'position': valueA = a.position?.toLowerCase() || ''; valueB = b.position?.toLowerCase() || ''; break;
         case 'mannschaft': valueA = a.mannschaft?.toLowerCase() || ''; valueB = b.mannschaft?.toLowerCase() || ''; break;
-        case 'telefon': valueA = formatPhone(a).toLowerCase(); valueB = formatPhone(b).toLowerCase(); break;
+        case 'telefon': valueA = ((a.telefon_code || '') + (a.telefon || '')).toLowerCase(); valueB = ((b.telefon_code || '') + (b.telefon || '')).toLowerCase(); break;
         case 'email': valueA = a.email?.toLowerCase() || ''; valueB = b.email?.toLowerCase() || ''; break;
         default: return 0;
       }
