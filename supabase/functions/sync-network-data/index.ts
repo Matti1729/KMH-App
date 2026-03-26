@@ -60,7 +60,12 @@ async function fetchTrainerProfile(url: string): Promise<any> {
 
     // Verein (aus data-header__club)
     const clubMatch = html.match(/data-header__club"[^>]*>\s*<a\s+title="([^"]+)"/);
-    if (clubMatch) profile.verein = clubMatch[1];
+    if (clubMatch) {
+      const club = clubMatch[1].trim();
+      if (club && club !== 'Vereinslos' && club !== 'pausiert') {
+        profile.verein = club;
+      }
+    }
 
     // Logo
     const logoMatch = html.match(/tmssl\.akamaized\.net\/\/images\/wappen\/(?:normquad|small|big)\/(\d+)\.png/);

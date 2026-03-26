@@ -1086,7 +1086,11 @@ export function FootballNetworkScreen({ navigation }: any) {
                           case 'verein':
                             return (
                               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                {getClubLogo(contact.verein) && <Image source={{ uri: getClubLogo(contact.verein)! }} style={styles.tableClubLogo} />}
+                                {contact.verein && !contact.verein.includes('Vereinslos') && getClubLogo(contact.verein) ? (
+                                  <Image source={{ uri: getClubLogo(contact.verein)! }} style={styles.tableClubLogo} />
+                                ) : contact.verein?.includes('Vereinslos') ? (
+                                  <Text style={{ marginRight: 6, fontSize: 14 }}>🏛️</Text>
+                                ) : null}
                                 <Text style={[styles.tableCell, styles.tableCellBold, { color: colors.text }]} numberOfLines={1}>{contact.verein || '-'}</Text>
                               </View>
                             );
