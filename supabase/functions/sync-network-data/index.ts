@@ -124,8 +124,6 @@ async function fetchTrainerProfile(url: string): Promise<any> {
         return ia - ib;
       });
       profile.mannschaft = sorted.join(', ');
-    } else {
-      profile.mannschaft = '1. Mannschaft';
     }
 
     // Bereich: Nachwuchs wenn irgendeine aktive Station U-Jugend/II/Jugend ist
@@ -136,6 +134,12 @@ async function fetchTrainerProfile(url: string): Promise<any> {
         /nachwuchs|jugend|nlz|academy|youth/i.test(profile.position);
     }
     profile.bereich = hasNachwuchs ? 'Nachwuchs' : 'Herren';
+
+    // Mannschaft: Wenn Nachwuchs aber keine spezifische U-Mannschaft → leer lassen
+    // Wenn Herren und keine Mannschaft → "1. Mannschaft"
+    if (!profile.mannschaft) {
+      profile.mannschaft = hasNachwuchs ? '' : '1. Mannschaft';
+    }
 
     // Verein bereinigen (Hauptverein ohne U-Suffix)
     if (profile.verein) {
