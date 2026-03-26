@@ -4237,19 +4237,19 @@ export function ScoutingScreen({ navigation }: any) {
         <Modal visible={showPlayerDetailModal} transparent animationType="fade">
           <View style={styles.modalOverlay}>
             <View style={[styles.modalContentLarge, { overflow: 'visible', backgroundColor: colors.surface }]}>
-              <View style={styles.detailHeader}>
-                <View style={styles.detailHeaderLeft}>
-                  <Text style={[styles.detailName, { color: colors.text }]}>
-                    {selectedPlayer.last_name}, {selectedPlayer.first_name}
-                    {selectedPlayer.birth_date && (
-                      <Text style={{ fontSize: 14, fontWeight: '400', color: colors.textSecondary }}> ({new Date(selectedPlayer.birth_date).getFullYear()})</Text>
-                    )}
-                  </Text>
-                  <View style={styles.detailClubRow}>
-                    {getClubLogo(selectedPlayer.club) && (
-                      <Image source={{ uri: getClubLogo(selectedPlayer.club)! }} style={styles.detailClubLogo} />
-                    )}
-                    <Text style={[styles.detailClub, { color: colors.textSecondary }]}>{selectedPlayer.club || '-'}</Text>
+              <View style={[styles.detailHeader, { position: 'relative', paddingRight: 40 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                  {getClubLogo(selectedPlayer.club) && (
+                    <Image source={{ uri: getClubLogo(selectedPlayer.club)! }} style={{ width: 48, height: 48, borderRadius: 8, marginRight: 14 }} />
+                  )}
+                  <View>
+                    <Text style={[styles.detailName, { color: colors.text }]}>
+                      {selectedPlayer.last_name}, {selectedPlayer.first_name}
+                      {selectedPlayer.birth_date && (
+                        <Text style={{ fontSize: 10, fontWeight: '400', color: colors.textMuted }}> ({new Date(selectedPlayer.birth_date).getFullYear()})</Text>
+                      )}
+                    </Text>
+                    <Text style={{ fontSize: 10, color: colors.textMuted, marginTop: 2 }}>{selectedPlayer.club || '-'}</Text>
                   </View>
                 </View>
                 <TouchableOpacity onPress={() => { setShowPlayerDetailModal(false); setIsEditing(false); setShowEditClubDropdown(false); }} style={{ position: 'absolute', top: 0, right: 0, width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
