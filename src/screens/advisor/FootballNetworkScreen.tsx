@@ -680,8 +680,8 @@ export function FootballNetworkScreen({ navigation }: any) {
                     <Text style={{ fontSize: 14, color: colors.textSecondary }}>{selectedContact.verein || '-'}</Text>
                   </View>
                 </View>
-                <TouchableOpacity onPress={() => setShowContactDetailModal(false)}>
-                  <Text style={[styles.mobileDetailClose, { color: colors.textSecondary }]}>✕</Text>
+                <TouchableOpacity onPress={() => setShowContactDetailModal(false)} style={{ position: 'absolute', top: 8, right: 12, width: 24, height: 24, borderRadius: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ color: colors.textSecondary, fontSize: 12, lineHeight: 13 }}>✕</Text>
                 </TouchableOpacity>
               </View>
 
@@ -1160,8 +1160,8 @@ export function FootballNetworkScreen({ navigation }: any) {
                       <Text style={[styles.detailModalClub, { color: colors.textSecondary }]}>{selectedContact.verein || '-'}</Text>
                     </View>
                   </View>
-                  <TouchableOpacity onPress={() => setShowDesktopDetailModal(false)}>
-                    <Text style={[styles.detailModalClose, { color: colors.textSecondary }]}>✕</Text>
+                  <TouchableOpacity onPress={() => setShowDesktopDetailModal(false)} style={{ position: 'absolute', top: 12, right: 12, width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ color: colors.textSecondary, fontSize: 13, lineHeight: 14 }}>✕</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -1233,7 +1233,7 @@ export function FootballNetworkScreen({ navigation }: any) {
                 </View>
 
                 <View style={[styles.detailModalFooter, { borderTopColor: colors.border }]}>
-                  <TouchableOpacity style={[styles.editButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => { setShowDesktopDetailModal(false); openEditModal(selectedContact); }}>
+                  <TouchableOpacity style={{ paddingVertical: 6, paddingHorizontal: 14, borderRadius: 6, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border }} onPress={() => { setShowDesktopDetailModal(false); openEditModal(selectedContact); }}>
                     <Text style={[styles.editButtonText, { color: colors.text }]}>Bearbeiten</Text>
                   </TouchableOpacity>
                 </View>
@@ -1681,7 +1681,7 @@ const styles = StyleSheet.create({
   mobileDetailFooter: { flexDirection: 'row', justifyContent: 'flex-end', padding: 16, gap: 10, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
   mobileDeleteButton: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#fee2e2', borderWidth: 1, borderColor: '#fecaca', alignItems: 'center' },
   mobileDeleteText: { fontSize: 14, color: '#dc2626', fontWeight: '600' },
-  mobileEditButton: { paddingVertical: 12, paddingHorizontal: 24, borderRadius: 10, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#64748b', alignItems: 'center' },
+  mobileEditButton: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 6, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#64748b', alignItems: 'center' },
   mobileEditText: { fontSize: 16, color: '#64748b', fontWeight: '600' },
 
   // Mobile Form Modal
