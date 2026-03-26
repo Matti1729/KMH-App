@@ -288,6 +288,16 @@ export function FootballNetworkScreen({ navigation }: any) {
       // Transfermarkt-Suche (nur Trainer/Funktionäre)
       const tmData = await searchTransfermarkt(fullName);
 
+      // Duplikat-Prüfung
+      const existing = contacts.find(c =>
+        c.nachname?.toLowerCase() === contact.nachname.toLowerCase() &&
+        c.vorname?.toLowerCase() === contact.vorname.toLowerCase()
+      );
+      if (existing) {
+        const skip = !window.confirm(`"${contact.vorname} ${contact.nachname}" existiert bereits im Football Network.\n\nTrotzdem anlegen?`);
+        if (skip) continue;
+      }
+
       // Vereinslos-Handling: keine Position/Bereich wenn vereinslos
       const isVereinlos = tmData?.verein && (tmData.verein.includes('Vereinslos') || tmData.verein.includes('pausiert'));
       const verein = isVereinlos ? 'Vereinslos' : (tmData?.verein || '');
