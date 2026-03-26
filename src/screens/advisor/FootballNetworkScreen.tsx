@@ -673,12 +673,15 @@ export function FootballNetworkScreen({ navigation }: any) {
               <View style={[styles.mobileDetailHeader, { borderBottomColor: colors.border }]}>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.mobileDetailName, { color: colors.text }]}>{formatName(selectedContact)}</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                    {getClubLogo(selectedContact.verein) && (
-                      <Image source={{ uri: getClubLogo(selectedContact.verein)! }} style={{ width: 18, height: 18, marginRight: 6 }} />
-                    )}
-                    <Text style={{ fontSize: 14, color: colors.textSecondary }}>{selectedContact.verein || '-'}</Text>
-                  </View>
+                  {selectedContact.position && (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3, marginTop: 4 }}>
+                      {selectedContact.position.split(',').map((p: string, idx: number) => (
+                        <View key={idx} style={[styles.mobilePositionBadge, { backgroundColor: isDark ? 'rgba(14, 165, 233, 0.2)' : '#e0f2fe', borderColor: isDark ? 'rgba(14, 165, 233, 0.4)' : '#bae6fd' }]}>
+                          <Text style={[styles.mobilePositionText, { color: isDark ? '#38bdf8' : '#0369a1' }]}>{p.trim()}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
                 </View>
                 <TouchableOpacity onPress={() => setShowContactDetailModal(false)} style={{ position: 'absolute', top: 8, right: 12, width: 24, height: 24, borderRadius: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
                   <Text style={{ color: colors.textSecondary, fontSize: 12, lineHeight: 13 }}>✕</Text>
@@ -1157,7 +1160,15 @@ export function FootballNetworkScreen({ navigation }: any) {
                     )}
                     <View>
                       <Text style={[styles.detailModalName, { color: colors.text }]}>{formatName(selectedContact)}</Text>
-                      <Text style={[styles.detailModalClub, { color: colors.textSecondary }]}>{selectedContact.verein || '-'}</Text>
+                      {selectedContact.position && (
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3, marginTop: 4 }}>
+                          {selectedContact.position.split(',').map((p: string, idx: number) => (
+                            <View key={idx} style={[styles.positionBadge, { backgroundColor: isDark ? 'rgba(14, 165, 233, 0.2)' : '#e0f2fe' }]}>
+                              <Text style={[styles.positionText, { color: isDark ? '#38bdf8' : '#0369a1' }]}>{p.trim()}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
                     </View>
                   </View>
                   <TouchableOpacity onPress={() => setShowDesktopDetailModal(false)} style={{ position: 'absolute', top: 12, right: 12, width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
