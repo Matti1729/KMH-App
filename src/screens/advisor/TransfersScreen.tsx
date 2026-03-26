@@ -1373,9 +1373,7 @@ export function TransfersScreen({ navigation }: any) {
       <View style={[styles.mainContent, { backgroundColor: colors.background }]}>
         {/* Header Banner */}
         <Pressable style={[styles.headerBanner, { backgroundColor: colors.surface, borderBottomColor: colors.border }]} onPress={closeAllDropdowns}>
-          <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => navigation.navigate('AdvisorDashboard')}>
-            <Text style={[styles.filterButtonText, { color: colors.textSecondary }]}>← Zurück</Text>
-          </TouchableOpacity>
+          <TouchableOpacity style={{ paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }} onPress={() => navigation.navigate('AdvisorDashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
           <View style={styles.headerBannerCenter}>
             <Text style={[styles.headerTitle, { color: colors.text }]}>Transfers</Text>
             <Text style={[styles.headerSubtitle, { color: colors.textMuted }]}>
@@ -1957,9 +1955,7 @@ export function TransfersScreen({ navigation }: any) {
             </View>
           </View>
           
-          <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={() => setShowAddClubModal(true)}>
-            <Text style={[styles.addButtonText, { color: colors.primaryText }]}>+ neuen Verein anlegen</Text>
-          </TouchableOpacity>
+          <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setShowAddClubModal(true)}><Ionicons name="add-outline" size={12} color={colors.textSecondary} /></TouchableOpacity>
         </View>
         
         {/* Vereine Tabelle */}

@@ -1285,9 +1285,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
       <View style={[styles.mainContent, { backgroundColor: colors.background }]}>
         {/* Header Banner - weiß mit Titel mittig und Zurück links */}
         <View style={[styles.headerBanner, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-          <TouchableOpacity onPress={() => navigation.navigate('AdvisorDashboard')} style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
-            <Text style={[styles.filterButtonText, { color: colors.textSecondary }]}>← Zurück</Text>
-          </TouchableOpacity>
+          <TouchableOpacity style={{ paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }} onPress={() => navigation.navigate('AdvisorDashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
           <View style={styles.headerBannerCenter}>
             <Text style={[styles.headerTitle, { color: colors.text }]}>KMH-Spieler</Text>
             <Text style={[styles.headerSubtitle, { color: colors.textMuted }]}>Verwaltung aller Daten unserer {players.length} aktiven Spieler und Trainer</Text>
@@ -1466,9 +1464,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
             </View>
           </View>
           
-          <TouchableOpacity onPress={() => setShowAddModal(true)} style={[styles.addButton, { backgroundColor: colors.primary, borderColor: colors.primary }]}>
-            <Text style={[styles.addButtonText, { color: colors.primaryText }]}>+ Spieler anlegen</Text>
-          </TouchableOpacity>
+          <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setShowAddModal(true)}><Ionicons name="person-add-outline" size={12} color={colors.textSecondary} /></TouchableOpacity>
         </Pressable>
 
         {/* Dropdown Overlay - schließt alle Dropdowns beim Klicken */}

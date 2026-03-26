@@ -1286,9 +1286,7 @@ END:VEVENT
         <View style={[styles.mobileGamesContainer, { backgroundColor: colors.background }]}>
           {/* Toolbar mit Zurück, Filter und Sync */}
           <View style={[styles.mobileGamesToolbar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-            <TouchableOpacity style={[styles.mobileGamesToolbarBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setViewMode('dashboard')}>
-              <Text style={[styles.mobileGamesToolbarBtnText, { color: colors.textSecondary }]}>← Zurück</Text>
-            </TouchableOpacity>
+            <TouchableOpacity style={{ paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }} onPress={() => setViewMode('dashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
 
             <View style={{ flex: 1 }} />
 
@@ -1493,9 +1491,7 @@ END:VEVENT
       <View style={[styles.scoutingMainContent, { backgroundColor: colors.background }]}>
         {/* Header Banner */}
         <Pressable style={[styles.scoutingHeaderBanner, { backgroundColor: colors.surface, borderBottomColor: colors.border }]} onPress={closeAllGameDropdowns}>
-          <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setViewMode('dashboard')}>
-            <Text style={[styles.backButtonText, { color: colors.textSecondary }]}>← Zurück</Text>
-          </TouchableOpacity>
+          <TouchableOpacity style={{ paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }} onPress={() => setViewMode('dashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
           <View style={styles.scoutingHeaderBannerCenter}>
             <Text style={[styles.scoutingTitle, { color: colors.text }]}>Spiele unserer Spieler</Text>
             <Text style={[styles.scoutingSubtitle, { color: colors.textSecondary }]}>
@@ -1888,9 +1884,7 @@ END:VEVENT
         <View style={[styles.mobileTermineContainer, { backgroundColor: colors.background }]}>
           {/* Toolbar */}
           <View style={[styles.mobileTermineToolbar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-            <TouchableOpacity style={[styles.mobileGamesToolbarBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setViewMode('dashboard')}>
-              <Text style={[styles.mobileGamesToolbarBtnText, { color: colors.textSecondary }]}>← Zurück</Text>
-            </TouchableOpacity>
+            <TouchableOpacity style={{ paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }} onPress={() => setViewMode('dashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
 
             <View style={{ flex: 1 }} />
 
@@ -2079,9 +2073,7 @@ END:VEVENT
     return (
       <View style={[styles.scoutingMainContent, { backgroundColor: colors.background }]}>
         <View style={[styles.scoutingHeaderBanner, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-          <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setViewMode('dashboard')}>
-            <Text style={[styles.backButtonText, { color: colors.textSecondary }]}>← Zurück</Text>
-          </TouchableOpacity>
+          <TouchableOpacity style={{ paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }} onPress={() => setViewMode('dashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
           <View style={styles.scoutingHeaderBannerCenter}>
             <Text style={[styles.scoutingTitle, { color: colors.text }]}>Weitere Termine</Text>
             <Text style={[styles.scoutingSubtitle, { color: colors.textSecondary }]}>{dfbCount} Lehrgänge & Sichtungen • {hallenCount} Turniere</Text>
@@ -2171,9 +2163,7 @@ END:VEVENT
                 Archiv ({archivTermine.length})
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={openAddModal} style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
-              <Text style={[styles.scoutingFilterButtonText, { color: colors.textSecondary }]}>+ Neuer Termin</Text>
-            </TouchableOpacity>
+            <TouchableOpacity onPress={openAddModal} style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}><Ionicons name="add-outline" size={12} color={colors.textSecondary} /></TouchableOpacity>
           </View>
         </Pressable>
 
@@ -2842,9 +2832,7 @@ END:VEVENT
         {/* Desktop Header */}
         {!isMobile && viewMode === 'dashboard' && (
           <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-            <TouchableOpacity onPress={() => navigation.navigate('AdvisorDashboard')} style={[styles.backButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
-              <Text style={[styles.backButtonText, { color: colors.textSecondary }]}>← Zurück</Text>
-            </TouchableOpacity>
+            <TouchableOpacity style={{ paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }} onPress={() => navigation.navigate('AdvisorDashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
             <View style={styles.headerCenter}>
               <Text style={[styles.headerTitle, { color: colors.text }]}>Spieltage</Text>
               <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Übersicht über Spieltage unserer Spieler und weitere Lehrgänge und Termine</Text>

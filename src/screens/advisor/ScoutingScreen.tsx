@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Platform, Linking, Pressable, RefreshControl, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 import { MobileHeader } from '../../components/MobileHeader';
@@ -2902,9 +2903,7 @@ export function ScoutingScreen({ navigation }: any) {
         {/* Header Banner - nur auf Desktop */}
         {!isMobile && (
           <View style={[styles.headerBanner, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-            <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => navigation.navigate('AdvisorDashboard')}>
-              <Text style={[styles.filterButtonText, { color: colors.textSecondary }]}>← Zurück</Text>
-            </TouchableOpacity>
+            <TouchableOpacity style={{ paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }} onPress={() => navigation.navigate('AdvisorDashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
             <View style={styles.headerBannerCenter}>
               <Text style={[styles.title, { color: colors.text }]}>Scouting Area</Text>
               <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Manage Talente, Berichte und Spieltermine.</Text>
@@ -3148,9 +3147,7 @@ export function ScoutingScreen({ navigation }: any) {
             )}
           </View>
 
-          <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={() => activeTab === 'spieler' ? setShowAddPlayerModal(true) : setShowAddGameModal(true)}>
-            <Text style={[styles.addButtonText, { color: colors.primaryText }]}>{activeTab === 'spieler' ? 'neuen Spieler anlegen' : 'neues Spiel anlegen'}</Text>
-          </TouchableOpacity>
+          <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => activeTab === 'spieler' ? setShowAddPlayerModal(true) : setShowAddGameModal(true)}><Ionicons name="add-outline" size={12} color={colors.textSecondary} /></TouchableOpacity>
         </View>
 
         <ScrollView

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Pressable } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
@@ -1149,9 +1150,7 @@ export function TasksRemindersScreen({ navigation }: any) {
       >
         {/* Header Banner */}
         <View style={[styles.headerBanner, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-          <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => navigation.navigate('AdvisorDashboard')}>
-            <Text style={[styles.backButtonText, { color: colors.textSecondary }]}>← Zurück</Text>
-          </TouchableOpacity>
+          <TouchableOpacity style={{ paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }} onPress={() => navigation.navigate('AdvisorDashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
           <View style={styles.headerBannerCenter}>
             <Text style={[styles.headerTitle, { color: colors.text }]}>Aufgaben & Erinnerungen</Text>
             <Text style={[styles.headerSubtitle, { color: colors.textMuted }]}>To-Dos und Reminder im Überblick</Text>
@@ -1165,9 +1164,7 @@ export function TasksRemindersScreen({ navigation }: any) {
           <View style={[styles.leftPanel, { backgroundColor: colors.surface, borderColor: colors.border }, expandedTaskId && { zIndex: 10 }]}>
             <View style={[styles.panelHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
               <Text style={[styles.panelTitle, { color: colors.text }]}>Aufgaben</Text>
-              <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={openNewTaskModal}>
-                <Text style={[styles.addButtonText, { color: colors.primaryText }]}>+ Neue Aufgabe</Text>
-              </TouchableOpacity>
+              <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={openNewTaskModal}><Ionicons name="add-outline" size={12} color={colors.textSecondary} /></TouchableOpacity>
             </View>
 
             <ScrollView style={styles.panelContent} contentContainerStyle={{ gap: 8 }}>
@@ -1525,6 +1522,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   addButtonText: { fontSize: 11, fontWeight: '600' },
+  filterButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1 },
 
   // Priority Section (wie Reminder Columns)
   prioritySection: { backgroundColor: '#f8fafc', borderRadius: 8, overflow: 'hidden' },
