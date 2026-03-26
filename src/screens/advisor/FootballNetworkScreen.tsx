@@ -714,8 +714,12 @@ export function FootballNetworkScreen({ navigation }: any) {
                         <View style={{ flex: 1 }}>
                           <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Position</Text>
                           {selectedContact.position ? (
-                            <View style={[styles.mobilePositionBadge, { alignSelf: 'flex-start', backgroundColor: isDark ? 'rgba(14, 165, 233, 0.2)' : '#e0f2fe', borderColor: isDark ? 'rgba(14, 165, 233, 0.4)' : '#bae6fd' }]}>
-                              <Text style={[styles.mobilePositionText, { color: isDark ? '#38bdf8' : '#0369a1' }]}>{selectedContact.position}</Text>
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3 }}>
+                              {selectedContact.position.split(',').map((p: string, idx: number) => (
+                                <View key={idx} style={[styles.mobilePositionBadge, { alignSelf: 'flex-start', backgroundColor: isDark ? 'rgba(14, 165, 233, 0.2)' : '#e0f2fe', borderColor: isDark ? 'rgba(14, 165, 233, 0.4)' : '#bae6fd' }]}>
+                                  <Text style={[styles.mobilePositionText, { color: isDark ? '#38bdf8' : '#0369a1' }]}>{p.trim()}</Text>
+                                </View>
+                              ))}
                             </View>
                           ) : <Text style={[styles.mobileDetailValue, { color: colors.text }]}>-</Text>}
                         </View>
@@ -1176,8 +1180,12 @@ export function FootballNetworkScreen({ navigation }: any) {
                       <View style={styles.detailModalField}>
                         <Text style={[styles.detailModalLabel, { color: colors.textMuted }]}>Position</Text>
                         {selectedContact.position ? (
-                          <View style={[styles.positionBadge, { alignSelf: 'flex-start', backgroundColor: isDark ? 'rgba(14, 165, 233, 0.2)' : '#e0f2fe' }]}>
-                            <Text style={[styles.positionText, { color: isDark ? '#38bdf8' : '#0369a1' }]}>{selectedContact.position}</Text>
+                          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3 }}>
+                            {selectedContact.position.split(',').map((p: string, idx: number) => (
+                              <View key={idx} style={[styles.positionBadge, { alignSelf: 'flex-start', backgroundColor: isDark ? 'rgba(14, 165, 233, 0.2)' : '#e0f2fe' }]}>
+                                <Text style={[styles.positionText, { color: isDark ? '#38bdf8' : '#0369a1' }]}>{p.trim()}</Text>
+                              </View>
+                            ))}
                           </View>
                         ) : <Text style={[styles.detailModalValue, { color: colors.text }]}>-</Text>}
                       </View>

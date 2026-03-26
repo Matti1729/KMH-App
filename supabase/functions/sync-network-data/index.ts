@@ -145,7 +145,7 @@ async function fetchTrainerProfile(url: string): Promise<any> {
     // Liga
     const leagueMatch = html.match(/data-header__league[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/);
     if (leagueMatch) {
-      const leagueText = leagueMatch[1].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+      const leagueText = leagueMatch[1].replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
       // Land aus Flagge
       const countryMatch = html.match(/data-header__league[\s\S]*?title="([^"]+)"[^>]*class="flaggenrahmen"/);
       const country = countryMatch ? countryMatch[1] : '';

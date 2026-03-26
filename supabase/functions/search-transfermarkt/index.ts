@@ -77,7 +77,7 @@ serve(async (req: Request) => {
       // Liga
       const leagueMatch = html.match(/data-header__league-link"[^>]*>([\s\S]*?)<\/a>/);
       if (leagueMatch) {
-        const leagueText = leagueMatch[1].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+        const leagueText = leagueMatch[1].replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
         if (leagueText) {
           const countryMatch = html.match(/Ligahöhe:[\s\S]*?title="([^"]+)"[^>]*class="flaggenrahmen"/);
           const country = countryMatch ? countryMatch[1] : '';
