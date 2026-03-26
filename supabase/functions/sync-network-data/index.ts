@@ -135,10 +135,11 @@ async function fetchTrainerProfile(url: string): Promise<any> {
     }
     profile.bereich = hasNachwuchs ? 'Nachwuchs' : 'Herren';
 
-    // Mannschaft: Wenn Nachwuchs aber keine spezifische U-Mannschaft → leer lassen
-    // Wenn Herren und keine Mannschaft → "1. Mannschaft"
-    if (!profile.mannschaft) {
-      profile.mannschaft = hasNachwuchs ? '' : '1. Mannschaft';
+    // Mannschaft: Nachwuchs → immer leer, Herren → "1. Mannschaft"
+    if (hasNachwuchs) {
+      profile.mannschaft = '';
+    } else if (!profile.mannschaft) {
+      profile.mannschaft = '1. Mannschaft';
     }
 
     // Verein bereinigen (Hauptverein ohne U-Suffix)
