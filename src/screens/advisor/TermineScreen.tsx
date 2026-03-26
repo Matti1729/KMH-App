@@ -2832,12 +2832,17 @@ END:VEVENT
         {/* Desktop Header */}
         {!isMobile && viewMode === 'dashboard' && (
           <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-            <TouchableOpacity style={{ paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }} onPress={() => navigation.navigate('AdvisorDashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
+            <View style={{ width: 40 }} />
             <View style={styles.headerCenter}>
               <Text style={[styles.headerTitle, { color: colors.text }]}>Spieltage</Text>
               <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Übersicht über Spieltage unserer Spieler und weitere Lehrgänge und Termine</Text>
             </View>
             <View style={{ width: 80 }} />
+          </View>
+        )}
+        {!isMobile && viewMode === 'dashboard' && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 16, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+            <TouchableOpacity style={{ paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }} onPress={() => navigation.navigate('AdvisorDashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
           </View>
         )}
         {renderContent()}
