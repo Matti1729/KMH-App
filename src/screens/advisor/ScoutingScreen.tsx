@@ -4252,8 +4252,8 @@ export function ScoutingScreen({ navigation }: any) {
                     <Text style={[styles.detailClub, { color: colors.textSecondary }]}>{selectedPlayer.club || '-'}</Text>
                   </View>
                 </View>
-                <TouchableOpacity onPress={() => { setShowPlayerDetailModal(false); setIsEditing(false); setShowEditClubDropdown(false); }} style={[styles.closeButton, { backgroundColor: colors.surfaceSecondary }]}>
-                  <Text style={[styles.closeButtonText, { color: colors.textSecondary }]}>✕</Text>
+                <TouchableOpacity onPress={() => { setShowPlayerDetailModal(false); setIsEditing(false); setShowEditClubDropdown(false); }} style={{ position: 'absolute', top: 0, right: 0, width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ color: colors.textSecondary, fontSize: 13, lineHeight: 14 }}>✕</Text>
                 </TouchableOpacity>
               </View>
 
