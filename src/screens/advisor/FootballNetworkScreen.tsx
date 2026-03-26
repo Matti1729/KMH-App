@@ -695,6 +695,7 @@ export function FootballNetworkScreen({ navigation }: any) {
                         <View style={{ flex: 1 }}>
                           <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Verein</Text>
                           <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{selectedContact.verein || '-'}</Text>
+                          {selectedContact.liga && <Text style={{ fontSize: 9, color: colors.textMuted, marginTop: 2 }}>{selectedContact.liga}</Text>}
                         </View>
                         <View style={{ flex: 1 }}>
                           <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Bereich</Text>
@@ -727,14 +728,6 @@ export function FootballNetworkScreen({ navigation }: any) {
 
                     {/* Kontaktdaten mit Icons - vertikal */}
                     <View style={[styles.mobileDetailBox, { backgroundColor: colors.surfaceSecondary }]}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                        <Ionicons name="business-outline" size={15} color={colors.textMuted} style={{ marginRight: 10, width: 18 }} />
-                        <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{selectedContact.verein || '-'}</Text>
-                      </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                        <Ionicons name="football-outline" size={15} color={colors.textMuted} style={{ marginRight: 10, width: 18 }} />
-                        <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{selectedContact.liga || '-'}</Text>
-                      </View>
                       <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }} onPress={() => selectedContact.email && Linking.openURL(`mailto:${selectedContact.email}`)} disabled={!selectedContact.email}>
                         <Ionicons name="mail-outline" size={15} color={colors.textMuted} style={{ marginRight: 10, width: 18 }} />
                         <Text style={[styles.mobileDetailValue, { color: selectedContact.email ? '#3b82f6' : colors.text }]}>{selectedContact.email || '-'}</Text>
@@ -1171,6 +1164,7 @@ export function FootballNetworkScreen({ navigation }: any) {
                       <View style={styles.detailModalField}>
                         <Text style={[styles.detailModalLabel, { color: colors.textMuted }]}>Verein</Text>
                         <Text style={[styles.detailModalValue, { color: colors.text }]}>{selectedContact.verein || '-'}</Text>
+                        {selectedContact.liga && <Text style={{ fontSize: 10, color: colors.textMuted, marginTop: 2 }}>{selectedContact.liga}</Text>}
                       </View>
                       <View style={styles.detailModalField}>
                         <Text style={[styles.detailModalLabel, { color: colors.textMuted }]}>Bereich</Text>
@@ -1189,14 +1183,6 @@ export function FootballNetworkScreen({ navigation }: any) {
 
                   {/* Kontaktdaten mit Icons - vertikal */}
                   <View style={[styles.detailModalBox, { backgroundColor: colors.surfaceSecondary }]}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                      <Ionicons name="business-outline" size={16} color={colors.textMuted} style={{ marginRight: 10, width: 20 }} />
-                      <Text style={[styles.detailModalValue, { color: colors.text }]}>{selectedContact.verein || '-'}</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                      <Ionicons name="football-outline" size={16} color={colors.textMuted} style={{ marginRight: 10, width: 20 }} />
-                      <Text style={[styles.detailModalValue, { color: colors.text }]}>{selectedContact.liga || '-'}</Text>
-                    </View>
                     <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }} onPress={() => selectedContact.email && Linking.openURL(`mailto:${selectedContact.email}`)} disabled={!selectedContact.email}>
                       <Ionicons name="mail-outline" size={16} color={colors.textMuted} style={{ marginRight: 10, width: 20 }} />
                       <Text style={[styles.detailModalValue, { color: selectedContact.email ? '#3b82f6' : colors.text }]}>{selectedContact.email || '-'}</Text>
