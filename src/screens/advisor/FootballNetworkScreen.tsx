@@ -221,7 +221,7 @@ export function FootballNetworkScreen({ navigation }: any) {
 
   const searchTransfermarkt = async (name: string): Promise<{ verein: string; position: string; url: string; bereich: string } | null> => {
     try {
-      const { data } = await supabase.functions.invoke('search-transfermarkt', { body: { name } });
+      const { data } = await supabase.functions.invoke('search-transfermarkt', { body: { name, type: 'trainer' } });
       if (data?.results?.length > 0) {
         const result = data.results[0];
         // Position-Mapping: TM "Trainer" → unser System
