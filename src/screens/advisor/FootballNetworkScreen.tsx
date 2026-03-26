@@ -182,11 +182,11 @@ export function FootballNetworkScreen({ navigation }: any) {
           nachname = parts[0] || '';
           vorname = parts[1] || '';
         }
-        if ((line.startsWith('TEL') || line.startsWith('tel')) && !telefon) {
-          telefon = line.replace(/^TEL[^:]*:/i, '').replace(/\s/g, '');
+        if (/^(item\d+\.)?TEL/i.test(line) && !telefon) {
+          telefon = line.replace(/^.*TEL[^:]*:/i, '').replace(/\s/g, '');
         }
-        if ((line.startsWith('EMAIL') || line.startsWith('email')) && !email) {
-          email = line.replace(/^EMAIL[^:]*:/i, '').trim();
+        if (/^(item\d+\.)?EMAIL/i.test(line) && !email) {
+          email = line.replace(/^.*EMAIL[^:]*:/i, '').trim();
         }
       }
       if (vorname || nachname) {
