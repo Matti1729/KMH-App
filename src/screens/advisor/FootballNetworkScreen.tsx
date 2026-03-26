@@ -34,7 +34,7 @@ interface Contact {
   email: string; notes?: string; transfermarkt_url?: string; created_at: string;
 }
 
-type SortField = 'verein' | 'name' | 'bereich' | 'position' | 'mannschaft' | 'telefon' | 'email';
+type SortField = 'verein' | 'name' | 'vorname' | 'bereich' | 'position' | 'mannschaft' | 'telefon' | 'email';
 type SortDirection = 'asc' | 'desc';
 
 const NETWORK_COLUMNS: ColumnDef[] = [
@@ -366,7 +366,8 @@ export function FootballNetworkScreen({ navigation }: any) {
       let valueA: string, valueB: string;
       switch (sortField) {
         case 'verein': valueA = a.verein?.toLowerCase() || ''; valueB = b.verein?.toLowerCase() || ''; break;
-        case 'name': valueA = formatName(a).toLowerCase(); valueB = formatName(b).toLowerCase(); break;
+        case 'name': valueA = (a.nachname || '').toLowerCase(); valueB = (b.nachname || '').toLowerCase(); break;
+        case 'vorname': valueA = (a.vorname || '').toLowerCase(); valueB = (b.vorname || '').toLowerCase(); break;
         case 'bereich': valueA = a.bereich?.toLowerCase() || ''; valueB = b.bereich?.toLowerCase() || ''; break;
         case 'position': valueA = a.position?.toLowerCase() || ''; valueB = b.position?.toLowerCase() || ''; break;
         case 'mannschaft': valueA = a.mannschaft?.toLowerCase() || ''; valueB = b.mannschaft?.toLowerCase() || ''; break;
