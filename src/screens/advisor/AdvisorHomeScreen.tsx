@@ -743,7 +743,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#eee',
   },
   mobileGreetingText: {
-    fontSize: 16,
+    fontSize: 11,
     fontWeight: '600',
     color: '#1a1a1a',
   },
@@ -768,7 +768,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   greeting: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: '700',
     color: '#1a1a1a',
   },
@@ -776,12 +776,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   subGreeting: {
-    fontSize: 14,
+    fontSize: 11,
     color: '#888',
     marginTop: 2,
   },
   subGreetingMobile: {
-    fontSize: 12,
+    fontSize: 11,
   },
   profileButton: {
     // @ts-ignore
@@ -807,7 +807,7 @@ const styles = StyleSheet.create({
   },
   profileAvatarText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 11,
     fontWeight: '600',
   },
 
@@ -869,32 +869,32 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   mobileCardTitle: {
-    fontSize: 16,
+    fontSize: 11,
     fontWeight: '600',
     color: '#1a1a1a',
   },
   mobileCardTitleDark: {
-    fontSize: 16,
+    fontSize: 11,
     fontWeight: '600',
     color: '#fff',
   },
   mobileCardSubtitle: {
-    fontSize: 13,
+    fontSize: 11,
     color: '#666',
     marginTop: 2,
   },
   mobileCardSubtitleDark: {
-    fontSize: 13,
+    fontSize: 11,
     color: 'rgba(255,255,255,0.6)',
     marginTop: 2,
   },
   mobileCardCount: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: '700',
     color: '#1a1a1a',
   },
   mobileCardCountDark: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: '700',
     color: '#fff',
   },
@@ -979,7 +979,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 20,
     right: 24,
-    fontSize: 48,
+    fontSize: 32,
     fontWeight: '700',
     color: '#000',
   },
@@ -998,15 +998,15 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   mainCardTitle: {
-    fontSize: 32,
+    fontSize: 18,
     fontWeight: '700',
     color: '#1a1a1a',
     marginBottom: 12,
   },
   mainCardSubtitle: {
-    fontSize: 14,
+    fontSize: 11,
     color: '#888',
-    lineHeight: 22,
+    lineHeight: 16,
   },
   mainCardFooter: {
     flexDirection: 'row',
@@ -1015,7 +1015,7 @@ const styles = StyleSheet.create({
     paddingTop: 20,
   },
   mainCardLink: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: '600',
     color: '#1a1a1a',
   },
@@ -1099,22 +1099,22 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 16,
     right: 16,
-    fontSize: 32,
+    fontSize: 18,
     fontWeight: '700',
     color: '#1a1a1a',
   },
   scoutingVerticalTextLight: {
-    fontSize: 26,
+    fontSize: 18,
     fontWeight: '700',
     color: '#1a1a1a',
-    lineHeight: 34,
+    lineHeight: 24,
     letterSpacing: 4,
   },
   scoutingTallSubtitleLight: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '500',
     color: '#888',
-    lineHeight: 17,
+    lineHeight: 15,
   },
 
   // Scouting Card - Tall (Säule) - Dark (deprecated)
@@ -1133,7 +1133,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 16,
     right: 16,
-    fontSize: 32,
+    fontSize: 18,
     fontWeight: '700',
     color: '#fff',
   },
@@ -1141,10 +1141,10 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   scoutingVerticalText: {
-    fontSize: 26,
+    fontSize: 18,
     fontWeight: '700',
     color: '#fff',
-    lineHeight: 34,
+    lineHeight: 24,
     letterSpacing: 4,
   },
   scoutingTallFooter: {
@@ -1153,10 +1153,10 @@ const styles = StyleSheet.create({
     left: 16,
   },
   scoutingTallSubtitle: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '500',
     color: 'rgba(255,255,255,0.7)',
-    lineHeight: 17,
+    lineHeight: 15,
   },
   scoutingHeader: {
     flexDirection: 'row',
@@ -1175,7 +1175,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   scoutingCount: {
-    fontSize: 32,
+    fontSize: 18,
     fontWeight: '700',
     color: '#1a1a1a',
   },
@@ -1183,12 +1183,12 @@ const styles = StyleSheet.create({
     marginTop: 'auto',
   },
   scoutingTitle: {
-    fontSize: 18,
+    fontSize: 13,
     fontWeight: '700',
     color: '#1a1a1a',
   },
   scoutingSubtitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#888',
     marginTop: 4,
   },
@@ -1225,17 +1225,17 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   networkWideCount: {
-    fontSize: 32,
+    fontSize: 18,
     fontWeight: '700',
     color: '#1a1a1a',
   },
   networkWideTitle: {
-    fontSize: 22,
+    fontSize: 13,
     fontWeight: '700',
     color: '#1a1a1a',
   },
   networkWideSubtitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#888',
     marginTop: 4,
   },
@@ -1252,7 +1252,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 20,
     right: 20,
-    fontSize: 32,
+    fontSize: 18,
     fontWeight: '700',
     color: '#fff',
   },
@@ -1260,10 +1260,10 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   networkVerticalText: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: '700',
     color: '#fff',
-    lineHeight: 18,
+    lineHeight: 15,
     letterSpacing: 2,
   },
   networkFooter: {
@@ -1285,7 +1285,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   networkTitle: {
-    fontSize: 16,
+    fontSize: 11,
     fontWeight: '700',
     color: '#fff',
   },
@@ -1318,7 +1318,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   darkBottomCardTitle: {
-    fontSize: 15,
+    fontSize: 11,
     fontWeight: '600',
     color: '#fff',
   },
@@ -1338,7 +1338,7 @@ const styles = StyleSheet.create({
   },
   darkBottomCardBadgeText: {
     color: '#fff',
-    fontSize: 15,
+    fontSize: 11,
     fontWeight: '700',
   },
 
@@ -1372,7 +1372,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   lightBottomCardTitle: {
-    fontSize: 15,
+    fontSize: 11,
     fontWeight: '600',
     color: '#1a1a1a',
   },
@@ -1392,7 +1392,7 @@ const styles = StyleSheet.create({
   },
   lightBottomCardBadgeText: {
     color: '#fff',
-    fontSize: 15,
+    fontSize: 11,
     fontWeight: '700',
   },
 
@@ -1408,7 +1408,7 @@ const styles = StyleSheet.create({
   },
   redBadgeText: {
     color: '#fff',
-    fontSize: 15,
+    fontSize: 11,
     fontWeight: '700',
   },
   mobileCardBadgeRed: {
@@ -1422,7 +1422,7 @@ const styles = StyleSheet.create({
   },
   mobileCardBadgeRedText: {
     color: '#fff',
-    fontSize: 15,
+    fontSize: 11,
     fontWeight: '700',
   },
 
@@ -1464,7 +1464,7 @@ const styles = StyleSheet.create({
     right: 20,
   },
   urgentBadgeText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: '#ff6b6b',
   },
@@ -1483,12 +1483,12 @@ const styles = StyleSheet.create({
     marginTop: 'auto',
   },
   termineTitle: {
-    fontSize: 18,
+    fontSize: 13,
     fontWeight: '700',
     color: '#fff',
   },
   termineSubtitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: 'rgba(255,255,255,0.6)',
     marginTop: 4,
   },
@@ -1519,7 +1519,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   transferCount: {
-    fontSize: 32,
+    fontSize: 18,
     fontWeight: '700',
     color: '#1a1a1a',
   },
@@ -1527,12 +1527,12 @@ const styles = StyleSheet.create({
     marginTop: 'auto',
   },
   transferTitle: {
-    fontSize: 22,
+    fontSize: 13,
     fontWeight: '700',
     color: '#1a1a1a',
   },
   transferSubtitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#888',
     marginTop: 4,
   },
@@ -1568,12 +1568,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   bottomCardTitle: {
-    fontSize: 15,
+    fontSize: 11,
     fontWeight: '600',
     color: '#1a1a1a',
   },
   bottomCardSubtitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#888',
     marginTop: 2,
   },
@@ -1588,7 +1588,7 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     color: '#fff',
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '700',
   },
 });

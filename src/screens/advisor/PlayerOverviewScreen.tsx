@@ -1697,8 +1697,8 @@ const styles = StyleSheet.create({
   },
   mobileSearchInput: {
     flex: 1,
-    paddingVertical: 10,
-    fontSize: 14,
+    paddingVertical: 6,
+    fontSize: 11,
   },
   mobileFilterButton: {
     width: 44,
@@ -1762,7 +1762,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
   },
   mobileSubheaderText: {
-    fontSize: 13,
+    fontSize: 11,
     color: '#64748b',
     fontWeight: '500',
   },
@@ -1804,7 +1804,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   playerCardName: {
-    fontSize: 15,
+    fontSize: 11,
     fontWeight: '600',
     color: '#1a1a1a',
     flex: 1,
@@ -1849,12 +1849,12 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   playerCardClubText: {
-    fontSize: 13,
+    fontSize: 11,
     color: '#334155',
     flex: 1,
   },
   playerCardPosition: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748b',
     fontWeight: '500',
     backgroundColor: '#f1f5f9',
@@ -1863,7 +1863,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   playerCardLeague: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748b',
     flex: 1,
   },
@@ -1922,7 +1922,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   mobileFilterLabel: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: '600',
     color: '#1a1a1a',
     marginBottom: 10,
@@ -1944,7 +1944,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1a1a',
   },
   mobileChipText: {
-    fontSize: 14,
+    fontSize: 11,
     color: '#334155',
   },
   mobileChipTextActive: {
@@ -1963,7 +1963,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   mobileFilterClearText: {
-    fontSize: 15,
+    fontSize: 11,
     color: '#ef4444',
     fontWeight: '500',
   },
@@ -1975,7 +1975,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   mobileFilterApplyText: {
-    fontSize: 15,
+    fontSize: 11,
     color: '#fff',
     fontWeight: '600',
   },
@@ -1983,34 +1983,34 @@ const styles = StyleSheet.create({
   // Header Banner - weiß mit Titel mittig
   headerBanner: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 24, borderBottomWidth: 1 },
   headerBannerCenter: { flex: 1, alignItems: 'center' },
-  headerTitle: { fontSize: 24, fontWeight: '700', color: '#1a1a1a' },
-  headerSubtitle: { fontSize: 14, color: '#64748b', marginTop: 4 },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a1a' },
+  headerSubtitle: { fontSize: 11, color: '#64748b', marginTop: 4 },
   
   // Toolbar - wie Scouting
   toolbar: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, zIndex: 100 },
   searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', paddingHorizontal: 12 },
   searchIcon: { fontSize: 16, marginRight: 8 },
-  searchInput: { flex: 1, paddingVertical: 10, fontSize: 14 },
+  searchInput: { flex: 1, paddingVertical: 6, fontSize: 11 },
   filterContainer: { flexDirection: 'row', gap: 8 },
   dropdownContainer: { position: 'relative' },
   
   // Filter Buttons - wie Scouting
-  filterButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, borderWidth: 1 },
-  filterButtonText: { fontSize: 14 },
+  filterButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1 },
+  filterButtonText: { fontSize: 11 },
   
   // Filter Dropdown - wie Scouting
   filterDropdownMulti: { position: 'absolute', top: '100%', left: 0, borderRadius: 12, borderWidth: 1, marginTop: 4, minWidth: 220, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, zIndex: 1000, overflow: 'hidden' },
   filterDropdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#e2e8f0', backgroundColor: '#f8fafc' },
-  filterDropdownTitle: { fontSize: 13, fontWeight: '600', color: '#1a1a1a' },
-  filterClearText: { fontSize: 12, color: '#ef4444' },
+  filterDropdownTitle: { fontSize: 11, fontWeight: '600', color: '#1a1a1a' },
+  filterClearText: { fontSize: 11, color: '#ef4444' },
   filterCheckboxItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   checkbox: { width: 20, height: 20, borderRadius: 4, borderWidth: 2, borderColor: '#cbd5e1', marginRight: 10, justifyContent: 'center', alignItems: 'center' },
   checkboxSelected: { backgroundColor: '#3b82f6', borderColor: '#3b82f6' },
   checkmark: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
-  filterCheckboxText: { flex: 1, fontSize: 14, color: '#333' },
-  filterCountBadge: { backgroundColor: '#f1f5f9', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, fontSize: 12, color: '#64748b', overflow: 'hidden' },
+  filterCheckboxText: { flex: 1, fontSize: 11, color: '#333' },
+  filterCountBadge: { backgroundColor: '#f1f5f9', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, fontSize: 11, color: '#64748b', overflow: 'hidden' },
   filterDoneButton: { padding: 12, backgroundColor: '#f8fafc', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#e2e8f0' },
-  filterDoneText: { fontSize: 14, fontWeight: '600', color: '#3b82f6' },
+  filterDoneText: { fontSize: 11, fontWeight: '600', color: '#3b82f6' },
   
   // Dropdown Overlay
   dropdownOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, backgroundColor: 'transparent' },
@@ -2022,17 +2022,17 @@ const styles = StyleSheet.create({
   tableWrapper: { flex: 1, borderRadius: 12, borderWidth: 1, overflow: 'hidden' },
 
   // Add Button
-  addButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, borderWidth: 1 },
-  addButtonText: { fontSize: 14, fontWeight: '600' },
+  addButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1 },
+  addButtonText: { fontSize: 11, fontWeight: '600' },
 
   // Tabelle wie Scouting
   tableHeader: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1 },
-  tableHeaderText: { color: '#64748b', fontWeight: '600', fontSize: 13 },
+  tableHeaderText: { color: '#64748b', fontWeight: '600', fontSize: 11, textTransform: 'uppercase' },
   tableBody: { flex: 1 },
   tableRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', alignItems: 'center' },
   tableRowLocked: { backgroundColor: '#fafafa' },
   birthdayRow: { backgroundColor: 'rgba(255, 215, 0, 0.2)' },
-  tableCell: { fontSize: 14, color: '#334155' },
+  tableCell: { fontSize: 11, color: '#334155' },
   nameContainer: { flexDirection: 'row', alignItems: 'center' },
   nameCell: { fontWeight: '500', flex: 1 },
   lockIcon: { fontSize: 12, marginRight: 4 },
@@ -2050,18 +2050,18 @@ const styles = StyleSheet.create({
   colListing: { flex: 0.7, minWidth: 50 },
   colResponsibility: { flex: 1, minWidth: 85 },
   contractBadge: { backgroundColor: '#fef2f2', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4, alignSelf: 'flex-start' },
-  contractBadgeText: { color: '#dc2626', fontSize: 14, fontWeight: '600' },
+  contractBadgeText: { color: '#dc2626', fontSize: 11, fontWeight: '600' },
   contractBadgeGreen: { backgroundColor: '#f0fdf4', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4, alignSelf: 'flex-start' },
-  contractBadgeTextGreen: { color: '#16a34a', fontSize: 14, fontWeight: '600' },
+  contractBadgeTextGreen: { color: '#16a34a', fontSize: 11, fontWeight: '600' },
   listingBadge: { paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4, alignSelf: 'flex-start' },
   listingKMH: { backgroundColor: '#1e293b' },
   listingPM: { backgroundColor: '#0ea5e9' },
-  listingBadgeText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  listingBadgeText: { color: '#fff', fontSize: 11, fontWeight: '600' },
   loadingText: { padding: 20, textAlign: 'center', color: '#64748b' },
   emptyText: { padding: 20, textAlign: 'center', color: '#64748b' },
   errorContainer: { padding: 20, alignItems: 'center' },
   errorText: { color: '#dc2626', textAlign: 'center', marginBottom: 12 },
-  retryButton: { backgroundColor: '#1a1a1a', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
+  retryButton: { backgroundColor: '#1a1a1a', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 },
   retryButtonText: { color: '#fff', fontWeight: '600' },
 
   // Modal - dezente Buttons

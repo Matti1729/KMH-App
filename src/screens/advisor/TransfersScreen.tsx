@@ -2042,34 +2042,34 @@ const styles = StyleSheet.create({
   // Header Banner
   headerBanner: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 24, borderBottomWidth: 1 },
   headerBannerCenter: { flex: 1, alignItems: 'center' },
-  headerTitle: { fontSize: 24, fontWeight: '700', color: '#1a1a1a' },
-  headerSubtitle: { fontSize: 14, color: '#64748b', marginTop: 4 },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a1a' },
+  headerSubtitle: { fontSize: 11, color: '#64748b', marginTop: 4 },
   
   // Toolbar - wie Scouting
   toolbar: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, zIndex: 100 },
   searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', paddingHorizontal: 12 },
   searchIcon: { fontSize: 16, marginRight: 8 },
-  searchInput: { flex: 1, paddingVertical: 10, fontSize: 14 },
+  searchInput: { flex: 1, paddingVertical: 6, fontSize: 11 },
   filterContainer: { flexDirection: 'row', gap: 8 },
   dropdownContainer: { position: 'relative' },
   
   // Filter Buttons - wie Scouting
-  filterButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, borderWidth: 1 },
-  filterButtonText: { fontSize: 14 },
+  filterButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1 },
+  filterButtonText: { fontSize: 11 },
   
   // Filter Dropdown - wie Scouting
   filterDropdownMulti: { position: 'absolute', top: '100%', left: 0, borderRadius: 12, borderWidth: 1, marginTop: 4, minWidth: 220, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, zIndex: 1000, overflow: 'hidden' },
   filterDropdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#e2e8f0', backgroundColor: '#f8fafc' },
-  filterDropdownTitle: { fontSize: 13, fontWeight: '600', color: '#1a1a1a' },
-  filterClearText: { fontSize: 12, color: '#ef4444' },
+  filterDropdownTitle: { fontSize: 11, fontWeight: '600', color: '#1a1a1a' },
+  filterClearText: { fontSize: 11, color: '#ef4444' },
   filterCheckboxItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   checkbox: { width: 20, height: 20, borderRadius: 4, borderWidth: 2, borderColor: '#cbd5e1', marginRight: 10, justifyContent: 'center', alignItems: 'center' },
   checkboxSelected: { backgroundColor: '#3b82f6', borderColor: '#3b82f6' },
   checkmark: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
-  filterCheckboxText: { flex: 1, fontSize: 14, color: '#333' },
-  filterCountBadge: { backgroundColor: '#f1f5f9', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, fontSize: 12, color: '#64748b', overflow: 'hidden' },
+  filterCheckboxText: { flex: 1, fontSize: 11, color: '#333' },
+  filterCountBadge: { backgroundColor: '#f1f5f9', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, fontSize: 11, color: '#64748b', overflow: 'hidden' },
   filterDoneButton: { padding: 12, backgroundColor: '#f8fafc', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#e2e8f0' },
-  filterDoneText: { fontSize: 14, fontWeight: '600', color: '#3b82f6' },
+  filterDoneText: { fontSize: 11, fontWeight: '600', color: '#3b82f6' },
   
   // Dropdown Overlay
   dropdownOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, backgroundColor: 'transparent' },
@@ -2085,12 +2085,12 @@ const styles = StyleSheet.create({
 
   // Tabelle
   tableHeader: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1 },
-  tableHeaderText: { color: '#64748b', fontWeight: '600', fontSize: 13 },
+  tableHeaderText: { color: '#64748b', fontWeight: '600', fontSize: 11 },
   tableBody: { flex: 1 },
   tableRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', alignItems: 'center' },
   tableRowLocked: { backgroundColor: '#fafafa' },
   birthdayRow: { backgroundColor: 'rgba(255, 215, 0, 0.2)' },
-  tableCell: { fontSize: 14, color: '#334155' },
+  tableCell: { fontSize: 11, color: '#334155' },
   nameContainer: { flexDirection: 'row', alignItems: 'center' },
   nameCell: { fontWeight: '500', flex: 1 },
   lockIcon: { fontSize: 12, marginLeft: 4 },
@@ -2112,15 +2112,15 @@ const styles = StyleSheet.create({
   
   // Contract Badges
   contractBadge: { backgroundColor: '#fef2f2', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4, alignSelf: 'flex-start' },
-  contractBadgeText: { color: '#dc2626', fontSize: 12, fontWeight: '600' },
+  contractBadgeText: { color: '#dc2626', fontSize: 11, fontWeight: '600' },
   contractBadgeExpired: { backgroundColor: '#fef2f2', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4, alignSelf: 'flex-start' },
-  contractBadgeTextExpired: { color: '#dc2626', fontSize: 12, fontWeight: '600' },
+  contractBadgeTextExpired: { color: '#dc2626', fontSize: 11, fontWeight: '600' },
 
   // Listing Badges
   listingBadge: { paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4, alignSelf: 'flex-start' },
   listingKMH: { backgroundColor: '#1e293b' },
   listingPM: { backgroundColor: '#0ea5e9' },
-  listingBadgeText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  listingBadgeText: { color: '#fff', fontSize: 11, fontWeight: '600' },
   
   loadingText: { padding: 20, textAlign: 'center', color: '#64748b' },
   emptyText: { padding: 20, textAlign: 'center', color: '#64748b' },
@@ -2129,8 +2129,8 @@ const styles = StyleSheet.create({
   headerTabs: { flexDirection: 'row', gap: 8 },
   
   // Add Button
-  addButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, borderWidth: 1 },
-  addButtonText: { fontSize: 14, fontWeight: '600' },
+  addButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1 },
+  addButtonText: { fontSize: 11, fontWeight: '600' },
   
   // Vereine Tab Spalten
   colDate: { flex: 0.8, minWidth: 80 },
@@ -2148,41 +2148,41 @@ const styles = StyleSheet.create({
   modalOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
   modalContent: { borderRadius: 16, padding: 24, width: '90%', maxWidth: 500, maxHeight: '90%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
-  modalTitle: { fontSize: 20, fontWeight: '700', color: '#1a1a1a' },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a1a' },
   closeButton: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center' },
   closeButtonText: { fontSize: 18, color: '#64748b' },
   formField: { marginBottom: 16 },
-  formLabel: { fontSize: 13, color: '#64748b', marginBottom: 6, fontWeight: '500' },
-  formInput: { borderWidth: 1, borderRadius: 8, padding: 12, fontSize: 14 },
+  formLabel: { fontSize: 11, color: '#64748b', marginBottom: 6, fontWeight: '500' },
+  formInput: { borderWidth: 1, borderRadius: 8, padding: 12, fontSize: 11 },
   modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 20 },
   modalButtonsRight: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 20 },
   modalButtonsSpaced: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
-  cancelButton: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#f1f5f9' },
+  cancelButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#f1f5f9' },
   cancelButtonText: { color: '#64748b', fontWeight: '600' },
-  saveButton: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#10b981' },
+  saveButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#10b981' },
   saveButtonText: { color: '#10b981', fontWeight: '600' },
-  deleteButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, borderWidth: 1, borderColor: '#ef4444' },
+  deleteButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: '#ef4444' },
   deleteButtonText: { color: '#ef4444', fontWeight: '600' },
   
   // Position Picker (Form)
   positionPickerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   positionOption: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
   positionOptionSelected: { backgroundColor: '#1a1a1a', borderColor: '#1a1a1a' },
-  positionOptionText: { fontSize: 12, fontWeight: '600', color: '#64748b' },
+  positionOptionText: { fontSize: 11, fontWeight: '600', color: '#64748b' },
   positionOptionTextSelected: { color: '#fff' },
   
   // Detail Modal - Neues Layout wie Spieler-Detail
   detailHeaderLeft: { flex: 1 },
-  detailSubtitle: { fontSize: 14, color: '#64748b', marginTop: 4 },
+  detailSubtitle: { fontSize: 11, color: '#64748b', marginTop: 4 },
   detailContent: { marginTop: 8 },
   detailRow: { marginBottom: 16 },
   detailRowNotes: { marginTop: 8, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
-  detailLabel: { fontSize: 12, color: '#64748b', marginBottom: 6, fontWeight: '500' },
-  detailValue: { fontSize: 15, color: '#1a1a1a', fontWeight: '500' },
+  detailLabel: { fontSize: 11, color: '#64748b', marginBottom: 6, fontWeight: '500' },
+  detailValue: { fontSize: 11, color: '#1a1a1a', fontWeight: '500' },
   detailPositions: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  detailNotesText: { fontSize: 14, color: '#334155', lineHeight: 20, backgroundColor: '#f8fafc', padding: 12, borderRadius: 8 },
+  detailNotesText: { fontSize: 11, color: '#334155', lineHeight: 18, backgroundColor: '#f8fafc', padding: 12, borderRadius: 8 },
   detailActions: { marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e2e8f0', flexDirection: 'row', justifyContent: 'flex-end' },
-  editButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0' },
+  editButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0' },
   editButtonText: { color: '#64748b', fontWeight: '600' },
   
   // Detail Modal - Neues Karten-Layout
@@ -2190,8 +2190,8 @@ const styles = StyleSheet.create({
   detailModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 20, paddingBottom: 16 },
   detailHeaderInfo: { flex: 1 },
   detailHeaderNameRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  detailModalTitle: { fontSize: 22, fontWeight: '700', color: '#1a1a1a' },
-  detailModalSubtitle: { fontSize: 14, color: '#64748b', marginTop: 4 },
+  detailModalTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a1a' },
+  detailModalSubtitle: { fontSize: 11, color: '#64748b', marginTop: 4 },
   detailHeaderLogo: { width: 32, height: 32, resizeMode: 'contain' },
   detailModalBody: { paddingHorizontal: 20, paddingBottom: 20 },
   
@@ -2200,24 +2200,24 @@ const styles = StyleSheet.create({
   detailCard: { backgroundColor: '#eff6ff', borderRadius: 12, borderWidth: 1, borderColor: '#bfdbfe', padding: 20 },
   detailCardField: { marginBottom: 16 },
   detailCardFieldLast: { marginBottom: 0 },
-  detailCardLabel: { fontSize: 12, color: '#64748b', marginBottom: 4 },
-  detailCardValue: { fontSize: 15, color: '#1a1a1a', fontWeight: '600' },
+  detailCardLabel: { fontSize: 11, color: '#64748b', marginBottom: 4 },
+  detailCardValue: { fontSize: 11, color: '#1a1a1a', fontWeight: '600' },
   
   // Position Badge im Detail Modal - hellblau ohne Rahmen wie in Liste
   positionBadgeDetail: { backgroundColor: '#e0f2fe', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6 },
-  positionBadgeDetailText: { fontSize: 13, fontWeight: '600', color: '#0369a1' },
+  positionBadgeDetailText: { fontSize: 11, fontWeight: '600', color: '#0369a1' },
   
   // Notizen Card - hellblau wie die anderen Karten
   detailNotesCard: { marginBottom: 20 },
   detailNotesBox: { backgroundColor: '#eff6ff', borderRadius: 10, padding: 14, borderWidth: 1, borderColor: '#bfdbfe', marginTop: 6 },
-  detailNotesBoxText: { fontSize: 14, color: '#1a1a1a', lineHeight: 20 },
+  detailNotesBoxText: { fontSize: 11, color: '#1a1a1a', lineHeight: 18 },
   
   // Action Buttons im Detail Modal - nur Bearbeiten rechts
   detailModalActions: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
-  detailDeleteButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, borderWidth: 1, borderColor: '#fca5a5' },
-  detailDeleteButtonText: { color: '#ef4444', fontWeight: '600', fontSize: 14 },
-  detailEditButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, borderWidth: 1, borderColor: '#3b82f6' },
-  detailEditButtonText: { color: '#3b82f6', fontWeight: '600', fontSize: 14 },
+  detailDeleteButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: '#fca5a5' },
+  detailDeleteButtonText: { color: '#ef4444', fontWeight: '600', fontSize: 11 },
+  detailEditButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: '#3b82f6' },
+  detailEditButtonText: { color: '#3b82f6', fontWeight: '600', fontSize: 11 },
   
   // Club Selector in Form
   clubSelectorContainer: { position: 'relative', zIndex: 100 },
@@ -2225,9 +2225,9 @@ const styles = StyleSheet.create({
   clubDropdownScroll: { maxHeight: 200 },
   clubDropdownItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1 },
   clubDropdownLogo: { width: 24, height: 24, resizeMode: 'contain', marginRight: 10 },
-  clubDropdownText: { fontSize: 14, color: '#333' },
+  clubDropdownText: { fontSize: 11, color: '#333' },
   clubDropdownCustom: { backgroundColor: '#f0fdf4' },
-  clubDropdownCustomText: { fontSize: 14, color: '#16a34a', fontWeight: '500' },
+  clubDropdownCustomText: { fontSize: 11, color: '#16a34a', fontWeight: '500' },
 
   // ==================== MOBILE STYLES ====================
   containerMobile: { flex: 1, flexDirection: 'row', backgroundColor: '#f8fafc' },
@@ -2237,13 +2237,13 @@ const styles = StyleSheet.create({
   mobileTabs: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0', paddingHorizontal: 12 },
   mobileTab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
   mobileTabActive: { borderBottomWidth: 2, borderBottomColor: '#1a1a1a' },
-  mobileTabText: { fontSize: 14, color: '#64748b', fontWeight: '500' },
+  mobileTabText: { fontSize: 11, color: '#64748b', fontWeight: '500' },
   mobileTabTextActive: { color: '#1a1a1a', fontWeight: '600' },
 
   // Mobile Toolbar
   mobileToolbar: { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 8, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
   mobileSearchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 8, paddingHorizontal: 10, height: 40 },
-  mobileSearchInput: { flex: 1, fontSize: 14, color: '#1a1a1a', marginLeft: 8 },
+  mobileSearchInput: { flex: 1, fontSize: 11, color: '#1a1a1a', marginLeft: 8 },
   mobileFilterButton: { width: 44, height: 44, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', justifyContent: 'center', alignItems: 'center' },
   mobileFilterButtonActive: { backgroundColor: '#1a1a1a' },
   mobileAddButton: { width: 40, height: 40, borderRadius: 8, backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center' },
@@ -2255,7 +2255,7 @@ const styles = StyleSheet.create({
 
   // Mobile Subheader
   mobileSubheader: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#f8fafc' },
-  mobileSubheaderText: { fontSize: 13, color: '#64748b' },
+  mobileSubheaderText: { fontSize: 11, color: '#64748b' },
 
   // Mobile Card List
   mobileCardList: { flex: 1 },
@@ -2267,20 +2267,20 @@ const styles = StyleSheet.create({
   mobileCardNameRow: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   mobileCardClubLogo: { width: 32, height: 32, resizeMode: 'contain', marginRight: 10 },
   mobileCardNameContainer: { flex: 1 },
-  mobileCardName: { fontSize: 15, fontWeight: '600', color: '#1a1a1a' },
-  mobileCardClub: { fontSize: 13, color: '#64748b', marginTop: 2 },
+  mobileCardName: { fontSize: 11, fontWeight: '600', color: '#1a1a1a' },
+  mobileCardClub: { fontSize: 11, color: '#64748b', marginTop: 2 },
   mobileCardLock: { fontSize: 14, marginLeft: 8 },
   mobileListingBadge: { paddingVertical: 3, paddingHorizontal: 8, borderRadius: 4 },
   mobileListingText: { color: '#fff', fontSize: 11, fontWeight: '600' },
   mobileCardDetails: { gap: 6 },
   mobileCardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  mobileCardLabel: { fontSize: 13, color: '#64748b' },
-  mobileCardValue: { fontSize: 13, color: '#1a1a1a', fontWeight: '500' },
+  mobileCardLabel: { fontSize: 11, color: '#64748b' },
+  mobileCardValue: { fontSize: 11, color: '#1a1a1a', fontWeight: '500' },
   mobileCardPositions: { flexDirection: 'row', gap: 4 },
   mobilePositionBadge: { backgroundColor: '#e0f2fe', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4 },
   mobilePositionText: { fontSize: 11, fontWeight: '600', color: '#0369a1' },
   mobileContractBadge: { backgroundColor: '#fef2f2', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4 },
-  mobileContractText: { fontSize: 12, fontWeight: '600', color: '#dc2626' },
+  mobileContractText: { fontSize: 11, fontWeight: '600', color: '#dc2626' },
 
   // Mobile Filter Modal
   mobileFilterModal: { flex: 1, backgroundColor: '#fff', marginTop: 50, borderTopLeftRadius: 20, borderTopRightRadius: 20, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 10, elevation: 10 },
@@ -2288,17 +2288,17 @@ const styles = StyleSheet.create({
   mobileFilterTitle: { fontSize: 18, fontWeight: '600', color: '#1a1a1a' },
   mobileFilterClose: { fontSize: 24, color: '#64748b' },
   mobileFilterContent: { flex: 1, padding: 16 },
-  mobileFilterSectionTitle: { fontSize: 14, fontWeight: '600', color: '#1a1a1a', marginBottom: 10, marginTop: 16 },
+  mobileFilterSectionTitle: { fontSize: 11, fontWeight: '600', color: '#1a1a1a', marginBottom: 10, marginTop: 16 },
   mobileChipContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   mobileChip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
   mobileChipSelected: { backgroundColor: '#1a1a1a', borderColor: '#1a1a1a' },
-  mobileChipText: { fontSize: 13, color: '#64748b', fontWeight: '500' },
+  mobileChipText: { fontSize: 11, color: '#64748b', fontWeight: '500' },
   mobileChipTextSelected: { color: '#fff' },
   mobileFilterFooter: { flexDirection: 'row', padding: 16, gap: 12, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
   mobileFilterClearButton: { flex: 1, paddingVertical: 12, borderRadius: 8, backgroundColor: '#f1f5f9', alignItems: 'center' },
-  mobileFilterClearText: { fontSize: 14, color: '#64748b', fontWeight: '600' },
+  mobileFilterClearText: { fontSize: 11, color: '#64748b', fontWeight: '600' },
   mobileFilterApplyButton: { flex: 1, paddingVertical: 12, borderRadius: 8, backgroundColor: '#1a1a1a', alignItems: 'center' },
-  mobileFilterApplyText: { fontSize: 14, color: '#fff', fontWeight: '600' },
+  mobileFilterApplyText: { fontSize: 11, color: '#fff', fontWeight: '600' },
 
   // Sidebar Overlay
   sidebarOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 100, flexDirection: 'row' },
@@ -2332,7 +2332,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   playerCardName: {
-    fontSize: 15,
+    fontSize: 11,
     fontWeight: '600',
     color: '#1a1a1a',
     flex: 1,
@@ -2377,12 +2377,12 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   playerCardClubText: {
-    fontSize: 13,
+    fontSize: 11,
     color: '#334155',
     flex: 1,
   },
   playerCardPosition: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748b',
     fontWeight: '500',
     backgroundColor: '#f1f5f9',
@@ -2391,7 +2391,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   playerCardLeague: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748b',
     flex: 1,
   },
@@ -2433,7 +2433,7 @@ const styles = StyleSheet.create({
   },
   uploadOfferButtonText: {
     color: '#fff',
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '600',
   },
   offerDocItem: {
@@ -2454,7 +2454,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   offerDocName: {
-    fontSize: 13,
+    fontSize: 11,
     color: '#334155',
     flex: 1,
   },
@@ -2478,7 +2478,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   offerDocDetailName: {
-    fontSize: 14,
+    fontSize: 11,
     color: '#2563eb',
     marginLeft: 6,
   },

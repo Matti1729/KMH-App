@@ -1488,17 +1488,17 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   headerBannerCenter: { flex: 1, alignItems: 'center' },
-  headerTitle: { fontSize: 24, fontWeight: '700', color: '#1a1a1a' },
-  headerSubtitle: { fontSize: 14, color: '#64748b', marginTop: 4 },
-  backButton: { 
-    paddingVertical: 10, 
-    paddingHorizontal: 16, 
-    borderRadius: 8, 
-    backgroundColor: '#f8fafc', 
-    borderWidth: 1, 
-    borderColor: '#e2e8f0' 
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a1a' },
+  headerSubtitle: { fontSize: 11, color: '#64748b', marginTop: 4 },
+  backButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0'
   },
-  backButtonText: { fontSize: 14, color: '#64748b' },
+  backButtonText: { fontSize: 11, color: '#64748b' },
 
   // Split Container
   splitContainer: { flex: 1, flexDirection: 'row', padding: 24, gap: 16, height: '100%' },
@@ -1514,7 +1514,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderBottomWidth: 1,
   },
-  panelTitle: { fontSize: 16, fontWeight: '600' },
+  panelTitle: { fontSize: 13, fontWeight: '600' },
   panelContent: { flex: 1, padding: 12 },
 
   // Add Button
@@ -1524,7 +1524,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 1,
   },
-  addButtonText: { fontSize: 12, fontWeight: '600' },
+  addButtonText: { fontSize: 11, fontWeight: '600' },
 
   // Priority Section (wie Reminder Columns)
   prioritySection: { backgroundColor: '#f8fafc', borderRadius: 8, overflow: 'hidden' },
@@ -1539,14 +1539,14 @@ const styles = StyleSheet.create({
   prioritySectionHeaderHigh: { backgroundColor: '#fef2f2' },
   prioritySectionHeaderMedium: { backgroundColor: '#fefce8' },
   prioritySectionHeaderLow: { backgroundColor: '#f0fdf4' },
-  prioritySectionTitle: { fontSize: 14, fontWeight: '600', color: '#1a1a1a' },
+  prioritySectionTitle: { fontSize: 11, fontWeight: '600', color: '#1a1a1a' },
   priorityCountBadge: { 
     backgroundColor: '#1a1a1a', 
     paddingVertical: 2, 
     paddingHorizontal: 8, 
     borderRadius: 10 
   },
-  priorityCountText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  priorityCountText: { color: '#fff', fontSize: 11, fontWeight: '600' },
   prioritySectionContent: { padding: 8 },
 
   // Task Card
@@ -1559,7 +1559,7 @@ const styles = StyleSheet.create({
   taskHeader: { flexDirection: 'row', alignItems: 'center', padding: 12 },
   taskContent: { flex: 1, marginLeft: 12 },
   taskTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  taskTitle: { fontSize: 14, fontWeight: '500', color: '#1a1a1a' },
+  taskTitle: { fontSize: 11, fontWeight: '500', color: '#1a1a1a' },
   taskTitleCompleted: { textDecorationLine: 'line-through', color: '#94a3b8' },
   taskDateBadge: { 
     backgroundColor: '#fef3c7', 
@@ -1568,8 +1568,8 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   taskDateBadgeText: { fontSize: 11, color: '#b45309', fontWeight: '600' },
-  taskDescriptionPreview: { fontSize: 12, color: '#64748b', marginTop: 4 },
-  taskDueDate: { fontSize: 12, color: '#64748b' },
+  taskDescriptionPreview: { fontSize: 11, color: '#64748b', marginTop: 4 },
+  taskDueDate: { fontSize: 11, color: '#64748b' },
   
   taskCardOverdue: {
     backgroundColor: '#fef2f2',
@@ -1593,7 +1593,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#f1f5f9',
     backgroundColor: '#f8fafc',
   },
-  taskDescription: { fontSize: 13, color: '#64748b', marginBottom: 12 },
+  taskDescription: { fontSize: 11, color: '#64748b', marginBottom: 12 },
   
   // Subtasks
   subtasksList: { gap: 8 },
@@ -1610,7 +1610,7 @@ const styles = StyleSheet.create({
   },
   subtaskCheckboxChecked: { backgroundColor: '#3b82f6', borderColor: '#3b82f6' },
   subtaskCheckIcon: { color: '#fff', fontSize: 12 },
-  subtaskTitle: { fontSize: 13, color: '#475569' },
+  subtaskTitle: { fontSize: 11, color: '#475569' },
   subtaskTitleCompleted: { textDecorationLine: 'line-through', color: '#94a3b8' },
 
   // Checkbox
@@ -1639,14 +1639,14 @@ const styles = StyleSheet.create({
   // Completed Section
   completedSection: { marginTop: 24, borderTopWidth: 1, paddingTop: 16 },
   completedHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  completedHeaderText: { fontSize: 14, fontWeight: '500' },
-  completedHeaderIcon: { fontSize: 12 },
+  completedHeaderText: { fontSize: 11, fontWeight: '500' },
+  completedHeaderIcon: { fontSize: 11 },
   completedList: { opacity: 0.6 },
 
   // Empty State
   emptyState: { alignItems: 'center', padding: 40 },
   emptyStateIcon: { fontSize: 40, color: '#10b981', marginBottom: 12 },
-  emptyStateText: { fontSize: 14, color: '#64748b' },
+  emptyStateText: { fontSize: 11, color: '#64748b' },
 
   // Reminder Columns
   reminderScrollContainer: { flex: 1 },
@@ -1659,16 +1659,16 @@ const styles = StyleSheet.create({
     padding: 12,
     borderBottomWidth: 1,
   },
-  reminderColumnTitle: { fontSize: 14, fontWeight: '600' },
+  reminderColumnTitle: { fontSize: 11, fontWeight: '600' },
   reminderCountBadge: { 
     backgroundColor: '#1a1a1a', 
     paddingVertical: 2, 
     paddingHorizontal: 8, 
     borderRadius: 10 
   },
-  reminderCountText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  reminderCountText: { color: '#fff', fontSize: 11, fontWeight: '600' },
   reminderColumnContent: { padding: 8 },
-  noRemindersText: { fontSize: 12, color: '#94a3b8', textAlign: 'center', padding: 16 },
+  noRemindersText: { fontSize: 11, color: '#94a3b8', textAlign: 'center', padding: 16 },
 
   // Reminder Card
   reminderCard: {
@@ -1683,7 +1683,7 @@ const styles = StyleSheet.create({
   },
   reminderCardCompleted: { opacity: 0.5 },
   reminderContent: { flex: 1, marginLeft: 10 },
-  reminderTitle: { fontSize: 13, fontWeight: '500', color: '#1a1a1a' },
+  reminderTitle: { fontSize: 11, fontWeight: '500', color: '#1a1a1a' },
   reminderTitleCompleted: { textDecorationLine: 'line-through', color: '#94a3b8' },
   reminderPlayerRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
   reminderPlayer: { fontSize: 11, color: '#64748b' },
@@ -1721,11 +1721,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   birthdayTitle: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: '600',
   },
   birthdaySubtitle: {
-    fontSize: 12,
+    fontSize: 11,
     marginTop: 2,
   },
 
@@ -1739,7 +1739,7 @@ const styles = StyleSheet.create({
     padding: 20,
     borderBottomWidth: 1,
   },
-  modalTitle: { fontSize: 20, fontWeight: '700' },
+  modalTitle: { fontSize: 15, fontWeight: '700' },
   modalBody: { padding: 20, zIndex: 10 },
   modalFooter: {
     flexDirection: 'row',
@@ -1760,26 +1760,26 @@ const styles = StyleSheet.create({
 
   // Form
   formField: { marginBottom: 16 },
-  formLabel: { fontSize: 13, marginBottom: 6, fontWeight: '500' },
+  formLabel: { fontSize: 11, marginBottom: 6, fontWeight: '500' },
   formInput: {
     borderWidth: 1,
     borderRadius: 8,
     padding: 12,
-    fontSize: 14,
+    fontSize: 11,
   },
   textArea: { minHeight: 80, textAlignVertical: 'top' },
 
   // Priority Selector
   prioritySelector: { flexDirection: 'row', gap: 8 },
-  priorityOption: { 
-    flex: 1, 
-    paddingVertical: 10, 
-    paddingHorizontal: 12, 
-    borderRadius: 8, 
+  priorityOption: {
+    flex: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
     borderWidth: 1.5,
     alignItems: 'center',
   },
-  priorityOptionText: { fontSize: 13, fontWeight: '500' },
+  priorityOptionText: { fontSize: 11, fontWeight: '500' },
 
   // Subtask Input
   subtaskInputRow: { flexDirection: 'row', gap: 8 },
@@ -1802,33 +1802,33 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginTop: 8,
   },
-  subtaskPreviewText: { fontSize: 13 },
+  subtaskPreviewText: { fontSize: 11 },
   subtaskRemoveText: { fontSize: 16, color: '#ef4444' },
 
   // Buttons
   deleteButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#ef4444',
     marginRight: 'auto',
   },
-  deleteButtonText: { fontSize: 14, color: '#ef4444', fontWeight: '500' },
+  deleteButtonText: { fontSize: 11, color: '#ef4444', fontWeight: '500' },
   cancelButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     borderRadius: 8,
     borderWidth: 1,
   },
-  cancelButtonText: { fontSize: 14 },
-  saveButton: { 
-    paddingVertical: 10, 
-    paddingHorizontal: 16, 
-    borderRadius: 8, 
-    backgroundColor: '#1a1a1a' 
+  cancelButtonText: { fontSize: 11 },
+  saveButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: '#1a1a1a'
   },
-  saveButtonText: { fontSize: 14, color: '#fff', fontWeight: '500' },
+  saveButtonText: { fontSize: 11, color: '#fff', fontWeight: '500' },
   
   // Date Picker
   datePickerRow: { flexDirection: 'row', gap: 8 },
@@ -1840,7 +1840,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
   },
-  dateDropdownText: { fontSize: 14, color: '#333' },
+  dateDropdownText: { fontSize: 11, color: '#333' },
   datePickerList: {
     position: 'absolute',
     top: '100%',
@@ -1861,7 +1861,7 @@ const styles = StyleSheet.create({
   datePickerScroll: { maxHeight: 200 },
   datePickerItem: { padding: 12, borderBottomWidth: 1 },
   datePickerItemSelected: { backgroundColor: '#1a1a1a' },
-  datePickerItemText: { fontSize: 14 },
+  datePickerItemText: { fontSize: 11 },
   datePickerItemTextSelected: { color: '#fff' },
   
   // Reminder Days Badge
@@ -1915,7 +1915,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#1a1a1a',
   },
   mobileTabText: {
-    fontSize: 15,
+    fontSize: 11,
     color: '#64748b',
     fontWeight: '500',
   },
@@ -1933,7 +1933,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1a1a',
   },
   mobileTabBadgeText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: '#64748b',
   },
@@ -2010,7 +2010,7 @@ const styles = StyleSheet.create({
     color: '#dc2626',
   },
   mobileTaskTitle: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: '500',
     color: '#1a1a1a',
     flexShrink: 1,
@@ -2020,13 +2020,13 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
   },
   mobileTaskDescription: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748b',
     marginTop: 1,
     marginLeft: 32,
   },
   mobileTaskTitleSubtaskCount: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '600',
     color: '#64748b',
   },
@@ -2096,7 +2096,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
   },
   mobileSubtaskTitle: {
-    fontSize: 13,
+    fontSize: 11,
     color: '#475569',
   },
   mobileSubtaskTitleCompleted: {
@@ -2141,7 +2141,7 @@ const styles = StyleSheet.create({
   },
   mobileReminderTitle: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: '500',
     color: '#1a1a1a',
     marginLeft: 10,
@@ -2158,7 +2158,7 @@ const styles = StyleSheet.create({
     marginLeft: 32,
   },
   mobileReminderPlayer: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748b',
   },
   mobileReminderBadge: {
@@ -2189,7 +2189,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   mobileReminderSectionTitle: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: '600',
   },
   mobileReminderSectionBadge: {
@@ -2200,7 +2200,7 @@ const styles = StyleSheet.create({
   },
   mobileReminderSectionBadgeText: {
     color: '#fff',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
   },
 
@@ -2210,7 +2210,7 @@ const styles = StyleSheet.create({
     padding: 40,
   },
   mobileEmptyStateText: {
-    fontSize: 14,
+    fontSize: 11,
     color: '#64748b',
   },
 
@@ -2228,12 +2228,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   mobileCompletedHeaderText: {
-    fontSize: 14,
+    fontSize: 11,
     color: '#64748b',
     fontWeight: '500',
   },
   mobileCompletedHeaderIcon: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748b',
   },
   mobileCompletedList: {
@@ -2288,7 +2288,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e2e8f0',
   },
   mobileModalTitle: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '700',
     color: '#1a1a1a',
   },
@@ -2322,7 +2322,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   mobileFormLabel: {
-    fontSize: 13,
+    fontSize: 11,
     color: '#64748b',
     marginBottom: 6,
     fontWeight: '500',
@@ -2332,7 +2332,7 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
     borderRadius: 8,
     padding: 12,
-    fontSize: 15,
+    fontSize: 11,
     backgroundColor: '#fff',
   },
   mobileTextArea: {
@@ -2360,7 +2360,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   mobileDateDropdownText: {
-    fontSize: 14,
+    fontSize: 11,
     color: '#333',
   },
   mobileDateDropdownArrow: {
@@ -2389,7 +2389,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1a1a',
   },
   mobileDatePickerItemText: {
-    fontSize: 14,
+    fontSize: 11,
     color: '#333',
   },
   mobileDatePickerItemTextSelected: {
@@ -2425,7 +2425,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   mobileSubtaskPreviewText: {
-    fontSize: 13,
+    fontSize: 11,
     color: '#475569',
   },
   mobileSubtaskRemoveText: {
@@ -2435,8 +2435,8 @@ const styles = StyleSheet.create({
 
   // Mobile Buttons
   mobileDeleteButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     borderRadius: 8,
     backgroundColor: '#f8fafc',
     borderWidth: 1,
@@ -2444,30 +2444,30 @@ const styles = StyleSheet.create({
     marginRight: 'auto',
   },
   mobileDeleteButtonText: {
-    fontSize: 14,
+    fontSize: 11,
     color: '#ef4444',
     fontWeight: '500',
   },
   mobileCancelButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     borderRadius: 8,
     backgroundColor: '#f8fafc',
     borderWidth: 1,
     borderColor: '#e2e8f0',
   },
   mobileCancelButtonText: {
-    fontSize: 14,
+    fontSize: 11,
     color: '#64748b',
   },
   mobileSaveButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     borderRadius: 8,
     backgroundColor: '#1a1a1a',
   },
   mobileSaveButtonText: {
-    fontSize: 14,
+    fontSize: 11,
     color: '#fff',
     fontWeight: '500',
   },

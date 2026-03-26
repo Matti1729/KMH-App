@@ -1383,26 +1383,26 @@ const styles = StyleSheet.create({
   containerMobile: { flex: 1 },
   mainContent: { flex: 1 },
   header: { padding: 20, paddingBottom: 16, borderBottomWidth: 1 },
-  title: { fontSize: 22, fontWeight: '700' },
+  title: { fontSize: 18, fontWeight: '700' },
   content: { flex: 1, padding: 24 },
 
   seasonRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 20, gap: 16 },
   seasonArrow: { padding: 8 },
-  seasonText: { fontSize: 20, fontWeight: '700' },
+  seasonText: { fontSize: 18, fontWeight: '700' },
 
   summaryRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
   summaryCard: { flex: 1, padding: 14, borderRadius: 10, borderWidth: 1 },
   summaryLabel: { fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
   summaryValue: { fontSize: 20, fontWeight: '700' },
 
-  rowCount: { fontSize: 13, marginBottom: 12 },
+  rowCount: { fontSize: 11, marginBottom: 12 },
 
   tableWrapper: { borderRadius: 10, borderWidth: 1, overflow: 'hidden' },
   tableHeader: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1 },
-  tableHeaderText: { fontWeight: '600', fontSize: 13 },
+  tableHeaderText: { fontWeight: '600', fontSize: 11 },
   tableBody: { maxHeight: 600 },
   tableRow: { flexDirection: 'row', paddingVertical: 10, paddingHorizontal: 16, borderBottomWidth: 1, alignItems: 'center' },
-  tableCell: { fontSize: 14 },
+  tableCell: { fontSize: 11 },
 
   colName: { flex: 0.9, minWidth: 100 },
   nameCell: { fontWeight: '500' },
@@ -1413,7 +1413,7 @@ const styles = StyleSheet.create({
   colDue: { flex: 0.9, minWidth: 90 },
 
   statusBadge: { paddingVertical: 2, paddingHorizontal: 8, borderRadius: 4 },
-  statusBadgeText: { fontSize: 12, fontWeight: '600' },
+  statusBadgeText: { fontSize: 11, fontWeight: '600' },
 
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
@@ -1421,13 +1421,13 @@ const styles = StyleSheet.create({
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
   modalTitle: { fontSize: 18, fontWeight: '700' },
   modalFooter: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e5e7eb' },
-  modalBtn: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8, borderWidth: 1 },
+  modalBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
   modalBtnPrimary: { backgroundColor: '#3b82f6', borderColor: '#3b82f6' },
 
   // Form
-  fieldLabel: { fontSize: 12, fontWeight: '600', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
-  input: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14 },
-  inputCompact: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: 13 },
+  fieldLabel: { fontSize: 11, fontWeight: '600', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
+  input: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, fontSize: 11 },
+  inputCompact: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, fontSize: 11 },
   statusPicker: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
   statusOption: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
 
@@ -1441,7 +1441,7 @@ const styles = StyleSheet.create({
 
   // Rate section
   rateSection: { borderWidth: 1, borderRadius: 10, padding: 14, marginTop: 16 },
-  rateSectionTitle: { fontSize: 14, fontWeight: '600' },
+  rateSectionTitle: { fontSize: 11, fontWeight: '600' },
 
   // Shares / Beteiligungen
   shareRow: { borderWidth: 1, borderRadius: 10, padding: 10, marginTop: 8 },
@@ -1450,20 +1450,20 @@ const styles = StyleSheet.create({
   // Date Picker (matches TasksRemindersScreen)
   datePickerRow: { flexDirection: 'row', gap: 8 },
   dateDropdownButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderRadius: 8, padding: 10 },
-  dateDropdownText: { fontSize: 13 },
+  dateDropdownText: { fontSize: 11 },
   datePickerList: { position: 'absolute', top: '100%', left: 0, borderWidth: 1, borderRadius: 8, maxHeight: 200, zIndex: 9999, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 12, elevation: 20, marginTop: 4, minWidth: 70 },
   datePickerItem: { padding: 10, borderBottomWidth: 1 },
   datePickerItemSelected: { backgroundColor: '#f0f9ff' },
-  datePickerItemText: { fontSize: 13 },
+  datePickerItemText: { fontSize: 11 },
   datePickerItemTextSelected: { color: '#3b82f6', fontWeight: '600' },
 
   // Mobile Card
   playerCard: { borderRadius: 10, padding: 12, marginBottom: 8, borderWidth: 1 },
   playerCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  playerCardName: { fontSize: 15, fontWeight: '600', flex: 1 },
+  playerCardName: { fontSize: 11, fontWeight: '600', flex: 1 },
   playerCardBody: {},
   playerCardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
 
-  emptyText: { textAlign: 'center', marginTop: 40, fontSize: 14 },
+  emptyText: { textAlign: 'center', marginTop: 40, fontSize: 11 },
 });
 
