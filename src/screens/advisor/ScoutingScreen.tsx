@@ -296,6 +296,13 @@ export function ScoutingScreen({ navigation }: any) {
   const [newPlayerClubSearch, setNewPlayerClubSearch] = useState('');
   const [showNewPlayerClubDropdown, setShowNewPlayerClubDropdown] = useState(false);
 
+  // TM search states (for Add Player modal)
+  const [tmSuggestions, setTmSuggestions] = useState<any[]>([]);
+  const [tmSearching, setTmSearching] = useState(false);
+  const [tmLoading, setTmLoading] = useState(false);
+  const [tmSelected, setTmSelected] = useState<any>(null);
+  const tmDebounceRef = useRef<any>(null);
+
   const [newGame, setNewGame] = useState({
     date: '', home_team: '', away_team: '', location: '', notes: '',
     game_type: '', description: '', age_group: '', scout_id: ''
@@ -684,6 +691,102 @@ export function ScoutingScreen({ navigation }: any) {
     return showAll ? filtered.slice(0, 50) : filtered.slice(0, 20);
   };
 
+  // ── TM Search Functions (for Add Player modal) ──
+  const searchTmPlayers = async (query: string) => {
+    if (query.trim().length < 2) { setTmSuggestions([]); return; }
+    setTmSearching(true);
+    try {
+      const { data } = await supabase.functions.invoke('search-transfermarkt', { body: { name: query, type: 'player' } });
+      const results = data?.results || [];
+      const q = query.toLowerCase().trim();
+      results.sort((a: any, b: any) => {
+        const aName = (a.name || '').toLowerCase();
+        const bName = (b.name || '').toLowerCase();
+        const aExact = aName === q || aName.startsWith(q) ? 0 : 1;
+        const bExact = bName === q || bName.startsWith(q) ? 0 : 1;
+        if (aExact !== bExact) return aExact - bExact;
+        const aClub = a.verein ? 0 : 1;
+        const bClub = b.verein ? 0 : 1;
+        if (aClub !== bClub) return aClub - bClub;
+        return 0;
+      });
+      setTmSuggestions(results.slice(0, 30));
+    } catch { setTmSuggestions([]); }
+    setTmSearching(false);
+  };
+
+  const triggerTmSearch = (lastName: string, firstName: string) => {
+    if (tmDebounceRef.current) clearTimeout(tmDebounceRef.current);
+    const query = firstName.trim() ? `${firstName.trim()} ${lastName.trim()}` : lastName.trim();
+    tmDebounceRef.current = setTimeout(() => searchTmPlayers(query), 500);
+  };
+
+  const handleScoutingLastNameChange = (text: string) => {
+    setNewPlayer(prev => ({ ...prev, last_name: text }));
+    setTmSelected(null);
+    triggerTmSearch(text, newPlayer.first_name);
+  };
+
+  const handleScoutingFirstNameChange = (text: string) => {
+    setNewPlayer(prev => ({ ...prev, first_name: text }));
+    setTmSelected(null);
+    triggerTmSearch(newPlayer.last_name, text);
+  };
+
+  const selectTmScoutingPlayer = async (suggestion: any) => {
+    setTmSuggestions([]);
+    setTmLoading(true);
+    try {
+      const parts = suggestion.name.split(' ');
+      const firstName = parts.slice(0, -1).join(' ');
+      const lastName = parts[parts.length - 1];
+
+      const { data } = await supabase.functions.invoke('search-transfermarkt', { body: { profileUrl: suggestion.url } });
+      const p = data?.profile;
+
+      const toIsoDate = (d: string) => {
+        const m = d?.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+        return m ? `${m[3]}-${m[2]}-${m[1]}` : d;
+      };
+
+      setNewPlayer(prev => ({
+        ...prev,
+        first_name: firstName,
+        last_name: lastName,
+        club: p?.currentClub || suggestion.verein || '',
+        position: suggestion.position || '',
+        birth_date: p?.dateOfBirth ? toIsoDate(p.dateOfBirth) : prev.birth_date,
+        transfermarkt_url: suggestion.url,
+      }));
+
+      setTmSelected({
+        verein: p?.currentClub || suggestion.verein || '',
+        tmPosition: suggestion.position || '',
+        tmAge: suggestion.age || '',
+        clubLogoUrl: p?.clubLogoUrl || suggestion.logoUrl || '',
+      });
+
+      // Save club logo
+      if ((p?.currentClub || suggestion.verein) && (p?.clubLogoUrl || suggestion.logoUrl)) {
+        try { await supabase.from('club_logos').upsert({ club_name: p?.currentClub || suggestion.verein, logo_url: p?.clubLogoUrl || suggestion.logoUrl }, { onConflict: 'club_name' }); } catch {}
+      }
+
+      setNewPlayerClubSearch(p?.currentClub || suggestion.verein || '');
+    } catch (err) {
+      console.error('TM profile fetch error:', err);
+      const parts = suggestion.name.split(' ');
+      setNewPlayer(prev => ({
+        ...prev,
+        first_name: parts.slice(0, -1).join(' '),
+        last_name: parts[parts.length - 1],
+        club: suggestion.verein || '',
+        transfermarkt_url: suggestion.url,
+      }));
+      setTmSelected({ verein: suggestion.verein || '', tmPosition: suggestion.position || '', tmAge: suggestion.age || '' });
+    }
+    setTmLoading(false);
+  };
+
   const addScoutedPlayer = async () => {
     if (!newPlayer.first_name || !newPlayer.last_name || !currentUserId) return;
     
@@ -763,6 +866,10 @@ export function ScoutingScreen({ navigation }: any) {
       setShowAddPlayerModal(false);
       setNewPlayer({ first_name: '', last_name: '', birth_date: '2005', position: 'ST', club: '', rating: 5, notes: '', status: 'gesichtet', photo_url: '', transfermarkt_url: '', agent_name: '', phone: '', additional_info: '', current_status: '' });
       setNewPlayerClubSearch('');
+      setTmSuggestions([]);
+      setTmSelected(null);
+      setTmSearching(false);
+      setTmLoading(false);
       fetchScoutedPlayers();
       
       // Reopen the game detail modal if we came from there
@@ -1954,7 +2061,11 @@ export function ScoutingScreen({ navigation }: any) {
     setNewPlayerClubSearch('');
     setShowNewPlayerClubDropdown(false);
     setAddingGamePlayerId(null);
-    
+    setTmSuggestions([]);
+    setTmSelected(null);
+    setTmSearching(false);
+    setTmLoading(false);
+
     // Reopen the game detail modal if we came from there
     if (gameToReopenAfterAdd) {
       setTimeout(() => {
@@ -2467,25 +2578,92 @@ export function ScoutingScreen({ navigation }: any) {
           </View>
         </Modal>
 
-        {/* Add Player Modal */}
+        {/* Add Player Modal (Mobile) */}
         <Modal visible={showAddPlayerModal} transparent animationType="slide">
           <View style={styles.mobileModalOverlay}>
             <View style={[styles.mobileModalContent, { backgroundColor: colors.surface }]}>
-              <View style={[styles.mobileModalHeader, { borderBottomColor: colors.border }]}>
-                <Text style={[styles.mobileModalTitle, { color: colors.text }]}>Neuen Spieler anlegen</Text>
-                <TouchableOpacity onPress={closeAddPlayerModal}>
-                  <Text style={[styles.mobileModalClose, { color: colors.textSecondary }]}>✕</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border, position: 'relative' }}>
+                <Text style={[styles.mobileModalTitle, { color: colors.text, textAlign: 'center' }]}>Neuen Spieler anlegen</Text>
+                <TouchableOpacity onPress={closeAddPlayerModal} style={{ position: 'absolute', right: 16, width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ color: colors.textSecondary, fontSize: 14, lineHeight: 16 }}>✕</Text>
                 </TouchableOpacity>
               </View>
-              <ScrollView style={styles.mobileModalScroll}>
-                {renderPlayerForm(newPlayer, setNewPlayer, newPlayerClubSearch, setNewPlayerClubSearch, showNewPlayerClubDropdown, setShowNewPlayerClubDropdown)}
+              <ScrollView style={styles.mobileModalScroll} keyboardShouldPersistTaps="handled">
+                <View style={{ padding: 16 }}>
+                  <View style={{ flexDirection: 'row', gap: 8, marginBottom: 2 }}>
+                    <TextInput style={[styles.formInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Nachname" placeholderTextColor={colors.textMuted} value={newPlayer.last_name} onChangeText={handleScoutingLastNameChange} autoFocus />
+                    <TextInput style={[styles.formInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Vorname" placeholderTextColor={colors.textMuted} value={newPlayer.first_name} onChangeText={handleScoutingFirstNameChange} />
+                  </View>
+                  {tmSearching && <Text style={{ color: colors.textMuted, fontSize: 11, marginBottom: 4 }}>Suche auf Transfermarkt...</Text>}
+                  {tmSuggestions.length > 0 && (
+                    <ScrollView style={{ maxHeight: 220, borderWidth: 1, borderColor: colors.border, borderRadius: 6, marginBottom: 8 }} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                      {tmSuggestions.map((s, i) => (
+                        <TouchableOpacity key={i} style={{ flexDirection: 'row', alignItems: 'baseline', paddingVertical: 5, paddingHorizontal: 8, borderBottomWidth: i < tmSuggestions.length - 1 ? StyleSheet.hairlineWidth : 0, borderBottomColor: colors.border }} onPress={() => selectTmScoutingPlayer(s)}>
+                          <Text style={{ color: colors.text, fontSize: 12, fontWeight: '600' }}>{s.name}</Text>
+                          <Text style={{ color: colors.textMuted, fontSize: 11, marginLeft: 6 }}>{[s.verein, s.position, s.age ? s.age + 'J' : ''].filter(Boolean).join(' · ')}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  )}
+                  {tmLoading && <Text style={{ color: colors.primary, fontSize: 11, marginBottom: 6 }}>Lade Spielerdaten von Transfermarkt...</Text>}
+                  {tmSelected && (
+                    <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: 6, padding: 8, marginBottom: 6, borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.3)' }}>
+                      <Text style={{ color: '#10b981', fontSize: 11, fontWeight: '600', marginBottom: 3 }}>Transfermarkt-Daten übernommen</Text>
+                      <Text style={{ fontSize: 12 }} numberOfLines={1}><Text style={{ color: colors.text, fontWeight: '600' }}>{newPlayer.first_name} {newPlayer.last_name}</Text>{'  '}<Text style={{ color: colors.textMuted, fontSize: 11 }}>{[tmSelected.verein, tmSelected.tmPosition, tmSelected.tmAge ? tmSelected.tmAge + 'J' : ''].filter(Boolean).join(' · ')}</Text></Text>
+                    </View>
+                  )}
+                  {!tmSelected && (
+                    <>
+                      {/* Club field with autocomplete */}
+                      <View style={[styles.formField, { zIndex: 9999, marginTop: 8 }]}>
+                        <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Verein</Text>
+                        {renderClubSelector(newPlayerClubSearch, setNewPlayerClubSearch, showNewPlayerClubDropdown, setShowNewPlayerClubDropdown, (c) => setNewPlayer(prev => ({ ...prev, club: c })))}
+                      </View>
+                      {/* Position */}
+                      <View style={[styles.formField, { marginTop: 8 }]}>
+                        <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Position</Text>
+                        <View style={styles.positionPickerSmall}>
+                          {POSITIONS.map(pos => {
+                            const currentPositions = parsePositions(newPlayer.position || '');
+                            const isSelected = currentPositions.includes(pos);
+                            return (
+                              <TouchableOpacity key={pos} style={[styles.positionOptionSmall, { backgroundColor: isDark ? colors.surface : '#f1f5f9' }, isSelected && styles.positionOptionSelected]} onPress={() => {
+                                const newPositions = isSelected ? currentPositions.filter(p => p !== pos) : [...currentPositions, pos];
+                                setNewPlayer(prev => ({ ...prev, position: formatPositions(newPositions) }));
+                              }}>
+                                <Text style={[styles.positionOptionTextSmall, { color: colors.textSecondary }, isSelected && styles.positionOptionTextSelected]}>{pos}</Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </View>
+                      {/* Birth year */}
+                      <View style={[styles.formField, { marginTop: 8 }]}>
+                        <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Geburtsdatum / Jahrgang</Text>
+                        <TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newPlayer.birth_date || ''} onChangeText={(t) => setNewPlayer(prev => ({ ...prev, birth_date: t }))} placeholder="YYYY-MM-DD oder YYYY" placeholderTextColor={colors.textMuted} />
+                      </View>
+                      {/* Rating */}
+                      <View style={[styles.formField, { marginTop: 8 }]}>
+                        <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Einschätzung</Text>
+                        <View style={styles.ratingPickerSmall}>
+                          <TouchableOpacity style={[styles.ratingOptionSmall, { backgroundColor: isDark ? colors.surface : '#f1f5f9' }, !newPlayer.rating && styles.ratingOptionSelected]} onPress={() => setNewPlayer(prev => ({ ...prev, rating: 0 }))}>
+                            <Text style={[styles.ratingOptionTextSmall, { color: colors.textSecondary }, !newPlayer.rating && styles.ratingOptionTextSelected]}>-</Text>
+                          </TouchableOpacity>
+                          {[1,2,3,4,5,6,7,8,9,10].map(r => (
+                            <TouchableOpacity key={r} style={[styles.ratingOptionSmall, { backgroundColor: isDark ? colors.surface : '#f1f5f9' }, newPlayer.rating === r && styles.ratingOptionSelected]} onPress={() => setNewPlayer(prev => ({ ...prev, rating: r }))}>
+                              <Text style={[styles.ratingOptionTextSmall, { color: colors.textSecondary }, newPlayer.rating === r && styles.ratingOptionTextSelected]}>{r}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </View>
+                    </>
+                  )}
+                </View>
               </ScrollView>
               <View style={[styles.mobileModalButtons, { borderTopColor: colors.border }]}>
-                <TouchableOpacity style={styles.mobileModalCancelBtn} onPress={closeAddPlayerModal}>
-                  <Text style={styles.mobileModalCancelText}>Abbrechen</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.mobileModalSaveBtn} onPress={addScoutedPlayer}>
-                  <Text style={styles.mobileModalSaveText}>Hinzufügen</Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 12 }}>Zuständigkeit: {currentUserName || 'Sie'}</Text>
+                <TouchableOpacity style={[styles.mobileModalSaveBtn, { opacity: tmLoading ? 0.5 : 1 }]} onPress={addScoutedPlayer} disabled={tmLoading}>
+                  <Text style={styles.mobileModalSaveText}>{tmLoading ? 'Laden...' : 'Spieler anlegen'}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -3169,22 +3347,91 @@ export function ScoutingScreen({ navigation }: any) {
         </ScrollView>
       </View>
 
-      {/* Add Player Modal */}
+      {/* Add Player Modal (Desktop) */}
       <Modal visible={showAddPlayerModal} transparent animationType="fade">
         <View style={styles.modalOverlayTop}>
-          <View style={[styles.modalContent, { overflow: 'visible', backgroundColor: colors.surface }]}>
-            <View style={styles.detailHeader}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Neuen Spieler hinzufügen</Text>
-              <TouchableOpacity onPress={closeAddPlayerModal} style={[styles.closeButton, { backgroundColor: colors.surfaceSecondary }]}>
-                <Text style={[styles.closeButtonText, { color: colors.textSecondary }]}>✕</Text>
+          <View style={[styles.modalContent, { overflow: 'visible', backgroundColor: colors.surface, maxHeight: '90%', maxWidth: 540 }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 20, position: 'relative' }}>
+              <Text style={[styles.modalTitle, { color: colors.text, marginBottom: 0, textAlign: 'center' }]}>Neuen Spieler anlegen</Text>
+              <TouchableOpacity onPress={closeAddPlayerModal} style={{ position: 'absolute', right: 0, width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: colors.textSecondary, fontSize: 14, lineHeight: 16 }}>✕</Text>
               </TouchableOpacity>
             </View>
-            {renderPlayerForm(newPlayer, setNewPlayer, newPlayerClubSearch, setNewPlayerClubSearch, showNewPlayerClubDropdown, setShowNewPlayerClubDropdown)}
-            <View style={[styles.modalButtons, { borderTopColor: colors.border }]}>
-              <TouchableOpacity style={[styles.cancelButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={closeAddPlayerModal}>
-                <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 2 }}>
+              <TextInput style={[styles.formInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Nachname" placeholderTextColor={colors.textMuted} value={newPlayer.last_name} onChangeText={handleScoutingLastNameChange} autoFocus />
+              <TextInput style={[styles.formInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Vorname" placeholderTextColor={colors.textMuted} value={newPlayer.first_name} onChangeText={handleScoutingFirstNameChange} />
+            </View>
+            {tmSearching && <Text style={{ color: colors.textMuted, fontSize: 11, marginBottom: 4 }}>Suche auf Transfermarkt...</Text>}
+            {tmSuggestions.length > 0 && (
+              <ScrollView style={{ maxHeight: 280, borderWidth: 1, borderColor: colors.border, borderRadius: 6, marginBottom: 8 }} keyboardShouldPersistTaps="handled">
+                {tmSuggestions.map((s, i) => (
+                  <TouchableOpacity key={i} style={{ flexDirection: 'row', alignItems: 'baseline', paddingVertical: 5, paddingHorizontal: 8, borderBottomWidth: i < tmSuggestions.length - 1 ? StyleSheet.hairlineWidth : 0, borderBottomColor: colors.border }} onPress={() => selectTmScoutingPlayer(s)}>
+                    <Text style={{ color: colors.text, fontSize: 12, fontWeight: '600' }}>{s.name}</Text>
+                    <Text style={{ color: colors.textMuted, fontSize: 11, marginLeft: 6 }}>{[s.verein, s.position, s.age ? s.age + 'J' : ''].filter(Boolean).join(' · ')}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+            {tmLoading && <Text style={{ color: colors.primary, fontSize: 11, marginBottom: 6 }}>Lade Spielerdaten von Transfermarkt...</Text>}
+            {tmSelected && (
+              <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: 6, padding: 8, marginBottom: 6, borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.3)' }}>
+                <Text style={{ color: '#10b981', fontSize: 11, fontWeight: '600', marginBottom: 3 }}>Transfermarkt-Daten übernommen</Text>
+                <Text style={{ fontSize: 12 }} numberOfLines={1}><Text style={{ color: colors.text, fontWeight: '600' }}>{newPlayer.first_name} {newPlayer.last_name}</Text>{'  '}<Text style={{ color: colors.textMuted, fontSize: 11 }}>{[tmSelected.verein, tmSelected.tmPosition, tmSelected.tmAge ? tmSelected.tmAge + 'J' : ''].filter(Boolean).join(' · ')}</Text></Text>
+              </View>
+            )}
+            {!tmSelected && (
+              <View style={{ marginTop: 8 }}>
+                {/* Club field with autocomplete */}
+                <View style={[styles.formField, { zIndex: 9999, marginBottom: 8 }]}>
+                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Verein</Text>
+                  {renderClubSelector(newPlayerClubSearch, setNewPlayerClubSearch, showNewPlayerClubDropdown, setShowNewPlayerClubDropdown, (c) => setNewPlayer(prev => ({ ...prev, club: c })))}
+                </View>
+                {/* Position */}
+                <View style={[styles.formField, { marginBottom: 8 }]}>
+                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Position</Text>
+                  <View style={styles.positionPickerSmall}>
+                    {POSITIONS.map(pos => {
+                      const currentPositions = parsePositions(newPlayer.position || '');
+                      const isSelected = currentPositions.includes(pos);
+                      return (
+                        <TouchableOpacity key={pos} style={[styles.positionOptionSmall, { backgroundColor: isDark ? colors.surface : '#f1f5f9' }, isSelected && styles.positionOptionSelected]} onPress={() => {
+                          const newPositions = isSelected ? currentPositions.filter(p => p !== pos) : [...currentPositions, pos];
+                          setNewPlayer(prev => ({ ...prev, position: formatPositions(newPositions) }));
+                        }}>
+                          <Text style={[styles.positionOptionTextSmall, { color: colors.textSecondary }, isSelected && styles.positionOptionTextSelected]}>{pos}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+                  {/* Birth year */}
+                  <View style={[styles.formField, { flex: 1 }]}>
+                    <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Geburtsdatum / Jahrgang</Text>
+                    <TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newPlayer.birth_date || ''} onChangeText={(t) => setNewPlayer(prev => ({ ...prev, birth_date: t }))} placeholder="YYYY-MM-DD oder YYYY" placeholderTextColor={colors.textMuted} />
+                  </View>
+                </View>
+                {/* Rating */}
+                <View style={styles.formField}>
+                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Einschätzung</Text>
+                  <View style={styles.ratingPickerSmall}>
+                    <TouchableOpacity style={[styles.ratingOptionSmall, { backgroundColor: isDark ? colors.surface : '#f1f5f9' }, !newPlayer.rating && styles.ratingOptionSelected]} onPress={() => setNewPlayer(prev => ({ ...prev, rating: 0 }))}>
+                      <Text style={[styles.ratingOptionTextSmall, { color: colors.textSecondary }, !newPlayer.rating && styles.ratingOptionTextSelected]}>-</Text>
+                    </TouchableOpacity>
+                    {[1,2,3,4,5,6,7,8,9,10].map(r => (
+                      <TouchableOpacity key={r} style={[styles.ratingOptionSmall, { backgroundColor: isDark ? colors.surface : '#f1f5f9' }, newPlayer.rating === r && styles.ratingOptionSelected]} onPress={() => setNewPlayer(prev => ({ ...prev, rating: r }))}>
+                        <Text style={[styles.ratingOptionTextSmall, { color: colors.textSecondary }, newPlayer.rating === r && styles.ratingOptionTextSelected]}>{r}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              </View>
+            )}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 28 }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 12 }}>Zuständigkeit: {currentUserName || 'Sie'}</Text>
+              <TouchableOpacity style={{ paddingVertical: 8, paddingHorizontal: 16, borderRadius: 6, borderWidth: 1, borderColor: '#10b981', opacity: tmLoading ? 0.5 : 1 }} onPress={addScoutedPlayer} disabled={tmLoading}>
+                <Text style={{ color: '#10b981', fontSize: 13, fontWeight: '600' }}>{tmLoading ? 'Laden...' : 'Spieler anlegen'}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.saveButton} onPress={addScoutedPlayer}><Text style={styles.saveButtonText}>Hinzufügen</Text></TouchableOpacity>
             </View>
           </View>
         </View>
