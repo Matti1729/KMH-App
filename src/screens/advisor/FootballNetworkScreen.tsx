@@ -1024,7 +1024,7 @@ export function FootballNetworkScreen({ navigation }: any) {
               )}
             </View>
           </View>
-          <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setShowAddModal(true)}><Ionicons name="person-add-outline" size={14} color={colors.textSecondary} /></TouchableOpacity>
+          <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setShowAddModal(true)}><Ionicons name="person-add-outline" size={11} color={colors.textSecondary} /></TouchableOpacity>
         </View>
 
         <View style={styles.content}>
