@@ -219,22 +219,41 @@ export function FootballNetworkScreen({ navigation }: any) {
     input.click();
   };
 
-  const searchTransfermarkt = async (name: string): Promise<{ verein: string; position: string; url: string; bereich: string } | null> => {
+  const searchTransfermarkt = async (name: string): Promise<{ verein: string; position: string; url: string; bereich: string; mannschaft: string; liga: string } | null> => {
     try {
       const { data } = await supabase.functions.invoke('search-transfermarkt', { body: { name, type: 'trainer' } });
       if (data?.results?.length > 0) {
         const result = data.results[0];
-        // Position-Mapping: TM "Trainer" → unser System
         const posMap: Record<string, string> = {
           'Trainer': 'Trainer', 'Co-Trainer': 'Co-Trainer', 'Torwarttrainer': 'Torwarttrainer',
           'Sportdirektor': 'Sportdirektor', 'Sportvorstand': 'Vorstand', 'Geschäftsführer Sport': 'Geschäftsführer',
           'Präsident': 'Präsident', 'Vorstandsvorsitzender': 'Vorstand',
         };
+
+        // Profil fetchen für Bereich, Mannschaft, alle Positionen
+        try {
+          const { data: profileData } = await supabase.functions.invoke('sync-network-data', { body: { fast: true, singleUrl: result.url } });
+          if (profileData?.profile) {
+            const p = profileData.profile;
+            return {
+              verein: p.vereinClean || p.verein || result.verein || '',
+              position: p.position || posMap[result.funktion] || result.funktion || '',
+              url: result.url || '',
+              bereich: p.bereich || '',
+              mannschaft: p.mannschaft || '',
+              liga: p.liga || '',
+            };
+          }
+        } catch {}
+
+        // Fallback: nur Suchdaten
         return {
           verein: result.verein || '',
           position: posMap[result.funktion] || result.funktion || '',
           url: result.url || '',
-          bereich: 'Herren',
+          bereich: '',
+          mannschaft: '',
+          liga: '',
         };
       }
     } catch (err) {
@@ -281,10 +300,10 @@ export function FootballNetworkScreen({ navigation }: any) {
         telefon: number,
         email: contact.email,
         verein,
-        liga: '',
-        bereich: '',
+        liga: isVereinlos ? '' : (tmData?.liga || ''),
+        bereich: isVereinlos ? '' : (tmData?.bereich || ''),
         position,
-        mannschaft: '',
+        mannschaft: isVereinlos ? '' : (tmData?.mannschaft || ''),
         transfermarkt_url: isVereinlos ? '' : (tmData?.url || ''),
       });
       if (!error) {

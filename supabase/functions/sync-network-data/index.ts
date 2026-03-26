@@ -175,7 +175,17 @@ serve(async (req: Request) => {
     }
 
     let fast = false;
-    try { const body = await req.json(); fast = body?.fast === true; } catch {}
+    let singleUrl: string | null = null;
+    try { const body = await req.json(); fast = body?.fast === true; singleUrl = body?.singleUrl || null; } catch {}
+
+    // Single-Profile-Modus: Ein Profil fetchen und zurückgeben
+    if (singleUrl) {
+      const profile = await fetchTrainerProfile(singleUrl);
+      return new Response(
+        JSON.stringify({ profile }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
