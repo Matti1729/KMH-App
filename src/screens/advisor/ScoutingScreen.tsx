@@ -2903,7 +2903,7 @@ export function ScoutingScreen({ navigation }: any) {
         {/* Header Banner - nur auf Desktop */}
         {!isMobile && (
           <View style={[styles.headerBanner, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-            <TouchableOpacity style={{ paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }} onPress={() => navigation.navigate('AdvisorDashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
+            <View style={{ width: 40 }} />
             <View style={styles.headerBannerCenter}>
               <Text style={[styles.title, { color: colors.text }]}>Scouting Area</Text>
               <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Manage Talente, Berichte und Spieltermine.</Text>
@@ -2932,6 +2932,7 @@ export function ScoutingScreen({ navigation }: any) {
         )}
 
         <View style={[styles.toolbar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+          <TouchableOpacity style={{ paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }} onPress={() => navigation.navigate('AdvisorDashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
           <View style={[styles.searchContainer, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
             <Text style={styles.searchIcon}>🔍</Text>
             <TextInput
@@ -4330,8 +4331,8 @@ const styles = StyleSheet.create({
   filterDoneButton: { padding: 12, backgroundColor: '#f8fafc', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#e2e8f0' },
   filterDoneText: { fontSize: 11, fontWeight: '600', color: '#3b82f6' },
   noDataText: { padding: 16, textAlign: 'center', color: '#94a3b8', fontSize: 11 },
-  viewToggle: { flexDirection: 'row', backgroundColor: '#f8fafc', borderRadius: 8, padding: 4 },
-  viewButton: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 6 },
+  viewToggle: { flexDirection: 'row', backgroundColor: '#f8fafc', borderRadius: 6, padding: 2 },
+  viewButton: { paddingVertical: 4, paddingHorizontal: 8, borderRadius: 5 },
   viewButtonActive: { backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4 },
   viewButtonText: { fontSize: 11, color: '#64748b' },
   addButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1 },
