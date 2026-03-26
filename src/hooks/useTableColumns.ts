@@ -59,8 +59,16 @@ export function useTableColumns(defs: ColumnDef[], containerWidth: number, table
     });
   }, [defs.map(d => d.key).join(',')]);
 
+  const initializedRef = useRef(false);
   useEffect(() => {
     if (containerWidth <= 0) return;
+
+    // Gespeicherte Widths nicht überschreiben (nur beim ersten Mal ohne saved berechnen)
+    if (saved?.widths && !initializedRef.current) {
+      initializedRef.current = true;
+      return;
+    }
+    initializedRef.current = true;
 
     const fixedTotal = defs.reduce((sum, d) => sum + (d.fixedWidth || 0), 0);
     const available = containerWidth - fixedTotal;
