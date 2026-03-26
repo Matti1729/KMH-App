@@ -66,25 +66,42 @@ async function fetchTrainerProfile(url: string): Promise<any> {
     const logoMatch = html.match(/tmssl\.akamaized\.net\/\/images\/wappen\/(?:normquad|small|big)\/(\d+)\.png/);
     if (logoMatch) profile.logoUrl = `https://tmssl.akamaized.net//images/wappen/big/${logoMatch[1]}.png`;
 
-    // Positionen: Alle aktiven Stationen extrahieren (Amtsaustritt = "-")
+    // Alle aktiven Stationen extrahieren (Amtsaustritt = "-")
     const positions = new Set<string>();
-    // Aktive Stationen: Zeilen mit "ausfallzeiten_k" die kein Enddatum haben
+    const mannschaften = new Set<string>();
+    let hasNachwuchs = false;
+
     const stationRows = html.split(/<tr class="ausfallzeiten_k">/);
     for (const row of stationRows) {
-      // Prüfen ob aktiv (Amtsaustritt = "-")
       const cells = row.match(/<td class="zentriert">([^<]*)<\/td>/g);
       if (cells && cells.length >= 2) {
         const amtsaustritt = cells[1].replace(/<[^>]*>/g, '').trim();
         if (amtsaustritt === '-') {
-          // Funktion extrahieren (steht nach <br> im hauptlink-Bereich)
+          // Funktion
           const funktionMatch = row.match(/<br\s*\/?>\s*([^<]+)<\/td>/);
           if (funktionMatch) {
             const funktion = funktionMatch[1].trim();
             if (funktion && funktion !== '-') positions.add(funktion);
           }
+          // Vereinsname der Station → Mannschaft extrahieren
+          const stationClub = row.match(/title="([^"]+)"[^>]*href="[^"]*\/startseite\/verein/);
+          if (stationClub) {
+            const clubName = stationClub[1];
+            const mMatch = clubName.match(/\b(U\d{2}|II|Jugend)\b/i);
+            if (mMatch) {
+              mannschaften.add(mMatch[0]);
+              hasNachwuchs = true;
+            }
+            // "2. Mannschaft" oder "Reserve"
+            if (/2\.\s*Mannschaft|Reserve/i.test(clubName)) {
+              mannschaften.add('II');
+              hasNachwuchs = true;
+            }
+          }
         }
       }
     }
+
     // Fallback: Hauptfunktion aus Header
     if (positions.size === 0) {
       const headerFunktion = html.match(/data-header__label">\s*<b>\s*([^<]+)/);
@@ -92,16 +109,36 @@ async function fetchTrainerProfile(url: string): Promise<any> {
     }
     profile.position = Array.from(positions).join(', ');
 
-    // Mannschaft (aus Vereinsname, z.B. "Bayern München U19" → "U19")
-    const mannschaftMatch = profile.verein?.match(/\b(U\d{2}|II|2\.\s*Mannschaft)\b/i);
-    profile.mannschaft = mannschaftMatch ? mannschaftMatch[0] : '1. Mannschaft';
+    // Mannschaft
+    if (mannschaften.size > 0) {
+      // Sortieren: II, U23, U19, U17, U16, U15, Jugend
+      const order = ['II', 'U23', 'U21', 'U19', 'U17', 'U16', 'U15', 'U14', 'Jugend'];
+      const sorted = Array.from(mannschaften).sort((a, b) => {
+        const ia = order.indexOf(a) === -1 ? 99 : order.indexOf(a);
+        const ib = order.indexOf(b) === -1 ? 99 : order.indexOf(b);
+        return ia - ib;
+      });
+      profile.mannschaft = sorted.join(', ');
+    } else {
+      profile.mannschaft = '1. Mannschaft';
+    }
 
-    // Verein bereinigen (ohne U-Suffix)
+    // Bereich: Nachwuchs wenn irgendeine aktive Station U-Jugend/II/Jugend ist
+    // Auch Positionen prüfen
+    if (!hasNachwuchs) {
+      const posLower = profile.position.toLowerCase();
+      hasNachwuchs = NACHWUCHS_POSITIONS.some(p => posLower.includes(p.toLowerCase())) ||
+        /nachwuchs|jugend|nlz|academy|youth/i.test(profile.position);
+    }
+    profile.bereich = hasNachwuchs ? 'Nachwuchs' : 'Herren';
+
+    // Verein bereinigen (Hauptverein ohne U-Suffix)
     if (profile.verein) {
       profile.vereinClean = profile.verein
         .replace(/\s*U\d{2}\b/, '')
         .replace(/\s*II\b/, '')
         .replace(/\s*2\.\s*Mannschaft/, '')
+        .replace(/\s*Jugend\b/, '')
         .trim();
     }
 
@@ -114,9 +151,6 @@ async function fetchTrainerProfile(url: string): Promise<any> {
       const country = countryMatch ? countryMatch[1] : '';
       profile.liga = country && country !== 'Deutschland' ? `${leagueText} (${country})` : leagueText;
     }
-
-    // Bereich bestimmen
-    profile.bereich = isNachwuchs(profile.verein || '', profile.position || '', profile.mannschaft || '');
 
     return profile;
   } catch (err) {

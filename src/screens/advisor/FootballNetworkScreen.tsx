@@ -445,12 +445,12 @@ export function FootballNetworkScreen({ navigation }: any) {
             </TouchableOpacity>
             <Text style={[styles.mobileCardName, { color: colors.text }]}>{formatName(contact)}</Text>
           </View>
-          <View style={styles.mobileCardBadgesRow}>
-            {(contact.position || contact.mannschaft) && (
-              <View style={[styles.mobilePositionBadge, { backgroundColor: isDark ? 'rgba(14, 165, 233, 0.2)' : '#e0f2fe', borderColor: isDark ? 'rgba(14, 165, 233, 0.4)' : '#bae6fd' }]}>
-                <Text style={[styles.mobilePositionText, { color: isDark ? '#38bdf8' : '#0369a1' }]}>{[contact.position, contact.mannschaft].filter(Boolean).join(' · ')}</Text>
+          <View style={[styles.mobileCardBadgesRow, { flexWrap: 'wrap', gap: 3 }]}>
+            {contact.position?.split(',').map((p: string, idx: number) => (
+              <View key={idx} style={[styles.mobilePositionBadge, { backgroundColor: isDark ? 'rgba(14, 165, 233, 0.2)' : '#e0f2fe', borderColor: isDark ? 'rgba(14, 165, 233, 0.4)' : '#bae6fd' }]}>
+                <Text style={[styles.mobilePositionText, { color: isDark ? '#38bdf8' : '#0369a1' }]}>{p.trim()}</Text>
               </View>
-            )}
+            ))}
           </View>
         </View>
         {/* Row 2: Club with logo (left) | Bereich badge (right) */}
@@ -1112,8 +1112,12 @@ export function FootballNetworkScreen({ navigation }: any) {
                             ) : <Text style={[styles.tableCell, { color: colors.text }]}>-</Text>;
                           case 'position':
                             return contact.position ? (
-                              <View style={[styles.positionBadge, { backgroundColor: isDark ? 'rgba(14, 165, 233, 0.2)' : '#e0f2fe' }]}>
-                                <Text style={[styles.positionText, { color: isDark ? '#38bdf8' : '#0369a1' }]}>{contact.position}</Text>
+                              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3 }}>
+                                {contact.position.split(',').map((p: string, idx: number) => (
+                                  <View key={idx} style={[styles.positionBadge, { backgroundColor: isDark ? 'rgba(14, 165, 233, 0.2)' : '#e0f2fe' }]}>
+                                    <Text style={[styles.positionText, { color: isDark ? '#38bdf8' : '#0369a1' }]}>{p.trim()}</Text>
+                                  </View>
+                                ))}
                               </View>
                             ) : <Text style={[styles.tableCell, { color: colors.text }]}>-</Text>;
                           case 'mannschaft':
