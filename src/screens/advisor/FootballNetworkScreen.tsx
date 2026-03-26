@@ -693,6 +693,10 @@ export function FootballNetworkScreen({ navigation }: any) {
                     <View style={[styles.mobileDetailBox, { backgroundColor: colors.surfaceSecondary }]}>
                       <View style={{ flexDirection: 'row', gap: 16 }}>
                         <View style={{ flex: 1 }}>
+                          <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Verein</Text>
+                          <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{selectedContact.verein || '-'}</Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
                           <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Bereich</Text>
                           {selectedContact.bereich ? (
                             <View style={[
@@ -715,24 +719,8 @@ export function FootballNetworkScreen({ navigation }: any) {
                           ) : <Text style={[styles.mobileDetailValue, { color: colors.text }]}>-</Text>}
                         </View>
                         <View style={{ flex: 1 }}>
-                          <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Position</Text>
-                          {selectedContact.position ? (
-                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3 }}>
-                              {selectedContact.position.split(',').map((p: string, idx: number) => (
-                                <View key={idx} style={[styles.mobilePositionBadge, { alignSelf: 'flex-start', backgroundColor: isDark ? 'rgba(14, 165, 233, 0.2)' : '#e0f2fe', borderColor: isDark ? 'rgba(14, 165, 233, 0.4)' : '#bae6fd' }]}>
-                                  <Text style={[styles.mobilePositionText, { color: isDark ? '#38bdf8' : '#0369a1' }]}>{p.trim()}</Text>
-                                </View>
-                              ))}
-                            </View>
-                          ) : <Text style={[styles.mobileDetailValue, { color: colors.text }]}>-</Text>}
-                        </View>
-                        <View style={{ flex: 1 }}>
                           <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Mannschaft</Text>
-                          {selectedContact.mannschaft ? (
-                            <View style={[styles.mobilePositionBadge, { alignSelf: 'flex-start', backgroundColor: isDark ? 'rgba(14, 165, 233, 0.2)' : '#e0f2fe', borderColor: isDark ? 'rgba(14, 165, 233, 0.4)' : '#bae6fd' }]}>
-                              <Text style={[styles.mobilePositionText, { color: isDark ? '#38bdf8' : '#0369a1' }]}>{selectedContact.mannschaft}</Text>
-                            </View>
-                          ) : <Text style={[styles.mobileDetailValue, { color: colors.text }]}>-</Text>}
+                          <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{selectedContact.mannschaft || '-'}</Text>
                         </View>
                       </View>
                     </View>
@@ -1177,26 +1165,18 @@ export function FootballNetworkScreen({ navigation }: any) {
                 </View>
 
                 <View style={styles.detailModalBody}>
-                  {/* Bereich, Position, Mannschaft - grouped */}
+                  {/* Verein, Bereich, Mannschaft - grouped */}
                   <View style={[styles.detailModalBox, { backgroundColor: colors.surfaceSecondary }]}>
                     <View style={styles.detailModalRow}>
+                      <View style={styles.detailModalField}>
+                        <Text style={[styles.detailModalLabel, { color: colors.textMuted }]}>Verein</Text>
+                        <Text style={[styles.detailModalValue, { color: colors.text }]}>{selectedContact.verein || '-'}</Text>
+                      </View>
                       <View style={styles.detailModalField}>
                         <Text style={[styles.detailModalLabel, { color: colors.textMuted }]}>Bereich</Text>
                         {selectedContact.bereich ? (
                           <View style={[styles.bereichBadge, { alignSelf: 'flex-start', backgroundColor: selectedContact.bereich === 'Nachwuchs' ? (isDark ? 'rgba(251, 191, 36, 0.2)' : '#fef3c7') : (isDark ? 'rgba(34, 197, 94, 0.2)' : '#f0fdf4') }]}>
                             <Text style={[styles.bereichText, { color: selectedContact.bereich === 'Nachwuchs' ? (isDark ? '#fbbf24' : '#92400e') : (isDark ? '#4ade80' : '#166534') }]}>{selectedContact.bereich}</Text>
-                          </View>
-                        ) : <Text style={[styles.detailModalValue, { color: colors.text }]}>-</Text>}
-                      </View>
-                      <View style={styles.detailModalField}>
-                        <Text style={[styles.detailModalLabel, { color: colors.textMuted }]}>Position</Text>
-                        {selectedContact.position ? (
-                          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3 }}>
-                            {selectedContact.position.split(',').map((p: string, idx: number) => (
-                              <View key={idx} style={[styles.positionBadge, { alignSelf: 'flex-start', backgroundColor: isDark ? 'rgba(14, 165, 233, 0.2)' : '#e0f2fe' }]}>
-                                <Text style={[styles.positionText, { color: isDark ? '#38bdf8' : '#0369a1' }]}>{p.trim()}</Text>
-                              </View>
-                            ))}
                           </View>
                         ) : <Text style={[styles.detailModalValue, { color: colors.text }]}>-</Text>}
                       </View>
