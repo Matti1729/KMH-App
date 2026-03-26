@@ -263,9 +263,16 @@ export function FootballNetworkScreen({ navigation }: any) {
         code = matched.code;
         number = contact.telefon.slice(matched.code.length);
       }
+      // Doppelte "0" nach Ländervorwahl entfernen (z.B. +490171... → +49 171...)
+      if (number.startsWith('0')) number = number.slice(1);
 
-      // Transfermarkt-Suche
+      // Transfermarkt-Suche (nur Trainer/Funktionäre)
       const tmData = await searchTransfermarkt(fullName);
+
+      // Vereinslos-Handling: keine Position/Bereich wenn vereinslos
+      const isVereinlos = tmData?.verein && (tmData.verein.includes('Vereinslos') || tmData.verein.includes('pausiert'));
+      const verein = isVereinlos ? 'Vereinslos' : (tmData?.verein || '');
+      const position = isVereinlos ? '' : (tmData?.position || '');
 
       const { error } = await supabase.from('football_network_contacts').insert({
         vorname: contact.vorname,
@@ -273,12 +280,12 @@ export function FootballNetworkScreen({ navigation }: any) {
         telefon_code: code,
         telefon: number,
         email: contact.email,
-        verein: tmData?.verein || '',
+        verein,
         liga: '',
         bereich: '',
-        position: tmData?.position || '',
+        position,
         mannschaft: '',
-        transfermarkt_url: tmData?.url || '',
+        transfermarkt_url: isVereinlos ? '' : (tmData?.url || ''),
       });
       if (!error) {
         added++;
