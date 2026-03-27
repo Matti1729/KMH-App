@@ -1552,7 +1552,7 @@ const styles = StyleSheet.create({
   bereichTextNachwuchs: { color: '#92400e' },
   emptyState: { padding: 40, alignItems: 'center' },
   emptyStateText: { fontSize: 11, color: '#64748b' },
-  tableClubLogo: { width: 20, height: 20, borderRadius: 3, marginRight: 8 },
+  tableClubLogo: { width: 20, height: 20, borderRadius: 3, marginRight: 8, resizeMode: 'contain' as any },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 500, maxHeight: '90%' },
 
@@ -1560,7 +1560,7 @@ const styles = StyleSheet.create({
   detailModalContent: { backgroundColor: '#fff', borderRadius: 16, width: '90%', maxWidth: 550, maxHeight: '90%' },
   detailModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 24, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
   detailModalNameRow: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  detailModalLogo: { width: 48, height: 48, borderRadius: 8, marginRight: 16 },
+  detailModalLogo: { width: 48, height: 48, borderRadius: 8, marginRight: 16, resizeMode: 'contain' as any },
   detailModalName: { fontSize: 15, fontWeight: '700', color: '#1a1a1a' },
   detailModalClub: { fontSize: 11, color: '#64748b', marginTop: 4 },
   detailModalClose: { fontSize: 20, color: '#64748b', padding: 4 },
