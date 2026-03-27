@@ -14,6 +14,8 @@ import { useTableColumns } from '../../hooks/useTableColumns';
 import { TableHeader } from '../../components/table/TableHeader';
 import { TableRow } from '../../components/table/TableRow';
 
+const ArbeitsamtIcon = require('../../../assets/arbeitsamt.png');
+
 const LEAGUES = ['1. Bundesliga', '2. Bundesliga', '3. Liga', 'Regionalliga Nordost', 'Regionalliga Südwest', 'Regionalliga West', 'Regionalliga Nord', 'Regionalliga Bayern', 'Oberliga'];
 const BEREICHE = ['Herren', 'Nachwuchs'];
 const POSITIONS_HERREN = ['Trainer', 'Co-Trainer', 'Torwarttrainer', 'Sportdirektor', 'Präsident', 'Vorstand', 'Geschäftsführer', 'Scout'];
@@ -1120,10 +1122,10 @@ export function FootballNetworkScreen({ navigation }: any) {
                           case 'verein':
                             return (
                               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                {contact.verein && !contact.verein.includes('Vereinslos') && getClubLogo(contact.verein) ? (
+                                {contact.verein?.includes('Vereinslos') ? (
+                                  <Image source={ArbeitsamtIcon} style={styles.tableClubLogo} />
+                                ) : contact.verein && getClubLogo(contact.verein) ? (
                                   <Image source={{ uri: getClubLogo(contact.verein)! }} style={styles.tableClubLogo} />
-                                ) : contact.verein?.includes('Vereinslos') ? (
-                                  <Text style={{ marginRight: 6, fontSize: 14 }}>🏛️</Text>
                                 ) : null}
                                 <Text style={[styles.tableCell, styles.tableCellBold, { color: colors.text }]} numberOfLines={1}>{contact.verein || '-'}</Text>
                               </View>
