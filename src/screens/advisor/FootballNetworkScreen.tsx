@@ -41,7 +41,7 @@ type SortField = 'verein' | 'name' | 'vorname' | 'bereich' | 'position' | 'manns
 type SortDirection = 'asc' | 'desc';
 
 const NETWORK_COLUMNS: ColumnDef[] = [
-  { key: 'verein', label: 'Verein/Institution', defaultFlex: 1.5, minWidth: 80 },
+  { key: 'verein', label: 'Verein / Institution', defaultFlex: 1.5, minWidth: 80 },
   { key: 'name', label: 'Name', defaultFlex: 1.2, minWidth: 80 },
   { key: 'vorname', label: 'Vorname', defaultFlex: 1.2, minWidth: 70 },
   { key: 'position', label: 'Position', defaultFlex: 1.3, minWidth: 60 },
@@ -731,7 +731,7 @@ export function FootballNetworkScreen({ navigation }: any) {
                     <View style={[styles.mobileDetailBox, { backgroundColor: colors.surfaceSecondary }]}>
                       <View style={{ flexDirection: 'row', gap: 16 }}>
                         <View style={{ flex: 1 }}>
-                          <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Verein/Institution</Text>
+                          <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Verein / Institution</Text>
                           <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{selectedContact.verein || '-'}</Text>
                           {selectedContact.liga && <Text style={{ fontSize: 9, color: colors.textMuted, marginTop: 2 }}>{selectedContact.liga}</Text>}
                         </View>
@@ -824,7 +824,7 @@ export function FootballNetworkScreen({ navigation }: any) {
                 <View style={styles.formField}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>Nachname *</Text><TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.nachname} onChangeText={(t) => setNewContact({...newContact, nachname: t})} placeholder="Nachname" placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} /></View>
 
                 <View style={styles.formField}>
-                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Verein/Institution</Text>
+                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Verein / Institution</Text>
                   <TouchableOpacity style={[styles.formSelect, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => setActiveDropdown(activeDropdown === 'verein' ? null : 'verein')}>
                     <Text style={newContact.verein ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]}>{newContact.verein || 'Verein auswählen...'}</Text>
                     <Text style={[styles.formSelectArrow, { color: colors.textSecondary }]}>▼</Text>
@@ -1210,7 +1210,7 @@ export function FootballNetworkScreen({ navigation }: any) {
                   <View style={[styles.detailModalBox, { backgroundColor: colors.surfaceSecondary }]}>
                     <View style={styles.detailModalRow}>
                       <View style={styles.detailModalField}>
-                        <Text style={[styles.detailModalLabel, { color: colors.textMuted }]}>Verein/Institution</Text>
+                        <Text style={[styles.detailModalLabel, { color: colors.textMuted }]}>Verein / Institution</Text>
                         <Text style={[styles.detailModalValue, { color: colors.text }]}>{selectedContact.verein || '-'}</Text>
                         {selectedContact.liga && <Text style={{ fontSize: 10, color: colors.textMuted, marginTop: 2 }}>{selectedContact.liga}</Text>}
                       </View>
@@ -1289,7 +1289,7 @@ export function FootballNetworkScreen({ navigation }: any) {
               <View style={styles.formField}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>Nachname *</Text><TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.nachname} onChangeText={(t) => setNewContact({...newContact, nachname: t})} placeholder="Nachname" placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} /></View>
 
               <View style={styles.formField}>
-                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Verein/Institution</Text>
+                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Verein / Institution</Text>
                 <TouchableOpacity style={[styles.formSelect, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => setActiveDropdown(activeDropdown === 'verein' ? null : 'verein')}>
                   <Text style={newContact.verein ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]}>{newContact.verein || 'Verein auswählen...'}</Text>
                   <Text style={[styles.formSelectArrow, { color: colors.textSecondary }]}>▼</Text>
