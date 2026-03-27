@@ -15,6 +15,7 @@ import { TableHeader } from '../../components/table/TableHeader';
 import { TableRow } from '../../components/table/TableRow';
 
 const ArbeitsamtIcon = require('../../../assets/arbeitsamt.png');
+const TransfermarktIcon = require('../../../assets/transfermarkt-logo.png');
 
 const LEAGUES = ['1. Bundesliga', '2. Bundesliga', '3. Liga', 'Regionalliga Nordost', 'Regionalliga Südwest', 'Regionalliga West', 'Regionalliga Nord', 'Regionalliga Bayern', 'Oberliga'];
 const BEREICHE = ['Herren', 'Nachwuchs'];
@@ -1124,6 +1125,8 @@ export function FootballNetworkScreen({ navigation }: any) {
                               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                 {contact.verein?.includes('Vereinslos') ? (
                                   <Image source={ArbeitsamtIcon} style={styles.tableClubLogo} />
+                                ) : contact.verein?.toLowerCase().includes('transfermarkt') ? (
+                                  <Image source={TransfermarktIcon} style={styles.tableClubLogo} />
                                 ) : contact.verein && getClubLogo(contact.verein) ? (
                                   <Image source={{ uri: getClubLogo(contact.verein)! }} style={styles.tableClubLogo} />
                                 ) : null}
@@ -1179,6 +1182,8 @@ export function FootballNetworkScreen({ navigation }: any) {
                   <View style={styles.detailModalNameRow}>
                     {selectedContact.verein?.includes('Vereinslos') ? (
                       <Image source={ArbeitsamtIcon} style={styles.detailModalLogo} />
+                    ) : selectedContact.verein?.toLowerCase().includes('transfermarkt') ? (
+                      <Image source={TransfermarktIcon} style={styles.detailModalLogo} />
                     ) : getClubLogo(selectedContact.verein) ? (
                       <Image source={{ uri: getClubLogo(selectedContact.verein)! }} style={styles.detailModalLogo} />
                     ) : null}
