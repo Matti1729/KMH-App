@@ -1177,9 +1177,11 @@ export function FootballNetworkScreen({ navigation }: any) {
               <>
                 <View style={[styles.detailModalHeader, { borderBottomColor: colors.border }]}>
                   <View style={styles.detailModalNameRow}>
-                    {getClubLogo(selectedContact.verein) && (
+                    {selectedContact.verein?.includes('Vereinslos') ? (
+                      <Image source={ArbeitsamtIcon} style={styles.detailModalLogo} />
+                    ) : getClubLogo(selectedContact.verein) ? (
                       <Image source={{ uri: getClubLogo(selectedContact.verein)! }} style={styles.detailModalLogo} />
-                    )}
+                    ) : null}
                     <View>
                       <Text style={[styles.detailModalName, { color: colors.text }]}>{formatName(selectedContact)}</Text>
                       {selectedContact.position && (
