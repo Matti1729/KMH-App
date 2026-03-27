@@ -34,7 +34,7 @@ interface Contact {
   email: string; notes?: string; transfermarkt_url?: string; created_at: string;
 }
 
-type SortField = 'verein' | 'name' | 'vorname' | 'bereich' | 'position' | 'mannschaft' | 'telefon' | 'email';
+type SortField = 'verein' | 'name' | 'vorname' | 'bereich' | 'position' | 'mannschaft';
 type SortDirection = 'asc' | 'desc';
 
 const NETWORK_COLUMNS: ColumnDef[] = [
@@ -44,8 +44,6 @@ const NETWORK_COLUMNS: ColumnDef[] = [
   { key: 'bereich', label: 'Bereich', defaultFlex: 0.7, minWidth: 60 },
   { key: 'position', label: 'Position', defaultFlex: 0.8, minWidth: 60 },
   { key: 'mannschaft', label: 'Mannschaft', defaultFlex: 0.7, minWidth: 60 },
-  { key: 'telefon', label: 'Telefon', defaultFlex: 1, minWidth: 80 },
-  { key: 'email', label: 'E-Mail', defaultFlex: 1.2, minWidth: 80 },
 ];
 
 export function FootballNetworkScreen({ navigation }: any) {
