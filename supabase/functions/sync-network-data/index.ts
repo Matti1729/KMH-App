@@ -76,33 +76,28 @@ async function fetchTrainerProfile(url: string): Promise<any> {
     const mannschaften = new Set<string>();
     let hasNachwuchs = false;
 
+    // Alle Zeilen mit class="ausfallzeiten_k" sind aktive Stationen
     const stationRows = html.split(/<tr class="ausfallzeiten_k">/);
     for (const row of stationRows) {
-      const cells = row.match(/<td class="zentriert">([^<]*)<\/td>/g);
-      if (cells && cells.length >= 2) {
-        const amtsaustritt = cells[1].replace(/<[^>]*>/g, '').trim();
-        if (amtsaustritt === '-') {
-          // Funktion
-          const funktionMatch = row.match(/<br\s*\/?>\s*([^<]+)<\/td>/);
-          if (funktionMatch) {
-            const funktion = funktionMatch[1].trim();
-            if (funktion && funktion !== '-') positions.add(funktion);
-          }
-          // Vereinsname der Station → Mannschaft extrahieren
-          const stationClub = row.match(/title="([^"]+)"[^>]*href="[^"]*\/startseite\/verein/);
-          if (stationClub) {
-            const clubName = stationClub[1];
-            const mMatch = clubName.match(/\b(U\d{2}|II|Jugend)\b/i);
-            if (mMatch) {
-              mannschaften.add(mMatch[0]);
-              hasNachwuchs = true;
-            }
-            // "2. Mannschaft" oder "Reserve"
-            if (/2\.\s*Mannschaft|Reserve/i.test(clubName)) {
-              mannschaften.add('II');
-              hasNachwuchs = true;
-            }
-          }
+      if (!row.includes('hauptlink')) continue;
+      // Funktion
+      const funktionMatch = row.match(/<br\s*\/?>\s*([^<]+)<\/td>/);
+      if (funktionMatch) {
+        const funktion = funktionMatch[1].trim();
+        if (funktion && funktion !== '-') positions.add(funktion);
+      }
+      // Vereinsname der Station → Mannschaft extrahieren
+      const stationClub = row.match(/title="([^"]+)"[^>]*href="[^"]*\/startseite\/verein/);
+      if (stationClub) {
+        const clubName = stationClub[1];
+        const mMatch = clubName.match(/\b(U\d{2}|II|Jugend)\b/i);
+        if (mMatch) {
+          mannschaften.add(mMatch[0]);
+          hasNachwuchs = true;
+        }
+        if (/2\.\s*Mannschaft|Reserve/i.test(clubName)) {
+          mannschaften.add('II');
+          hasNachwuchs = true;
         }
       }
     }
