@@ -2234,6 +2234,17 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     </View>
   );
 
+  const renderEmailField = (label: string, field: keyof Player) => (
+    <View style={styles.infoRow}>
+      <Text style={[styles.label, { color: colors.textMuted }]}>{label}</Text>
+      {editing ? <TextInput style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={editData?.[field]?.toString() || ''} onChangeText={(text) => updateField(field, text)} placeholder="email@beispiel.de" placeholderTextColor={colors.textMuted} keyboardType="email-address" /> : player?.[field] ? (
+        <TouchableOpacity onPress={() => Linking.openURL(`mailto:${player?.[field]}`)}>
+          <Text style={[styles.value, { color: '#3b82f6' }]}>{player?.[field]?.toString()}</Text>
+        </TouchableOpacity>
+      ) : (<Text style={[styles.value, { color: colors.text }]}>-</Text>)}
+    </View>
+  );
+
   const renderLeagueField = () => {
     const currentLeague = editing ? (editData?.league || '') : (player?.league || '');
     const filteredLeagues = leagueSearch
@@ -2545,7 +2556,11 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           </View>
           <TextInput style={[styles.input, styles.phoneInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={editData?.[phoneField]?.toString() || ''} onChangeText={(text) => updateField(phoneField, text)} placeholder="z.B. 123456789" placeholderTextColor={colors.textMuted} keyboardType="phone-pad" />
         </View>
-      ) : (<Text style={[styles.value, { color: colors.text }]}>{player?.[phoneField] ? `${player?.[codeField] || '+49'} ${player?.[phoneField]}` : '-'}</Text>)}
+      ) : player?.[phoneField] ? (
+        <TouchableOpacity onPress={() => Linking.openURL(`tel:${player?.[codeField] || '+49'}${player?.[phoneField]}`)}>
+          <Text style={[styles.value, { color: '#3b82f6' }]}>{`${player?.[codeField] || '+49'} ${player?.[phoneField]}`}</Text>
+        </TouchableOpacity>
+      ) : (<Text style={[styles.value, { color: colors.text }]}>-</Text>)}
     </View>
   );
 
@@ -3445,7 +3460,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 <View style={[styles.splitColumn, { zIndex: 10 }]}>
                   {renderBirthDateField()}
                   {renderPhoneField('Telefon', 'phone', 'phone_country_code')}
-                  {renderField('E-Mail', 'email')}
+                  {renderEmailField('E-Mail', 'email')}
                   {renderAddressField()}
                   {renderInternatField()}
                 </View>
@@ -3526,7 +3541,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                   <View style={[styles.splitColumn, { zIndex: 10 }]}>
                     {renderBirthDateField()}
                     {renderPhoneField('Telefon', 'phone', 'phone_country_code')}
-                    {renderField('E-Mail', 'email')}
+                    {renderEmailField('E-Mail', 'email')}
                     {renderAddressField()}
                     {renderInternatField()}
                   </View>
