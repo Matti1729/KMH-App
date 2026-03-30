@@ -392,6 +392,9 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<Player | null>(null);
   const [showLeagueDropdown, setShowLeagueDropdown] = useState(false);
+  const [showInviteCodeModal, setShowInviteCodeModal] = useState(false);
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [inviteCodeLoading, setInviteCodeLoading] = useState(false);
   const [leagueSearch, setLeagueSearch] = useState('');
   const [parsingContract, setParsingContract] = useState(false);
   const [selectedPositions, setSelectedPositions] = useState<string[]>([]);
@@ -2128,6 +2131,55 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   };
   const updateField = (field: string, value: any) => { if (editData) setEditData({ ...editData, [field]: value }); };
 
+  const handleInviteCode = async () => {
+    if (!player) return;
+    setInviteCodeLoading(true);
+    try {
+      // Prüfen ob schon ein gültiger Code existiert
+      const { data } = await supabase
+        .from('player_details')
+        .select('invitation_code, invitation_code_expires, linked_user_id')
+        .eq('id', player.id)
+        .single();
+
+      if (data?.invitation_code && data?.invitation_code_expires && !data?.linked_user_id) {
+        const expires = new Date(data.invitation_code_expires);
+        if (expires > new Date()) {
+          // Code noch gültig
+          setInviteCode(data.invitation_code);
+          setShowInviteCodeModal(true);
+          setInviteCodeLoading(false);
+          return;
+        }
+      }
+
+      if (data?.linked_user_id) {
+        window.alert('Dieser Spieler hat sich bereits registriert.');
+        setInviteCodeLoading(false);
+        return;
+      }
+
+      // Neuen Code generieren
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let code = 'KMH-';
+      for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      await supabase.from('player_details').update({
+        invitation_code: code,
+        invitation_code_expires: expiresAt.toISOString(),
+      }).eq('id', player.id);
+
+      setInviteCode(code);
+      setShowInviteCodeModal(true);
+    } catch (err) {
+      console.error('Invite code error:', err);
+    }
+    setInviteCodeLoading(false);
+  };
+
   const startEditing = () => {
     if (editData && !editData.contract_end) {
       setEditData({ ...editData, contract_end: `${new Date().getFullYear()}-06-30` });
@@ -3681,14 +3733,42 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               </TouchableOpacity>
             </>
           ) : (
-            <TouchableOpacity style={[styles.editButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={startEditing}>
-              <Text style={[styles.editButtonText, { color: colors.textSecondary }]}>Bearbeiten</Text>
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity style={[styles.editButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, marginRight: 8 }]} onPress={handleInviteCode} disabled={inviteCodeLoading}>
+                <Text style={[styles.editButtonText, { color: '#3b82f6' }]}>{inviteCodeLoading ? '...' : '🔑 Code'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.editButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={startEditing}>
+                <Text style={[styles.editButtonText, { color: colors.textSecondary }]}>Bearbeiten</Text>
+              </TouchableOpacity>
+            </>
           )}
           </View>
         </View>
       )}
       {renderDeleteModal()}
+
+      {/* Invite Code Modal */}
+      <Modal visible={showInviteCodeModal} transparent animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ backgroundColor: colors.surface, borderRadius: 16, padding: 24, width: '85%', maxWidth: 380, alignItems: 'center' }}>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: 4 }}>Spieler-Einladungscode</Text>
+            <Text style={{ fontSize: 11, color: colors.textSecondary, marginBottom: 16 }}>{player?.first_name} {player?.last_name}</Text>
+            <View style={{ backgroundColor: colors.surfaceSecondary, borderRadius: 10, paddingVertical: 14, paddingHorizontal: 24, marginBottom: 12 }}>
+              <Text style={{ fontSize: 22, fontWeight: '700', color: colors.text, letterSpacing: 4, fontFamily: 'monospace' }}>{inviteCode}</Text>
+            </View>
+            <TouchableOpacity
+              style={{ backgroundColor: colors.primary, paddingVertical: 6, paddingHorizontal: 14, borderRadius: 6, marginBottom: 8 }}
+              onPress={() => { try { navigator.clipboard?.writeText(inviteCode || ''); } catch {} }}
+            >
+              <Text style={{ color: colors.primaryText, fontSize: 11, fontWeight: '600' }}>Code kopieren</Text>
+            </TouchableOpacity>
+            <Text style={{ fontSize: 10, color: colors.textMuted, marginBottom: 16 }}>Gültig für 7 Tage</Text>
+            <TouchableOpacity onPress={() => setShowInviteCodeModal(false)}>
+              <Text style={{ fontSize: 11, color: colors.textSecondary }}>Schließen</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Image Cropper Modal */}
       <ImageCropper
