@@ -38,7 +38,7 @@ export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedde
   const [feedbackImage, setFeedbackImage] = useState<string | null>(null);
   const [generatedPrompt, setGeneratedPrompt] = useState<string>('');
   const [promptCopied, setPromptCopied] = useState(false);
-  const { user } = useAuth();
+  const { user, profile, setViewAsPlayer } = useAuth();
   const { width } = useWindowDimensions();
   const isMobile = width < MOBILE_BREAKPOINT;
   const { colors, isDark } = useTheme();
@@ -293,6 +293,23 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
         <Text style={styles.feedbackIcon}>💬</Text>
         <Text style={[styles.feedbackText, { color: isDark ? '#7dd3fc' : '#0284c7' }]}>Feedback / Bug</Text>
       </Pressable>
+
+      {/* Als Spieler ansehen */}
+      {(profile?.role === 'admin' || profile?.role === 'advisor') && (
+        <Pressable
+          onHoverIn={() => setHoveredNav('viewPlayer')}
+          onHoverOut={() => setHoveredNav(null)}
+          onPress={() => setViewAsPlayer(true)}
+          style={[
+            styles.feedbackButton,
+            { backgroundColor: isDark ? 'rgba(34, 197, 94, 0.15)' : '#f0fdf4' },
+            hoveredNav === 'viewPlayer' && { backgroundColor: isDark ? 'rgba(34, 197, 94, 0.25)' : '#dcfce7' },
+          ]}
+        >
+          <Text style={styles.feedbackIcon}>👁️</Text>
+          <Text style={[styles.feedbackText, { color: isDark ? '#4ade80' : '#16a34a' }]}>Als Spieler ansehen</Text>
+        </Pressable>
+      )}
 
       {/* Logout */}
       <Pressable

@@ -26,6 +26,11 @@ export function LoginScreen({ navigation }: any) {
   const [validCode, setValidCode] = useState<string>('');
   const [codeLoaded, setCodeLoaded] = useState(false);
   const [codeError, setCodeError] = useState<string | null>(null);
+  const [showPlayerCodeModal, setShowPlayerCodeModal] = useState(false);
+  const [playerCode, setPlayerCode] = useState('');
+  const [validPlayerCode, setValidPlayerCode] = useState<string>('');
+  const [playerCodeLoaded, setPlayerCodeLoaded] = useState(false);
+  const [playerCodeError, setPlayerCodeError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchInvitationCode();
@@ -35,17 +40,25 @@ export function LoginScreen({ navigation }: any) {
     try {
       const { data, error } = await supabase
         .from('settings')
-        .select('value')
-        .eq('key', 'invitation_code')
-        .single();
-      
-      if (data && data.value) {
-        setValidCode(data.value);
-        setCodeLoaded(true);
+        .select('key, value')
+        .in('key', ['invitation_code', 'player_invitation_code']);
+
+      if (data) {
+        for (const row of data) {
+          if (row.key === 'invitation_code' && row.value) {
+            setValidCode(row.value);
+            setCodeLoaded(true);
+          }
+          if (row.key === 'player_invitation_code' && row.value) {
+            setValidPlayerCode(row.value);
+            setPlayerCodeLoaded(true);
+          }
+        }
       }
     } catch (e) {
-      console.log('Could not fetch invitation code');
+      console.log('Could not fetch invitation codes');
       setCodeLoaded(false);
+      setPlayerCodeLoaded(false);
     }
   };
 
@@ -87,6 +100,33 @@ export function LoginScreen({ navigation }: any) {
     }
   };
 
+  const handlePlayerCode = () => {
+    setPlayerCodeError(null);
+
+    if (!playerCodeLoaded || !validPlayerCode) {
+      setPlayerCodeError('Einladungscode konnte nicht geladen werden. Bitte versuche es später erneut.');
+      return;
+    }
+
+    if (!playerCode.trim()) {
+      setPlayerCodeError('Bitte gib einen Einladungscode ein.');
+      return;
+    }
+
+    if (playerCode.trim() === validPlayerCode) {
+      setShowPlayerCodeModal(false);
+      setPlayerCode('');
+      setPlayerCodeError(null);
+      showAlert(
+        'Code bestätigt',
+        'Du wirst jetzt zur Registrierung weitergeleitet. Nach der Registrierung erhältst du eine E-Mail zur Bestätigung deiner Adresse.',
+        () => navigation.navigate('Register')
+      );
+    } else {
+      setPlayerCodeError('Der eingegebene Einladungscode ist ungültig.');
+    }
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.content, { backgroundColor: colors.background }]}>
@@ -114,8 +154,8 @@ export function LoginScreen({ navigation }: any) {
           <Text style={[styles.buttonText, { color: colors.primaryText }]}>{loading ? 'Laden...' : 'Anmelden'}</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-          <Text style={[styles.link, { color: colors.textMuted }]}>Noch kein Konto? Registrieren</Text>
+        <TouchableOpacity onPress={() => { setShowPlayerCodeModal(true); setPlayerCodeError(null); setPlayerCode(''); }} style={[styles.registerButton, { backgroundColor: '#16a34a' }]}>
+          <Text style={styles.registerButtonText}>Als Spieler registrieren</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => { setShowAdvisorModal(true); setCodeError(null); setAdvisorCode(''); }} style={styles.advisorLink}>
@@ -148,6 +188,32 @@ export function LoginScreen({ navigation }: any) {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* Spieler-Zugang Modal */}
+      <Modal visible={showPlayerCodeModal} transparent animationType="fade">
+        <Pressable style={styles.modalOverlay} onPress={() => setShowPlayerCodeModal(false)}>
+          <Pressable style={[styles.modalContent, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
+            <TouchableOpacity style={[styles.modalClose, { backgroundColor: isDark ? colors.inputBackground : '#f1f5f9' }]} onPress={() => setShowPlayerCodeModal(false)}>
+              <Text style={[styles.modalCloseText, { color: colors.textSecondary }]}>✕</Text>
+            </TouchableOpacity>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Spieler-Zugang</Text>
+            <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>Bitte Einladungscode eingeben</Text>
+            <TextInput
+              style={[styles.modalInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }, playerCodeError && styles.modalInputError]}
+              placeholder="Einladungscode" placeholderTextColor={colors.textMuted}
+              value={playerCode}
+              onChangeText={(text) => { setPlayerCode(text); setPlayerCodeError(null); }}
+              autoCapitalize="none"
+            />
+            {playerCodeError && (
+              <Text style={styles.errorText}>{playerCodeError}</Text>
+            )}
+            <TouchableOpacity style={[styles.modalButton, { backgroundColor: '#16a34a' }]} onPress={handlePlayerCode}>
+              <Text style={[styles.modalButtonText, { color: '#fff' }]}>Weiter</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -161,8 +227,10 @@ const styles = StyleSheet.create({
   button: { backgroundColor: '#000', padding: 16, borderRadius: 12, alignItems: 'center', marginBottom: 16 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   link: { color: '#000', textAlign: 'center', marginTop: 8 },
-  advisorLink: { marginTop: 32 },
-  advisorText: { color: '#666', textAlign: 'center', fontSize: 14 },
+  registerButton: { padding: 14, borderRadius: 12, alignItems: 'center' as const, marginTop: 16 },
+  registerButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' as const },
+  advisorLink: { marginTop: 16 },
+  advisorText: { color: '#666', textAlign: 'center' as const, fontSize: 14 },
   
   // Modal Styles - zentriert und kompakt
   modalOverlay: { 

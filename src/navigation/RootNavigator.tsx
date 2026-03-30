@@ -20,7 +20,7 @@ import { AECalculatorScreen } from '../screens/advisor/AECalculatorScreen';
 const Stack = createNativeStackNavigator();
 
 export function RootNavigator() {
-  const { session, profile, loading } = useAuth();
+  const { session, profile, loading, viewAsPlayer } = useAuth();
 
   if (loading) {
     return (
@@ -39,7 +39,7 @@ export function RootNavigator() {
             <Stack.Screen name="Register" component={RegisterScreen} />
             <Stack.Screen name="RegisterAdvisor" component={RegisterAdvisorScreen} />
           </>
-        ) : (profile?.role === 'advisor' || profile?.role === 'admin') ? (
+        ) : (profile?.role === 'advisor' || profile?.role === 'admin') && !viewAsPlayer ? (
           <>
             <Stack.Screen name="AdvisorHome" component={AdvisorHomeScreen} />
             <Stack.Screen name="AdvisorDashboard" component={AdvisorHomeScreen} />
