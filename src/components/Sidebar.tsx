@@ -38,7 +38,7 @@ export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedde
   const [feedbackImage, setFeedbackImage] = useState<string | null>(null);
   const [generatedPrompt, setGeneratedPrompt] = useState<string>('');
   const [promptCopied, setPromptCopied] = useState(false);
-  const { user, profile, setViewAsPlayer } = useAuth();
+  const { user, profile: authProfile, setViewAsPlayer } = useAuth();
   const { width } = useWindowDimensions();
   const isMobile = width < MOBILE_BREAKPOINT;
   const { colors, isDark } = useTheme();
@@ -295,7 +295,7 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
       </Pressable>
 
       {/* Als Spieler ansehen */}
-      {(profile?.role === 'admin' || profile?.role === 'advisor') && (
+      {(authProfile?.role === 'admin' || authProfile?.role === 'advisor') && (
         <Pressable
           onHoverIn={() => setHoveredNav('viewPlayer')}
           onHoverOut={() => setHoveredNav(null)}
