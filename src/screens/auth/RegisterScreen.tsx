@@ -3,10 +3,13 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'reac
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { supabase } from '../../config/supabase';
 
-export function RegisterScreen({ navigation }: any) {
+export function RegisterScreen({ navigation, route }: any) {
   const { signUp } = useAuth();
   const { colors, isDark } = useTheme();
+  const playerDetailsId = route?.params?.playerDetailsId;
+  const playerName = route?.params?.playerName || '';
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -19,15 +22,32 @@ export function RegisterScreen({ navigation }: any) {
       return;
     }
     setLoading(true);
-    const { error } = await signUp(email, password, firstName, lastName, 'player');
-    setLoading(false);
+    const { data: signUpData, error } = await signUp(email, password, firstName, lastName, 'player');
     if (error) {
+      setLoading(false);
       Alert.alert('Fehler', error.message);
-    } else {
-      Alert.alert('Erfolg', 'Bitte bestätige deine E-Mail', [
-        { text: 'OK', onPress: () => navigation.navigate('Login') }
-      ]);
+      return;
     }
+
+    // Link player_details to the new user
+    if (playerDetailsId && signUpData?.user?.id) {
+      const userId = signUpData.user.id;
+
+      await supabase
+        .from('player_details')
+        .update({ linked_user_id: userId })
+        .eq('id', playerDetailsId);
+
+      await supabase
+        .from('profiles')
+        .update({ player_details_id: playerDetailsId })
+        .eq('id', userId);
+    }
+
+    setLoading(false);
+    Alert.alert('Erfolg', 'Bitte bestätige deine E-Mail', [
+      { text: 'OK', onPress: () => navigation.navigate('Login') }
+    ]);
   };
 
   return (
@@ -38,6 +58,12 @@ export function RegisterScreen({ navigation }: any) {
         </TouchableOpacity>
 
         <Text style={[styles.title, { color: colors.text }]}>Registrieren</Text>
+
+        {playerName ? (
+          <Text style={[styles.playerName, { color: colors.textSecondary }]}>
+            Spielerprofil: {playerName}
+          </Text>
+        ) : null}
 
         <TextInput
           style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
@@ -84,6 +110,7 @@ const styles = StyleSheet.create({
   back: { fontSize: 16, color: '#666', marginBottom: 24 },
   title: { fontSize: 28, fontWeight: 'bold', marginBottom: 32 },
   input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 12, padding: 16, fontSize: 16, marginBottom: 16 },
+  playerName: { fontSize: 15, marginBottom: 20, textAlign: 'center' as const, fontWeight: '500' as const },
   button: { backgroundColor: '#000', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 8 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });

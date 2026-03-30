@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Pressable, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Pressable, RefreshControl, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../config/supabase';
@@ -122,6 +122,9 @@ export function PlayerOverviewScreen({ navigation }: any) {
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+  const [createdPlayerCode, setCreatedPlayerCode] = useState<string | null>(null);
+  const [createdPlayerName, setCreatedPlayerName] = useState<string>('');
+  const [showCodeModal, setShowCodeModal] = useState(false);
 
   // Table columns
   const [tableWidth, setTableWidth] = useState(0);
@@ -738,11 +741,34 @@ export function PlayerOverviewScreen({ navigation }: any) {
         try { await supabase.from('club_logos').upsert({ club_name: tmSelected.verein, logo_url: tmSelected.clubLogoUrl }, { onConflict: 'club_name' }); } catch {}
       }
 
+      // Generate personal invitation code
+      const generateCode = () => {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no O/0/I/1 to avoid confusion
+        let code = 'KMH-';
+        for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+        return code;
+      };
+
+      const invitationCode = generateCode();
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      // Save code to player_details
+      await supabase.from('player_details').update({
+        invitation_code: invitationCode,
+        invitation_code_expires: expiresAt.toISOString(),
+      }).eq('id', newPlayer.id);
+
+      const playerFullName = `${newFirstName.trim()} ${newLastName.trim()}`.trim();
+      setCreatedPlayerCode(invitationCode);
+      setCreatedPlayerName(playerFullName);
+
       setNewFirstName('');
       setNewLastName('');
       setTmSelected(null);
       setTmSuggestions([]);
       setShowAddModal(false);
+      setShowCodeModal(true);
       fetchPlayers();
       fetchMyPlayerAccess();
     }
@@ -1159,6 +1185,43 @@ export function PlayerOverviewScreen({ navigation }: any) {
                   <Text style={[styles.modalHint, { color: colors.textSecondary }]}>Zuständigkeit: {currentUserName || 'Sie'}</Text>
                   <TouchableOpacity style={[styles.modalSaveButton, { borderColor: '#10b981', opacity: tmLoading ? 0.5 : 1 }]} onPress={handleAddPlayer} disabled={tmLoading}><Text style={[styles.modalSaveButtonText, { color: '#10b981' }]}>{tmLoading ? 'Laden...' : 'Spieler anlegen'}</Text></TouchableOpacity>
                 </View>
+              </View>
+            </View>
+          </Modal>
+
+          {/* Invitation Code Success Modal */}
+          <Modal visible={showCodeModal} transparent animationType="fade">
+            <View style={styles.modalOverlay}>
+              <View style={[styles.modalContent, { backgroundColor: colors.surface, maxWidth: 400, width: '90%', alignItems: 'center', paddingVertical: 28, paddingHorizontal: 24 }]}>
+                <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(16, 185, 129, 0.15)', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                  <Ionicons name="checkmark" size={28} color="#10b981" />
+                </View>
+                <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700', marginBottom: 6 }}>Spieler erstellt!</Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 13, marginBottom: 20 }}>{createdPlayerName}</Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 8 }}>Persönlicher Einladungscode:</Text>
+                <View style={{ backgroundColor: colors.inputBackground, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingVertical: 14, paddingHorizontal: 24, marginBottom: 10, alignItems: 'center' }}>
+                  <Text style={{ color: colors.text, fontSize: 28, fontWeight: '700', fontFamily: Platform.OS === 'web' ? "'SF Mono', 'Fira Code', 'Courier New', monospace" : undefined, letterSpacing: 3 }}>{createdPlayerCode}</Text>
+                </View>
+                <TouchableOpacity
+                  style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, backgroundColor: 'rgba(16, 185, 129, 0.1)', marginBottom: 12 }}
+                  onPress={() => {
+                    if (createdPlayerCode) {
+                      if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
+                        navigator.clipboard.writeText(createdPlayerCode);
+                      }
+                    }
+                  }}
+                >
+                  <Ionicons name="copy-outline" size={14} color="#10b981" />
+                  <Text style={{ color: '#10b981', fontSize: 12, fontWeight: '600', marginLeft: 4 }}>Code kopieren</Text>
+                </TouchableOpacity>
+                <Text style={{ color: colors.textMuted, fontSize: 11, marginBottom: 20 }}>Gültig für 7 Tage</Text>
+                <TouchableOpacity
+                  style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 32 }}
+                  onPress={() => { setShowCodeModal(false); setCreatedPlayerCode(null); setCreatedPlayerName(''); }}
+                >
+                  <Text style={{ color: colors.textSecondary, fontSize: 13, fontWeight: '600' }}>Schließen</Text>
+                </TouchableOpacity>
               </View>
             </View>
           </Modal>
@@ -1634,6 +1697,43 @@ export function PlayerOverviewScreen({ navigation }: any) {
                 <Text style={[styles.modalHint, { color: colors.textSecondary }]}>Zuständigkeit: {currentUserName || 'Sie'}</Text>
                 <TouchableOpacity style={[styles.modalSaveButton, { borderColor: '#10b981' }]} onPress={handleAddPlayer} disabled={tmLoading}><Text style={[styles.modalSaveButtonText, { color: '#10b981' }]}>{tmLoading ? 'Laden...' : 'Spieler anlegen'}</Text></TouchableOpacity>
               </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Invitation Code Success Modal */}
+        <Modal visible={showCodeModal} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: colors.surface, maxWidth: 400, width: '90%', alignItems: 'center', paddingVertical: 28, paddingHorizontal: 24 }]}>
+              <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(16, 185, 129, 0.15)', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                <Ionicons name="checkmark" size={28} color="#10b981" />
+              </View>
+              <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700', marginBottom: 6 }}>Spieler erstellt!</Text>
+              <Text style={{ color: colors.textSecondary, fontSize: 13, marginBottom: 20 }}>{createdPlayerName}</Text>
+              <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 8 }}>Persönlicher Einladungscode:</Text>
+              <View style={{ backgroundColor: colors.inputBackground, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingVertical: 14, paddingHorizontal: 24, marginBottom: 10, alignItems: 'center' }}>
+                <Text style={{ color: colors.text, fontSize: 28, fontWeight: '700', fontFamily: Platform.OS === 'web' ? "'SF Mono', 'Fira Code', 'Courier New', monospace" : undefined, letterSpacing: 3 }}>{createdPlayerCode}</Text>
+              </View>
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, backgroundColor: 'rgba(16, 185, 129, 0.1)', marginBottom: 12 }}
+                onPress={() => {
+                  if (createdPlayerCode) {
+                    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
+                      navigator.clipboard.writeText(createdPlayerCode);
+                    }
+                  }
+                }}
+              >
+                <Ionicons name="copy-outline" size={14} color="#10b981" />
+                <Text style={{ color: '#10b981', fontSize: 12, fontWeight: '600', marginLeft: 4 }}>Code kopieren</Text>
+              </TouchableOpacity>
+              <Text style={{ color: colors.textMuted, fontSize: 11, marginBottom: 20 }}>Gültig für 7 Tage</Text>
+              <TouchableOpacity
+                style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 32 }}
+                onPress={() => { setShowCodeModal(false); setCreatedPlayerCode(null); setCreatedPlayerName(''); }}
+              >
+                <Text style={{ color: colors.textSecondary, fontSize: 13, fontWeight: '600' }}>Schließen</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </Modal>

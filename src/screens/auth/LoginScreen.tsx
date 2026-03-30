@@ -28,9 +28,8 @@ export function LoginScreen({ navigation }: any) {
   const [codeError, setCodeError] = useState<string | null>(null);
   const [showPlayerCodeModal, setShowPlayerCodeModal] = useState(false);
   const [playerCode, setPlayerCode] = useState('');
-  const [validPlayerCode, setValidPlayerCode] = useState<string>('');
-  const [playerCodeLoaded, setPlayerCodeLoaded] = useState(false);
   const [playerCodeError, setPlayerCodeError] = useState<string | null>(null);
+  const [playerCodeLoading, setPlayerCodeLoading] = useState(false);
 
   useEffect(() => {
     fetchInvitationCode();
@@ -41,24 +40,16 @@ export function LoginScreen({ navigation }: any) {
       const { data, error } = await supabase
         .from('settings')
         .select('key, value')
-        .in('key', ['invitation_code', 'player_invitation_code']);
+        .eq('key', 'invitation_code')
+        .single();
 
-      if (data) {
-        for (const row of data) {
-          if (row.key === 'invitation_code' && row.value) {
-            setValidCode(row.value);
-            setCodeLoaded(true);
-          }
-          if (row.key === 'player_invitation_code' && row.value) {
-            setValidPlayerCode(row.value);
-            setPlayerCodeLoaded(true);
-          }
-        }
+      if (data && data.value) {
+        setValidCode(data.value);
+        setCodeLoaded(true);
       }
     } catch (e) {
-      console.log('Could not fetch invitation codes');
+      console.log('Could not fetch invitation code');
       setCodeLoaded(false);
-      setPlayerCodeLoaded(false);
     }
   };
 
@@ -100,30 +91,53 @@ export function LoginScreen({ navigation }: any) {
     }
   };
 
-  const handlePlayerCode = () => {
+  const handlePlayerCode = async () => {
     setPlayerCodeError(null);
-
-    if (!playerCodeLoaded || !validPlayerCode) {
-      setPlayerCodeError('Einladungscode konnte nicht geladen werden. Bitte versuche es später erneut.');
-      return;
-    }
 
     if (!playerCode.trim()) {
       setPlayerCodeError('Bitte gib einen Einladungscode ein.');
       return;
     }
 
-    if (playerCode.trim() === validPlayerCode) {
+    setPlayerCodeLoading(true);
+
+    try {
+      const { data, error } = await supabase
+        .from('player_details')
+        .select('id, first_name, last_name, invitation_code_expires, linked_user_id')
+        .eq('invitation_code', playerCode.trim().toUpperCase())
+        .single();
+
+      if (error || !data) {
+        setPlayerCodeError('Ungültiger Code');
+        setPlayerCodeLoading(false);
+        return;
+      }
+
+      if (data.invitation_code_expires && new Date(data.invitation_code_expires) < new Date()) {
+        setPlayerCodeError('Code abgelaufen. Bitte neuen Code vom Berater anfordern.');
+        setPlayerCodeLoading(false);
+        return;
+      }
+
+      if (data.linked_user_id) {
+        setPlayerCodeError('Code wurde bereits verwendet.');
+        setPlayerCodeLoading(false);
+        return;
+      }
+
       setShowPlayerCodeModal(false);
       setPlayerCode('');
       setPlayerCodeError(null);
+      setPlayerCodeLoading(false);
       showAlert(
         'Code bestätigt',
-        'Du wirst jetzt zur Registrierung weitergeleitet. Nach der Registrierung erhältst du eine E-Mail zur Bestätigung deiner Adresse.',
-        () => navigation.navigate('Register')
+        `Willkommen ${data.first_name} ${data.last_name}! Du wirst jetzt zur Registrierung weitergeleitet. Nach der Registrierung erhältst du eine E-Mail zur Bestätigung deiner Adresse.`,
+        () => navigation.navigate('Register', { playerDetailsId: data.id, playerName: `${data.first_name} ${data.last_name}` })
       );
-    } else {
-      setPlayerCodeError('Der eingegebene Einladungscode ist ungültig.');
+    } catch (e) {
+      setPlayerCodeError('Fehler bei der Code-Überprüfung. Bitte versuche es erneut.');
+      setPlayerCodeLoading(false);
     }
   };
 
@@ -208,8 +222,8 @@ export function LoginScreen({ navigation }: any) {
             {playerCodeError && (
               <Text style={styles.errorText}>{playerCodeError}</Text>
             )}
-            <TouchableOpacity style={[styles.modalButton, { backgroundColor: '#16a34a' }]} onPress={handlePlayerCode}>
-              <Text style={[styles.modalButtonText, { color: '#fff' }]}>Weiter</Text>
+            <TouchableOpacity style={[styles.modalButton, { backgroundColor: '#16a34a' }]} onPress={handlePlayerCode} disabled={playerCodeLoading}>
+              <Text style={[styles.modalButtonText, { color: '#fff' }]}>{playerCodeLoading ? 'Prüfen...' : 'Weiter'}</Text>
             </TouchableOpacity>
           </Pressable>
         </Pressable>
