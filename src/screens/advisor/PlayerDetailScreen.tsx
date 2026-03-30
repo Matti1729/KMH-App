@@ -2142,34 +2142,27 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         .eq('id', player.id)
         .single();
 
-      if (data?.invitation_code && data?.invitation_code_expires && !data?.linked_user_id) {
-        const expires = new Date(data.invitation_code_expires);
-        if (expires > new Date()) {
-          // Code noch gültig
-          setInviteCode(data.invitation_code);
-          setShowInviteCodeModal(true);
-          setInviteCodeLoading(false);
-          return;
-        }
-      }
-
       if (data?.linked_user_id) {
         window.alert('Dieser Spieler hat sich bereits registriert.');
         setInviteCodeLoading(false);
         return;
       }
 
-      // Neuen Code generieren
+      if (data?.invitation_code && !data?.linked_user_id) {
+        // Code existiert und noch nicht verwendet
+        setInviteCode(data.invitation_code);
+        setShowInviteCodeModal(true);
+        setInviteCodeLoading(false);
+        return;
+      }
+
+      // Neuen Code generieren (kein Ablaufdatum)
       const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
       let code = 'KMH-';
       for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
 
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7);
-
       await supabase.from('player_details').update({
         invitation_code: code,
-        invitation_code_expires: expiresAt.toISOString(),
       }).eq('id', player.id);
 
       setInviteCode(code);
@@ -3762,7 +3755,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
             >
               <Text style={{ color: colors.primaryText, fontSize: 11, fontWeight: '600' }}>Code kopieren</Text>
             </TouchableOpacity>
-            <Text style={{ fontSize: 10, color: colors.textMuted, marginBottom: 16 }}>Gültig für 7 Tage</Text>
+            <Text style={{ fontSize: 10, color: colors.textMuted, marginBottom: 16 }}>Gültig bis zur Registrierung</Text>
             <TouchableOpacity onPress={() => setShowInviteCodeModal(false)}>
               <Text style={{ fontSize: 11, color: colors.textSecondary }}>Schließen</Text>
             </TouchableOpacity>

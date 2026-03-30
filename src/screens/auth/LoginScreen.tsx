@@ -104,18 +104,12 @@ export function LoginScreen({ navigation }: any) {
     try {
       const { data, error } = await supabase
         .from('player_details')
-        .select('id, first_name, last_name, invitation_code_expires, linked_user_id')
+        .select('id, first_name, last_name, linked_user_id')
         .eq('invitation_code', playerCode.trim().toUpperCase())
         .single();
 
       if (error || !data) {
         setPlayerCodeError('Ungültiger Code');
-        setPlayerCodeLoading(false);
-        return;
-      }
-
-      if (data.invitation_code_expires && new Date(data.invitation_code_expires) < new Date()) {
-        setPlayerCodeError('Code abgelaufen. Bitte neuen Code vom Berater anfordern.');
         setPlayerCodeLoading(false);
         return;
       }

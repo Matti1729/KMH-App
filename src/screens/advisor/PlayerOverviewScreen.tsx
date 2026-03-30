@@ -750,13 +750,10 @@ export function PlayerOverviewScreen({ navigation }: any) {
       };
 
       const invitationCode = generateCode();
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7);
 
-      // Save code to player_details
+      // Save code to player_details (kein Ablaufdatum)
       await supabase.from('player_details').update({
         invitation_code: invitationCode,
-        invitation_code_expires: expiresAt.toISOString(),
       }).eq('id', newPlayer.id);
 
       const playerFullName = `${newFirstName.trim()} ${newLastName.trim()}`.trim();
@@ -1215,7 +1212,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
                   <Ionicons name="copy-outline" size={14} color="#10b981" />
                   <Text style={{ color: '#10b981', fontSize: 12, fontWeight: '600', marginLeft: 4 }}>Code kopieren</Text>
                 </TouchableOpacity>
-                <Text style={{ color: colors.textMuted, fontSize: 11, marginBottom: 20 }}>Gültig für 7 Tage</Text>
+                <Text style={{ color: colors.textMuted, fontSize: 11, marginBottom: 20 }}>Gültig bis zur Registrierung</Text>
                 <TouchableOpacity
                   style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 32 }}
                   onPress={() => { setShowCodeModal(false); setCreatedPlayerCode(null); setCreatedPlayerName(''); }}
@@ -1727,7 +1724,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
                 <Ionicons name="copy-outline" size={14} color="#10b981" />
                 <Text style={{ color: '#10b981', fontSize: 12, fontWeight: '600', marginLeft: 4 }}>Code kopieren</Text>
               </TouchableOpacity>
-              <Text style={{ color: colors.textMuted, fontSize: 11, marginBottom: 20 }}>Gültig für 7 Tage</Text>
+              <Text style={{ color: colors.textMuted, fontSize: 11, marginBottom: 20 }}>Gültig bis zur Registrierung</Text>
               <TouchableOpacity
                 style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 32 }}
                 onPress={() => { setShowCodeModal(false); setCreatedPlayerCode(null); setCreatedPlayerName(''); }}
