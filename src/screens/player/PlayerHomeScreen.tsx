@@ -9,50 +9,39 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
-  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { supabase } from '../../config/supabase';
 
-const POSITION_MAP: Record<string, string> = {
-  'TW': 'Torwart',
-  'IV': 'Innenverteidiger',
-  'LV': 'Linker Verteidiger',
-  'RV': 'Rechter Verteidiger',
-  'DM': 'Defensives Mittelfeld',
-  'ZM': 'Zentrales Mittelfeld',
-  'OM': 'Offensives Mittelfeld',
-  'LA': 'Linke Außenbahn',
-  'RA': 'Rechte Außenbahn',
-  'ST': 'Stürmer',
-};
-
 interface PlayerDetails {
   id: string;
   first_name: string;
   last_name: string;
-  nationality: string;
   birth_date: string;
-  club: string;
-  league: string;
-  position: string;
-  secondary_position: string;
-  contract_end: string;
-  photo_url: string;
-  strong_foot: string;
-  height: number;
   phone: string;
   phone_country_code: string;
   email: string;
-  instagram: string;
-  linkedin: string;
-  tiktok: string;
   street: string;
   postal_code: string;
   city: string;
+  education: string;
+  training: string;
+  interests: string;
+  father_name: string;
+  father_phone: string;
+  father_phone_country_code: string;
+  father_job: string;
+  mother_name: string;
+  mother_phone: string;
+  mother_phone_country_code: string;
+  mother_job: string;
+  siblings: string;
+  other_notes: string;
 }
+
+const PLAYER_FIELDS = 'id, first_name, last_name, birth_date, phone, phone_country_code, email, street, postal_code, city, education, training, interests, father_name, father_phone, father_phone_country_code, father_job, mother_name, mother_phone, mother_phone_country_code, mother_job, siblings, other_notes';
 
 function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return '-';
@@ -67,58 +56,74 @@ function formatDate(dateStr: string | null | undefined): string {
   }
 }
 
-function calculateAge(dateStr: string | null | undefined): number | null {
-  if (!dateStr) return null;
-  try {
-    const birth = new Date(dateStr);
-    const today = new Date();
-    let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      age--;
-    }
-    return age;
-  } catch {
-    return null;
-  }
-}
-
-function getPositionShort(position: string): string {
-  for (const [short, long] of Object.entries(POSITION_MAP)) {
-    if (long === position) return short;
-  }
-  return position;
-}
-
 export function PlayerHomeScreen() {
   const { session, profile, signOut, viewAsPlayer, setViewAsPlayer } = useAuth();
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
 
   const [player, setPlayer] = useState<PlayerDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [notLinked, setNotLinked] = useState(false);
 
-  // Editable section states
-  const [editingContact, setEditingContact] = useState(false);
-  const [editingAddress, setEditingAddress] = useState(false);
+  // Edit states
+  const [editingPrivat, setEditingPrivat] = useState(false);
+  const [editingFamilie, setEditingFamilie] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Edit form values
+  // Privat edit form
+  const [editBirthDate, setEditBirthDate] = useState('');
   const [editPhone, setEditPhone] = useState('');
+  const [editPhoneCountryCode, setEditPhoneCountryCode] = useState('');
   const [editEmail, setEditEmail] = useState('');
-  const [editInstagram, setEditInstagram] = useState('');
-  const [editLinkedin, setEditLinkedin] = useState('');
-  const [editTiktok, setEditTiktok] = useState('');
   const [editStreet, setEditStreet] = useState('');
   const [editPostalCode, setEditPostalCode] = useState('');
   const [editCity, setEditCity] = useState('');
+  const [editEducation, setEditEducation] = useState('');
+  const [editTraining, setEditTraining] = useState('');
+  const [editInterests, setEditInterests] = useState('');
+
+  // Familie edit form
+  const [editFatherName, setEditFatherName] = useState('');
+  const [editFatherPhone, setEditFatherPhone] = useState('');
+  const [editFatherPhoneCC, setEditFatherPhoneCC] = useState('');
+  const [editFatherJob, setEditFatherJob] = useState('');
+  const [editMotherName, setEditMotherName] = useState('');
+  const [editMotherPhone, setEditMotherPhone] = useState('');
+  const [editMotherPhoneCC, setEditMotherPhoneCC] = useState('');
+  const [editMotherJob, setEditMotherJob] = useState('');
+  const [editSiblings, setEditSiblings] = useState('');
+  const [editOtherNotes, setEditOtherNotes] = useState('');
+
+  const populatePrivatForm = (p: PlayerDetails) => {
+    setEditBirthDate(p.birth_date || '');
+    setEditPhone(p.phone || '');
+    setEditPhoneCountryCode(p.phone_country_code || '');
+    setEditEmail(p.email || '');
+    setEditStreet(p.street || '');
+    setEditPostalCode(p.postal_code || '');
+    setEditCity(p.city || '');
+    setEditEducation(p.education || '');
+    setEditTraining(p.training || '');
+    setEditInterests(p.interests || '');
+  };
+
+  const populateFamilieForm = (p: PlayerDetails) => {
+    setEditFatherName(p.father_name || '');
+    setEditFatherPhone(p.father_phone || '');
+    setEditFatherPhoneCC(p.father_phone_country_code || '');
+    setEditFatherJob(p.father_job || '');
+    setEditMotherName(p.mother_name || '');
+    setEditMotherPhone(p.mother_phone || '');
+    setEditMotherPhoneCC(p.mother_phone_country_code || '');
+    setEditMotherJob(p.mother_job || '');
+    setEditSiblings(p.siblings || '');
+    setEditOtherNotes(p.other_notes || '');
+  };
 
   const fetchPlayerDetails = useCallback(async () => {
     if (!session?.user?.id) return;
 
     try {
-      // First check if profile has a player_details_id
+      // Check if profile has a player_details_id
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('player_details_id')
@@ -131,57 +136,64 @@ export function PlayerHomeScreen() {
 
       let playerDetailsId = profileData?.player_details_id;
 
-      if (!playerDetailsId) {
+      if (!playerDetailsId && profile?.first_name && profile?.last_name) {
         // Try matching by name as fallback
-        if (profile?.first_name && profile?.last_name) {
-          const { data: matchData, error: matchError } = await supabase
-            .from('player_details')
-            .select('id')
-            .eq('first_name', profile.first_name)
-            .eq('last_name', profile.last_name)
-            .limit(1)
-            .single();
+        const { data: matchData, error: matchError } = await supabase
+          .from('player_details')
+          .select('id')
+          .eq('first_name', profile.first_name)
+          .eq('last_name', profile.last_name)
+          .limit(1)
+          .single();
 
-          if (!matchError && matchData) {
-            playerDetailsId = matchData.id;
-          }
+        if (!matchError && matchData) {
+          playerDetailsId = matchData.id;
         }
       }
 
+      // If still no match, create a new player_details row
       if (!playerDetailsId) {
-        setNotLinked(true);
-        setPlayer(null);
-        return;
+        const { data: newRow, error: createError } = await supabase
+          .from('player_details')
+          .insert({
+            first_name: profile?.first_name || '',
+            last_name: profile?.last_name || '',
+          })
+          .select('id')
+          .single();
+
+        if (createError) {
+          console.warn('Create player_details error:', createError);
+          setPlayer(null);
+          return;
+        }
+
+        playerDetailsId = newRow.id;
+
+        // Save back to profile for future lookups
+        await supabase
+          .from('profiles')
+          .update({ player_details_id: playerDetailsId })
+          .eq('id', session.user.id);
       }
 
       const { data: playerData, error: playerError } = await supabase
         .from('player_details')
-        .select('id, first_name, last_name, nationality, birth_date, club, league, position, secondary_position, contract_end, photo_url, strong_foot, height, phone, phone_country_code, email, instagram, linkedin, tiktok, street, postal_code, city')
+        .select(PLAYER_FIELDS)
         .eq('id', playerDetailsId)
         .single();
 
       if (playerError) {
         console.warn('Player details fetch error:', playerError);
-        setNotLinked(true);
         setPlayer(null);
         return;
       }
 
       setPlayer(playerData);
-      setNotLinked(false);
-
-      // Populate edit forms
-      setEditPhone(playerData.phone || '');
-      setEditEmail(playerData.email || '');
-      setEditInstagram(playerData.instagram || '');
-      setEditLinkedin(playerData.linkedin || '');
-      setEditTiktok(playerData.tiktok || '');
-      setEditStreet(playerData.street || '');
-      setEditPostalCode(playerData.postal_code || '');
-      setEditCity(playerData.city || '');
+      populatePrivatForm(playerData);
+      populateFamilieForm(playerData);
     } catch (error) {
       console.warn('fetchPlayerDetails exception:', error);
-      setNotLinked(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -197,27 +209,35 @@ export function PlayerHomeScreen() {
     fetchPlayerDetails();
   }, [fetchPlayerDetails]);
 
-  const saveContact = async () => {
+  const savePrivat = async () => {
     if (!player) return;
     setSaving(true);
     try {
+      const updateData: any = {
+        birth_date: editBirthDate || null,
+        phone: editPhone,
+        phone_country_code: editPhoneCountryCode,
+        email: editEmail,
+        street: editStreet,
+        postal_code: editPostalCode,
+        city: editCity,
+        education: editEducation,
+        training: editTraining,
+        interests: editInterests,
+      };
+
       const { error } = await supabase
         .from('player_details')
-        .update({
-          phone: editPhone,
-          email: editEmail,
-          instagram: editInstagram,
-          linkedin: editLinkedin,
-          tiktok: editTiktok,
-        })
+        .update(updateData)
         .eq('id', player.id);
 
       if (error) {
-        Alert.alert('Fehler', 'Kontaktdaten konnten nicht gespeichert werden.');
-        console.warn('Save contact error:', error);
+        Alert.alert('Fehler', 'Daten konnten nicht gespeichert werden.');
+        console.warn('Save privat error:', error);
       } else {
-        setPlayer({ ...player, phone: editPhone, email: editEmail, instagram: editInstagram, linkedin: editLinkedin, tiktok: editTiktok });
-        setEditingContact(false);
+        const updated = { ...player, ...updateData };
+        setPlayer(updated);
+        setEditingPrivat(false);
       }
     } catch (e) {
       Alert.alert('Fehler', 'Ein unerwarteter Fehler ist aufgetreten.');
@@ -226,25 +246,35 @@ export function PlayerHomeScreen() {
     }
   };
 
-  const saveAddress = async () => {
+  const saveFamilie = async () => {
     if (!player) return;
     setSaving(true);
     try {
+      const updateData: any = {
+        father_name: editFatherName,
+        father_phone: editFatherPhone,
+        father_phone_country_code: editFatherPhoneCC,
+        father_job: editFatherJob,
+        mother_name: editMotherName,
+        mother_phone: editMotherPhone,
+        mother_phone_country_code: editMotherPhoneCC,
+        mother_job: editMotherJob,
+        siblings: editSiblings,
+        other_notes: editOtherNotes,
+      };
+
       const { error } = await supabase
         .from('player_details')
-        .update({
-          street: editStreet,
-          postal_code: editPostalCode,
-          city: editCity,
-        })
+        .update(updateData)
         .eq('id', player.id);
 
       if (error) {
-        Alert.alert('Fehler', 'Adresse konnte nicht gespeichert werden.');
-        console.warn('Save address error:', error);
+        Alert.alert('Fehler', 'Familiendaten konnten nicht gespeichert werden.');
+        console.warn('Save familie error:', error);
       } else {
-        setPlayer({ ...player, street: editStreet, postal_code: editPostalCode, city: editCity });
-        setEditingAddress(false);
+        const updated = { ...player, ...updateData };
+        setPlayer(updated);
+        setEditingFamilie(false);
       }
     } catch (e) {
       Alert.alert('Fehler', 'Ein unerwarteter Fehler ist aufgetreten.');
@@ -253,20 +283,14 @@ export function PlayerHomeScreen() {
     }
   };
 
-  const cancelContactEdit = () => {
-    setEditPhone(player?.phone || '');
-    setEditEmail(player?.email || '');
-    setEditInstagram(player?.instagram || '');
-    setEditLinkedin(player?.linkedin || '');
-    setEditTiktok(player?.tiktok || '');
-    setEditingContact(false);
+  const cancelPrivatEdit = () => {
+    if (player) populatePrivatForm(player);
+    setEditingPrivat(false);
   };
 
-  const cancelAddressEdit = () => {
-    setEditStreet(player?.street || '');
-    setEditPostalCode(player?.postal_code || '');
-    setEditCity(player?.city || '');
-    setEditingAddress(false);
+  const cancelFamilieEdit = () => {
+    if (player) populateFamilieForm(player);
+    setEditingFamilie(false);
   };
 
   if (loading) {
@@ -280,8 +304,19 @@ export function PlayerHomeScreen() {
     );
   }
 
-  const age = player ? calculateAge(player.birth_date) : null;
-  const posShort = player ? getPositionShort(player.position) : '';
+  const playerName = player
+    ? `${player.first_name || ''} ${player.last_name || ''}`.trim()
+    : `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim();
+
+  const formatPhone = (phone: string | null | undefined, cc: string | null | undefined) => {
+    if (!phone) return '-';
+    return `${cc || ''} ${phone}`.trim();
+  };
+
+  const formatAddress = (street: string | null | undefined, plz: string | null | undefined, city: string | null | undefined) => {
+    const parts = [street, [plz, city].filter(Boolean).join(' ')].filter(Boolean);
+    return parts.length > 0 ? parts.join(', ') : '-';
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -298,172 +333,166 @@ export function PlayerHomeScreen() {
             style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#3b82f6', paddingVertical: 8, paddingHorizontal: 14, borderRadius: 8, marginBottom: 16, alignSelf: 'flex-start' }}
             onPress={() => setViewAsPlayer(false)}
           >
-            <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>← Zurück zur Berater-Ansicht</Text>
+            <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>{'\u2190'} Zur{'\u00FC'}ck zur Berater-Ansicht</Text>
           </TouchableOpacity>
         )}
 
         {/* Header */}
-        <Text style={[styles.screenTitle, { color: colors.text }]}>KMH Spielerprofil</Text>
+        <Text style={[styles.screenTitle, { color: colors.text }]}>Mein Profil</Text>
+        {playerName ? (
+          <Text style={[styles.playerNameHeader, { color: colors.textSecondary }]}>{playerName}</Text>
+        ) : null}
 
-        {notLinked || !player ? (
-          /* Not Linked State */
-          <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
-            <Text style={[styles.notLinkedTitle, { color: colors.text }]}>Profil nicht verkn{'\u00FC'}pft</Text>
-            <Text style={[styles.notLinkedText, { color: colors.textSecondary }]}>
-              Dein Profil wurde noch nicht verkn{'\u00FC'}pft. Bitte wende dich an deinen Berater.
-            </Text>
+        {/* ========== PRIVAT CARD ========== */}
+        <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+          <View style={styles.cardHeader}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Privat</Text>
+            {!editingPrivat ? (
+              <TouchableOpacity
+                style={[styles.editButton, { backgroundColor: colors.primary }]}
+                onPress={() => setEditingPrivat(true)}
+              >
+                <Text style={[styles.editButtonText, { color: colors.primaryText }]}>Bearbeiten</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
-        ) : (
-          <>
-            {/* Profile Header Card */}
-            <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
-              <View style={styles.profileHeader}>
-                {player.photo_url ? (
-                  <Image source={{ uri: player.photo_url }} style={styles.profilePhoto} />
-                ) : (
-                  <View style={[styles.profilePhotoPlaceholder, { backgroundColor: colors.surfaceSecondary }]}>
-                    <Text style={[styles.profilePhotoInitials, { color: colors.textMuted }]}>
-                      {(player.first_name?.[0] || '')}{(player.last_name?.[0] || '')}
-                    </Text>
-                  </View>
-                )}
-                <View style={styles.profileHeaderInfo}>
-                  <Text style={[styles.playerName, { color: colors.text }]}>
-                    {player.first_name} {player.last_name}
-                  </Text>
-                  <Text style={[styles.playerMeta, { color: colors.textSecondary }]}>
-                    {posShort}{player.club ? ` \u00B7 ${player.club}` : ''}{player.league ? ` \u00B7 ${player.league}` : ''}
-                  </Text>
-                  {player.birth_date ? (
-                    <Text style={[styles.playerMeta, { color: colors.textSecondary }]}>
-                      {formatDate(player.birth_date)}{age !== null ? ` (${age})` : ''}
-                    </Text>
-                  ) : null}
-                </View>
-              </View>
-            </View>
 
-            {/* Vertrag Card */}
-            <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>VERTRAG</Text>
-              <InfoRow label="Verein" value={player.club} colors={colors} />
-              <InfoRow label="Liga" value={player.league} colors={colors} />
-              <InfoRow label="Position" value={player.position || posShort} colors={colors} />
-              {player.secondary_position ? (
-                <InfoRow label="Nebenposition" value={player.secondary_position} colors={colors} />
-              ) : null}
-              <InfoRow label="Vertragsende" value={formatDate(player.contract_end)} colors={colors} />
-            </View>
-
-            {/* Allgemein Card */}
-            <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>ALLGEMEIN</Text>
-              <InfoRow label="Nationalit{'\u00E4'}t" value={player.nationality} colors={colors} />
-              <InfoRow label="Gr{'\u00F6'}{'\u00DF'}e" value={player.height ? `${player.height} cm` : '-'} colors={colors} />
-              <InfoRow label="Starker Fu{'\u00DF'}" value={player.strong_foot} colors={colors} />
-            </View>
-
-            {/* Kontaktdaten Card */}
-            <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
-              <View style={styles.sectionHeader}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>KONTAKTDATEN</Text>
-                {!editingContact ? (
-                  <TouchableOpacity
-                    style={[styles.editButton, { backgroundColor: colors.primary }]}
-                    onPress={() => setEditingContact(true)}
-                  >
-                    <Text style={[styles.editButtonText, { color: colors.primaryText }]}>Bearbeiten</Text>
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-
-              {editingContact ? (
-                <View style={styles.editForm}>
+          {editingPrivat ? (
+            <View style={styles.editForm}>
+              <View style={styles.twoColumns}>
+                <View style={styles.column}>
+                  <EditField label="Geburtsdatum" value={editBirthDate} onChangeText={setEditBirthDate} colors={colors} placeholder="YYYY-MM-DD" />
+                  <EditField label="Ländervorwahl" value={editPhoneCountryCode} onChangeText={setEditPhoneCountryCode} colors={colors} placeholder="+49" keyboardType="phone-pad" />
                   <EditField label="Telefon" value={editPhone} onChangeText={setEditPhone} colors={colors} keyboardType="phone-pad" />
                   <EditField label="E-Mail" value={editEmail} onChangeText={setEditEmail} colors={colors} keyboardType="email-address" />
-                  <EditField label="Instagram" value={editInstagram} onChangeText={setEditInstagram} colors={colors} placeholder="@benutzername" />
-                  <EditField label="LinkedIn" value={editLinkedin} onChangeText={setEditLinkedin} colors={colors} placeholder="Profil-URL" />
-                  <EditField label="TikTok" value={editTiktok} onChangeText={setEditTiktok} colors={colors} placeholder="@benutzername" />
-                  <View style={styles.editActions}>
-                    <TouchableOpacity
-                      style={[styles.cancelButton, { borderColor: colors.border }]}
-                      onPress={cancelContactEdit}
-                    >
-                      <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.saveButton, { backgroundColor: colors.primary }]}
-                      onPress={saveContact}
-                      disabled={saving}
-                    >
-                      {saving ? (
-                        <ActivityIndicator size="small" color={colors.primaryText} />
-                      ) : (
-                        <Text style={[styles.saveButtonText, { color: colors.primaryText }]}>Speichern</Text>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ) : (
-                <View>
-                  <InfoRow label="Telefon" value={player.phone ? `${player.phone_country_code || ''} ${player.phone}`.trim() : '-'} colors={colors} />
-                  <InfoRow label="E-Mail" value={player.email} colors={colors} />
-                  <InfoRow label="Instagram" value={player.instagram} colors={colors} />
-                  <InfoRow label="LinkedIn" value={player.linkedin} colors={colors} />
-                  <InfoRow label="TikTok" value={player.tiktok} colors={colors} />
-                </View>
-              )}
-            </View>
-
-            {/* Adresse Card */}
-            <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
-              <View style={styles.sectionHeader}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>ADRESSE</Text>
-                {!editingAddress ? (
-                  <TouchableOpacity
-                    style={[styles.editButton, { backgroundColor: colors.primary }]}
-                    onPress={() => setEditingAddress(true)}
-                  >
-                    <Text style={[styles.editButtonText, { color: colors.primaryText }]}>Bearbeiten</Text>
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-
-              {editingAddress ? (
-                <View style={styles.editForm}>
                   <EditField label="Stra{'\u00DF'}e" value={editStreet} onChangeText={setEditStreet} colors={colors} />
                   <EditField label="PLZ" value={editPostalCode} onChangeText={setEditPostalCode} colors={colors} keyboardType="numeric" />
                   <EditField label="Stadt" value={editCity} onChangeText={setEditCity} colors={colors} />
-                  <View style={styles.editActions}>
-                    <TouchableOpacity
-                      style={[styles.cancelButton, { borderColor: colors.border }]}
-                      onPress={cancelAddressEdit}
-                    >
-                      <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.saveButton, { backgroundColor: colors.primary }]}
-                      onPress={saveAddress}
-                      disabled={saving}
-                    >
-                      {saving ? (
-                        <ActivityIndicator size="small" color={colors.primaryText} />
-                      ) : (
-                        <Text style={[styles.saveButtonText, { color: colors.primaryText }]}>Speichern</Text>
-                      )}
-                    </TouchableOpacity>
-                  </View>
                 </View>
-              ) : (
-                <View>
-                  <InfoRow label="Stra{'\u00DF'}e" value={player.street} colors={colors} />
-                  <InfoRow label="PLZ" value={player.postal_code} colors={colors} />
-                  <InfoRow label="Stadt" value={player.city} colors={colors} />
+                <View style={styles.column}>
+                  <EditField label="Schulabschluss" value={editEducation} onChangeText={setEditEducation} colors={colors} />
+                  <EditField label="Ausbildung/Studium" value={editTraining} onChangeText={setEditTraining} colors={colors} />
+                  <EditField label="Weitere Interessen" value={editInterests} onChangeText={setEditInterests} colors={colors} />
                 </View>
-              )}
+              </View>
+              <View style={styles.editActions}>
+                <TouchableOpacity
+                  style={[styles.cancelButton, { borderColor: colors.border }]}
+                  onPress={cancelPrivatEdit}
+                >
+                  <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.saveButton, { backgroundColor: colors.primary }]}
+                  onPress={savePrivat}
+                  disabled={saving}
+                >
+                  {saving ? (
+                    <ActivityIndicator size="small" color={colors.primaryText} />
+                  ) : (
+                    <Text style={[styles.saveButtonText, { color: colors.primaryText }]}>Speichern</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
-          </>
-        )}
+          ) : (
+            <View style={styles.twoColumns}>
+              <View style={styles.column}>
+                <InfoRow label="Geburtsdatum" value={formatDate(player?.birth_date)} colors={colors} />
+                <InfoRow label="Telefon" value={formatPhone(player?.phone, player?.phone_country_code)} colors={colors} />
+                <InfoRow label="E-Mail" value={player?.email || '-'} colors={colors} />
+                <InfoRow label="Adresse" value={formatAddress(player?.street, player?.postal_code, player?.city)} colors={colors} />
+              </View>
+              <View style={styles.column}>
+                <InfoRow label="Schulabschluss" value={player?.education || '-'} colors={colors} />
+                <InfoRow label="Ausbildung/Studium" value={player?.training || '-'} colors={colors} />
+                <InfoRow label="Weitere Interessen" value={player?.interests || '-'} colors={colors} />
+              </View>
+            </View>
+          )}
+        </View>
+
+        {/* ========== FAMILIE CARD ========== */}
+        <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+          <View style={styles.cardHeader}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Familie</Text>
+            {!editingFamilie ? (
+              <TouchableOpacity
+                style={[styles.editButton, { backgroundColor: colors.primary }]}
+                onPress={() => setEditingFamilie(true)}
+              >
+                <Text style={[styles.editButtonText, { color: colors.primaryText }]}>Bearbeiten</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+
+          {editingFamilie ? (
+            <View style={styles.editForm}>
+              <View style={styles.twoColumns}>
+                <View style={styles.column}>
+                  <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>Vater</Text>
+                  <EditField label="Name" value={editFatherName} onChangeText={setEditFatherName} colors={colors} />
+                  <EditField label="Ländervorwahl" value={editFatherPhoneCC} onChangeText={setEditFatherPhoneCC} colors={colors} placeholder="+49" keyboardType="phone-pad" />
+                  <EditField label="Telefon" value={editFatherPhone} onChangeText={setEditFatherPhone} colors={colors} keyboardType="phone-pad" />
+                  <EditField label="Job" value={editFatherJob} onChangeText={setEditFatherJob} colors={colors} />
+
+                  <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, marginTop: 8 }]}>Mutter</Text>
+                  <EditField label="Name" value={editMotherName} onChangeText={setEditMotherName} colors={colors} />
+                  <EditField label="Ländervorwahl" value={editMotherPhoneCC} onChangeText={setEditMotherPhoneCC} colors={colors} placeholder="+49" keyboardType="phone-pad" />
+                  <EditField label="Telefon" value={editMotherPhone} onChangeText={setEditMotherPhone} colors={colors} keyboardType="phone-pad" />
+                  <EditField label="Job" value={editMotherJob} onChangeText={setEditMotherJob} colors={colors} />
+                </View>
+                <View style={styles.column}>
+                  <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>Geschwister</Text>
+                  <EditField label="Name" value={editSiblings} onChangeText={setEditSiblings} colors={colors} />
+
+                  <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, marginTop: 8 }]}>Sonstiges</Text>
+                  <EditField label="Notizen" value={editOtherNotes} onChangeText={setEditOtherNotes} colors={colors} multiline />
+                </View>
+              </View>
+              <View style={styles.editActions}>
+                <TouchableOpacity
+                  style={[styles.cancelButton, { borderColor: colors.border }]}
+                  onPress={cancelFamilieEdit}
+                >
+                  <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.saveButton, { backgroundColor: colors.primary }]}
+                  onPress={saveFamilie}
+                  disabled={saving}
+                >
+                  {saving ? (
+                    <ActivityIndicator size="small" color={colors.primaryText} />
+                  ) : (
+                    <Text style={[styles.saveButtonText, { color: colors.primaryText }]}>Speichern</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.twoColumns}>
+              <View style={styles.column}>
+                <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>Vater</Text>
+                <InfoRow label="Name" value={player?.father_name || '-'} colors={colors} />
+                <InfoRow label="Telefon" value={formatPhone(player?.father_phone, player?.father_phone_country_code)} colors={colors} />
+                <InfoRow label="Job" value={player?.father_job || '-'} colors={colors} />
+
+                <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, marginTop: 8 }]}>Mutter</Text>
+                <InfoRow label="Name" value={player?.mother_name || '-'} colors={colors} />
+                <InfoRow label="Telefon" value={formatPhone(player?.mother_phone, player?.mother_phone_country_code)} colors={colors} />
+                <InfoRow label="Job" value={player?.mother_job || '-'} colors={colors} />
+              </View>
+              <View style={styles.column}>
+                <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>Geschwister</Text>
+                <InfoRow label="Name" value={player?.siblings || '-'} colors={colors} />
+
+                <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, marginTop: 8 }]}>Sonstiges</Text>
+                <Text style={[styles.valueText, { color: colors.text }]}>{player?.other_notes || '-'}</Text>
+              </View>
+            </View>
+          )}
+        </View>
 
         {/* Logout Button */}
         <TouchableOpacity
@@ -480,11 +509,11 @@ export function PlayerHomeScreen() {
 }
 
 /* Info Row Component */
-function InfoRow({ label, value, colors }: { label: string; value: string | null | undefined; colors: any }) {
+function InfoRow({ label, value, colors }: { label: string; value: string; colors: any }) {
   return (
     <View style={styles.infoRow}>
       <Text style={[styles.infoLabel, { color: colors.textMuted }]}>{label}</Text>
-      <Text style={[styles.infoValue, { color: colors.text }]}>{value || '-'}</Text>
+      <Text style={[styles.infoValue, { color: colors.text }]}>{value}</Text>
     </View>
   );
 }
@@ -497,6 +526,7 @@ function EditField({
   colors,
   placeholder,
   keyboardType,
+  multiline,
 }: {
   label: string;
   value: string;
@@ -504,18 +534,25 @@ function EditField({
   colors: any;
   placeholder?: string;
   keyboardType?: 'default' | 'email-address' | 'phone-pad' | 'numeric';
+  multiline?: boolean;
 }) {
   return (
     <View style={styles.editFieldContainer}>
       <Text style={[styles.editFieldLabel, { color: colors.textMuted }]}>{label}</Text>
       <TextInput
-        style={[styles.editFieldInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+        style={[
+          styles.editFieldInput,
+          multiline ? styles.multilineInput : null,
+          { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text },
+        ]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder || label}
         placeholderTextColor={colors.textMuted}
         keyboardType={keyboardType || 'default'}
         autoCapitalize="none"
+        multiline={multiline}
+        numberOfLines={multiline ? 3 : 1}
       />
     </View>
   );
@@ -543,6 +580,10 @@ const styles = StyleSheet.create({
   screenTitle: {
     fontSize: 20,
     fontWeight: 'bold',
+    marginBottom: 2,
+  },
+  playerNameHeader: {
+    fontSize: 12,
     marginBottom: 16,
   },
   card: {
@@ -551,76 +592,46 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
   },
-  notLinkedTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  notLinkedText: {
-    fontSize: 11,
-    lineHeight: 16,
-  },
-  profileHeader: {
+  cardHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 12,
   },
-  profilePhoto: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    marginRight: 14,
+  cardTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
-  profilePhotoPlaceholder: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    marginRight: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  profilePhotoInitials: {
-    fontSize: 20,
-    fontWeight: '600',
-  },
-  profileHeaderInfo: {
-    flex: 1,
-  },
-  playerName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 2,
-  },
-  playerMeta: {
-    fontSize: 11,
+  sectionSubtitle: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginBottom: 4,
     marginTop: 2,
   },
-  sectionHeader: {
+  twoColumns: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
+    gap: 16,
   },
-  sectionTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1,
-    marginBottom: 10,
+  column: {
+    flex: 1,
   },
   infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 4,
+    marginBottom: 6,
   },
   infoLabel: {
-    fontSize: 11,
+    fontSize: 10,
+    marginBottom: 1,
   },
   infoValue: {
     fontSize: 11,
     fontWeight: '500',
-    textAlign: 'right',
-    flex: 1,
-    marginLeft: 12,
+  },
+  valueText: {
+    fontSize: 11,
+    fontWeight: '500',
   },
   editButton: {
     paddingHorizontal: 10,
@@ -635,24 +646,28 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   editFieldContainer: {
-    marginBottom: 10,
+    marginBottom: 8,
   },
   editFieldLabel: {
-    fontSize: 11,
-    marginBottom: 4,
+    fontSize: 10,
+    marginBottom: 3,
   },
   editFieldInput: {
     fontSize: 11,
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingVertical: 7,
+  },
+  multilineInput: {
+    minHeight: 60,
+    textAlignVertical: 'top',
   },
   editActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     gap: 8,
-    marginTop: 8,
+    marginTop: 10,
   },
   cancelButton: {
     paddingHorizontal: 14,
