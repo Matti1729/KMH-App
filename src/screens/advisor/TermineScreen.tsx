@@ -1491,31 +1491,14 @@ END:VEVENT
       <View style={[styles.scoutingMainContent, { backgroundColor: colors.background }]}>
         {/* Header Banner */}
         <Pressable style={[styles.scoutingHeaderBanner, { backgroundColor: colors.surface, borderBottomColor: colors.border }]} onPress={closeAllGameDropdowns}>
-          <TouchableOpacity style={{ paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }} onPress={() => setViewMode('dashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
+          <View style={{ width: 40 }} />
           <View style={styles.scoutingHeaderBannerCenter}>
             <Text style={[styles.scoutingTitle, { color: colors.text }]}>Spiele unserer Spieler</Text>
             <Text style={[styles.scoutingSubtitle, { color: colors.textSecondary }]}>
               {playersWithUrl.length} Spieler • {playerGames.length} Spiele geladen
             </Text>
           </View>
-          <View style={styles.headerButtonsRow}>
-            {getSelectedGamesCount() > 0 && (
-              <TouchableOpacity style={styles.exportButton} onPress={exportSelectedToCalendar}>
-                <Text style={styles.exportButtonText}>📅 {getSelectedGamesCount()} exportieren</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, syncingGames && { opacity: 0.6 }]}
-              onPress={handleSyncGames}
-              disabled={syncingGames}
-            >
-              <Text style={[styles.scoutingFilterButtonText, { color: colors.textSecondary }]}>
-                {syncingGames
-                  ? (syncProgress ? `⏳ ${syncProgress.current}/${syncProgress.total}` : '⏳ Lädt...')
-                  : 'Aktualisieren'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <View style={{ width: 40 }} />
         </Pressable>
 
         {/* Sync Progress */}
@@ -1549,6 +1532,7 @@ END:VEVENT
 
         {/* Toolbar */}
         <Pressable style={[styles.scoutingToolbar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]} onPress={closeAllGameDropdowns}>
+          <TouchableOpacity style={{ paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }} onPress={() => setViewMode('dashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
           <Pressable style={[styles.spieleSearchContainer, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={closeAllGameDropdowns}>
             <Text style={styles.scoutingSearchIcon}>🔍</Text>
             <TextInput
@@ -1657,6 +1641,18 @@ END:VEVENT
                 </Pressable>
               )}
             </View>
+            {getSelectedGamesCount() > 0 && (
+              <TouchableOpacity style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={exportSelectedToCalendar}>
+                <Text style={[styles.scoutingFilterButtonText, { color: colors.textSecondary }]}>📅 {getSelectedGamesCount()}</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, syncingGames && { opacity: 0.6 }]}
+              onPress={handleSyncGames}
+              disabled={syncingGames}
+            >
+              <Ionicons name="refresh-outline" size={13} color={syncingGames ? colors.textMuted : colors.textSecondary} />
+            </TouchableOpacity>
           </View>
         </Pressable>
 
