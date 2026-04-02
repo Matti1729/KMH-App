@@ -3415,7 +3415,7 @@ const styles = StyleSheet.create({
   scoutingSubtitle: { fontSize: 11, color: '#64748b', marginTop: 4 },
   headerButtonsRow: { flexDirection: 'row', gap: 8 },
   scoutingToolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, zIndex: 100 },
-  spieleSearchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', paddingHorizontal: 12, flex: 1, maxWidth: 600 },
+  spieleSearchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', paddingHorizontal: 12, flex: 1 },
   scoutingSearchIcon: { fontSize: 16, marginRight: 8 },
   scoutingSearchInput: { flex: 1, paddingVertical: 6, fontSize: 11, outlineStyle: 'none' as any },
   scoutingFilterContainer: { flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: 16 },
