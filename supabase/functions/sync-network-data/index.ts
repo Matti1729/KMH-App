@@ -58,18 +58,30 @@ async function fetchTrainerProfile(url: string): Promise<any> {
 
     const profile: any = {};
 
-    // Verein (aus data-header__club)
+    // Verein (aus data-header__club) — Name + verein-ID aus Link
+    let isVereinlos = false;
+    let vereinId: string | null = null;
     const clubMatch = html.match(/data-header__club"[^>]*>\s*<a\s+title="([^"]+)"/);
     if (clubMatch) {
       const club = clubMatch[1].trim();
       if (club && club !== 'Vereinslos' && club !== 'pausiert') {
         profile.verein = club;
+      } else {
+        isVereinlos = true;
+        profile.verein = 'Vereinslos';
       }
     }
+    const clubIdMatch = html.match(/data-header__club"[^>]*>\s*<a[^>]*href="[^"]*\/startseite\/verein\/(\d+)"/);
+    if (clubIdMatch) vereinId = clubIdMatch[1];
 
-    // Logo
-    const logoMatch = html.match(/tmssl\.akamaized\.net\/\/images\/wappen\/(?:normquad|small|big)\/(\d+)\.png/);
-    if (logoMatch) profile.logoUrl = `https://tmssl.akamaized.net//images/wappen/big/${logoMatch[1]}.png`;
+    // Logo: bevorzugt aus verein-ID konstruiert (zuverlässig dem aktuellen Verein zugeordnet),
+    // sonst Fallback auf ersten Logo-Match im HTML (Alt-Verhalten)
+    if (vereinId && !isVereinlos) {
+      profile.logoUrl = `https://tmssl.akamaized.net//images/wappen/big/${vereinId}.png`;
+    } else {
+      const logoMatch = html.match(/tmssl\.akamaized\.net\/\/images\/wappen\/(?:normquad|small|big)\/(\d+)\.png/);
+      if (logoMatch) profile.logoUrl = `https://tmssl.akamaized.net//images/wappen/big/${logoMatch[1]}.png`;
+    }
 
     // Alle aktiven Stationen extrahieren (Amtsaustritt = "-")
     const positions = new Set<string>();
@@ -81,10 +93,21 @@ async function fetchTrainerProfile(url: string): Promise<any> {
     for (const row of stationRows) {
       if (!row.includes('hauptlink')) continue;
       // Funktion
+      let funktion = '';
       const funktionMatch = row.match(/<br\s*\/?>\s*([^<]+)<\/td>/);
       if (funktionMatch) {
-        const funktion = funktionMatch[1].trim();
+        funktion = funktionMatch[1].trim();
         if (funktion && funktion !== '-') positions.add(funktion);
+      }
+      // Funktion auf U-Klasse / II prüfen (z.B. "Trainer U19", "Co-Trainer II")
+      const funkMMatch = funktion.match(/\b(U\d{2}|II)\b/);
+      if (funkMMatch) {
+        mannschaften.add(funkMMatch[1].toUpperCase());
+        hasNachwuchs = true;
+      }
+      // Nachwuchs-Keywords im Funktionstext (z.B. "Jugendtrainer", "NLZ-Koordinator")
+      if (/\b(jugend|nachwuchs|nlz|academy|youth|junior|reserve)\b/i.test(funktion)) {
+        hasNachwuchs = true;
       }
       // Vereinsname der Station → Mannschaft extrahieren
       const stationClub = row.match(/title="([^"]+)"[^>]*href="[^"]*\/startseite\/verein/);
@@ -107,7 +130,14 @@ async function fetchTrainerProfile(url: string): Promise<any> {
       const headerFunktion = html.match(/data-header__label">\s*<b>\s*([^<]+)/);
       if (headerFunktion) positions.add(headerFunktion[1].trim());
     }
-    profile.position = Array.from(positions).join(', ');
+    // Ungültige Positionstexte filtern (Spieler-Infos, Karriereende, etc.)
+    const invalidPatterns = /War Spieler|Karriereende|Letzter Verein|Ex-Profi|Ehemaliger/i;
+    const cleanPositions = Array.from(positions).filter(p => !invalidPatterns.test(p));
+    if (isVereinlos && cleanPositions.length > 0) {
+      profile.position = 'Letzter Posten: ' + cleanPositions.join(', ');
+    } else {
+      profile.position = cleanPositions.join(', ');
+    }
 
     // Mannschaft
     if (mannschaften.size > 0) {
@@ -133,9 +163,17 @@ async function fetchTrainerProfile(url: string): Promise<any> {
     // Mannschaft:
     // Nachwuchs + spezifische U-Mannschaft gefunden → anzeigen (z.B. "II, U19, U17")
     // Nachwuchs + keine U-Mannschaft gefunden → leer
-    // Herren → "1. Mannschaft"
+    // Herren + eindeutige Herren-Position → "1. Mannschaft"
+    // Sonst (mehrdeutig, z.B. Co-Trainer ohne Team-Kontext) → leer statt falschem Default
+    const HERREN_EINDEUTIG = /\b(Cheftrainer|Sportdirektor|Präsident|Vorstand|Geschäftsführer|Sportvorstand|Vorstandsvorsitzender)\b/i;
     if (!profile.mannschaft) {
-      profile.mannschaft = hasNachwuchs ? '' : '1. Mannschaft';
+      if (hasNachwuchs) {
+        profile.mannschaft = '';
+      } else if (HERREN_EINDEUTIG.test(profile.position)) {
+        profile.mannschaft = '1. Mannschaft';
+      } else {
+        profile.mannschaft = '';
+      }
     }
 
     // Verein bereinigen (Hauptverein ohne U-Suffix)
@@ -177,7 +215,15 @@ serve(async (req: Request) => {
 
     let fast = false;
     let singleUrl: string | null = null;
-    try { const body = await req.json(); fast = body?.fast === true; singleUrl = body?.singleUrl || null; } catch {}
+    let offset = 0;
+    let limit = 0;
+    try {
+      const body = await req.json();
+      fast = body?.fast === true;
+      singleUrl = body?.singleUrl || null;
+      offset = Number.isFinite(body?.offset) ? Math.max(0, body.offset) : 0;
+      limit = Number.isFinite(body?.limit) ? Math.max(0, body.limit) : 0;
+    } catch {}
 
     // Single-Profile-Modus: Ein Profil fetchen und zurückgeben
     if (singleUrl) {
@@ -190,12 +236,15 @@ serve(async (req: Request) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Alle Kontakte mit TM-URL laden
-    const { data: contacts, error } = await supabase
+    // Alle Kontakte mit TM-URL laden (optional paginiert)
+    let query = supabase
       .from("football_network_contacts")
       .select("id, vorname, nachname, transfermarkt_url")
       .not("transfermarkt_url", "is", null)
-      .neq("transfermarkt_url", "");
+      .neq("transfermarkt_url", "")
+      .order("id", { ascending: true });
+    if (limit > 0) query = query.range(offset, offset + limit - 1);
+    const { data: contacts, error } = await query;
 
     if (error || !contacts || contacts.length === 0) {
       return new Response(
@@ -251,7 +300,7 @@ serve(async (req: Request) => {
       }
     }
 
-    const result = { synced, total: contacts.length, errors: errors.length > 0 ? errors : undefined, message: `${synced}/${contacts.length} Kontakte aktualisiert` };
+    const result = { synced, total: contacts.length, offset, limit, nextOffset: limit > 0 ? offset + contacts.length : null, errors: errors.length > 0 ? errors : undefined, message: `${synced}/${contacts.length} Kontakte aktualisiert (offset ${offset})` };
     console.log("Network sync complete:", JSON.stringify(result));
 
     return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });

@@ -25,16 +25,48 @@ const ALL_POSITIONS = [...new Set([...POSITIONS_HERREN, ...POSITIONS_NACHWUCHS])
 const MANNSCHAFTEN_HERREN = ['1. Mannschaft', 'U23'];
 const MANNSCHAFTEN_NACHWUCHS = ['U19', 'U17', 'U16', 'U15', 'U14', 'U13'];
 const COUNTRY_CODES = [
-  { code: '+49', country: 'Deutschland' }, { code: '+43', country: 'Österreich' }, { code: '+41', country: 'Schweiz' },
-  { code: '+31', country: 'Niederlande' }, { code: '+32', country: 'Belgien' }, { code: '+33', country: 'Frankreich' },
-  { code: '+44', country: 'UK' }, { code: '+39', country: 'Italien' }, { code: '+34', country: 'Spanien' },
-  { code: '+48', country: 'Polen' }, { code: '+90', country: 'Türkei' },
+  { code: '+54', country: 'Argentinien' },
+  { code: '+61', country: 'Australien' },
+  { code: '+32', country: 'Belgien' },
+  { code: '+55', country: 'Brasilien' },
+  { code: '+56', country: 'Chile' },
+  { code: '+86', country: 'China' },
+  { code: '+45', country: 'Dänemark' },
+  { code: '+49', country: 'Deutschland' },
+  { code: '+358', country: 'Finnland' },
+  { code: '+33', country: 'Frankreich' },
+  { code: '+30', country: 'Griechenland' },
+  { code: '+39', country: 'Italien' },
+  { code: '+81', country: 'Japan' },
+  { code: '+57', country: 'Kolumbien' },
+  { code: '+385', country: 'Kroatien' },
+  { code: '+52', country: 'Mexiko' },
+  { code: '+31', country: 'Niederlande' },
+  { code: '+47', country: 'Norwegen' },
+  { code: '+43', country: 'Österreich' },
+  { code: '+48', country: 'Polen' },
+  { code: '+351', country: 'Portugal' },
+  { code: '+7', country: 'Russland' },
+  { code: '+966', country: 'Saudi-Arabien' },
+  { code: '+46', country: 'Schweden' },
+  { code: '+41', country: 'Schweiz' },
+  { code: '+381', country: 'Serbien' },
+  { code: '+34', country: 'Spanien' },
+  { code: '+82', country: 'Südkorea' },
+  { code: '+420', country: 'Tschechien' },
+  { code: '+90', country: 'Türkei' },
+  { code: '+971', country: 'UAE' },
+  { code: '+380', country: 'Ukraine' },
+  { code: '+36', country: 'Ungarn' },
+  { code: '+44', country: 'UK' },
+  { code: '+1', country: 'USA/Kanada' },
 ];
 
 interface Contact {
   id: string; vorname: string; nachname: string; verein: string; liga: string;
   bereich: string; position: string; mannschaft: string; telefon_code: string; telefon: string;
-  email: string; notes?: string; transfermarkt_url?: string; created_at: string;
+  email: string; notes?: string; transfermarkt_url?: string; linkedin_url?: string; created_at: string;
+  created_by_name?: string | null;
 }
 
 type SortField = 'verein' | 'name' | 'vorname' | 'bereich' | 'position' | 'mannschaft';
@@ -47,17 +79,19 @@ const NETWORK_COLUMNS: ColumnDef[] = [
   { key: 'position', label: 'Position', defaultFlex: 1.3, minWidth: 60 },
   { key: 'bereich', label: 'Bereich', defaultFlex: 0.8, minWidth: 60 },
   { key: 'mannschaft', label: 'Mannschaft', defaultFlex: 1, minWidth: 60 },
+  { key: 'link', label: 'Link', fixedWidth: 70, defaultFlex: 0, minWidth: 70 },
 ];
 
 export function FootballNetworkScreen({ navigation }: any) {
   const isMobile = useIsMobile();
-  const { session, loading: authLoading } = useAuth();
+  const { session, loading: authLoading, profile: authProfile } = useAuth();
   const { colors, isDark } = useTheme();
   const dataLoadedRef = useRef(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [clubs, setClubs] = useState<string[]>([]);
   const [clubLogos, setClubLogos] = useState<Record<string, string>>({});
+  const [clubLeagues, setClubLeagues] = useState<Record<string, string>>({});
   const [searchText, setSearchText] = useState('');
   const [selectedPositions, setSelectedPositions] = useState<string[]>([]);
   const [selectedLeagues, setSelectedLeagues] = useState<string[]>([]);
@@ -67,7 +101,7 @@ export function FootballNetworkScreen({ navigation }: any) {
   const [showBereichDropdown, setShowBereichDropdown] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
-  const [newContact, setNewContact] = useState({ vorname: '', nachname: '', verein: '', liga: '', bereich: '', position: '', mannschaft: '', telefon_code: '+49', telefon: '', email: '', notes: '', transfermarkt_url: '' });
+  const [newContact, setNewContact] = useState({ vorname: '', nachname: '', verein: '', liga: '', bereich: '', position: '', mannschaft: '', telefon_code: '+49', telefon: '', email: '', notes: '', transfermarkt_url: '', linkedin_url: '' });
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [vereinSearch, setVereinSearch] = useState('');
   const [ligaSearch, setLigaSearch] = useState('');
@@ -88,6 +122,19 @@ export function FootballNetworkScreen({ navigation }: any) {
   // Export Selection
   const [selectedExportIds, setSelectedExportIds] = useState<string[]>([]);
 
+  // Club Search (remote Transfermarkt)
+  const [clubSearchResults, setClubSearchResults] = useState<Array<{ name: string; logoUrl: string; liga: string; country: string }>>([]);
+  const [clubSearching, setClubSearching] = useState(false);
+  const clubSearchTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  // Custom Positions
+  const [customPositions, setCustomPositions] = useState<Array<{ name: string; bereich: string }>>([]);
+  const [customPositionInput, setCustomPositionInput] = useState(false);
+  const [customPositionText, setCustomPositionText] = useState('');
+
+  // Auto-Parse TM URL
+  const [parsingTmUrl, setParsingTmUrl] = useState(false);
+
   // Sorting State
   const [sortField, setSortField] = useState<SortField>('verein');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -103,7 +150,7 @@ export function FootballNetworkScreen({ navigation }: any) {
     if (dataLoadedRef.current) return;
 
     dataLoadedRef.current = true;
-    fetchContacts(); fetchClubs(); fetchProfile();
+    fetchContacts(); fetchClubs(); fetchProfile(); fetchCustomPositions();
   }, [authLoading, session]);
 
   const fetchContacts = async () => {
@@ -112,12 +159,14 @@ export function FootballNetworkScreen({ navigation }: any) {
   };
 
   const fetchClubs = async () => {
-    const { data } = await supabase.from('club_logos').select('club_name, logo_url');
+    const { data } = await supabase.from('club_logos').select('club_name, logo_url, liga');
     if (data) {
       const logoMap: Record<string, string> = {};
+      const leagueMap: Record<string, string> = {};
       const names: string[] = [];
-      data.forEach(item => { logoMap[item.club_name] = item.logo_url; names.push(item.club_name); });
+      data.forEach(item => { logoMap[item.club_name] = item.logo_url; if (item.liga) leagueMap[item.club_name] = item.liga; names.push(item.club_name); });
       setClubLogos(logoMap);
+      setClubLeagues(leagueMap);
       setClubs(names.sort());
     }
   };
@@ -130,24 +179,247 @@ export function FootballNetworkScreen({ navigation }: any) {
     }
   };
 
+  const fetchCustomPositions = async () => {
+    const { data } = await supabase.from('custom_positions').select('name, bereich');
+    if (data) setCustomPositions(data);
+  };
+
+  const searchClubsRemote = async (query: string) => {
+    if (query.trim().length < 2) { setClubSearchResults([]); return; }
+    setClubSearching(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('search-club', { body: { query } });
+      console.log('search-club response:', { data, error });
+      if (error) {
+        console.error('search-club error:', error);
+        setClubSearchResults([]);
+        return;
+      }
+      // data kann ein String sein (je nach supabase-js Version)
+      const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+      if (parsed?.results && Array.isArray(parsed.results)) {
+        setClubSearchResults(parsed.results);
+      } else {
+        setClubSearchResults([]);
+      }
+    } catch (e) {
+      console.error('Club search exception:', e);
+      setClubSearchResults([]);
+    } finally {
+      setClubSearching(false);
+    }
+  };
+
+  const handleVereinSearchChange = (text: string) => {
+    setVereinSearch(text);
+    if (clubSearchTimeout.current) clearTimeout(clubSearchTimeout.current);
+    clubSearchTimeout.current = setTimeout(() => searchClubsRemote(text), 500);
+  };
+
+  const selectLocalClub = async (clubName: string) => {
+    let liga = clubLeagues[clubName] || '';
+    if (!liga) {
+      // Liga nachladen via search-club
+      try {
+        const { data } = await supabase.functions.invoke('search-club', { body: { query: clubName } });
+        const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+        const match = parsed?.results?.find((r: any) => r.name === clubName);
+        if (match?.liga) {
+          liga = match.liga;
+          setClubLeagues(prev => ({ ...prev, [clubName]: liga }));
+        }
+      } catch {}
+    }
+    setNewContact(prev => ({ ...prev, verein: clubName, liga: liga || prev.liga }));
+    setVereinSearch(''); setActiveDropdown(null); setClubSearchResults([]);
+  };
+
+  const selectRemoteClub = (club: { name: string; logoUrl: string; liga?: string; country?: string }) => {
+    setNewContact({ ...newContact, verein: club.name, liga: club.liga || newContact.liga });
+    setActiveDropdown(null);
+    setVereinSearch('');
+    setClubSearchResults([]);
+    if (club.name) {
+      setClubLogos(prev => ({ ...prev, [club.name]: club.logoUrl }));
+      if (club.liga) setClubLeagues(prev => ({ ...prev, [club.name]: club.liga! }));
+      if (!clubs.includes(club.name)) {
+        setClubs(prev => [...prev, club.name].sort());
+      }
+    }
+  };
+
+  const selectFreitextClub = () => {
+    if (vereinSearch.trim()) {
+      setNewContact({ ...newContact, verein: vereinSearch.trim() });
+      if (!clubs.includes(vereinSearch.trim())) {
+        setClubs(prev => [...prev, vereinSearch.trim()].sort());
+      }
+    }
+    setActiveDropdown(null);
+    setVereinSearch('');
+    setClubSearchResults([]);
+  };
+
+  const saveCustomPosition = async (positionName: string, bereich: string) => {
+    if (!positionName.trim() || !bereich) return;
+    const allHardcoded = [...POSITIONS_HERREN, ...POSITIONS_NACHWUCHS];
+    if (allHardcoded.includes(positionName.trim())) return; // Already hardcoded
+    if (customPositions.some(p => p.name === positionName.trim() && p.bereich === bereich)) return; // Already custom
+    await supabase.from('custom_positions').upsert({ name: positionName.trim(), bereich }, { onConflict: 'name,bereich' });
+    setCustomPositions(prev => [...prev, { name: positionName.trim(), bereich }]);
+  };
+
+  const normalizeClubTokens = (name: string): string[] => {
+    return name
+      .toLowerCase()
+      .replace(/[.,()]/g, '')
+      .replace(/e\.v\.?/gi, '')
+      .replace(/gmbh|ag|co\s*kg/gi, '')
+      .split(/[\s\-\/]+/)
+      .filter(t => t.length > 0);
+  };
+
+  const clubMatchScore = (a: string[], b: string[]): number => {
+    let score = 0;
+    for (const tokenA of a) {
+      for (const tokenB of b) {
+        if (tokenA === tokenB) { score++; break; }
+        // Jahreszahl-Fuzzy: "98" matcht "1898", "04" matcht "1904"
+        if (/^\d+$/.test(tokenA) && /^\d+$/.test(tokenB)) {
+          if (tokenA.endsWith(tokenB) || tokenB.endsWith(tokenA)) { score++; break; }
+        }
+      }
+    }
+    return score;
+  };
+
   const getClubLogo = (clubName: string): string | null => {
     if (!clubName) return null;
+    // 1. Exakter Match
     if (clubLogos[clubName]) return clubLogos[clubName];
+    // 2. Substring-Match
     for (const [logoClub, logoUrl] of Object.entries(clubLogos)) {
       if (clubName.toLowerCase().includes(logoClub.toLowerCase()) || logoClub.toLowerCase().includes(clubName.toLowerCase())) return logoUrl;
     }
-    return null;
+    // 3. Fuzzy Token-Scoring (mindestens 2 Wörter müssen matchen)
+    const inputTokens = normalizeClubTokens(clubName);
+    let bestMatch: string | null = null;
+    let bestScore = 0;
+    for (const [logoClub, logoUrl] of Object.entries(clubLogos)) {
+      const logoTokens = normalizeClubTokens(logoClub);
+      const score = clubMatchScore(inputTokens, logoTokens);
+      if (score >= 2 && score > bestScore) {
+        bestScore = score;
+        bestMatch = logoUrl;
+      }
+    }
+    return bestMatch;
+  };
+
+  const parseTmUrlAndEnrich = async (contactData: typeof newContact): Promise<typeof newContact> => {
+    // 1. Transfermarkt parsen (wenn URL vorhanden)
+    const tmUrl = contactData.transfermarkt_url?.trim();
+    if (tmUrl && tmUrl.includes('transfermarkt')) {
+      try {
+        setParsingTmUrl(true);
+        const { data } = await supabase.functions.invoke('sync-network-data', { body: { fast: true, singleUrl: tmUrl } });
+        if (data?.profile) {
+          const p = data.profile;
+          return {
+            ...contactData,
+            verein: p.vereinClean || p.verein || contactData.verein || '',
+            position: p.position || contactData.position || '',
+            bereich: p.bereich || contactData.bereich || '',
+            mannschaft: p.mannschaft || contactData.mannschaft || '',
+            liga: p.liga || contactData.liga || '',
+          };
+        }
+      } catch (e) {
+        console.warn('TM URL parse error:', e);
+      } finally {
+        setParsingTmUrl(false);
+      }
+    }
+
+    // 2. LinkedIn parsen als Fallback (wenn kein TM und LinkedIn URL vorhanden)
+    const liUrl = contactData.linkedin_url?.trim();
+    if (liUrl && liUrl.includes('linkedin.com') && !contactData.verein && !contactData.position) {
+      try {
+        setParsingTmUrl(true);
+        const { data, error } = await supabase.functions.invoke('scrape-linkedin', { body: { url: liUrl } });
+        const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+        if (!error && parsed) {
+          let verein = parsed.company || contactData.verein || '';
+
+          // Vereinsnamen über TM normalisieren (Logo + korrekter Name)
+          if (verein) {
+            try {
+              const { data: clubData } = await supabase.functions.invoke('search-club', { body: { query: verein } });
+              const clubParsed = typeof clubData === 'string' ? JSON.parse(clubData) : clubData;
+              if (clubParsed?.results?.length > 0) {
+                const inputTokens = normalizeClubTokens(verein);
+                let bestName = '';
+                let bestScore = 0;
+                for (const r of clubParsed.results) {
+                  const score = clubMatchScore(inputTokens, normalizeClubTokens(r.name));
+                  if (score > bestScore) { bestScore = score; bestName = r.name; }
+                }
+                if (bestScore >= 2 && bestName) verein = bestName;
+              }
+            } catch {}
+          }
+
+          return {
+            ...contactData,
+            verein,
+            position: parsed.position || contactData.position || '',
+          };
+        }
+      } catch (e) {
+        console.warn('LinkedIn parse error:', e);
+      } finally {
+        setParsingTmUrl(false);
+      }
+    }
+
+    return contactData;
   };
 
   const addContact = async () => {
     if (!newContact.nachname.trim()) return;
-    await supabase.from('football_network_contacts').insert({ ...newContact });
+    if (newContact.position && newContact.bereich) {
+      await saveCustomPosition(newContact.position, newContact.bereich);
+    }
+    // Auto-Parse TM/LinkedIn URL falls vorhanden
+    let finalData = { ...newContact };
+    if (newContact.transfermarkt_url?.includes('transfermarkt') || newContact.linkedin_url?.includes('linkedin.com')) {
+      finalData = await parseTmUrlAndEnrich(finalData);
+    }
+    await supabase.from('football_network_contacts').insert({ ...finalData, created_by_name: authProfile?.first_name || null });
+    // Verein-Logo sicherstellen (auch ohne TM-Link)
+    if (finalData.verein && !getClubLogo(finalData.verein)) {
+      searchClubsRemote(finalData.verein);
+    }
     closeModal(); fetchContacts();
   };
 
   const updateContact = async () => {
     if (!editingContact) return;
-    await supabase.from('football_network_contacts').update({ ...newContact }).eq('id', editingContact.id);
+    if (newContact.position && newContact.bereich) {
+      await saveCustomPosition(newContact.position, newContact.bereich);
+    }
+    // Auto-Parse TM/LinkedIn URL falls geändert
+    let finalData = { ...newContact };
+    const tmChanged = newContact.transfermarkt_url !== (editingContact.transfermarkt_url || '');
+    const liChanged = newContact.linkedin_url !== (editingContact.linkedin_url || '');
+    if ((tmChanged && newContact.transfermarkt_url?.includes('transfermarkt')) || (liChanged && newContact.linkedin_url?.includes('linkedin.com'))) {
+      finalData = await parseTmUrlAndEnrich(finalData);
+    }
+    await supabase.from('football_network_contacts').update(finalData).eq('id', editingContact.id);
+    // Verein-Logo sicherstellen (auch ohne TM-Link)
+    if (finalData.verein && !getClubLogo(finalData.verein)) {
+      searchClubsRemote(finalData.verein);
+    }
     closeModal(); fetchContacts();
   };
 
@@ -158,7 +430,8 @@ export function FootballNetworkScreen({ navigation }: any) {
 
   const openEditModal = (contact: Contact) => {
     setEditingContact(contact);
-    setNewContact({ vorname: contact.vorname || '', nachname: contact.nachname || '', verein: contact.verein || '', liga: contact.liga || '', bereich: contact.bereich || '', position: contact.position || '', mannschaft: contact.mannschaft || '', telefon_code: contact.telefon_code || '+49', telefon: contact.telefon || '', email: contact.email || '', notes: contact.notes || '', transfermarkt_url: contact.transfermarkt_url || '' });
+    const autoLiga = contact.liga || (contact.verein ? clubLeagues[contact.verein] : '') || '';
+    setNewContact({ vorname: contact.vorname || '', nachname: contact.nachname || '', verein: contact.verein || '', liga: autoLiga, bereich: contact.bereich || '', position: contact.position || '', mannschaft: contact.mannschaft || '', telefon_code: contact.telefon_code || '+49', telefon: contact.telefon || '', email: contact.email || '', notes: contact.notes || '', transfermarkt_url: contact.transfermarkt_url || '', linkedin_url: contact.linkedin_url || '' });
     setVereinSearch(contact.verein || '');
     setLigaSearch(contact.liga || '');
     setShowAddModal(true);
@@ -166,8 +439,9 @@ export function FootballNetworkScreen({ navigation }: any) {
 
   const closeModal = () => {
     setShowAddModal(false); setEditingContact(null);
-    setNewContact({ vorname: '', nachname: '', verein: '', liga: '', bereich: '', position: '', mannschaft: '', telefon_code: '+49', telefon: '', email: '', notes: '', transfermarkt_url: '' });
+    setNewContact({ vorname: '', nachname: '', verein: '', liga: '', bereich: '', position: '', mannschaft: '', telefon_code: '+49', telefon: '', email: '', notes: '', transfermarkt_url: '', linkedin_url: '' });
     setVereinSearch(''); setLigaSearch(''); setActiveDropdown(null);
+    setCustomPositionInput(false); setCustomPositionText(''); setClubSearchResults([]);
   };
 
   const parseVcf = (text: string) => {
@@ -278,7 +552,9 @@ export function FootballNetworkScreen({ navigation }: any) {
 
       let code = '+49';
       let number = contact.telefon;
-      const matched = COUNTRY_CODES.find(cc => contact.telefon.startsWith(cc.code));
+      // Längsten passenden Code zuerst finden (z.B. +49 vor +4, +351 vor +3)
+      const sortedCodes = [...COUNTRY_CODES].sort((a, b) => b.code.length - a.code.length);
+      const matched = sortedCodes.find(cc => contact.telefon.startsWith(cc.code));
       if (matched) {
         code = matched.code;
         number = contact.telefon.slice(matched.code.length);
@@ -299,10 +575,9 @@ export function FootballNetworkScreen({ navigation }: any) {
         if (skip) continue;
       }
 
-      // Vereinslos-Handling: keine Position/Bereich wenn vereinslos
+      // Vereinslos-Handling: TM-URL wird immer gespeichert, Position/Bereich auch
       const isVereinlos = tmData?.verein && (tmData.verein.includes('Vereinslos') || tmData.verein.includes('pausiert'));
       const verein = isVereinlos ? 'Vereinslos' : (tmData?.verein || '');
-      const position = isVereinlos ? '' : (tmData?.position || '');
 
       const { error } = await supabase.from('football_network_contacts').insert({
         vorname: contact.vorname,
@@ -311,11 +586,12 @@ export function FootballNetworkScreen({ navigation }: any) {
         telefon: number,
         email: contact.email,
         verein,
-        liga: isVereinlos ? '' : (tmData?.liga || ''),
-        bereich: isVereinlos ? '' : (tmData?.bereich || ''),
-        position,
-        mannschaft: isVereinlos ? '' : (tmData?.mannschaft || ''),
-        transfermarkt_url: isVereinlos ? '' : (tmData?.url || ''),
+        liga: tmData?.liga || '',
+        bereich: tmData?.bereich || '',
+        position: tmData?.position || '',
+        mannschaft: tmData?.mannschaft || '',
+        transfermarkt_url: tmData?.url || '',
+        created_by_name: authProfile?.first_name || null,
       });
       if (!error) {
         added++;
@@ -383,8 +659,13 @@ export function FootballNetworkScreen({ navigation }: any) {
     setSelectedExportIds([]);
   };
 
-  const getAvailablePositions = () => newContact.bereich === 'Herren' ? POSITIONS_HERREN : newContact.bereich === 'Nachwuchs' ? POSITIONS_NACHWUCHS : [];
-  const getAvailableMannschaften = () => newContact.bereich === 'Herren' ? MANNSCHAFTEN_HERREN : newContact.bereich === 'Nachwuchs' ? MANNSCHAFTEN_NACHWUCHS : [];
+  const getAvailablePositions = () => {
+    const base = newContact.bereich === 'Herren' ? POSITIONS_HERREN : newContact.bereich === 'Nachwuchs' ? POSITIONS_NACHWUCHS : [...new Set([...POSITIONS_HERREN, ...POSITIONS_NACHWUCHS])];
+    const custom = newContact.bereich ? customPositions.filter(p => p.bereich === newContact.bereich).map(p => p.name) : customPositions.map(p => p.name);
+    return [...new Set([...base, ...custom])];
+  };
+  const getAvailableMannschaften = () => newContact.bereich === 'Herren' ? MANNSCHAFTEN_HERREN : newContact.bereich === 'Nachwuchs' ? MANNSCHAFTEN_NACHWUCHS : [...new Set([...MANNSCHAFTEN_HERREN, ...MANNSCHAFTEN_NACHWUCHS])];
+  const allPositions = useMemo(() => [...new Set([...POSITIONS_HERREN, ...POSITIONS_NACHWUCHS, ...customPositions.map(p => p.name)])], [customPositions]);
   const filteredClubs = useMemo(() => !vereinSearch.trim() ? clubs : clubs.filter(c => c.toLowerCase().includes(vereinSearch.toLowerCase())), [clubs, vereinSearch]);
   const filteredLeagues = useMemo(() => !ligaSearch.trim() ? LEAGUES : LEAGUES.filter(l => l.toLowerCase().includes(ligaSearch.toLowerCase())), [ligaSearch]);
 
@@ -529,7 +810,7 @@ export function FootballNetworkScreen({ navigation }: any) {
           onClose={() => setShowMobileSidebar(false)}
           navigation={navigation}
           activeScreen="network"
-          profile={profile}
+          profile={authProfile}
         />
 
         <View style={[styles.mainContentMobile, { backgroundColor: colors.background }]}>
@@ -653,7 +934,7 @@ export function FootballNetworkScreen({ navigation }: any) {
               {/* Position Filter */}
               <Text style={[styles.mobileFilterSectionTitle, { color: colors.text }]}>Position</Text>
               <View style={styles.mobileChipContainer}>
-                {ALL_POSITIONS.map(position => {
+                {allPositions.map(position => {
                   const isSelected = selectedPositions.includes(position);
                   return (
                     <TouchableOpacity
@@ -764,22 +1045,42 @@ export function FootballNetworkScreen({ navigation }: any) {
                       </View>
                     </View>
 
-                    {/* Kontaktdaten mit Icons - vertikal */}
+                    {/* Kontaktdaten: 3 Spalten — bündig mit Verein | Bereich | Mannschaft oben */}
                     <View style={[styles.mobileDetailBox, { backgroundColor: colors.surfaceSecondary }]}>
-                      <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }} onPress={() => selectedContact.email && Linking.openURL(`mailto:${selectedContact.email}`)} disabled={!selectedContact.email}>
-                        <Ionicons name="mail-outline" size={15} color={colors.textMuted} style={{ marginRight: 10, width: 18 }} />
-                        <Text style={[styles.mobileDetailValue, { color: selectedContact.email ? '#3b82f6' : colors.text }]}>{selectedContact.email || '-'}</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', marginBottom: selectedContact.transfermarkt_url ? 10 : 0 }} onPress={() => selectedContact.telefon && Linking.openURL(`tel:${selectedContact.telefon_code}${selectedContact.telefon}`)} disabled={!selectedContact.telefon}>
-                        <Ionicons name="call-outline" size={15} color={colors.textMuted} style={{ marginRight: 10, width: 18 }} />
-                        <Text style={[styles.mobileDetailValue, { color: selectedContact.telefon ? '#3b82f6' : colors.text }]}>{formatPhone(selectedContact)}</Text>
-                      </TouchableOpacity>
-                      {selectedContact.transfermarkt_url && (
-                        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => Linking.openURL(selectedContact.transfermarkt_url!)}>
-                          <Ionicons name="link-outline" size={15} color={colors.textMuted} style={{ marginRight: 10, width: 18 }} />
-                          <Text style={[styles.mobileDetailValue, { color: '#3b82f6' }]}>Transfermarkt Profil</Text>
-                        </TouchableOpacity>
-                      )}
+                      <View style={{ flexDirection: 'row', gap: 16 }}>
+                        <View style={{ flex: 1, gap: 10 }}>
+                          <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => selectedContact.email && Linking.openURL(`mailto:${selectedContact.email}`)} disabled={!selectedContact.email}>
+                            <Ionicons name="mail-outline" size={15} color={colors.textMuted} style={{ marginRight: 10, width: 18 }} />
+                            <Text style={[styles.mobileDetailValue, { color: selectedContact.email ? '#3b82f6' : colors.text }]} numberOfLines={1}>{selectedContact.email || '-'}</Text>
+                          </TouchableOpacity>
+                          {selectedContact.transfermarkt_url && (
+                            <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => Linking.openURL(selectedContact.transfermarkt_url!)}>
+                              <Ionicons name="link-outline" size={15} color={colors.textMuted} style={{ marginRight: 10, width: 18 }} />
+                              <Text style={[styles.mobileDetailValue, { color: '#3b82f6' }]} numberOfLines={1}>Transfermarkt</Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                        <View style={{ flex: 1, gap: 10 }}>
+                          <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => selectedContact.telefon && Linking.openURL(`tel:${selectedContact.telefon_code}${selectedContact.telefon}`)} disabled={!selectedContact.telefon}>
+                            <Ionicons name="call-outline" size={15} color={colors.textMuted} style={{ marginRight: 10, width: 18 }} />
+                            <Text style={[styles.mobileDetailValue, { color: selectedContact.telefon ? '#3b82f6' : colors.text }]} numberOfLines={1}>{formatPhone(selectedContact)}</Text>
+                          </TouchableOpacity>
+                          {selectedContact.linkedin_url && (
+                            <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => Linking.openURL(selectedContact.linkedin_url!)}>
+                              <Ionicons name="link-outline" size={15} color="#0a66c2" style={{ marginRight: 10, width: 18 }} />
+                              <Text style={[styles.mobileDetailValue, { color: '#0a66c2' }]} numberOfLines={1}>LinkedIn</Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          {selectedContact.created_by_name && (
+                            <>
+                              <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Hinzugefügt von</Text>
+                              <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{selectedContact.created_by_name}</Text>
+                            </>
+                          )}
+                        </View>
+                      </View>
                     </View>
 
                     {/* Weitere Informationen */}
@@ -825,22 +1126,44 @@ export function FootballNetworkScreen({ navigation }: any) {
 
                 <View style={styles.formField}>
                   <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Verein / Institution</Text>
-                  <TouchableOpacity style={[styles.formSelect, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => setActiveDropdown(activeDropdown === 'verein' ? null : 'verein')}>
-                    <Text style={newContact.verein ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]}>{newContact.verein || 'Verein auswählen...'}</Text>
-                    <Text style={[styles.formSelectArrow, { color: colors.textSecondary }]}>▼</Text>
-                  </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', gap: 6 }}>
+                    <TouchableOpacity style={[styles.formSelect, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => setActiveDropdown(activeDropdown === 'verein' ? null : 'verein')}>
+                      <Text style={newContact.verein ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]}>{newContact.verein || 'Verein auswählen...'}</Text>
+                      <Text style={[styles.formSelectArrow, { color: colors.textSecondary }]}>▼</Text>
+                    </TouchableOpacity>
+                    {newContact.verein ? <TouchableOpacity style={[styles.formSelect, { width: 28, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => setNewContact({...newContact, verein: ''})}><Text style={{ color: colors.textSecondary, fontSize: 11 }}>✕</Text></TouchableOpacity> : null}
+                  </View>
                   {activeDropdown === 'verein' && (
                     <View style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                      <TextInput style={[styles.dropdownSearch, { borderBottomColor: colors.border, color: colors.text }]} value={vereinSearch} onChangeText={setVereinSearch} placeholder="Verein suchen..." placeholderTextColor={colors.textMuted} autoFocus />
+                      <TextInput style={[styles.dropdownSearch, { borderBottomColor: colors.border, color: colors.text }]} value={vereinSearch} onChangeText={handleVereinSearchChange} placeholder="Verein suchen..." placeholderTextColor={colors.textMuted} autoFocus />
                       <ScrollView style={styles.dropdownScroll}>
                         {filteredClubs.map(club => (
-                          <TouchableOpacity key={club} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, verein: club}); setVereinSearch(''); setActiveDropdown(null); }}>
+                          <TouchableOpacity key={club} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => selectLocalClub(club)}>
                             <View style={styles.clubItemRow}>{getClubLogo(club) && <Image source={{ uri: getClubLogo(club)! }} style={styles.clubLogo} />}<Text style={[styles.dropdownItemText, { color: colors.text }]}>{club}</Text></View>
                           </TouchableOpacity>
                         ))}
-                        {vereinSearch.trim() && !clubs.includes(vereinSearch) && (
-                          <TouchableOpacity style={[styles.dropdownItem, styles.dropdownItemNew, { borderBottomColor: colors.border, backgroundColor: isDark ? 'rgba(34, 197, 94, 0.2)' : '#f0fdf4' }]} onPress={() => { setNewContact({...newContact, verein: vereinSearch}); setVereinSearch(''); setActiveDropdown(null); }}>
-                            <Text style={[styles.dropdownItemText, { color: colors.text }]}>+ "{vereinSearch}" hinzufügen</Text>
+                        {clubSearching && (
+                          <View style={[styles.dropdownItem, { borderBottomColor: colors.border }]}><Text style={[styles.dropdownItemText, { color: colors.textMuted }]}>Suche auf Transfermarkt...</Text></View>
+                        )}
+                        {clubSearchResults.length > 0 && (
+                          <>
+                            <View style={[styles.dropdownItem, { borderBottomColor: colors.border, backgroundColor: isDark ? 'rgba(59,130,246,0.1)' : '#eff6ff' }]}><Text style={[styles.dropdownItemText, { color: colors.textSecondary, fontWeight: '700', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }]}>Transfermarkt-Ergebnisse</Text></View>
+                            {clubSearchResults.map(club => (
+                              <TouchableOpacity key={club.name} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => selectRemoteClub(club)}>
+                                <View style={styles.clubItemRow}>
+                                  {club.logoUrl ? <Image source={{ uri: club.logoUrl }} style={styles.clubLogo} /> : null}
+                                  <View style={{ flex: 1 }}>
+                                    <Text style={[styles.dropdownItemText, { color: colors.text }]}>{club.name}</Text>
+                                    {club.liga ? <Text style={{ fontSize: 10, color: colors.textMuted }}>{club.liga}{club.country ? ` · ${club.country}` : ''}</Text> : null}
+                                  </View>
+                                </View>
+                              </TouchableOpacity>
+                            ))}
+                          </>
+                        )}
+                        {vereinSearch.trim() && !clubs.includes(vereinSearch) && !clubSearching && (
+                          <TouchableOpacity style={[styles.dropdownItem, styles.dropdownItemNew, { borderBottomColor: colors.border, backgroundColor: isDark ? 'rgba(34, 197, 94, 0.2)' : '#f0fdf4' }]} onPress={selectFreitextClub}>
+                            <Text style={[styles.dropdownItemText, { color: colors.text }]}>+ "{vereinSearch}" als Freitext übernehmen</Text>
                           </TouchableOpacity>
                         )}
                       </ScrollView>
@@ -857,6 +1180,7 @@ export function FootballNetworkScreen({ navigation }: any) {
                   {activeDropdown === 'bereich' && (
                     <View style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                       <ScrollView style={styles.dropdownScroll}>
+                        {newContact.bereich ? <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, bereich: '', position: '', mannschaft: ''}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.error || '#ef4444' }]}>— Leeren</Text></TouchableOpacity> : null}
                         {BEREICHE.map(b => (<TouchableOpacity key={b} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, bereich: b, position: '', mannschaft: ''}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.text }]}>{b}</Text></TouchableOpacity>))}
                       </ScrollView>
                     </View>
@@ -865,28 +1189,54 @@ export function FootballNetworkScreen({ navigation }: any) {
 
                 <View style={styles.formField}>
                   <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Position</Text>
-                  <TouchableOpacity style={[styles.formSelect, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }, !newContact.bereich && { backgroundColor: colors.surfaceSecondary }]} onPress={() => newContact.bereich && setActiveDropdown(activeDropdown === 'position' ? null : 'position')}>
-                    <Text style={newContact.position ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]}>{newContact.position || (newContact.bereich ? 'Position auswählen...' : 'Erst Bereich wählen')}</Text>
-                    <Text style={[styles.formSelectArrow, { color: colors.textSecondary }]}>▼</Text>
-                  </TouchableOpacity>
-                  {activeDropdown === 'position' && newContact.bereich && (
-                    <View style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                      <ScrollView style={styles.dropdownScroll}>
-                        {getAvailablePositions().map(p => (<TouchableOpacity key={p} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, position: p}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.text }]}>{p}</Text></TouchableOpacity>))}
-                      </ScrollView>
+                  {customPositionInput ? (
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <TextInput
+                        style={[styles.formInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+                        value={customPositionText}
+                        onChangeText={setCustomPositionText}
+                        placeholder="Position eingeben..."
+                        placeholderTextColor={colors.textMuted}
+                        autoFocus
+                      />
+                      <TouchableOpacity style={[styles.formSelect, { width: 80, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.primary }]} onPress={() => { if (customPositionText.trim()) { setNewContact({...newContact, position: customPositionText.trim()}); } setCustomPositionInput(false); setCustomPositionText(''); }}>
+                        <Text style={{ color: colors.primaryText, fontSize: 11, fontWeight: '600' }}>OK</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={[styles.formSelect, { width: 40, justifyContent: 'center', alignItems: 'center' }]} onPress={() => { setCustomPositionInput(false); setCustomPositionText(''); }}>
+                        <Text style={{ color: colors.textSecondary, fontSize: 14 }}>✕</Text>
+                      </TouchableOpacity>
                     </View>
+                  ) : (
+                    <>
+                      <TouchableOpacity style={[styles.formSelect, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => setActiveDropdown(activeDropdown === 'position' ? null : 'position')}>
+                        <Text style={newContact.position ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]}>{newContact.position || ('Position...')}</Text>
+                        <Text style={[styles.formSelectArrow, { color: colors.textSecondary }]}>▼</Text>
+                      </TouchableOpacity>
+                      {activeDropdown === 'position' && (
+                        <View style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                          <ScrollView style={styles.dropdownScroll}>
+                            {newContact.position ? <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, position: ''}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.error || '#ef4444' }]}>— Leeren</Text></TouchableOpacity> : null}
+                            <TouchableOpacity style={[styles.dropdownItem, styles.dropdownItemNew, { borderBottomColor: colors.border, backgroundColor: isDark ? 'rgba(59,130,246,0.15)' : '#eff6ff' }]} onPress={() => { setActiveDropdown(null); setCustomPositionInput(true); }}>
+                              <Text style={[styles.dropdownItemText, { color: colors.text }]}>+ Andere Position eingeben...</Text>
+                            </TouchableOpacity>
+                            {getAvailablePositions().map(p => (<TouchableOpacity key={p} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, position: p}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.text }]}>{p}</Text></TouchableOpacity>))}
+                          </ScrollView>
+                        </View>
+                      )}
+                    </>
                   )}
                 </View>
 
                 <View style={styles.formField}>
                   <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Mannschaft</Text>
-                  <TouchableOpacity style={[styles.formSelect, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }, !newContact.bereich && { backgroundColor: colors.surfaceSecondary }]} onPress={() => newContact.bereich && setActiveDropdown(activeDropdown === 'mannschaft' ? null : 'mannschaft')}>
-                    <Text style={newContact.mannschaft ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]}>{newContact.mannschaft || (newContact.bereich ? 'Mannschaft auswählen...' : 'Erst Bereich wählen')}</Text>
+                  <TouchableOpacity style={[styles.formSelect, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => setActiveDropdown(activeDropdown === 'mannschaft' ? null : 'mannschaft')}>
+                    <Text style={newContact.mannschaft ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]}>{newContact.mannschaft || ('Mannschaft...')}</Text>
                     <Text style={[styles.formSelectArrow, { color: colors.textSecondary }]}>▼</Text>
                   </TouchableOpacity>
-                  {activeDropdown === 'mannschaft' && newContact.bereich && (
+                  {activeDropdown === 'mannschaft' && (
                     <View style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                       <ScrollView style={styles.dropdownScroll}>
+                        {newContact.mannschaft ? <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, mannschaft: ''}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.error || '#ef4444' }]}>— Leeren</Text></TouchableOpacity> : null}
                         {getAvailableMannschaften().map(m => (<TouchableOpacity key={m} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, mannschaft: m}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.text }]}>{m}</Text></TouchableOpacity>))}
                       </ScrollView>
                     </View>
@@ -901,6 +1251,7 @@ export function FootballNetworkScreen({ navigation }: any) {
                   </TouchableOpacity>
                   {activeDropdown === 'liga' && (
                     <View style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                      {newContact.liga ? <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, liga: ''}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.error || '#ef4444' }]}>— Leeren</Text></TouchableOpacity> : null}
                       <TextInput style={[styles.dropdownSearch, { borderBottomColor: colors.border, color: colors.text }]} value={ligaSearch} onChangeText={setLigaSearch} placeholder="Liga suchen..." placeholderTextColor={colors.textMuted} autoFocus />
                       <ScrollView style={styles.dropdownScroll}>
                         {filteredLeagues.map(league => (
@@ -931,7 +1282,28 @@ export function FootballNetworkScreen({ navigation }: any) {
                 </View>
 
                 <View style={styles.formField}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>E-Mail</Text><TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.email} onChangeText={(t) => setNewContact({...newContact, email: t})} placeholder="email@beispiel.de" placeholderTextColor={colors.textMuted} keyboardType="email-address" onFocus={() => setActiveDropdown(null)} /></View>
-                <View style={styles.formField}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>Transfermarkt URL</Text><TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.transfermarkt_url} onChangeText={(t) => setNewContact({...newContact, transfermarkt_url: t})} placeholder="https://www.transfermarkt.de/..." placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} /></View>
+                <View style={styles.formField}>
+                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Transfermarkt URL {parsingTmUrl && '(wird geparst...)'}</Text>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TextInput style={[styles.formInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.transfermarkt_url} onChangeText={(t) => setNewContact({...newContact, transfermarkt_url: t})} placeholder="https://www.transfermarkt.de/..." placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} />
+                    {newContact.transfermarkt_url ? (
+                      <TouchableOpacity style={[styles.formSelect, { width: 32, justifyContent: 'center', alignItems: 'center' }]} onPress={() => { if (window.confirm('TM-Verknüpfung entfernen?\nVerein/Position bleiben erhalten.')) setNewContact({...newContact, transfermarkt_url: ''}); }}>
+                        <Text style={{ color: colors.textSecondary, fontSize: 12 }}>✕</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                </View>
+                <View style={styles.formField}>
+                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>LinkedIn URL</Text>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TextInput style={[styles.formInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.linkedin_url} onChangeText={(t) => setNewContact({...newContact, linkedin_url: t})} placeholder="https://www.linkedin.com/in/..." placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} />
+                    {newContact.linkedin_url ? (
+                      <TouchableOpacity style={[styles.formSelect, { width: 28, justifyContent: 'center', alignItems: 'center' }]} onPress={() => setNewContact({...newContact, linkedin_url: ''})}>
+                        <Text style={{ color: colors.textSecondary, fontSize: 11 }}>✕</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                </View>
                 <View style={styles.formField}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>Weitere Informationen</Text><TextInput style={[styles.formInput, styles.textArea, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.notes} onChangeText={(t) => setNewContact({...newContact, notes: t})} placeholder="Zusätzliche Informationen..." placeholderTextColor={colors.textMuted} multiline numberOfLines={3} onFocus={() => setActiveDropdown(null)} /></View>
               </ScrollView>
               <View style={[styles.modalButtonsSpaced, { borderTopColor: colors.border }]}>
@@ -980,12 +1352,12 @@ export function FootballNetworkScreen({ navigation }: any) {
           onClose={() => setShowMobileSidebar(false)}
           navigation={navigation}
           activeScreen="network"
-          profile={profile}
+          profile={authProfile}
         />
       )}
 
       {/* Desktop Sidebar */}
-      {!isMobile && <Sidebar navigation={navigation} activeScreen="network" profile={profile} />}
+      {!isMobile && <Sidebar navigation={navigation} activeScreen="network" profile={authProfile} />}
 
       <TouchableOpacity style={[styles.mainContent, { backgroundColor: colors.background }]} activeOpacity={1} onPress={closeAllDropdowns}>
         {/* Mobile Header */}
@@ -1145,10 +1517,10 @@ export function FootballNetworkScreen({ navigation }: any) {
                             ) : <Text style={[styles.tableCell, { color: colors.text }]}>-</Text>;
                           case 'position':
                             return contact.position ? (
-                              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3 }}>
+                              <View style={{ flexDirection: 'row', gap: 3, width: '100%', overflow: 'hidden', alignItems: 'center' }}>
                                 {contact.position.split(',').map((p: string, idx: number) => (
-                                  <View key={idx} style={[styles.positionBadge, { backgroundColor: isDark ? 'rgba(14, 165, 233, 0.2)' : '#e0f2fe' }]}>
-                                    <Text style={[styles.positionText, { color: isDark ? '#38bdf8' : '#0369a1' }]}>{p.trim()}</Text>
+                                  <View key={idx} style={[styles.positionBadge, { backgroundColor: isDark ? 'rgba(14, 165, 233, 0.2)' : '#e0f2fe', flexShrink: 1 }]}>
+                                    <Text style={[styles.positionText, { color: isDark ? '#38bdf8' : '#0369a1' }]} numberOfLines={1} ellipsizeMode="tail">{p.trim()}</Text>
                                   </View>
                                 ))}
                               </View>
@@ -1159,6 +1531,24 @@ export function FootballNetworkScreen({ navigation }: any) {
                             return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{formatPhone(contact)}</Text>;
                           case 'email':
                             return <Text style={[styles.tableCell, { color: '#3b82f6' }]} numberOfLines={1}>{contact.email || '-'}</Text>;
+                          case 'link':
+                            return (
+                              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                                {contact.transfermarkt_url ? (
+                                  <TouchableOpacity onPress={(e) => { e.stopPropagation?.(); Linking.openURL(contact.transfermarkt_url!); }}>
+                                    <Image source={TransfermarktIcon} style={{ width: 22, height: 22 }} resizeMode="contain" />
+                                  </TouchableOpacity>
+                                ) : null}
+                                {contact.linkedin_url ? (
+                                  <TouchableOpacity onPress={(e) => { e.stopPropagation?.(); Linking.openURL(contact.linkedin_url!); }}>
+                                    <Ionicons name="logo-linkedin" size={20} color="#0a66c2" />
+                                  </TouchableOpacity>
+                                ) : null}
+                                {!contact.transfermarkt_url && !contact.linkedin_url && (
+                                  <Text style={[styles.tableCell, { color: colors.textMuted }]}>-</Text>
+                                )}
+                              </View>
+                            );
                           default:
                             return null;
                         }
@@ -1231,20 +1621,40 @@ export function FootballNetworkScreen({ navigation }: any) {
 
                   {/* Kontaktdaten mit Icons - vertikal */}
                   <View style={[styles.detailModalBox, { backgroundColor: colors.surfaceSecondary }]}>
-                    <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }} onPress={() => selectedContact.email && Linking.openURL(`mailto:${selectedContact.email}`)} disabled={!selectedContact.email}>
-                      <Ionicons name="mail-outline" size={16} color={colors.textMuted} style={{ marginRight: 10, width: 20 }} />
-                      <Text style={[styles.detailModalValue, { color: selectedContact.email ? '#3b82f6' : colors.text }]}>{selectedContact.email || '-'}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', marginBottom: selectedContact.transfermarkt_url ? 12 : 0 }} onPress={() => selectedContact.telefon && Linking.openURL(`tel:${selectedContact.telefon_code}${selectedContact.telefon}`)} disabled={!selectedContact.telefon}>
-                      <Ionicons name="call-outline" size={16} color={colors.textMuted} style={{ marginRight: 10, width: 20 }} />
-                      <Text style={[styles.detailModalValue, { color: selectedContact.telefon ? '#3b82f6' : colors.text }]}>{formatPhone(selectedContact)}</Text>
-                    </TouchableOpacity>
-                    {selectedContact.transfermarkt_url && (
-                      <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => Linking.openURL(selectedContact.transfermarkt_url!)}>
-                        <Ionicons name="link-outline" size={16} color={colors.textMuted} style={{ marginRight: 10, width: 20 }} />
-                        <Text style={[styles.detailModalValue, { color: '#3b82f6' }]}>Transfermarkt Profil</Text>
-                      </TouchableOpacity>
-                    )}
+                    <View style={styles.detailModalRow}>
+                      <View style={[styles.detailModalField, { gap: 10 }]}>
+                        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => selectedContact.email && Linking.openURL(`mailto:${selectedContact.email}`)} disabled={!selectedContact.email}>
+                          <Ionicons name="mail-outline" size={16} color={colors.textMuted} style={{ marginRight: 10, width: 20 }} />
+                          <Text style={[styles.detailModalValue, { color: selectedContact.email ? '#3b82f6' : colors.text }]} numberOfLines={1}>{selectedContact.email || '-'}</Text>
+                        </TouchableOpacity>
+                        {selectedContact.transfermarkt_url && (
+                          <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => Linking.openURL(selectedContact.transfermarkt_url!)}>
+                            <Ionicons name="link-outline" size={16} color={colors.textMuted} style={{ marginRight: 10, width: 20 }} />
+                            <Text style={[styles.detailModalValue, { color: '#3b82f6' }]} numberOfLines={1}>Transfermarkt Profil</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                      <View style={[styles.detailModalField, { gap: 10 }]}>
+                        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => selectedContact.telefon && Linking.openURL(`tel:${selectedContact.telefon_code}${selectedContact.telefon}`)} disabled={!selectedContact.telefon}>
+                          <Ionicons name="call-outline" size={16} color={colors.textMuted} style={{ marginRight: 10, width: 20 }} />
+                          <Text style={[styles.detailModalValue, { color: selectedContact.telefon ? '#3b82f6' : colors.text }]} numberOfLines={1}>{formatPhone(selectedContact)}</Text>
+                        </TouchableOpacity>
+                        {selectedContact.linkedin_url && (
+                          <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => Linking.openURL(selectedContact.linkedin_url!)}>
+                            <Ionicons name="link-outline" size={16} color={colors.textMuted} style={{ marginRight: 10, width: 20 }} />
+                            <Text style={[styles.detailModalValue, { color: '#3b82f6' }]} numberOfLines={1}>LinkedIn Profil</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                      <View style={styles.detailModalField}>
+                        {selectedContact.created_by_name && (
+                          <>
+                            <Text style={[styles.detailModalLabel, { color: colors.textMuted }]}>Hinzugefügt von</Text>
+                            <Text style={[styles.detailModalValue, { color: colors.text }]}>{selectedContact.created_by_name}</Text>
+                          </>
+                        )}
+                      </View>
+                    </View>
                   </View>
 
                   {selectedContact.notes && (
@@ -1285,27 +1695,79 @@ export function FootballNetworkScreen({ navigation }: any) {
                   <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '600' }}>Kontakte importieren (.vcf)</Text>
                 </TouchableOpacity>
               )}
-              <View style={styles.formField}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>Vorname</Text><TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.vorname} onChangeText={(t) => setNewContact({...newContact, vorname: t})} placeholder="Vorname" placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} /></View>
-              <View style={styles.formField}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>Nachname *</Text><TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.nachname} onChangeText={(t) => setNewContact({...newContact, nachname: t})} placeholder="Nachname" placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} /></View>
+              {/* Nachname + Vorname nebeneinander */}
+              <View style={styles.formRow}>
+                <View style={[styles.formField, { flex: 1 }]}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>Nachname *</Text><TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.nachname} onChangeText={(t) => setNewContact({...newContact, nachname: t})} placeholder="Nachname" placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} /></View>
+                <View style={[styles.formField, { flex: 1 }]}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>Vorname</Text><TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.vorname} onChangeText={(t) => setNewContact({...newContact, vorname: t})} placeholder="Vorname" placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} /></View>
+              </View>
+
+              {/* TM URL */}
+              <View style={styles.formField}>
+                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Transfermarkt URL {parsingTmUrl && '(wird geparst...)'}</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TextInput style={[styles.formInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.transfermarkt_url} onChangeText={(t) => setNewContact({...newContact, transfermarkt_url: t})} placeholder="https://www.transfermarkt.de/..." placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} />
+                  {newContact.transfermarkt_url ? (
+                    <TouchableOpacity style={[styles.formSelect, { width: 32, justifyContent: 'center', alignItems: 'center' }]} onPress={() => { if (window.confirm('TM-Verknüpfung entfernen?\nVerein/Position bleiben erhalten.')) setNewContact({...newContact, transfermarkt_url: ''}); }}>
+                      <Text style={{ color: colors.textSecondary, fontSize: 12 }}>✕</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+              </View>
 
               <View style={styles.formField}>
+                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>LinkedIn URL</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TextInput style={[styles.formInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.linkedin_url} onChangeText={(t) => setNewContact({...newContact, linkedin_url: t})} placeholder="https://www.linkedin.com/in/..." placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} />
+                  {newContact.linkedin_url ? (
+                    <TouchableOpacity style={[styles.formSelect, { width: 28, justifyContent: 'center', alignItems: 'center' }]} onPress={() => setNewContact({...newContact, linkedin_url: ''})}>
+                      <Text style={{ color: colors.textSecondary, fontSize: 11 }}>✕</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+              </View>
+
+              {/* Verein + Liga nebeneinander */}
+              <View style={styles.formRow}>
+              <View style={[styles.formField, { flex: 1 }]}>
                 <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Verein / Institution</Text>
-                <TouchableOpacity style={[styles.formSelect, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => setActiveDropdown(activeDropdown === 'verein' ? null : 'verein')}>
-                  <Text style={newContact.verein ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]}>{newContact.verein || 'Verein auswählen...'}</Text>
-                  <Text style={[styles.formSelectArrow, { color: colors.textSecondary }]}>▼</Text>
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', gap: 6 }}>
+                  <TouchableOpacity style={[styles.formSelect, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => setActiveDropdown(activeDropdown === 'verein' ? null : 'verein')}>
+                    <Text style={newContact.verein ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]}>{newContact.verein || 'Verein auswählen...'}</Text>
+                    <Text style={[styles.formSelectArrow, { color: colors.textSecondary }]}>▼</Text>
+                  </TouchableOpacity>
+                  {newContact.verein ? <TouchableOpacity style={[styles.formSelect, { width: 28, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => setNewContact({...newContact, verein: ''})}><Text style={{ color: colors.textSecondary, fontSize: 11 }}>✕</Text></TouchableOpacity> : null}
+                </View>
                 {activeDropdown === 'verein' && (
                   <View style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                    <TextInput style={[styles.dropdownSearch, { borderBottomColor: colors.border, color: colors.text }]} value={vereinSearch} onChangeText={setVereinSearch} placeholder="Verein suchen..." placeholderTextColor={colors.textMuted} autoFocus />
+                    <TextInput style={[styles.dropdownSearch, { borderBottomColor: colors.border, color: colors.text }]} value={vereinSearch} onChangeText={handleVereinSearchChange} placeholder="Verein suchen..." placeholderTextColor={colors.textMuted} autoFocus />
                     <ScrollView style={styles.dropdownScroll}>
                       {filteredClubs.map(club => (
-                        <TouchableOpacity key={club} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, verein: club}); setVereinSearch(''); setActiveDropdown(null); }}>
+                        <TouchableOpacity key={club} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => selectLocalClub(club)}>
                           <View style={styles.clubItemRow}>{getClubLogo(club) && <Image source={{ uri: getClubLogo(club)! }} style={styles.clubLogo} />}<Text style={[styles.dropdownItemText, { color: colors.text }]}>{club}</Text></View>
                         </TouchableOpacity>
                       ))}
-                      {vereinSearch.trim() && !clubs.includes(vereinSearch) && (
-                        <TouchableOpacity style={[styles.dropdownItem, styles.dropdownItemNew, { borderBottomColor: colors.border, backgroundColor: isDark ? 'rgba(34, 197, 94, 0.2)' : '#f0fdf4' }]} onPress={() => { setNewContact({...newContact, verein: vereinSearch}); setVereinSearch(''); setActiveDropdown(null); }}>
-                          <Text style={[styles.dropdownItemText, { color: colors.text }]}>+ "{vereinSearch}" hinzufügen</Text>
+                      {clubSearching && (
+                        <View style={[styles.dropdownItem, { borderBottomColor: colors.border }]}><Text style={[styles.dropdownItemText, { color: colors.textMuted }]}>Suche auf Transfermarkt...</Text></View>
+                      )}
+                      {clubSearchResults.length > 0 && (
+                        <>
+                          <View style={[styles.dropdownItem, { borderBottomColor: colors.border, backgroundColor: isDark ? 'rgba(59,130,246,0.1)' : '#eff6ff' }]}><Text style={[styles.dropdownItemText, { color: colors.textSecondary, fontWeight: '700', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }]}>Transfermarkt-Ergebnisse</Text></View>
+                          {clubSearchResults.map(club => (
+                            <TouchableOpacity key={club.name} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => selectRemoteClub(club)}>
+                              <View style={styles.clubItemRow}>
+                                {club.logoUrl ? <Image source={{ uri: club.logoUrl }} style={styles.clubLogo} /> : null}
+                                <View style={{ flex: 1 }}>
+                                  <Text style={[styles.dropdownItemText, { color: colors.text }]}>{club.name}</Text>
+                                  {club.liga ? <Text style={{ fontSize: 10, color: colors.textMuted }}>{club.liga}{club.country ? ` · ${club.country}` : ''}</Text> : null}
+                                </View>
+                              </View>
+                            </TouchableOpacity>
+                          ))}
+                        </>
+                      )}
+                      {vereinSearch.trim() && !clubs.includes(vereinSearch) && !clubSearching && (
+                        <TouchableOpacity style={[styles.dropdownItem, styles.dropdownItemNew, { borderBottomColor: colors.border, backgroundColor: isDark ? 'rgba(34, 197, 94, 0.2)' : '#f0fdf4' }]} onPress={selectFreitextClub}>
+                          <Text style={[styles.dropdownItemText, { color: colors.text }]}>+ "{vereinSearch}" als Freitext übernehmen</Text>
                         </TouchableOpacity>
                       )}
                     </ScrollView>
@@ -1313,59 +1775,15 @@ export function FootballNetworkScreen({ navigation }: any) {
                 )}
               </View>
 
-              <View style={styles.formField}>
-                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Bereich</Text>
-                <TouchableOpacity style={[styles.formSelect, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => setActiveDropdown(activeDropdown === 'bereich' ? null : 'bereich')}>
-                  <Text style={newContact.bereich ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]}>{newContact.bereich || 'Bereich auswählen...'}</Text>
-                  <Text style={[styles.formSelectArrow, { color: colors.textSecondary }]}>▼</Text>
-                </TouchableOpacity>
-                {activeDropdown === 'bereich' && (
-                  <View style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                    <ScrollView style={styles.dropdownScroll}>
-                      {BEREICHE.map(b => (<TouchableOpacity key={b} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, bereich: b, position: '', mannschaft: ''}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.text }]}>{b}</Text></TouchableOpacity>))}
-                    </ScrollView>
-                  </View>
-                )}
-              </View>
-
-              <View style={styles.formField}>
-                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Position</Text>
-                <TouchableOpacity style={[styles.formSelect, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }, !newContact.bereich && { backgroundColor: colors.surfaceSecondary }]} onPress={() => newContact.bereich && setActiveDropdown(activeDropdown === 'position' ? null : 'position')}>
-                  <Text style={newContact.position ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]}>{newContact.position || (newContact.bereich ? 'Position auswählen...' : 'Erst Bereich wählen')}</Text>
-                  <Text style={[styles.formSelectArrow, { color: colors.textSecondary }]}>▼</Text>
-                </TouchableOpacity>
-                {activeDropdown === 'position' && newContact.bereich && (
-                  <View style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                    <ScrollView style={styles.dropdownScroll}>
-                      {getAvailablePositions().map(p => (<TouchableOpacity key={p} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, position: p}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.text }]}>{p}</Text></TouchableOpacity>))}
-                    </ScrollView>
-                  </View>
-                )}
-              </View>
-
-              <View style={styles.formField}>
-                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Mannschaft</Text>
-                <TouchableOpacity style={[styles.formSelect, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }, !newContact.bereich && { backgroundColor: colors.surfaceSecondary }]} onPress={() => newContact.bereich && setActiveDropdown(activeDropdown === 'mannschaft' ? null : 'mannschaft')}>
-                  <Text style={newContact.mannschaft ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]}>{newContact.mannschaft || (newContact.bereich ? 'Mannschaft auswählen...' : 'Erst Bereich wählen')}</Text>
-                  <Text style={[styles.formSelectArrow, { color: colors.textSecondary }]}>▼</Text>
-                </TouchableOpacity>
-                {activeDropdown === 'mannschaft' && newContact.bereich && (
-                  <View style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                    <ScrollView style={styles.dropdownScroll}>
-                      {getAvailableMannschaften().map(m => (<TouchableOpacity key={m} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, mannschaft: m}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.text }]}>{m}</Text></TouchableOpacity>))}
-                    </ScrollView>
-                  </View>
-                )}
-              </View>
-
-              <View style={styles.formField}>
-                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Liga (Zugehörigkeit 1. Mannschaft)</Text>
+              <View style={[styles.formField, { flex: 1 }]}>
+                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Liga</Text>
                 <TouchableOpacity style={[styles.formSelect, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => setActiveDropdown(activeDropdown === 'liga' ? null : 'liga')}>
-                  <Text style={newContact.liga ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]}>{newContact.liga || 'Liga auswählen...'}</Text>
+                  <Text style={newContact.liga ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]}>{newContact.liga || 'Liga...'}</Text>
                   <Text style={[styles.formSelectArrow, { color: colors.textSecondary }]}>▼</Text>
                 </TouchableOpacity>
                 {activeDropdown === 'liga' && (
                   <View style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    {newContact.liga ? <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, liga: ''}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.error || '#ef4444' }]}>— Leeren</Text></TouchableOpacity> : null}
                     <TextInput style={[styles.dropdownSearch, { borderBottomColor: colors.border, color: colors.text }]} value={ligaSearch} onChangeText={setLigaSearch} placeholder="Liga suchen..." placeholderTextColor={colors.textMuted} autoFocus />
                     <ScrollView style={styles.dropdownScroll}>
                       {filteredLeagues.map(league => (
@@ -1381,6 +1799,82 @@ export function FootballNetworkScreen({ navigation }: any) {
                     </ScrollView>
                   </View>
                 )}
+              </View>
+              </View>
+
+              {/* Bereich + Position + Mannschaft nebeneinander */}
+              <View style={styles.formRow}>
+              <View style={[styles.formField, { flex: 1 }]}>
+                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Bereich</Text>
+                <TouchableOpacity style={[styles.formSelect, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => setActiveDropdown(activeDropdown === 'bereich' ? null : 'bereich')}>
+                  <Text style={newContact.bereich ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]}>{newContact.bereich || 'Bereich...'}</Text>
+                  <Text style={[styles.formSelectArrow, { color: colors.textSecondary }]}>▼</Text>
+                </TouchableOpacity>
+                {activeDropdown === 'bereich' && (
+                  <View style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <ScrollView style={styles.dropdownScroll}>
+                      {newContact.bereich ? <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, bereich: '', position: '', mannschaft: ''}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.error || '#ef4444' }]}>— Leeren</Text></TouchableOpacity> : null}
+                      {BEREICHE.map(b => (<TouchableOpacity key={b} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, bereich: b, position: '', mannschaft: ''}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.text }]}>{b}</Text></TouchableOpacity>))}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+
+              <View style={[styles.formField, { flex: 1 }]}>
+                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Position</Text>
+                {customPositionInput ? (
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TextInput
+                      style={[styles.formInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+                      value={customPositionText}
+                      onChangeText={setCustomPositionText}
+                      placeholder="Position..."
+                      placeholderTextColor={colors.textMuted}
+                      autoFocus
+                    />
+                    <TouchableOpacity style={[styles.formSelect, { width: 80, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.primary }]} onPress={() => { if (customPositionText.trim()) { setNewContact({...newContact, position: customPositionText.trim()}); } setCustomPositionInput(false); setCustomPositionText(''); }}>
+                      <Text style={{ color: colors.primaryText, fontSize: 11, fontWeight: '600' }}>OK</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.formSelect, { width: 40, justifyContent: 'center', alignItems: 'center' }]} onPress={() => { setCustomPositionInput(false); setCustomPositionText(''); }}>
+                      <Text style={{ color: colors.textSecondary, fontSize: 14 }}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <>
+                    <TouchableOpacity style={[styles.formSelect, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => setActiveDropdown(activeDropdown === 'position' ? null : 'position')}>
+                      <Text style={newContact.position ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]}>{newContact.position || ('Position...')}</Text>
+                      <Text style={[styles.formSelectArrow, { color: colors.textSecondary }]}>▼</Text>
+                    </TouchableOpacity>
+                    {activeDropdown === 'position' && (
+                      <View style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                        <ScrollView style={styles.dropdownScroll}>
+                          {newContact.position ? <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, position: ''}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.error || '#ef4444' }]}>— Leeren</Text></TouchableOpacity> : null}
+                          <TouchableOpacity style={[styles.dropdownItem, styles.dropdownItemNew, { borderBottomColor: colors.border, backgroundColor: isDark ? 'rgba(59,130,246,0.15)' : '#eff6ff' }]} onPress={() => { setActiveDropdown(null); setCustomPositionInput(true); }}>
+                            <Text style={[styles.dropdownItemText, { color: colors.text }]}>+ Andere Position eingeben...</Text>
+                          </TouchableOpacity>
+                          {getAvailablePositions().map(p => (<TouchableOpacity key={p} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, position: p}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.text }]}>{p}</Text></TouchableOpacity>))}
+                        </ScrollView>
+                      </View>
+                    )}
+                  </>
+                )}
+              </View>
+
+              <View style={[styles.formField, { flex: 1 }]}>
+                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Mannschaft</Text>
+                <TouchableOpacity style={[styles.formSelect, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => setActiveDropdown(activeDropdown === 'mannschaft' ? null : 'mannschaft')}>
+                  <Text style={newContact.mannschaft ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]}>{newContact.mannschaft || ('Mannschaft...')}</Text>
+                  <Text style={[styles.formSelectArrow, { color: colors.textSecondary }]}>▼</Text>
+                </TouchableOpacity>
+                {activeDropdown === 'mannschaft' && (
+                  <View style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <ScrollView style={styles.dropdownScroll}>
+                      {newContact.mannschaft ? <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, mannschaft: ''}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.error || '#ef4444' }]}>— Leeren</Text></TouchableOpacity> : null}
+                      {getAvailableMannschaften().map(m => (<TouchableOpacity key={m} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, mannschaft: m}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.text }]}>{m}</Text></TouchableOpacity>))}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
               </View>
 
               <View style={styles.formField}>
@@ -1401,7 +1895,6 @@ export function FootballNetworkScreen({ navigation }: any) {
               </View>
 
               <View style={styles.formField}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>E-Mail</Text><TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.email} onChangeText={(t) => setNewContact({...newContact, email: t})} placeholder="email@beispiel.de" placeholderTextColor={colors.textMuted} keyboardType="email-address" onFocus={() => setActiveDropdown(null)} /></View>
-              <View style={styles.formField}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>Transfermarkt URL</Text><TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.transfermarkt_url} onChangeText={(t) => setNewContact({...newContact, transfermarkt_url: t})} placeholder="https://www.transfermarkt.de/..." placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} /></View>
               <View style={styles.formField}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>Weitere Informationen</Text><TextInput style={[styles.formInput, styles.textArea, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.notes} onChangeText={(t) => setNewContact({...newContact, notes: t})} placeholder="Zusätzliche Informationen..." placeholderTextColor={colors.textMuted} multiline numberOfLines={3} onFocus={() => setActiveDropdown(null)} /></View>
             </ScrollView>
             <View style={[styles.modalButtonsSpaced, { borderTopColor: colors.border }]}>
@@ -1554,62 +2047,63 @@ const styles = StyleSheet.create({
   emptyStateText: { fontSize: 11, color: '#64748b' },
   tableClubLogo: { width: 20, height: 20, borderRadius: 3, marginRight: 8, resizeMode: 'contain' as any },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 500, maxHeight: '90%' },
+  modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 680, maxHeight: '90%' },
 
   // Desktop Detail Modal
   detailModalContent: { backgroundColor: '#fff', borderRadius: 16, width: '90%', maxWidth: 550, maxHeight: '90%' },
-  detailModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 24, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  detailModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
   detailModalNameRow: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   detailModalLogo: { width: 48, height: 48, borderRadius: 8, marginRight: 16, resizeMode: 'contain' as any },
-  detailModalName: { fontSize: 15, fontWeight: '700', color: '#1a1a1a' },
+  detailModalName: { fontSize: 13, fontWeight: '700', color: '#1a1a1a' },
   detailModalClub: { fontSize: 11, color: '#64748b', marginTop: 4 },
-  detailModalClose: { fontSize: 20, color: '#64748b', padding: 4 },
-  detailModalBody: { padding: 20 },
-  detailModalBox: { backgroundColor: '#f8fafc', borderRadius: 12, padding: 14, marginBottom: 10 },
-  detailModalRow: { flexDirection: 'row', gap: 20 },
+  detailModalClose: { fontSize: 14, color: '#64748b', padding: 4 },
+  detailModalBody: { padding: 16 },
+  detailModalBox: { backgroundColor: '#f8fafc', borderRadius: 10, padding: 10, marginBottom: 8 },
+  detailModalRow: { flexDirection: 'row', gap: 16 },
   detailModalField: { flex: 1 },
   detailModalFieldFull: { marginBottom: 16 },
   detailModalLabel: { fontSize: 10, color: '#94a3b8', marginBottom: 4, fontWeight: '500', textTransform: 'uppercase' },
   detailModalValue: { fontSize: 11, color: '#1a1a1a' },
-  detailModalFooter: { flexDirection: 'row', justifyContent: 'flex-end', padding: 20, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
-  editButton: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
+  detailModalFooter: { flexDirection: 'row', justifyContent: 'flex-end', padding: 10, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
+  editButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
   editButtonText: { fontSize: 11, fontWeight: '600', color: '#1a1a1a' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: 20, fontWeight: '700', color: '#1a1a1a' },
-  closeButton: { padding: 8 },
-  closeButtonText: { fontSize: 20, color: '#64748b' },
+  modalTitle: { fontSize: 16, fontWeight: '700', color: '#1a1a1a' },
+  closeButton: { padding: 6 },
+  closeButtonText: { fontSize: 16, color: '#64748b' },
   modalScroll: { maxHeight: 450 },
-  formField: { marginBottom: 16 },
-  formLabel: { fontSize: 13, color: '#64748b', marginBottom: 6, fontWeight: '500' },
-  formInput: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 12, fontSize: 14, backgroundColor: '#fff' },
-  formSelect: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 12, backgroundColor: '#fff', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  formField: { marginBottom: 10 },
+  formRow: { flexDirection: 'row', gap: 12 },
+  formLabel: { fontSize: 10, color: '#94a3b8', marginBottom: 4, fontWeight: '500' },
+  formInput: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, padding: 8, fontSize: 11, backgroundColor: '#fff' },
+  formSelect: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, padding: 8, backgroundColor: '#fff', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   formSelectDisabled: { backgroundColor: '#f8fafc' },
-  formSelectText: { fontSize: 14, color: '#1a1a1a' },
-  formSelectPlaceholder: { fontSize: 14, color: '#9ca3af' },
-  formSelectArrow: { fontSize: 12, color: '#64748b' },
-  dropdownList: { backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', marginTop: 4, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
-  dropdownSearch: { borderBottomWidth: 1, borderBottomColor: '#e2e8f0', padding: 12, fontSize: 14 },
+  formSelectText: { fontSize: 11, color: '#1a1a1a' },
+  formSelectPlaceholder: { fontSize: 11, color: '#9ca3af' },
+  formSelectArrow: { fontSize: 10, color: '#64748b' },
+  dropdownList: { backgroundColor: '#fff', borderRadius: 6, borderWidth: 1, borderColor: '#e2e8f0', marginTop: 4, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
+  dropdownSearch: { borderBottomWidth: 1, borderBottomColor: '#e2e8f0', padding: 8, fontSize: 11 },
   dropdownScroll: { maxHeight: 180 },
-  dropdownItem: { paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  dropdownItem: { paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   dropdownItemNew: { backgroundColor: '#f0fdf4' },
-  dropdownItemText: { fontSize: 14, color: '#1a1a1a' },
+  dropdownItemText: { fontSize: 11, color: '#1a1a1a' },
   clubItemRow: { flexDirection: 'row', alignItems: 'center' },
   clubLogo: { width: 24, height: 24, borderRadius: 4, marginRight: 10 },
   textArea: { minHeight: 80, textAlignVertical: 'top' },
   phoneRow: { flexDirection: 'row', gap: 8 },
-  countryCodeButton: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 12, backgroundColor: '#fff', minWidth: 85 },
-  countryCodeText: { fontSize: 14, color: '#1a1a1a', marginRight: 4 },
+  countryCodeButton: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 8, backgroundColor: '#fff', minWidth: 70 },
+  countryCodeText: { fontSize: 11, color: '#1a1a1a', marginRight: 4 },
   countryCodeArrow: { fontSize: 10, color: '#64748b' },
   phoneInput: { flex: 1 },
   modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
   modalButtonsSpaced: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
   modalButtonsRight: { flexDirection: 'row', gap: 12 },
-  cancelButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0' },
-  cancelButtonText: { fontSize: 14, color: '#64748b' },
-  saveButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#1a1a1a' },
-  saveButtonText: { fontSize: 14, color: '#fff', fontWeight: '500' },
-  deleteButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca' },
-  deleteButtonText: { fontSize: 14, color: '#ef4444', fontWeight: '500' },
+  cancelButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0' },
+  cancelButtonText: { fontSize: 11, color: '#64748b' },
+  saveButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#1a1a1a' },
+  saveButtonText: { fontSize: 11, color: '#fff', fontWeight: '500' },
+  deleteButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca' },
+  deleteButtonText: { fontSize: 11, color: '#ef4444', fontWeight: '500' },
 
   // Delete Confirmation Modal
   deleteConfirmModal: { backgroundColor: '#fff', borderRadius: 12, padding: 20, width: '85%', maxWidth: 280, alignItems: 'center' },

@@ -112,7 +112,7 @@ const isInTwoDays = (dateStr: string): boolean => {
 
 export function TasksRemindersScreen({ navigation }: any) {
   const isMobile = useIsMobile();
-  const { session, loading: authLoading } = useAuth();
+  const { session, loading: authLoading, profile: authProfile } = useAuth();
   const { colors, isDark } = useTheme();
   const dataLoadedRef = useRef(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
@@ -840,7 +840,7 @@ export function TasksRemindersScreen({ navigation }: any) {
           onClose={() => setShowMobileSidebar(false)}
           navigation={navigation}
           activeScreen="tasks"
-          profile={profile}
+          profile={authProfile}
         />
 
         <View style={[styles.mobileMainContent, { backgroundColor: colors.background }]}>
@@ -1142,7 +1142,7 @@ export function TasksRemindersScreen({ navigation }: any) {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Desktop Sidebar */}
-      <Sidebar navigation={navigation} activeScreen="tasks" profile={profile} />
+      <Sidebar navigation={navigation} activeScreen="tasks" profile={authProfile} />
 
       <Pressable
         style={[styles.mainContent, { backgroundColor: colors.background }]}

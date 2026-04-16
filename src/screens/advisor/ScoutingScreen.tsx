@@ -236,7 +236,7 @@ type MobileStatusTab = 'gesichtet' | 'in_beobachtung' | 'kontaktiert' | 'archiv'
 
 export function ScoutingScreen({ navigation }: any) {
   const isMobile = useIsMobile();
-  const { session, loading: authLoading } = useAuth();
+  const { session, loading: authLoading, profile: authProfile } = useAuth();
   const { colors, isDark } = useTheme();
   const dataLoadedRef = useRef(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
@@ -2235,7 +2235,7 @@ export function ScoutingScreen({ navigation }: any) {
           onClose={() => setShowMobileSidebar(false)}
           navigation={navigation}
           activeScreen="scouting"
-          profile={profile}
+          profile={authProfile}
         />
 
         <MobileHeader
@@ -3060,12 +3060,12 @@ export function ScoutingScreen({ navigation }: any) {
           onClose={() => setShowMobileSidebar(false)}
           navigation={navigation}
           activeScreen="scouting"
-          profile={profile}
+          profile={authProfile}
         />
       )}
 
       {/* Desktop Sidebar */}
-      {!isMobile && <Sidebar navigation={navigation} activeScreen="scouting" profile={profile} />}
+      {!isMobile && <Sidebar navigation={navigation} activeScreen="scouting" profile={authProfile} />}
 
       <View style={[styles.mainContent, { backgroundColor: colors.background }]}>
         {/* Mobile Header */}

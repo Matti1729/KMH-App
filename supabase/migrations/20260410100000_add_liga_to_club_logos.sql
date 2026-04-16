@@ -1,0 +1,1 @@
+ALTER TABLE club_logos ADD COLUMN IF NOT EXISTS liga TEXT;

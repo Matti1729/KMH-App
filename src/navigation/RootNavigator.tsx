@@ -4,7 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../contexts/AuthContext';
 import { LoginScreen, RegisterScreen, RegisterAdvisorScreen } from '../screens/auth';
-import { PlayerHomeScreen } from '../screens/player';
+import { PlayerHomeScreen, PlayerPersonalDataScreen, PerformanceScreen, KmhTeamScreen, NewsScreen, BeratungScreen } from '../screens/player';
 import { AdvisorHomeScreen, PlayerOverviewScreen, MyProfileScreen, AdminPanelScreen } from '../screens/advisor';
 import { PlayerDetailScreen } from '../screens/advisor/PlayerDetailScreen';
 import { TermineScreen } from '../screens/advisor/TermineScreen';
@@ -72,7 +72,14 @@ export function RootNavigator() {
             <Stack.Screen name="AECalculator" component={AECalculatorScreen} />
           </>
         ) : (
-          <Stack.Screen name="PlayerHome" component={PlayerHomeScreen} />
+          <>
+            <Stack.Screen name="PlayerHome" component={PlayerHomeScreen} />
+            <Stack.Screen name="PersonalData" component={PlayerPersonalDataScreen} />
+            <Stack.Screen name="Performance" component={PerformanceScreen} />
+            <Stack.Screen name="KmhTeam" component={KmhTeamScreen} />
+            <Stack.Screen name="News" component={NewsScreen} />
+            <Stack.Screen name="Beratung" component={BeratungScreen} />
+          </>
         )}
       </Stack.Navigator>
     </NavigationContainer>

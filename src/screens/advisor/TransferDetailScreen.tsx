@@ -701,15 +701,18 @@ export function TransferDetailScreen({ route, navigation }: any) {
         <View style={[styles.formRow, { zIndex: 300 }]}>
           <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Verein *</Text>
           <View style={styles.autocompleteContainer}>
-            <TouchableOpacity
-              style={[styles.clubDropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
-              onPress={() => { closeAllDropdowns(); setShowClubSuggestions(!showClubSuggestions); }}
-            >
-              <Text style={[styles.clubDropdownText, { color: colors.text }, !formData.club_name && { color: colors.textMuted }]}>
-                {formData.club_name || 'Verein auswählen...'}
-              </Text>
-              <Text style={[styles.clubDropdownArrow, { color: colors.textSecondary }]}>▼</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 6 }}>
+              <TouchableOpacity
+                style={[styles.clubDropdownButton, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
+                onPress={() => { closeAllDropdowns(); setShowClubSuggestions(!showClubSuggestions); }}
+              >
+                <Text style={[styles.clubDropdownText, { color: colors.text }, !formData.club_name && { color: colors.textMuted }]}>
+                  {formData.club_name || 'Verein auswählen...'}
+                </Text>
+                <Text style={[styles.clubDropdownArrow, { color: colors.textSecondary }]}>▼</Text>
+              </TouchableOpacity>
+              {formData.club_name ? <TouchableOpacity style={[styles.clubDropdownButton, { width: 28, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => setFormData({...formData, club_name: ''})}><Text style={{ color: colors.textSecondary, fontSize: 11 }}>✕</Text></TouchableOpacity> : null}
+            </View>
             {showClubSuggestions && (
               <Pressable style={[styles.clubSuggestionsList, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
                 <TextInput
@@ -723,6 +726,7 @@ export function TransferDetailScreen({ route, navigation }: any) {
                   autoFocus
                 />
                 <ScrollView style={styles.clubSuggestionsScroll} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                  {formData.club_name ? <TouchableOpacity style={[styles.clubSuggestionItem, { borderBottomColor: colors.border }]} onPress={() => { setFormData({...formData, club_name: ''}); setClubSearch(''); setShowClubSuggestions(false); }}><Text style={{ color: colors.error || '#ef4444', fontSize: 11 }}>— Leeren</Text></TouchableOpacity> : null}
                   {/* Option für eigenen Namen wenn Text eingegeben */}
                   {clubSearch.length >= 2 && !allClubNames.some(n => n.toLowerCase() === clubSearch.toLowerCase()) && (
                     <TouchableOpacity
@@ -902,6 +906,7 @@ export function TransferDetailScreen({ route, navigation }: any) {
             {showReminderPicker && (
               <View style={[styles.reminderDropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
+                  {formData.reminder_days ? <TouchableOpacity style={[styles.reminderDropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setFormData({...formData, reminder_days: null}); setShowReminderPicker(false); }}><Text style={{ color: colors.error || '#ef4444', fontSize: 11 }}>— Leeren</Text></TouchableOpacity> : null}
                   {REMINDER_OPTIONS.map(option => (
                     <TouchableOpacity
                       key={option.value}
@@ -1448,49 +1453,49 @@ const styles = StyleSheet.create({
   
   // Form Modal
   formModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  formModalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 450, overflow: 'visible' },
-  formModalTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a1a', marginBottom: 16, textAlign: 'center' },
-  formModalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 16, zIndex: -1 },
-  formModalCancelButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#f1f5f9' },
-  formModalCancelText: { color: '#64748b', fontWeight: '600', fontSize: 14 },
-  formModalSaveButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#10b981' },
-  formModalSaveText: { color: '#10b981', fontWeight: '600', fontSize: 14 },
-  formModalDeleteButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#fef2f2', marginRight: 'auto' },
-  formModalDeleteText: { color: '#ef4444', fontWeight: '600', fontSize: 14 },
-  
+  formModalContent: { backgroundColor: '#fff', borderRadius: 12, padding: 20, width: '90%', maxWidth: 450, overflow: 'visible' },
+  formModalTitle: { fontSize: 14, fontWeight: '700', color: '#1a1a1a', marginBottom: 12, textAlign: 'center' },
+  formModalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 12, zIndex: -1 },
+  formModalCancelButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#f1f5f9' },
+  formModalCancelText: { color: '#64748b', fontWeight: '600', fontSize: 11 },
+  formModalSaveButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#10b981' },
+  formModalSaveText: { color: '#10b981', fontWeight: '600', fontSize: 11 },
+  formModalDeleteButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#fef2f2', marginRight: 'auto' },
+  formModalDeleteText: { color: '#ef4444', fontWeight: '600', fontSize: 11 },
+
   // Form
-  formContainer: { gap: 16 },
+  formContainer: { gap: 10 },
   formScrollContainer: { maxHeight: 400 },
-  formRow: { marginBottom: 16 },
-  formLabel: { fontSize: 13, fontWeight: '600', color: '#64748b', marginBottom: 6 },
-  formInput: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, paddingVertical: 12, paddingHorizontal: 14, fontSize: 15, backgroundColor: '#fff' },
+  formRow: { marginBottom: 10 },
+  formLabel: { fontSize: 10, fontWeight: '600', color: '#64748b', marginBottom: 4 },
+  formInput: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, paddingVertical: 8, paddingHorizontal: 10, fontSize: 11, backgroundColor: '#fff' },
   formTextArea: { minHeight: 80, textAlignVertical: 'top' },
   autocompleteContainer: { position: 'relative', zIndex: 300 },
   
   // Club Dropdown
-  clubDropdownButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, paddingVertical: 12, paddingHorizontal: 14, backgroundColor: '#fff' },
-  clubDropdownText: { fontSize: 15, color: '#333', flex: 1 },
-  clubDropdownArrow: { fontSize: 12, color: '#64748b', marginLeft: 8 },
-  clubSuggestionsList: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, zIndex: 9999, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 12, elevation: 20, marginTop: 4 },
-  clubSearchInput: { borderBottomWidth: 1, borderBottomColor: '#e2e8f0', paddingVertical: 10, paddingHorizontal: 14, fontSize: 14 },
+  clubDropdownButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, paddingVertical: 8, paddingHorizontal: 10, backgroundColor: '#fff' },
+  clubDropdownText: { fontSize: 11, color: '#333', flex: 1 },
+  clubDropdownArrow: { fontSize: 10, color: '#64748b', marginLeft: 8 },
+  clubSuggestionsList: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, zIndex: 9999, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 12, elevation: 20, marginTop: 4 },
+  clubSearchInput: { borderBottomWidth: 1, borderBottomColor: '#e2e8f0', paddingVertical: 8, paddingHorizontal: 10, fontSize: 11 },
   clubSuggestionsScroll: { maxHeight: 200 },
-  clubSuggestionItem: { paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  clubSuggestionItem: { paddingVertical: 8, paddingHorizontal: 10, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   clubSuggestionItemSelected: { backgroundColor: '#f0f9ff' },
   clubSuggestionItemCustom: { backgroundColor: '#f0fdf4', borderBottomColor: '#bbf7d0' },
-  clubSuggestionText: { fontSize: 14, color: '#1a1a1a' },
+  clubSuggestionText: { fontSize: 11, color: '#1a1a1a' },
   clubSuggestionTextSelected: { color: '#3b82f6', fontWeight: '600' },
-  clubSuggestionTextCustom: { fontSize: 14, color: '#16a34a', fontWeight: '500' },
-  
-  statusSelector: { flexDirection: 'row', gap: 8 },
-  statusOption: { flex: 1, paddingVertical: 10, borderRadius: 8, backgroundColor: '#f1f5f9', alignItems: 'center' },
-  statusOptionText: { fontSize: 12, fontWeight: '600', color: '#64748b' },
+  clubSuggestionTextCustom: { fontSize: 11, color: '#16a34a', fontWeight: '500' },
+
+  statusSelector: { flexDirection: 'row', gap: 6 },
+  statusOption: { flex: 1, paddingVertical: 6, borderRadius: 6, backgroundColor: '#f1f5f9', alignItems: 'center' },
+  statusOptionText: { fontSize: 10, fontWeight: '600', color: '#64748b' },
   
   // Date Picker - unterschiedliche Breiten
   datePickerRow: { flexDirection: 'row', gap: 8 },
   datePickerFieldSmall: { position: 'relative', width: 70 },
   datePickerFieldMedium: { position: 'relative', width: 100 },
-  dateDropdownButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 10, backgroundColor: '#fff' },
-  dateDropdownText: { fontSize: 13, color: '#333' },
+  dateDropdownButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, paddingVertical: 6, paddingHorizontal: 8, backgroundColor: '#fff' },
+  dateDropdownText: { fontSize: 11, color: '#333' },
   dateDropdownArrow: { fontSize: 10, color: '#64748b' },
   datePickerList: { position: 'absolute', top: '100%', left: 0, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, maxHeight: 180, zIndex: 9999, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 12, elevation: 20, marginTop: 4, minWidth: 70 },
   datePickerScroll: { maxHeight: 180 },
@@ -1506,13 +1511,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    borderRadius: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
     backgroundColor: '#fff',
     minWidth: 150,
   },
-  reminderDropdownText: { fontSize: 13, color: '#333' },
+  reminderDropdownText: { fontSize: 11, color: '#333' },
   reminderDropdownList: {
     position: 'absolute',
     top: '100%',
@@ -1856,22 +1861,22 @@ const styles = StyleSheet.create({
   uploadOfferButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
     alignSelf: 'flex-start',
     gap: 6,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   uploadOfferButtonText: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '600',
   },
   offerDocItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
-    borderRadius: 8,
+    padding: 6,
+    borderRadius: 6,
     marginBottom: 6,
   },
   offerDocLink: {

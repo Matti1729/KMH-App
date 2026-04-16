@@ -148,7 +148,7 @@ function findSalaryForSeason(salaryPeriods: any[], season: string): { monthlySal
 
 export function FinanzenScreen({ navigation }: any) {
   const isMobile = useIsMobile();
-  const { session } = useAuth();
+  const { session, profile: authProfile } = useAuth();
   const { colors, isDark } = useTheme();
 
   const [loading, setLoading] = useState(true);
@@ -1276,7 +1276,7 @@ export function FinanzenScreen({ navigation }: any) {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Sidebar navigation={navigation} activeScreen="finanzen" />
+      <Sidebar navigation={navigation} activeScreen="finanzen" profile={authProfile} />
       {renderDetailModal()}
 
       <View style={styles.mainContent}>

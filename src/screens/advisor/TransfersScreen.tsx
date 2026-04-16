@@ -153,7 +153,12 @@ export function TransfersScreen({ navigation }: any) {
   // Club Form Dropdown
   const [formClubSearch, setFormClubSearch] = useState('');
   const [showFormClubDropdown, setShowFormClubDropdown] = useState(false);
-  
+
+  // Club Search (remote Transfermarkt)
+  const [clubSearchResults, setClubSearchResults] = useState<Array<{ name: string; logoUrl: string; liga: string; country: string }>>([]);
+  const [clubSearching, setClubSearching] = useState(false);
+  const clubSearchTimeout = useRef<NodeJS.Timeout | null>(null);
+
   // Editing State
   const [editingClub, setEditingClub] = useState<SearchingClub | null>(null);
 
@@ -342,6 +347,9 @@ export function TransfersScreen({ navigation }: any) {
     setShowFormClubDropdown(false);
     setEditingClub(null);
     setClubOfferDocuments([]);
+    setClubSearchResults([]);
+    setClubSearching(false);
+    if (clubSearchTimeout.current) clearTimeout(clubSearchTimeout.current);
   };
   
   const openEditClubModal = (club: SearchingClub) => {
@@ -473,7 +481,58 @@ export function TransfersScreen({ navigation }: any) {
     if (!formClubSearch.trim()) return allClubNames.slice(0, 10);
     return allClubNames.filter(name => name.toLowerCase().includes(formClubSearch.toLowerCase())).slice(0, 10);
   };
-  
+
+  const searchClubsRemote = async (query: string) => {
+    if (query.trim().length < 2) { setClubSearchResults([]); return; }
+    setClubSearching(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('search-club', { body: { query } });
+      if (error) { setClubSearchResults([]); return; }
+      const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+      if (parsed?.results && Array.isArray(parsed.results)) {
+        setClubSearchResults(parsed.results);
+      } else {
+        setClubSearchResults([]);
+      }
+    } catch (e) {
+      console.error('Club search exception:', e);
+      setClubSearchResults([]);
+    } finally {
+      setClubSearching(false);
+    }
+  };
+
+  const handleFormClubSearchChange = (text: string) => {
+    setFormClubSearch(text);
+    setShowFormClubDropdown(true);
+    if (clubSearchTimeout.current) clearTimeout(clubSearchTimeout.current);
+    clubSearchTimeout.current = setTimeout(() => searchClubsRemote(text), 500);
+  };
+
+  const selectRemoteClub = (club: { name: string; logoUrl: string; liga?: string; country?: string }) => {
+    setFormClubSearch(club.name);
+    setNewClub(prev => ({ ...prev, club_name: club.name, league: club.liga || prev.league }));
+    setShowFormClubDropdown(false);
+    setClubSearchResults([]);
+    if (club.name) {
+      setClubLogos(prev => ({ ...prev, [club.name]: club.logoUrl }));
+      if (!allClubNames.includes(club.name)) {
+        setAllClubNames(prev => [...prev, club.name].sort());
+      }
+    }
+  };
+
+  const selectFreitextClub = () => {
+    if (formClubSearch.trim()) {
+      setNewClub(prev => ({ ...prev, club_name: formClubSearch.trim() }));
+      if (!allClubNames.includes(formClubSearch.trim())) {
+        setAllClubNames(prev => [...prev, formClubSearch.trim()].sort());
+      }
+      setShowFormClubDropdown(false);
+      setClubSearchResults([]);
+    }
+  };
+
   const toggleClubPosition = (pos: string) => {
     setSelectedClubPositions(prev => prev.includes(pos) ? prev.filter(p => p !== pos) : [...prev, pos]);
   };
@@ -1651,7 +1710,7 @@ export function TransfersScreen({ navigation }: any) {
                   <TextInput
                     style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
                     value={formClubSearch}
-                    onChangeText={(t) => { setFormClubSearch(t); setShowFormClubDropdown(true); }}
+                    onChangeText={handleFormClubSearchChange}
                     onFocus={() => setShowFormClubDropdown(true)}
                     placeholder="Verein suchen oder eingeben..."
                     placeholderTextColor={colors.textMuted}
@@ -1659,15 +1718,48 @@ export function TransfersScreen({ navigation }: any) {
                   {showFormClubDropdown && formClubSearch.length > 0 && (
                     <View style={[styles.clubDropdown, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                       <ScrollView style={styles.clubDropdownScroll} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                        {/* Leeren option */}
+                        <TouchableOpacity style={[styles.clubDropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setFormClubSearch(''); setNewClub({...newClub, club_name: '', league: ''}); setShowFormClubDropdown(false); setClubSearchResults([]); }}>
+                          <Text style={[styles.clubDropdownText, { color: colors.textMuted, fontStyle: 'italic' }]}>— Leeren</Text>
+                        </TouchableOpacity>
+                        {/* Local clubs */}
                         {getFilteredClubsForForm().map((club) => (
-                          <TouchableOpacity key={club} style={[styles.clubDropdownItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }]} onPress={() => { setFormClubSearch(club); setNewClub({...newClub, club_name: club}); setShowFormClubDropdown(false); }}>
-                            {clubLogos[club] && <Image source={{ uri: clubLogos[club] }} style={styles.clubDropdownLogo} />}
-                            <Text style={[styles.clubDropdownText, { color: colors.text }]}>{club}</Text>
+                          <TouchableOpacity key={club} style={[styles.clubDropdownItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }]} onPress={() => { setFormClubSearch(club); setNewClub({...newClub, club_name: club}); setShowFormClubDropdown(false); setClubSearchResults([]); }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                              {clubLogos[club] ? <Image source={{ uri: clubLogos[club] }} style={styles.clubDropdownLogo} /> : null}
+                              <Text style={[styles.clubDropdownText, { color: colors.text }]}>{club}</Text>
+                            </View>
                           </TouchableOpacity>
                         ))}
-                        {!getFilteredClubsForForm().includes(formClubSearch) && formClubSearch.trim() !== '' && (
-                          <TouchableOpacity style={[styles.clubDropdownItem, styles.clubDropdownCustom, { borderBottomColor: colors.border }]} onPress={() => { setNewClub({...newClub, club_name: formClubSearch}); setShowFormClubDropdown(false); }}>
-                            <Text style={styles.clubDropdownCustomText}>"{formClubSearch}" verwenden</Text>
+                        {/* Transfermarkt loading */}
+                        {clubSearching && (
+                          <View style={[styles.clubDropdownItem, { borderBottomColor: colors.border }]}>
+                            <Text style={[styles.clubDropdownText, { color: colors.textMuted }]}>Suche auf Transfermarkt...</Text>
+                          </View>
+                        )}
+                        {/* Transfermarkt results */}
+                        {clubSearchResults.length > 0 && (
+                          <>
+                            <View style={[styles.clubDropdownItem, { borderBottomColor: colors.border, backgroundColor: isDark ? 'rgba(59,130,246,0.1)' : '#eff6ff' }]}>
+                              <Text style={[styles.clubDropdownText, { color: colors.textSecondary, fontWeight: '700', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }]}>Transfermarkt-Ergebnisse</Text>
+                            </View>
+                            {clubSearchResults.map(club => (
+                              <TouchableOpacity key={club.name} style={[styles.clubDropdownItem, { borderBottomColor: colors.border }]} onPress={() => selectRemoteClub(club)}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                                  {club.logoUrl ? <Image source={{ uri: club.logoUrl }} style={styles.clubDropdownLogo} /> : null}
+                                  <View style={{ flex: 1 }}>
+                                    <Text style={[styles.clubDropdownText, { color: colors.text }]}>{club.name}</Text>
+                                    {club.liga ? <Text style={{ fontSize: 10, color: colors.textMuted }}>{club.liga}{club.country ? ` · ${club.country}` : ''}</Text> : null}
+                                  </View>
+                                </View>
+                              </TouchableOpacity>
+                            ))}
+                          </>
+                        )}
+                        {/* Freitext option */}
+                        {formClubSearch.trim() && !getFilteredClubsForForm().includes(formClubSearch) && !clubSearching && (
+                          <TouchableOpacity style={[styles.clubDropdownItem, styles.clubDropdownCustom, { borderBottomColor: colors.border, backgroundColor: isDark ? 'rgba(34, 197, 94, 0.2)' : '#f0fdf4' }]} onPress={selectFreitextClub}>
+                            <Text style={styles.clubDropdownCustomText}>+ "{formClubSearch}" als Freitext übernehmen</Text>
                           </TouchableOpacity>
                         )}
                       </ScrollView>
@@ -2144,27 +2236,27 @@ const styles = StyleSheet.create({
   
   // Modal
   modalOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
-  modalContent: { borderRadius: 16, padding: 24, width: '90%', maxWidth: 500, maxHeight: '90%' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a1a' },
-  closeButton: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center' },
-  closeButtonText: { fontSize: 18, color: '#64748b' },
-  formField: { marginBottom: 16 },
-  formLabel: { fontSize: 11, color: '#64748b', marginBottom: 6, fontWeight: '500' },
-  formInput: { borderWidth: 1, borderRadius: 8, padding: 12, fontSize: 11 },
-  modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 20 },
-  modalButtonsRight: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 20 },
-  modalButtonsSpaced: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
-  cancelButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#f1f5f9' },
-  cancelButtonText: { color: '#64748b', fontWeight: '600' },
-  saveButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#10b981' },
-  saveButtonText: { color: '#10b981', fontWeight: '600' },
-  deleteButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: '#ef4444' },
-  deleteButtonText: { color: '#ef4444', fontWeight: '600' },
+  modalContent: { borderRadius: 12, padding: 20, width: '90%', maxWidth: 500, maxHeight: '90%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
+  modalTitle: { fontSize: 15, fontWeight: '700', color: '#1a1a1a' },
+  closeButton: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center' },
+  closeButtonText: { fontSize: 16, color: '#64748b' },
+  formField: { marginBottom: 12 },
+  formLabel: { fontSize: 10, color: '#64748b', marginBottom: 4, fontWeight: '500' },
+  formInput: { borderWidth: 1, borderRadius: 6, padding: 8, fontSize: 11 },
+  modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 16 },
+  modalButtonsRight: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 16 },
+  modalButtonsSpaced: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
+  cancelButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#f1f5f9' },
+  cancelButtonText: { color: '#64748b', fontWeight: '600', fontSize: 11 },
+  saveButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#10b981' },
+  saveButtonText: { color: '#10b981', fontWeight: '600', fontSize: 11 },
+  deleteButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: '#ef4444' },
+  deleteButtonText: { color: '#ef4444', fontWeight: '600', fontSize: 11 },
   
   // Position Picker (Form)
-  positionPickerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  positionOption: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
+  positionPickerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
+  positionOption: { paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
   positionOptionSelected: { backgroundColor: '#1a1a1a', borderColor: '#1a1a1a' },
   positionOptionText: { fontSize: 11, fontWeight: '600', color: '#64748b' },
   positionOptionTextSelected: { color: '#fff' },
@@ -2219,10 +2311,10 @@ const styles = StyleSheet.create({
   
   // Club Selector in Form
   clubSelectorContainer: { position: 'relative', zIndex: 100 },
-  clubDropdown: { position: 'absolute', top: '100%', left: 0, right: 0, borderRadius: 8, borderWidth: 1, marginTop: 4, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 10, zIndex: 9999, elevation: 9999 },
-  clubDropdownScroll: { maxHeight: 200 },
-  clubDropdownItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1 },
-  clubDropdownLogo: { width: 24, height: 24, resizeMode: 'contain', marginRight: 10 },
+  clubDropdown: { position: 'absolute', top: '100%', left: 0, right: 0, borderRadius: 6, borderWidth: 1, marginTop: 4, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 10, zIndex: 9999, elevation: 9999 },
+  clubDropdownScroll: { maxHeight: 250 },
+  clubDropdownItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 10, borderBottomWidth: 1 },
+  clubDropdownLogo: { width: 20, height: 20, resizeMode: 'contain', marginRight: 8 },
   clubDropdownText: { fontSize: 11, color: '#333' },
   clubDropdownCustom: { backgroundColor: '#f0fdf4' },
   clubDropdownCustomText: { fontSize: 11, color: '#16a34a', fontWeight: '500' },
@@ -2422,9 +2514,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#2563eb',
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
     alignSelf: 'flex-start',
     gap: 6,
     marginBottom: 8,

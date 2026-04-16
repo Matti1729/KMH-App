@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Pressable } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Pressable, useWindowDimensions } from 'react-native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 import { MobileHeader } from '../../components/MobileHeader';
@@ -23,6 +23,8 @@ export function AdvisorHomeScreen({ navigation }: any) {
   const { colors, isDark } = useTheme();
   const [profile, setProfile] = useState<AdvisorProfile | null>(null);
   const currentWeekday = WEEKDAYS_DE[new Date().getDay()];
+  const { width: windowWidth } = useWindowDimensions();
+  const uniformCardWidth = Math.max(160, Math.floor((windowWidth - (isMobile ? 0 : 240) - 48 - 48) / 3));
   const [playerCount, setPlayerCount] = useState(0);
   const [scoutingCount, setScoutingCount] = useState(0);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
@@ -490,211 +492,65 @@ export function AdvisorHomeScreen({ navigation }: any) {
         </View>
 
         {/* Dashboard Content */}
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-          <View style={styles.gridContainer}>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContentUniform}>
+          {(() => {
+            const isMatti = session?.user?.id === '892d4dbc-3c5b-4908-9735-ac0ca3794dfc';
+            const isAdmin = profile?.role === 'admin';
+            const allCards = [
+              { id: 'players', icon: '👤', title: 'KMH-Spieler', subtitle: 'Verwaltung aller Spieler', count: playerCount, screen: 'PlayerOverview' },
+              { id: 'transfers', icon: '🔄', title: 'Transfers', subtitle: 'Auslaufende Verträge & Wechsel', count: transferCount, screen: 'Transfers' },
+              { id: 'network', icon: '💼', title: 'Football Network', subtitle: 'Kontakte zu Vereinen & Entscheidern', count: networkContactsCount, screen: 'FootballNetwork' },
+              { id: 'scouting', icon: '🔍', title: 'Scouting', subtitle: 'Talente im Blick', count: scoutingCount, screen: 'Scouting' },
+              { id: 'termine', icon: '📅', title: 'Spieltage', subtitle: 'Lehrgänge, Spiele & Turniere', badge: todayGamesCount, screen: 'Calendar' },
+              { id: 'aufgaben', icon: '✓', title: 'Aufgaben & Erinnerungen', subtitle: 'Deine To-Dos & Erinnerungen', badge: tasksAndRemindersCount, screen: 'Tasks' },
+              ...(isMatti ? [{ id: 'finanzen', icon: '💰', title: 'Finanzen', subtitle: 'Provisionen & Rechnungen', screen: 'Finanzen' }] : []),
+              ...(isMatti ? [{ id: 'wissenswertes', icon: '💡', title: 'Wissenswertes', subtitle: 'Tools & Informationen', screen: 'Wissenswertes' }] : []),
+              ...(isAdmin ? [{ id: 'admin', icon: '⚙️', title: 'Administration', subtitle: 'Benutzer & Rechte verwalten', badge: pendingRequestsCount + openFeedbackCount, screen: 'AdminPanel' }] : []),
+            ] as Array<{ id: string; icon: string; title: string; subtitle: string; count?: number; badge?: number; screen: string }>;
 
-              {/* Row 1 - KMH-Spieler + Transfers + Football Network links, Scouting rechts als Säule */}
-              <View style={styles.row}>
-                {/* Linke Spalte - KMH-Spieler, Transfers, Football Network */}
-                <View style={styles.leftColumn}>
-                  {/* Obere Zeile - KMH-Spieler + Transfers */}
-                  <View style={styles.topRow}>
-                    {/* KMH-Spieler - Large Card */}
-                    <DashboardCard
-                      id="players"
-                      style={[styles.mainCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
-                      onPress={() => navigation.navigate('PlayerOverview')}
-                      hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
-                    >
-                      <Text style={[styles.playerCountTopRight, { color: colors.text }]}>{playerCount}</Text>
-                      <Text style={styles.mainCardBackgroundEmoji}>👤</Text>
-                      <View style={styles.mainCardContent}>
-                        <View style={styles.mainCardLeft}>
-                          <Text style={[styles.mainCardTitle, { color: colors.text }]}>KMH-Spieler</Text>
-                          <Text style={[styles.mainCardSubtitle, { color: colors.textMuted }]}>
-                            Verwaltung aller Daten unserer{'\n'}
-                            aktiven Spieler und Trainer.
-                          </Text>
-                          <View style={styles.mainCardFooter}>
-                            <Text style={[styles.mainCardLink, { color: colors.text }]}>Zur Übersicht</Text>
-                            <Text style={[styles.mainCardArrow, { color: colors.text }]}>→</Text>
+            const rows: typeof allCards[] = [];
+            for (let i = 0; i < allCards.length; i += 3) {
+              rows.push(allCards.slice(i, i + 3));
+            }
+
+            return (
+              <View style={styles.uniformGrid}>
+                {rows.map((rowCards, rowIdx) => {
+                  return (
+                    <View key={rowIdx} style={styles.uniformGridRow}>
+                      {rowCards.map((card) => (
+                        <DashboardCard
+                          key={card.id}
+                          id={card.id}
+                          style={[styles.uniformCard, { width: uniformCardWidth, backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
+                          onPress={() => navigation.navigate(card.screen)}
+                          hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
+                        >
+                          <View style={styles.uniformCardHeader}>
+                            <View style={[styles.uniformCardIcon, { backgroundColor: colors.surfaceSecondary }]}>
+                              <Text style={styles.uniformCardIconText}>{card.icon}</Text>
+                            </View>
+                            {typeof card.count === 'number' && (
+                              <Text style={[styles.uniformCardCount, { color: colors.text }]}>{card.count}</Text>
+                            )}
+                            {typeof card.badge === 'number' && card.badge > 0 && (
+                              <View style={[styles.redBadge, { backgroundColor: colors.error }]}>
+                                <Text style={styles.redBadgeText}>{card.badge}</Text>
+                              </View>
+                            )}
                           </View>
-                        </View>
-                      </View>
-                    </DashboardCard>
-
-                    {/* Transfers Card */}
-                    <DashboardCard
-                      id="transfers"
-                      style={[styles.transferCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
-                      onPress={() => navigation.navigate('Transfers')}
-                      hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
-                    >
-                      <View style={styles.transferHeader}>
-                        <View style={[styles.transferIcon, { backgroundColor: colors.surfaceSecondary }]}>
-                          <Text style={styles.transferIconText}>🔄</Text>
-                        </View>
-                        <Text style={[styles.transferCount, { color: colors.text }]}>{transferCount}</Text>
-                      </View>
-                      <View style={styles.transferFooter}>
-                        <Text style={[styles.transferTitle, { color: colors.text }]}>Transfers</Text>
-                        <Text style={[styles.transferSubtitle, { color: colors.textMuted }]}>Auslaufende Verträge & mögliche Wechsel</Text>
-                      </View>
-                    </DashboardCard>
-                  </View>
-
-                  {/* Football Network Card */}
-                  <DashboardCard
-                    id="network"
-                    style={[styles.networkCardWide, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
-                    onPress={() => navigation.navigate('FootballNetwork')}
-                    hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
-                  >
-                    <View style={styles.networkWideTop}>
-                      <View style={[styles.networkWideIcon, { backgroundColor: colors.surfaceSecondary }]}>
-                        <Text style={styles.networkWideIconText}>💼</Text>
-                      </View>
-                      <View style={styles.networkWideTitleContainer}>
-                        <Text style={[styles.networkWideTitle, { color: colors.text }]}>Football Network</Text>
-                        <Text style={[styles.networkWideSubtitle, { color: colors.textMuted }]}>Kontakte zu Vereinen und Entscheidern</Text>
-                      </View>
+                          <View style={styles.uniformCardFooter}>
+                            <Text style={[styles.uniformCardTitle, { color: colors.text }]}>{card.title}</Text>
+                            <Text style={[styles.uniformCardSubtitle, { color: colors.textMuted }]}>{card.subtitle}</Text>
+                          </View>
+                        </DashboardCard>
+                      ))}
                     </View>
-                    <Text style={[styles.networkWideCount, { color: colors.text }]}>{networkContactsCount}</Text>
-                  </DashboardCard>
-                </View>
-
-                {/* Scouting - Säule */}
-                <DashboardCard
-                  id="scouting"
-                  style={[styles.scoutingCardTallLight, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
-                  onPress={() => navigation.navigate('Scouting')}
-                  hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
-                >
-                  <Text style={[styles.scoutingTallCountLight, { color: colors.text }]}>{scoutingCount}</Text>
-                  <View style={styles.scoutingVerticalTextContainer}>
-                    <Text style={[styles.scoutingVerticalTextLight, { color: colors.text }]}>S{'\n'}C{'\n'}O{'\n'}U{'\n'}T{'\n'}I{'\n'}N{'\n'}G</Text>
-                  </View>
-                  <View style={styles.scoutingTallFooter}>
-                    <Text style={[styles.scoutingTallSubtitleLight, { color: colors.textMuted }]}>Talente{'\n'}im Blick</Text>
-                  </View>
-                </DashboardCard>
+                  );
+                })}
               </View>
-
-              {/* Row 2 - Spieltage & Aufgaben */}
-              <View style={styles.row}>
-                <DashboardCard
-                  id="termine"
-                  style={[styles.lightBottomCard, { marginRight: 16, backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
-                  onPress={() => navigation.navigate('Calendar')}
-                  hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
-                >
-                  <View style={styles.lightBottomCardContent}>
-                    <View style={[styles.lightBottomCardIcon, { backgroundColor: colors.surfaceSecondary }]}>
-                      <Text style={styles.lightBottomCardIconText}>📅</Text>
-                    </View>
-                    <View style={styles.lightBottomCardText}>
-                      <Text style={[styles.lightBottomCardTitle, { color: colors.text }]}>Spieltage</Text>
-                      <Text style={[styles.lightBottomCardSubtitle, { color: colors.textMuted }]}>Lehrgänge, Spiele & Turniere</Text>
-                    </View>
-                    <View style={[styles.redBadge, { backgroundColor: colors.error }]}>
-                      <Text style={styles.redBadgeText}>{todayGamesCount}</Text>
-                    </View>
-                  </View>
-                </DashboardCard>
-
-                <DashboardCard
-                  id="aufgaben"
-                  style={[styles.lightBottomCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
-                  onPress={() => navigation.navigate('Tasks')}
-                  hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
-                >
-                  <View style={styles.lightBottomCardContent}>
-                    <View style={[styles.lightBottomCardIcon, { backgroundColor: colors.surfaceSecondary }]}>
-                      <Text style={styles.lightBottomCardIconText}>✓</Text>
-                    </View>
-                    <View style={styles.lightBottomCardText}>
-                      <Text style={[styles.lightBottomCardTitle, { color: colors.text }]}>Aufgaben & Erinnerungen</Text>
-                      <Text style={[styles.lightBottomCardSubtitle, { color: colors.textMuted }]}>Deine To-Dos & Erinnerungen</Text>
-                    </View>
-                    <View style={[styles.redBadge, { backgroundColor: colors.error }]}>
-                      <Text style={styles.redBadgeText}>{tasksAndRemindersCount}</Text>
-                    </View>
-                  </View>
-                </DashboardCard>
-              </View>
-
-              {/* Row 3 - Finanzen (only Matti) */}
-              {session?.user?.id === '892d4dbc-3c5b-4908-9735-ac0ca3794dfc' && (
-                <View style={styles.adminRow}>
-                  <DashboardCard
-                    id="finanzen"
-                    style={[styles.adminCardLight, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
-                    onPress={() => navigation.navigate('Finanzen')}
-                    hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
-                  >
-                    <View style={styles.lightBottomCardContent}>
-                      <View style={[styles.lightBottomCardIcon, { backgroundColor: colors.surfaceSecondary }]}>
-                        <Text style={styles.lightBottomCardIconText}>💰</Text>
-                      </View>
-                      <View style={styles.lightBottomCardText}>
-                        <Text style={[styles.lightBottomCardTitle, { color: colors.text }]}>Finanzen</Text>
-                        <Text style={[styles.lightBottomCardSubtitle, { color: colors.textMuted }]}>Provisionen & Rechnungen verwalten</Text>
-                      </View>
-                    </View>
-                  </DashboardCard>
-                </View>
-              )}
-
-              {/* Row - Wissenswertes (only Matti) */}
-              {session?.user?.id === '892d4dbc-3c5b-4908-9735-ac0ca3794dfc' && (
-                <View style={styles.adminRow}>
-                  <DashboardCard
-                    id="wissenswertes"
-                    style={[styles.adminCardLight, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
-                    onPress={() => navigation.navigate('Wissenswertes')}
-                    hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
-                  >
-                    <View style={styles.lightBottomCardContent}>
-                      <View style={[styles.lightBottomCardIcon, { backgroundColor: colors.surfaceSecondary }]}>
-                        <Text style={styles.lightBottomCardIconText}>💡</Text>
-                      </View>
-                      <View style={styles.lightBottomCardText}>
-                        <Text style={[styles.lightBottomCardTitle, { color: colors.text }]}>Wissenswertes</Text>
-                        <Text style={[styles.lightBottomCardSubtitle, { color: colors.textMuted }]}>Tools & Informationen</Text>
-                      </View>
-                    </View>
-                  </DashboardCard>
-                </View>
-              )}
-
-              {/* Row 4 - Admin */}
-              {profile?.role === 'admin' && (
-                <View style={styles.adminRow}>
-                  <DashboardCard
-                    id="admin"
-                    style={[styles.adminCardLight, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
-                    onPress={() => navigation.navigate('AdminPanel')}
-                    hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
-                  >
-                    <View style={styles.lightBottomCardContent}>
-                      <View style={[styles.lightBottomCardIcon, { backgroundColor: colors.surfaceSecondary }]}>
-                        <Text style={styles.lightBottomCardIconText}>⚙️</Text>
-                      </View>
-                      <View style={styles.lightBottomCardText}>
-                        <Text style={[styles.lightBottomCardTitle, { color: colors.text }]}>Administration</Text>
-                        <Text style={[styles.lightBottomCardSubtitle, { color: colors.textMuted }]}>Benutzer & Rechte verwalten</Text>
-                      </View>
-                      {(pendingRequestsCount + openFeedbackCount) > 0 && (
-                        <View style={[styles.redBadge, { backgroundColor: colors.error }]}>
-                          <Text style={styles.redBadgeText}>{pendingRequestsCount + openFeedbackCount}</Text>
-                        </View>
-                      )}
-                    </View>
-                  </DashboardCard>
-                </View>
-              )}
-
-          </View>
+            );
+          })()}
         </ScrollView>
       </View>
     </View>
@@ -757,7 +613,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: 24,
     paddingVertical: 20,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
@@ -817,6 +673,51 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 24,
+  },
+  scrollContentUniform: {
+    padding: 24,
+  },
+  uniformGrid: {
+    gap: 24,
+  },
+  uniformGridRow: {
+    flexDirection: 'row',
+    gap: 24,
+  },
+  uniformCard: {
+    height: 220,
+    borderRadius: 12,
+    padding: 20,
+    borderWidth: 1,
+    justifyContent: 'space-between',
+  },
+  uniformCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  uniformCardIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  uniformCardIconText: { fontSize: 18 },
+  uniformCardCount: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  uniformCardFooter: {
+    marginTop: 'auto',
+  },
+  uniformCardTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  uniformCardSubtitle: {
+    fontSize: 11,
+    marginTop: 4,
   },
   scrollContentMobile: {
     padding: 16,

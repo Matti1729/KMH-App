@@ -18,12 +18,13 @@ interface SidebarProps {
   onNavigate?: () => void;
   embedded?: boolean; // Wenn true, wird nur der Inhalt ohne Mobile-Header/Modal gerendert
   onFeedbackModalChange?: (isOpen: boolean) => void; // Callback für Feedback-Modal Status
+  playerMode?: boolean; // Wenn true, wird die Spieler-Navigation verwendet
 }
 
 // Breakpoint für Mobile
 const MOBILE_BREAKPOINT = 768;
 
-export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedded, onFeedbackModalChange }: SidebarProps) {
+export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedded, onFeedbackModalChange, playerMode }: SidebarProps) {
   const [hoveredNav, setHoveredNav] = useState<string | null>(null);
   const [showFeedbackModal, setShowFeedbackModalState] = useState(false);
 
@@ -141,7 +142,7 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
   };
 
   const goToDashboard = () => {
-    navigation.navigate('AdvisorDashboard');
+    navigation.navigate(playerMode ? 'PlayerHome' : 'AdvisorDashboard');
     onNavigate?.();
   };
 
@@ -155,14 +156,22 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
   };
 
   // Sidebar Navigation - alle Bereiche
-  const navItems = [
-    { id: 'players', label: 'KMH-Spieler', icon: '👤', screen: 'PlayerOverview' },
-    { id: 'transfers', label: 'Transfers', icon: '🔄', screen: 'Transfers' },
-    { id: 'scouting', label: 'Scouting', icon: '🔍', screen: 'Scouting' },
-    { id: 'network', label: 'Football Network', icon: '💼', screen: 'FootballNetwork' },
-    { id: 'termine', label: 'Spieltage', icon: '📅', screen: 'Calendar' },
-    { id: 'aufgaben', label: 'Aufgaben & Erinnerungen', icon: '✓', screen: 'Tasks' },
-  ];
+  const navItems = playerMode
+    ? [
+        { id: 'personalData', label: 'Persönliche Daten', icon: '👤', screen: 'PersonalData' },
+        { id: 'performance', label: 'Performance', icon: '📈', screen: 'Performance' },
+        { id: 'kmhTeam', label: 'Unser KMH-Team', icon: '🤝', screen: 'KmhTeam' },
+        { id: 'news', label: 'News', icon: '📰', screen: 'News' },
+        { id: 'beratung', label: 'Was bedeutet Beratung', icon: '💡', screen: 'Beratung' },
+      ]
+    : [
+        { id: 'players', label: 'KMH-Spieler', icon: '👤', screen: 'PlayerOverview' },
+        { id: 'transfers', label: 'Transfers', icon: '🔄', screen: 'Transfers' },
+        { id: 'scouting', label: 'Scouting', icon: '🔍', screen: 'Scouting' },
+        { id: 'network', label: 'Football Network', icon: '💼', screen: 'FootballNetwork' },
+        { id: 'termine', label: 'Spieltage', icon: '📅', screen: 'Calendar' },
+        { id: 'aufgaben', label: 'Aufgaben & Erinnerungen', icon: '✓', screen: 'Tasks' },
+      ];
 
   // Sidebar-Inhalt (wird sowohl für Desktop als auch Mobile verwendet)
   const SidebarContent = () => (
@@ -207,7 +216,7 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
       </View>
 
       {/* Finanzen - only for Matti */}
-      {profile?.id === '892d4dbc-3c5b-4908-9735-ac0ca3794dfc' && (
+      {!playerMode && profile?.id === '892d4dbc-3c5b-4908-9735-ac0ca3794dfc' && (
         <View style={{ marginTop: 4 }}>
           <Pressable
             onHoverIn={() => setHoveredNav('finanzen')}
@@ -230,7 +239,7 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
       )}
 
       {/* Wissenswertes - only for Matti */}
-      {profile?.id === '892d4dbc-3c5b-4908-9735-ac0ca3794dfc' && (
+      {!playerMode && profile?.id === '892d4dbc-3c5b-4908-9735-ac0ca3794dfc' && (
         <View style={{ marginTop: 4 }}>
           <Pressable
             onHoverIn={() => setHoveredNav('wissenswertes')}
@@ -256,7 +265,7 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
       <View style={{ flex: 1 }} />
 
       {/* Admin - only if admin */}
-      {profile?.role === 'admin' && (
+      {!playerMode && profile?.role === 'admin' && (
         <Pressable
           onHoverIn={() => setHoveredNav('admin')}
           onHoverOut={() => setHoveredNav(null)}
@@ -295,7 +304,7 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
       </Pressable>
 
       {/* Als Spieler ansehen */}
-      {(authProfile?.role === 'admin' || authProfile?.role === 'advisor') && (
+      {!playerMode && (authProfile?.role === 'admin' || authProfile?.role === 'advisor') && (
         <Pressable
           onHoverIn={() => setHoveredNav('viewPlayer')}
           onHoverOut={() => setHoveredNav(null)}
