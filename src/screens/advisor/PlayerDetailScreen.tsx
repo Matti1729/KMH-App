@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, Image, Linking, Modal, Pressable, Platform, useWindowDimensions, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, Image, Linking, Modal, Pressable, Platform, useWindowDimensions, RefreshControl, Switch } from 'react-native';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -440,6 +440,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const [careerEntriesBackup, setCareerEntriesBackup] = useState<CareerEntry[]>([]);
   const [loadingStats, setLoadingStats] = useState(false);
   const [playerDescription, setPlayerDescription] = useState('');
+  const [pdfOptionalFields, setPdfOptionalFields] = useState<{ contract_scope: boolean; contract_option: boolean }>({ contract_scope: false, contract_option: false });
 
   // PDF Ansprechpartner Reihenfolge
   const [pdfAdvisors, setPdfAdvisors] = useState<string[]>([]);
@@ -694,15 +695,21 @@ export function PlayerDetailScreen({ route, navigation }: any) {
 
       setCareerEntries(entries);
 
-      // Lade Spieler-Beschreibung
+      // Lade Spieler-Beschreibung + optionale PDF-Felder
       const { data: playerData } = await supabase
         .from('player_details')
-        .select('pdf_description')
+        .select('pdf_description, pdf_optional_fields')
         .eq('id', playerId)
         .single();
 
       if (playerData?.pdf_description) {
         setPlayerDescription(playerData.pdf_description);
+      }
+      if (playerData?.pdf_optional_fields) {
+        setPdfOptionalFields({
+          contract_scope: !!playerData.pdf_optional_fields.contract_scope,
+          contract_option: !!playerData.pdf_optional_fields.contract_option,
+        });
       }
     } catch (err) {
       console.error('Netzwerkfehler beim Laden der Karriere-Einträge:', err);
@@ -940,7 +947,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     // Spieler-Beschreibung speichern
     await supabase
       .from('player_details')
-      .update({ pdf_description: playerDescription })
+      .update({ pdf_description: playerDescription, pdf_optional_fields: pdfOptionalFields })
       .eq('id', playerId);
 
     // Daten neu laden
@@ -1377,7 +1384,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         // Edge Function aufrufen mit geordneten Beratern
         const playerWithOrderedAdvisors = {
           ...player,
-          responsibility: pdfAdvisors.length > 0 ? pdfAdvisors.join(', ') : player.responsibility
+          responsibility: pdfAdvisors.length > 0 ? pdfAdvisors.join(', ') : player.responsibility,
+          pdf_optional_fields: pdfOptionalFields,
         };
         const { data, error } = await supabase.functions.invoke('generate-pdf', {
           body: {
@@ -1469,7 +1477,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       // Verwende die geordneten Berater und die Telefonnummer des ersten Beraters
       const playerWithOrderedAdvisors = {
         ...player,
-        responsibility: pdfAdvisors.length > 0 ? pdfAdvisors.join(', ') : player.responsibility
+        responsibility: pdfAdvisors.length > 0 ? pdfAdvisors.join(', ') : player.responsibility,
+        pdf_optional_fields: pdfOptionalFields,
       };
       const fetchPromise = supabase.functions.invoke('generate-pdf', {
         body: {
@@ -3929,6 +3938,33 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                     </View>
                   </View>
                 ))}
+
+                <Text style={[styles.pdfEditSectionTitle, { marginTop: 16, marginBottom: 8, color: colors.text }]}>Optionale Felder im PDF</Text>
+                <View style={{ backgroundColor: '#fafafa', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#e8e8e8' }}>
+                  {([
+                    { key: 'contract_scope' as const, label: 'VERTRAG GILT FÜR', value: (player as any)?.contract_scope || '-' },
+                    { key: 'contract_option' as const, label: 'OPTION', value: (player as any)?.contract_option || '-' },
+                  ]).map(({ key, label, value }, idx) => {
+                    const enabled = pdfOptionalFields[key];
+                    return (
+                      <View
+                        key={key}
+                        style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderTopWidth: idx === 0 ? 0 : 1, borderTopColor: '#e8e8e8' }}
+                      >
+                        <View style={{ flex: 1, opacity: enabled ? 1 : 0.4 }}>
+                          <Text style={{ fontSize: 9, color: '#888', fontWeight: '600', letterSpacing: 0.5, marginBottom: 2 }}>{label}</Text>
+                          <Text style={{ fontSize: 13, color: '#1a202c', fontWeight: '600' }}>{value}</Text>
+                        </View>
+                        <Switch
+                          value={enabled}
+                          onValueChange={(v) => setPdfOptionalFields((prev) => ({ ...prev, [key]: v }))}
+                          trackColor={{ false: '#cbd5e0', true: colors.primary }}
+                          thumbColor={enabled ? '#fff' : '#f4f4f4'}
+                        />
+                      </View>
+                    );
+                  })}
+                </View>
 
                 <Text style={[styles.pdfEditSectionTitle, { marginTop: 16, marginBottom: 8, color: colors.text }]}>Über den Spieler</Text>
 

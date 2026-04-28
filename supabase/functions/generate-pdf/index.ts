@@ -298,7 +298,19 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
             <div style="font-size: 9px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">VERTRAG BIS</div>
             <div style="font-size: 13px; color: #1a202c; font-weight: 600;">${contractEndFormatted}</div>
           </div>
-          
+
+          ${(player as any).pdf_optional_fields?.contract_scope && (player as any).contract_scope ? `
+          <div style="margin-bottom: 10px;">
+            <div style="font-size: 9px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">VERTRAG GILT FÜR</div>
+            <div style="font-size: 13px; color: #1a202c; font-weight: 600;">${(player as any).contract_scope}</div>
+          </div>` : ''}
+
+          ${(player as any).pdf_optional_fields?.contract_option && (player as any).contract_option ? `
+          <div style="margin-bottom: 10px;">
+            <div style="font-size: 9px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">OPTION</div>
+            <div style="font-size: 13px; color: #1a202c; font-weight: 600;">${(player as any).contract_option}</div>
+          </div>` : ''}
+
           <div>
             <div style="font-size: 9px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px;">TRANSFERMARKT</div>
             ${player.transfermarkt_url 
