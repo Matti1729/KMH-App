@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
+import { AdvisorBackground } from '../../components/AdvisorBackground';
 import { MobileHeader } from '../../components/MobileHeader';
 import { MobileSidebar } from '../../components/MobileSidebar';
 import { SlideUpModal } from '../../components/SlideUpModal';
@@ -12,8 +13,10 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ColumnDef } from '../../types/tableColumns';
 import { useTableColumns } from '../../hooks/useTableColumns';
+import * as ImagePicker from 'expo-image-picker';
 import { TableHeader } from '../../components/table/TableHeader';
 import { TableRow } from '../../components/table/TableRow';
+import { protoPositions as protoPositionsUtil, displayPrototypeName } from '../../utils/prototypes';
 
 const POSITIONS = ['Torwart', 'Innenverteidiger', 'Linker Verteidiger', 'Rechter Verteidiger', 'Defensives Mittelfeld', 'Zentrales Mittelfeld', 'Offensives Mittelfeld', 'Linke Außenbahn', 'Rechte Außenbahn', 'Stürmer'];
 const POSITION_SHORT: Record<string, string> = {
@@ -29,6 +32,180 @@ const POSITION_SHORT: Record<string, string> = {
   'Stürmer': 'ST',
 };
 const LISTINGS = ['Karl Herzog Sportmanagement', 'PM Sportmanagement'];
+
+const CLUB_UMLAUT_MAP: Array<[RegExp, string]> = [
+  [/saarbrucken/gi, 'Saarbrücken'],
+  [/munchen/gi, 'München'],
+  [/nurnberg/gi, 'Nürnberg'],
+  [/dusseldorf/gi, 'Düsseldorf'],
+  [/monchengladbach/gi, 'Mönchengladbach'],
+  [/furth/gi, 'Fürth'],
+  [/koln\b/gi, 'Köln'],
+  [/wurzburg/gi, 'Würzburg'],
+  [/hombug/gi, 'Homburg'],
+  [/osnabruck/gi, 'Osnabrück'],
+  [/lubeck/gi, 'Lübeck'],
+  [/munster/gi, 'Münster'],
+  [/zurich/gi, 'Zürich'],
+];
+
+function normalizeGermanClubName(club: string | null | undefined): string {
+  if (!club) return '';
+  let out = club;
+  for (const [regex, replacement] of CLUB_UMLAUT_MAP) out = out.replace(regex, replacement);
+  return out;
+}
+
+const COUNTRY_TO_ISO: Record<string, string> = {
+  'Deutschland': 'DE', 'Österreich': 'AT', 'Schweiz': 'CH', 'Frankreich': 'FR',
+  'Italien': 'IT', 'Spanien': 'ES', 'Portugal': 'PT', 'Niederlande': 'NL',
+  'Belgien': 'BE', 'England': 'GB', 'Polen': 'PL', 'Kroatien': 'HR',
+  'Serbien': 'RS', 'Türkei': 'TR', 'Brasilien': 'BR', 'Argentinien': 'AR',
+  'USA': 'US', 'Kanada': 'CA', 'Dänemark': 'DK', 'Schweden': 'SE', 'Norwegen': 'NO',
+  'Finnland': 'FI', 'Island': 'IS', 'Irland': 'IE', 'Schottland': 'GB',
+  'Wales': 'GB', 'Griechenland': 'GR', 'Tschechien': 'CZ', 'Slowakei': 'SK',
+  'Ungarn': 'HU', 'Rumänien': 'RO', 'Bulgarien': 'BG', 'Slowenien': 'SI',
+  'Bosnien und Herzegowina': 'BA', 'Bosnien-Herzegowina': 'BA', 'Montenegro': 'ME',
+  'Nordmazedonien': 'MK', 'Albanien': 'AL', 'Kosovo': 'XK', 'Ukraine': 'UA',
+  'Russland': 'RU', 'Japan': 'JP', 'Südkorea': 'KR', 'China': 'CN',
+  'Australien': 'AU', 'Mexiko': 'MX', 'Kolumbien': 'CO', 'Chile': 'CL',
+  'Peru': 'PE', 'Uruguay': 'UY', 'Paraguay': 'PY', 'Ecuador': 'EC',
+  'Ghana': 'GH', 'Nigeria': 'NG', 'Kamerun': 'CM', 'Senegal': 'SN',
+  'Elfenbeinküste': 'CI', 'Marokko': 'MA', 'Tunesien': 'TN', 'Ägypten': 'EG',
+  'Südafrika': 'ZA', 'Israel': 'IL', 'Iran': 'IR', 'Irak': 'IQ',
+  'Saudi-Arabien': 'SA', 'Vereinigte Arabische Emirate': 'AE', 'Indien': 'IN',
+  'Luxemburg': 'LU', 'Litauen': 'LT', 'Lettland': 'LV', 'Estland': 'EE',
+  'Georgien': 'GE', 'Armenien': 'AM', 'Aserbaidschan': 'AZ',
+  'Syrien': 'SY', 'Libanon': 'LB', 'Jordanien': 'JO', 'Afghanistan': 'AF',
+  'Pakistan': 'PK', 'Kongo': 'CD', 'Eritrea': 'ER', 'Somalia': 'SO',
+  'Äthiopien': 'ET', 'Guinea': 'GN', 'Mali': 'ML', 'Gambia': 'GM',
+  'Sierra Leone': 'SL', 'Togo': 'TG', 'Benin': 'BJ', 'Burkina Faso': 'BF',
+};
+
+function countryToFlag(country: string): string {
+  const iso = COUNTRY_TO_ISO[country];
+  if (iso && iso.length === 2) {
+    const cp1 = 0x1F1E6 + iso.charCodeAt(0) - 65;
+    const cp2 = 0x1F1E6 + iso.charCodeAt(1) - 65;
+    return String.fromCodePoint(cp1, cp2);
+  }
+  return '🏳️';
+}
+
+const COUNTRY_FLAGS: Record<string, string> = {};
+for (const [name] of Object.entries(COUNTRY_TO_ISO)) {
+  COUNTRY_FLAGS[name] = countryToFlag(name);
+}
+
+const nationalityToFlags = (nationality: string | null | undefined): string => {
+  if (!nationality) return '';
+  return nationality.split(/[,\/]+/).map(n => n.trim()).filter(Boolean).map(n => COUNTRY_FLAGS[n] || countryToFlag(n)).join(' ');
+};
+
+// Position-Feld (read-only) — identisch zu PerformanceScreen
+const POSITION_COORDS = {
+  ST: { left: '50%', top: '18%' },
+  LA: { left: '18%', top: '33%' },
+  OM: { left: '50%', top: '33%' },
+  RA: { left: '82%', top: '33%' },
+  ZM: { left: '50%', top: '46%' },
+  DM: { left: '50%', top: '59%' },
+  LV: { left: '18%', top: '75%' },
+  IV: { left: '50%', top: '75%' },
+  RV: { left: '82%', top: '75%' },
+  TW: { left: '50%', top: '92%' },
+} as const;
+
+const ALL_FIELD_POSITIONS = ['TW', 'IV', 'LV', 'RV', 'DM', 'ZM', 'OM', 'LA', 'RA', 'ST'];
+
+const POSITION_LONG_TO_SHORT: Record<string, string> = Object.entries(POSITION_SHORT).reduce(
+  (acc, [long, short]) => ({ ...acc, [long]: short }),
+  {} as Record<string, string>
+);
+
+function positionToShort(pos: string | null | undefined): string {
+  if (!pos) return '';
+  const trimmed = pos.trim();
+  if (ALL_FIELD_POSITIONS.includes(trimmed.toUpperCase())) return trimmed.toUpperCase();
+  return POSITION_LONG_TO_SHORT[trimmed] || '';
+}
+
+function splitPositions(positions: string | null | undefined): string[] {
+  if (!positions) return [];
+  return positions.split(/[,;/]+/).map(p => positionToShort(p.trim())).filter(Boolean);
+}
+
+function MiniPositionField({ primary, secondaries, maxWidth = 180, circleSize = 28 }: {
+  primary: string;
+  secondaries: string[];
+  maxWidth?: number;
+  circleSize?: number;
+}) {
+  const half = circleSize / 2;
+  const fontSize = Math.max(7, Math.round(circleSize * 0.32));
+  const playable = new Set([primary, ...secondaries].filter(Boolean));
+  return (
+    <View style={[miniFieldStyles.wrapper, { maxWidth }]}>
+      <View style={miniFieldStyles.field}>
+        <View style={miniFieldStyles.halfLine} />
+        <View style={miniFieldStyles.centerCircle} />
+        <View style={[miniFieldStyles.penaltyBox, miniFieldStyles.penaltyBoxTop]} />
+        <View style={[miniFieldStyles.goalBox, miniFieldStyles.goalBoxTop]} />
+        <View style={[miniFieldStyles.penaltyBox, miniFieldStyles.penaltyBoxBottom]} />
+        <View style={[miniFieldStyles.goalBox, miniFieldStyles.goalBoxBottom]} />
+        {ALL_FIELD_POSITIONS.map((pos) => {
+          const coords = POSITION_COORDS[pos as keyof typeof POSITION_COORDS];
+          const isPlayable = playable.has(pos);
+          const isPrimary = pos === primary;
+          const bg = !isPlayable ? 'rgba(255,255,255,0.08)' : isPrimary ? '#22c55e' : '#3b82f6';
+          const textColor = !isPlayable ? 'rgba(255,255,255,0.3)' : '#fff';
+          return (
+            <View
+              key={pos}
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                left: coords.left,
+                top: coords.top,
+                transform: [{ translateX: -half }, { translateY: -half }],
+                width: circleSize,
+                height: circleSize,
+                borderRadius: half,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: bg,
+              }}
+            >
+              <Text style={{ fontSize, fontWeight: '700', color: textColor }}>{pos}</Text>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+const miniFieldStyles = StyleSheet.create({
+  wrapper: { width: '100%', alignSelf: 'flex-start' },
+  field: {
+    width: '100%',
+    aspectRatio: 2 / 3,
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  halfLine: { position: 'absolute', left: 0, right: 0, top: '50%', height: 1, backgroundColor: 'rgba(255,255,255,0.08)' },
+  centerCircle: { position: 'absolute', left: '50%', top: '50%', width: 50, height: 50, marginLeft: -25, marginTop: -25, borderRadius: 25, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  penaltyBox: { position: 'absolute', left: '15%', width: '70%', height: '16%', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  penaltyBoxTop: { top: 0, borderTopWidth: 0 },
+  penaltyBoxBottom: { bottom: 0, borderBottomWidth: 0 },
+  goalBox: { position: 'absolute', left: '30%', width: '40%', height: '6%', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  goalBoxTop: { top: 0, borderTopWidth: 0 },
+  goalBoxBottom: { bottom: 0, borderBottomWidth: 0 },
+});
 
 const ArbeitsamtIcon = require('../../../assets/arbeitsamt.png');
 
@@ -73,6 +250,67 @@ const PLAYER_COLUMNS: ColumnDef[] = [
   { key: 'responsibility', label: 'Zuständigkeit', defaultFlex: 1, minWidth: 85 },
 ];
 
+// Liste aller persönlich-bezogenen Felder, die als advisor+player-Spalten existieren.
+// Wird genutzt um zu entscheiden ob ein Feld den split-mode mit Spieler-Pille bekommt.
+const SPLIT_FIELDS = new Set<string>([
+  'phone', 'phone_country_code', 'email', 'street', 'postal_code', 'city',
+  'father_name', 'father_phone', 'father_phone_country_code', 'father_job',
+  'mother_name', 'mother_phone', 'mother_phone_country_code', 'mother_job', 'siblings',
+  'education', 'training', 'job',
+  'instagram', 'tiktok', 'linkedin',
+  'injuries', 'internat',
+  'birth_date', 'nationality',
+]);
+
+// Außerhalb des Component-Scopes definiert, damit die Component-Type-Identität
+// zwischen Re-Renders stabil bleibt — sonst unmounted React den TextInput bei jedem
+// Tastendruck (weil sich die Funktionsreferenz beim Re-Render ändert) und der Fokus
+// geht verloren.
+type EditableValueProps = {
+  field: string;
+  displayValue?: string | null;
+  playerValue?: string | null;
+  placeholder?: string;
+  multiline?: boolean;
+  numeric?: boolean;
+  isEditing: boolean;
+  editData: any;
+  setEditData: (v: any) => void;
+  fullPlayer?: any;  // optionaler Zugriff auf alle Werte für split-field Pille
+};
+const EditableValue = React.memo(({ field, displayValue, playerValue, placeholder, multiline, numeric, isEditing, editData, setEditData, fullPlayer }: EditableValueProps) => {
+  const isSplit = SPLIT_FIELDS.has(field);
+  const editKey = isSplit ? `${field}_advisor` : field;
+  // Auto-Resolve playerValue aus fullPlayer wenn nicht explizit übergeben
+  const resolvedPlayerValue = playerValue !== undefined ? playerValue : (isSplit && fullPlayer ? fullPlayer[`${field}_player`] : null);
+  const hasPlayerValue = resolvedPlayerValue !== null && resolvedPlayerValue !== undefined && String(resolvedPlayerValue).trim() !== '';
+
+  if (isEditing) {
+    return (
+      <TextInput
+        style={[styles.detailEditInput, multiline ? { minHeight: 60, textAlignVertical: 'top' } : { paddingVertical: 4 }]}
+        value={(editData[editKey] ?? '').toString()}
+        onChangeText={(v) => setEditData({ ...editData, [editKey]: numeric ? v.replace(/\D/g, '') : v })}
+        placeholder={placeholder || ''}
+        placeholderTextColor="rgba(255,255,255,0.3)"
+        multiline={multiline}
+        keyboardType={numeric ? 'numeric' : 'default'}
+      />
+    );
+  }
+  const showVal = hasPlayerValue ? resolvedPlayerValue : displayValue;
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+      <Text style={styles.detailFieldValue}>{(showVal ?? '') !== '' ? String(showVal) : '-'}</Text>
+      {hasPlayerValue ? (
+        <View style={{ backgroundColor: 'rgba(34,197,94,0.15)', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 8 }}>
+          <Text style={{ color: '#22c55e', fontSize: 9, fontWeight: '600', letterSpacing: 0.5 }}>VOM SPIELER</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+});
+
 export function PlayerOverviewScreen({ navigation }: any) {
   const isMobile = useIsMobile();
   const { session, loading: authLoading } = useAuth();
@@ -112,6 +350,36 @@ export function PlayerOverviewScreen({ navigation }: any) {
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [showPlayerDetailModal, setShowPlayerDetailModal] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  const [fullPlayer, setFullPlayer] = useState<any | null>(null);
+  const [fullPlayerLoading, setFullPlayerLoading] = useState(false);
+  const [transferBusy, setTransferBusy] = useState(false);
+  const [inviteCodeLoading, setInviteCodeLoading] = useState(false);
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [showInviteCodeModal, setShowInviteCodeModal] = useState(false);
+  const [pdfGenerating, setPdfGenerating] = useState(false);
+  const [showPdfPreview, setShowPdfPreview] = useState(false);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [showNatTooltip, setShowNatTooltip] = useState(false);
+  const [showCardNatTooltip, setShowCardNatTooltip] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [cardSaving, setCardSaving] = useState(false);
+  const [editData, setEditData] = useState<any>({});
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [allPrototypes, setAllPrototypes] = useState<Array<{ id: string; name: string; position_code: string; position_codes: string[] }>>([]);
+  const [playerPrototypeId, setPlayerPrototypeId] = useState<string | null>(null);
+  const [internatJa, setInternatJa] = useState(false);
+  const [uploadingAdvisorPhoto, setUploadingAdvisorPhoto] = useState(false);
+  // Photo-Editor State: WYSIWYG-Crop/Pan/Zoom
+  const [showAdvisorPhotoEditor, setShowAdvisorPhotoEditor] = useState(false);
+  const [advisorPhotoPreviewUri, setAdvisorPhotoPreviewUri] = useState<string | null>(null);
+  const [advisorPhotoScale, setAdvisorPhotoScale] = useState(1.0);
+  const [advisorPhotoOffsetX, setAdvisorPhotoOffsetX] = useState(0);
+  const [advisorPhotoOffsetY, setAdvisorPhotoOffsetY] = useState(0);
+  // TM-Vereinssuche für Verein + Zukünftiger Verein im Edit-Modus
+  const [tmClubSearchField, setTmClubSearchField] = useState<'club' | 'future_club' | null>(null);
+  const [tmClubResults, setTmClubResults] = useState<Array<{ name: string; logoUrl?: string; liga?: string; country?: string }>>([]);
+  const [tmClubSearching, setTmClubSearching] = useState(false);
+  const tmClubSearchTimeout = useRef<any>(null);
 
   const [searchText, setSearchText] = useState('');
   const [selectedYears, setSelectedYears] = useState<string[]>([]);
@@ -362,6 +630,48 @@ export function PlayerOverviewScreen({ navigation }: any) {
     return new Date() > new Date(contractEnd);
   };
 
+  const calculateAge = (birthDate: string | null | undefined): number | null => {
+    if (!birthDate) return null;
+    const birth = new Date(birthDate);
+    if (isNaN(birth.getTime())) return null;
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    return age;
+  };
+
+  const calculateU23Status = (birthDate: string | null | undefined): { isU23: boolean; seasonsText: string } => {
+    if (!birthDate) return { isU23: false, seasonsText: '' };
+    const birth = new Date(birthDate);
+    if (isNaN(birth.getTime())) return { isU23: false, seasonsText: '' };
+    const birthYear = birth.getFullYear();
+    const birthMonth = birth.getMonth();
+    const today = new Date();
+    const todayYear = today.getFullYear();
+    const todayMonth = today.getMonth();
+    const currentSeasonStartYear = todayMonth >= 6 ? todayYear : todayYear - 1;
+    const getAgeOnJune30 = (year: number): number => {
+      let age = year - birthYear;
+      if (birthMonth > 5) age--;
+      return age;
+    };
+    if (getAgeOnJune30(currentSeasonStartYear) > 22) return { isU23: false, seasonsText: '' };
+    let seasonsLeft = 0;
+    for (let i = 0; i < 15; i++) {
+      if (getAgeOnJune30(currentSeasonStartYear + i) <= 22) seasonsLeft++; else break;
+    }
+    const seasonsText = seasonsLeft === 1 ? 'nur noch diese Saison' : seasonsLeft === 2 ? 'noch eine weitere Saison' : `noch ${seasonsLeft - 1} weitere Saisons`;
+    return { isU23: true, seasonsText };
+  };
+
+  const formatListing = (listing: string | null | undefined): string => {
+    if (!listing) return '-';
+    if (listing === 'Karl Herzog Sportmanagement') return 'KMH';
+    if (listing === 'PM Sportmanagement') return 'PM';
+    return listing;
+  };
+
   const getDisplayClub = (player: Player): string => {
     if (isContractExpired(player.contract_end)) return 'Vereinslos';
     return player.club || '-';
@@ -407,22 +717,114 @@ export function PlayerOverviewScreen({ navigation }: any) {
     }).join(', ');
   };
 
-  const hasAccessToPlayer = (playerId: string): boolean => {
-    if (userRole === 'admin') return true;
-    // Solange accessLoaded false ist, zeige kein Schloss (verhindert Flackern)
-    if (!accessLoaded) return true;
-    return myPlayerIds.includes(playerId);
+  const hasAccessToPlayer = (_playerId: string): boolean => {
+    // Alle Berater haben Zugriff auf alle Spieler — keine Schlösser mehr.
+    return true;
   };
 
   const handlePlayerClick = (player: Player) => {
     if (hasAccessToPlayer(player.id)) {
-      // Immer zum vollständigen Profil navigieren
-      navigation.navigate('PlayerDetail', { playerId: player.id });
+      setSelectedPlayer(player);
+      setShowPlayerDetailModal(true);
     } else {
       setSelectedPlayer(player);
       setShowRequestModal(true);
     }
   };
+
+  // Click-Outside: schließt das aktuell offene Dropdown wenn der User außerhalb klickt
+  useEffect(() => {
+    if (!openDropdown || typeof document === 'undefined') return;
+    const handler = (e: any) => {
+      const target = e.target;
+      if (target && target.closest && target.closest('[data-kmh-dropdown]')) return;
+      setOpenDropdown(null);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [openDropdown]);
+
+  // Click-Outside für Filter-Dropdowns (Position, Jahrgang, Listung, Zuständigkeit, Vertragsende)
+  useEffect(() => {
+    if (!isAnyDropdownOpen || typeof document === 'undefined') return;
+    const handler = (e: any) => {
+      const target = e.target;
+      if (target && target.closest && target.closest('[data-filter-dropdown]')) return;
+      closeAllDropdowns();
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [isAnyDropdownOpen]);
+
+  // TM-Vereinssuche Click-Outside
+  useEffect(() => {
+    if (!tmClubSearchField || typeof document === 'undefined') return;
+    const handler = (e: any) => {
+      const target = e.target;
+      if (target && target.closest && target.closest('[data-tm-club-dropdown]')) return;
+      setTmClubSearchField(null);
+      setTmClubResults([]);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [tmClubSearchField]);
+
+  // Debounced TM-Vereinssuche via search-club Edge Function
+  const triggerTmClubSearch = (query: string) => {
+    if (tmClubSearchTimeout.current) clearTimeout(tmClubSearchTimeout.current);
+    if (!query || query.trim().length < 2) {
+      setTmClubResults([]);
+      setTmClubSearching(false);
+      return;
+    }
+    tmClubSearchTimeout.current = setTimeout(async () => {
+      setTmClubSearching(true);
+      try {
+        const { data } = await supabase.functions.invoke('search-club', { body: { query: query.trim() } });
+        const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+        setTmClubResults(parsed?.results && Array.isArray(parsed.results) ? parsed.results : []);
+      } catch (e) {
+        console.error('TM club search error:', e);
+        setTmClubResults([]);
+      } finally {
+        setTmClubSearching(false);
+      }
+    }, 400);
+  };
+
+  useEffect(() => {
+    if (!showPlayerDetailModal || !selectedPlayer?.id) {
+      setFullPlayer(null);
+      setPlayerPrototypeId(null);
+      return;
+    }
+    setFullPlayerLoading(true);
+    supabase
+      .from('player_details')
+      .select('*')
+      .eq('id', selectedPlayer.id)
+      .single()
+      .then(({ data }) => {
+        setFullPlayer(data);
+        setFullPlayerLoading(false);
+      });
+    supabase
+      .from('player_prototype_assignments')
+      .select('prototype_id')
+      .eq('player_id', selectedPlayer.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setPlayerPrototypeId(data?.prototype_id ?? null);
+      });
+    supabase
+      .from('player_prototypes')
+      .select('id, name, position_code, position_codes')
+      .order('position_code')
+      .order('name')
+      .then(({ data }) => {
+        setAllPrototypes((data as any[]) || []);
+      });
+  }, [showPlayerDetailModal, selectedPlayer?.id]);
 
   const handleRequestAccess = async () => {
     if (!selectedPlayer || !currentUserId) return;
@@ -699,15 +1101,23 @@ export function PlayerOverviewScreen({ navigation }: any) {
       return null;
     };
 
-    // TM-Daten einfügen falls vorhanden
+    // TM-Daten einfügen falls vorhanden. Stamm-Daten (Geburtsdatum + Nationalität) gehen
+    // sowohl in die unsuffixed Spalte (Backwards-Compat für Listen-Queries) als auch in
+    // `_advisor` (damit der Spieler-View sie über die Fallback-Kette findet).
     if (tmSelected) {
       if (tmSelected.transfermarkt_url) insertData.transfermarkt_url = tmSelected.transfermarkt_url;
       if (tmSelected.verein) insertData.club = tmSelected.verein;
       const dob = tmSelected.dateOfBirth ? toIsoDate(tmSelected.dateOfBirth) : null;
-      if (dob) insertData.birth_date = dob;
+      if (dob) {
+        insertData.birth_date = dob;
+        insertData.birth_date_advisor = dob;
+      }
       const pos = mapTmPosition(tmSelected.position);
       if (pos) insertData.position = pos;
-      if (tmSelected.nationality) insertData.nationality = tmSelected.nationality;
+      if (tmSelected.nationality) {
+        insertData.nationality = tmSelected.nationality;
+        insertData.nationality_advisor = tmSelected.nationality;
+      }
       if (tmSelected.height) {
         // "1,86 m" → 186 (cm als Integer)
         const hMatch = tmSelected.height.match(/(\d)[,.](\d+)/);
@@ -818,25 +1228,8 @@ export function PlayerOverviewScreen({ navigation }: any) {
   const renderContractCell = (player: Player) => {
     const inCurrentSeason = isContractInCurrentSeason(player.contract_end);
     const hasSecuredFuture = hasFutureClubAndExpiringContract(player);
-    
-    if (hasSecuredFuture) {
-      return (
-        <View style={styles.colContract}>
-          <View style={styles.contractBadgeGreen}>
-            <Text style={styles.contractBadgeTextGreen}>{formatDate(player.contract_end)}</Text>
-          </View>
-        </View>
-      );
-    } else if (inCurrentSeason && player.contract_end) {
-      return (
-        <View style={styles.colContract}>
-          <View style={styles.contractBadge}>
-            <Text style={styles.contractBadgeText}>{formatDate(player.contract_end)}</Text>
-          </View>
-        </View>
-      );
-    }
-    return <Text style={[styles.tableCell, styles.colContract, { color: colors.text }]}>{formatDate(player.contract_end)}</Text>;
+    const textColor = hasSecuredFuture ? '#22c55e' : (inCurrentSeason && player.contract_end ? '#ef4444' : colors.text);
+    return <Text style={[styles.tableCell, styles.colContract, { color: textColor }]}>{formatDate(player.contract_end)}</Text>;
   };
 
   const renderPlayerRow = (player: Player) => {
@@ -872,9 +1265,9 @@ export function PlayerOverviewScreen({ navigation }: any) {
   // Mobile Card Rendering
   const renderPlayerCard = (player: Player) => {
     const hasAccess = hasAccessToPlayer(player.id);
-    const positionDisplay = player.position
-      ? player.position.split(', ').map(p => POSITION_SHORT[p.trim()] || p).join(', ')
-      : '-';
+    const positionsList = player.position
+      ? player.position.split(',').map(p => POSITION_SHORT[p.trim()] || p.trim()).filter(Boolean)
+      : [];
     const expired = isContractExpired(player.contract_end);
     const displayClub = getDisplayClub(player);
     const logoUrl = expired ? null : getClubLogo(player.club);
@@ -885,58 +1278,50 @@ export function PlayerOverviewScreen({ navigation }: any) {
     return (
       <TouchableOpacity
         key={player.id}
-        style={[styles.playerCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }, !hasAccess && { backgroundColor: colors.surfaceSecondary }, birthday && styles.birthdayCard]}
+        style={[styles.playerCard, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }, !hasAccess && { backgroundColor: colors.surfaceSecondary }, birthday && styles.birthdayCard]}
         onPress={() => handlePlayerClick(player)}
       >
-        <View style={styles.playerCardHeader}>
-          <View style={styles.playerCardNameRow}>
-            {!hasAccess && <Text style={styles.lockIconMobile}>🔒</Text>}
-            <Text style={[styles.playerCardName, { color: colors.text }]} numberOfLines={1}>
-              {player.last_name}, {player.first_name}{birthday && ' 🎉'}
-            </Text>
-          </View>
-          <View style={styles.playerCardBadges}>
-            {player.listing && (
-              <View style={[styles.listingBadgeMobile, player.listing === 'Karl Herzog Sportmanagement' ? styles.listingKMH : styles.listingPM]}>
-                <Text style={styles.listingBadgeTextMobile}>{player.listing === 'Karl Herzog Sportmanagement' ? 'KMH' : 'PM'}</Text>
-              </View>
-            )}
-          </View>
-        </View>
-
-        <View style={styles.playerCardBody}>
-          <View style={styles.playerCardRow}>
-            <View style={styles.playerCardClub}>
-              {expired ? (
-                <Image source={ArbeitsamtIcon} style={styles.clubLogoMobile} />
-              ) : logoUrl ? (
-                <Image source={{ uri: logoUrl }} style={styles.clubLogoMobile} />
-              ) : null}
-              <Text style={[styles.playerCardClubText, { color: colors.textSecondary }, expired && styles.clubTextRed]} numberOfLines={1}>
-                {displayClub}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {expired ? (
+            <Image source={ArbeitsamtIcon} style={styles.clubLogoMobile} />
+          ) : logoUrl ? (
+            <Image source={{ uri: logoUrl }} style={styles.clubLogoMobile} />
+          ) : <View style={styles.clubLogoMobile} />}
+          <View style={{ flex: 1 }}>
+            {/* Reihe 1: Name + Position-Badges | Vertragslaufzeit rechtsbündig */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              {!hasAccess && <Text style={styles.lockIconMobile}>🔒</Text>}
+              <Text style={[styles.playerCardName, { color: colors.text }]} numberOfLines={1}>
+                {player.last_name}, {player.first_name}{birthday && ' 🎉'}
               </Text>
-            </View>
-            <Text style={[styles.playerCardPosition, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{positionDisplay}</Text>
-          </View>
-
-          <View style={styles.playerCardRow}>
-            <Text style={[styles.playerCardLeague, { color: colors.textMuted }]} numberOfLines={1}>{player.league || '-'}</Text>
-            {player.contract_end && (
-              <View style={[
-                styles.contractBadgeMobile,
-                hasSecuredFuture ? styles.contractBadgeMobileGreen :
-                inCurrentSeason ? styles.contractBadgeMobileRed : null
-              ]}>
+              {positionsList.length > 0 ? (
+                <View style={{ flexDirection: 'row', gap: 4, flexWrap: 'wrap' }}>
+                  {positionsList.map((pos, idx) => (
+                    <Text key={idx} style={styles.playerCardPosition}>{pos}</Text>
+                  ))}
+                </View>
+              ) : null}
+              {player.contract_end ? (
                 <Text style={[
                   styles.contractTextMobile,
-                  { color: colors.textMuted },
-                  hasSecuredFuture ? styles.contractTextMobileGreen :
-                  inCurrentSeason ? styles.contractTextMobileRed : null
-                ]}>
+                  { color: hasSecuredFuture ? '#22c55e' : (inCurrentSeason ? '#ef4444' : colors.textMuted), marginLeft: 'auto' }
+                ]} numberOfLines={1}>
                   Vertrag bis {formatDate(player.contract_end)}
                 </Text>
-              </View>
-            )}
+              ) : null}
+            </View>
+            {/* Reihe 2: Club · Liga | Agentur-Badge rechtsbündig */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+              <Text numberOfLines={1} style={{ flex: 1 }}>
+                <Text style={[styles.playerCardClubText, { color: colors.textSecondary }, expired && styles.clubTextRed]}>{displayClub}</Text>
+                {player.league ? <Text style={[styles.playerCardLeague, { color: colors.textMuted }]}>{'  ·  '}{player.league}</Text> : null}
+              </Text>
+              {player.listing ? (
+                <View style={[styles.listingBadgeMobile, player.listing === 'Karl Herzog Sportmanagement' ? styles.listingKMH : styles.listingPM]}>
+                  <Text style={styles.listingBadgeTextMobile}>{player.listing === 'Karl Herzog Sportmanagement' ? 'KMH' : 'PM'}</Text>
+                </View>
+              ) : null}
+            </View>
           </View>
         </View>
       </TouchableOpacity>
@@ -949,10 +1334,1641 @@ export function PlayerOverviewScreen({ navigation }: any) {
   // Profile initials for header
   const profileInitials = profile ? `${profile.first_name?.[0] || ''}${profile.last_name?.[0] || ''}` : '?';
 
+  const closePlayerDetailModal = () => { setShowPlayerDetailModal(false); setSelectedPlayer(null); setFullPlayer(null); setIsEditing(false); setEditData({}); };
+
+  const parseList = (raw: any): string[] => {
+    let items: string[] = [];
+    if (Array.isArray(raw)) items = raw.map((s: any) => String(s).trim()).filter(Boolean);
+    else if (typeof raw === 'string') items = raw.split(';').map((s: string) => s.trim()).filter(Boolean);
+    return items;
+  };
+  const padSlots = (items: string[], n = 6): string[] => {
+    const out = items.slice(0, n);
+    while (out.length < n) out.push('');
+    return out;
+  };
+  const splitToArray = (raw: string | null | undefined): string[] => raw ? raw.split(/[,;]+/).map(s => s.trim()).filter(Boolean) : [];
+
+  const todayIsoDate = (() => {
+    const t = new Date();
+    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+  });
+
+  const startEditAll = () => {
+    if (!fullPlayer) return;
+    setEditData({
+      position: fullPlayer.position || '',
+      secondary_positions: padSlots(splitToArray(fullPlayer.secondary_position), 3),
+      nationality: fullPlayer.nationality || '',
+      strong_foot: fullPlayer.strong_foot || '',
+      height: fullPlayer.height?.toString() || '',
+      strengthSlots: padSlots(parseList(fullPlayer.strengths)),
+      potentialSlots: padSlots(parseList(fullPlayer.potentials)),
+      club: fullPlayer.club || '',
+      future_club: fullPlayer.future_club || '',
+      league: fullPlayer.league || '',
+      contract_end: fullPlayer.contract_end || '',
+      contract_scope: fullPlayer.contract_scope || '',
+      contract_option: fullPlayer.contract_option || '',
+      fixed_fee: fullPlayer.fixed_fee || '',
+      salary_month: fullPlayer.salary_month || '',
+      point_bonus: fullPlayer.point_bonus || '',
+      appearance_bonus: fullPlayer.appearance_bonus || '',
+      contract_notes: fullPlayer.contract_notes || '',
+      fussball_de_url: fullPlayer.fussball_de_url || '',
+      // SPLIT-FIELDS: Berater editiert ausschließlich `_advisor`-Spalten,
+      // Spieler-Werte (`_player`) werden zur Anzeige der "VOM SPIELER"-Pille mitgeführt
+      phone_country_code_advisor: fullPlayer.phone_country_code_advisor || fullPlayer.phone_country_code || '',
+      phone_country_code_player: fullPlayer.phone_country_code_player ?? null,
+      phone_advisor: fullPlayer.phone_advisor || fullPlayer.phone || '',
+      phone_player: fullPlayer.phone_player ?? null,
+      email_advisor: fullPlayer.email_advisor || fullPlayer.email || '',
+      email_player: fullPlayer.email_player ?? null,
+      street_advisor: fullPlayer.street_advisor || fullPlayer.street || '',
+      street_player: fullPlayer.street_player ?? null,
+      postal_code_advisor: fullPlayer.postal_code_advisor || fullPlayer.postal_code || '',
+      postal_code_player: fullPlayer.postal_code_player ?? null,
+      city_advisor: fullPlayer.city_advisor || fullPlayer.city || '',
+      city_player: fullPlayer.city_player ?? null,
+      listing: fullPlayer.listing || '',
+      responsibility: fullPlayer.responsibility || '',
+      mandate_until: fullPlayer.mandate_until || '',
+      provision: fullPlayer.provision || '',
+      transfer_commission: fullPlayer.transfer_commission || '',
+      father_name_advisor: fullPlayer.father_name_advisor || fullPlayer.father_name || '',
+      father_name_player: fullPlayer.father_name_player ?? null,
+      father_phone_country_code_advisor: fullPlayer.father_phone_country_code_advisor || fullPlayer.father_phone_country_code || '',
+      father_phone_country_code_player: fullPlayer.father_phone_country_code_player ?? null,
+      father_phone_advisor: fullPlayer.father_phone_advisor || fullPlayer.father_phone || '',
+      father_phone_player: fullPlayer.father_phone_player ?? null,
+      father_job_advisor: fullPlayer.father_job_advisor || fullPlayer.father_job || '',
+      father_job_player: fullPlayer.father_job_player ?? null,
+      mother_name_advisor: fullPlayer.mother_name_advisor || fullPlayer.mother_name || '',
+      mother_name_player: fullPlayer.mother_name_player ?? null,
+      mother_phone_country_code_advisor: fullPlayer.mother_phone_country_code_advisor || fullPlayer.mother_phone_country_code || '',
+      mother_phone_country_code_player: fullPlayer.mother_phone_country_code_player ?? null,
+      mother_phone_advisor: fullPlayer.mother_phone_advisor || fullPlayer.mother_phone || '',
+      mother_phone_player: fullPlayer.mother_phone_player ?? null,
+      mother_job_advisor: fullPlayer.mother_job_advisor || fullPlayer.mother_job || '',
+      mother_job_player: fullPlayer.mother_job_player ?? null,
+      siblings_advisor: fullPlayer.siblings_advisor || fullPlayer.siblings || '',
+      siblings_player: fullPlayer.siblings_player ?? null,
+      education_advisor: fullPlayer.education_advisor || fullPlayer.education || '',
+      education_player: fullPlayer.education_player ?? null,
+      training_advisor: fullPlayer.training_advisor || fullPlayer.training || '',
+      training_player: fullPlayer.training_player ?? null,
+      job_advisor: fullPlayer.job_advisor || fullPlayer.job || '',
+      job_player: fullPlayer.job_player ?? null,
+      instagram_advisor: fullPlayer.instagram_advisor || fullPlayer.instagram || '',
+      instagram_player: fullPlayer.instagram_player ?? null,
+      tiktok_advisor: fullPlayer.tiktok_advisor || fullPlayer.tiktok || '',
+      tiktok_player: fullPlayer.tiktok_player ?? null,
+      linkedin_advisor: fullPlayer.linkedin_advisor || fullPlayer.linkedin || '',
+      linkedin_player: fullPlayer.linkedin_player ?? null,
+      transfermarkt_url: fullPlayer.transfermarkt_url || '',
+      // `interests` (Berater) bleibt einfach, `additional_info_player` (Spieler) für Pille-Anzeige
+      interests: fullPlayer.interests || '',
+      additional_info_player: fullPlayer.additional_info_player ?? null,
+      // `other_notes` ist ab jetzt Berater-private Notizen
+      other_notes: fullPlayer.other_notes || '',
+      // SPLIT-FIELDS für Sport/Stamm
+      injuries_advisor: fullPlayer.injuries_advisor || fullPlayer.injuries || '',
+      injuries_player: fullPlayer.injuries_player ?? null,
+      internat_advisor: fullPlayer.internat_advisor ?? fullPlayer.internat ?? false,
+      internat_player: fullPlayer.internat_player ?? null,
+      birth_date_advisor: fullPlayer.birth_date_advisor || fullPlayer.birth_date || '',
+      birth_date_player: fullPlayer.birth_date_player ?? null,
+      nationality_advisor: fullPlayer.nationality_advisor || fullPlayer.nationality || '',
+      nationality_player: fullPlayer.nationality_player ?? null,
+      prototype_id: playerPrototypeId,
+    });
+    setInternatJa(Boolean(fullPlayer.internat));
+    setIsEditing(true);
+  };
+
+  const cancelEditAll = () => { setIsEditing(false); setEditData({}); cancelAdvisorPhoto(); };
+
+  // Photo-Editor (WYSIWYG): Berater wählt Bild → Live-Preview im Foto-Frame
+  // mit Toolbar (Zoom/Position) → Speichern rendert das Bild via Canvas exakt
+  // im Frame-Aspect-Ratio und lädt es hoch.
+  // Editor öffnen: nutzt das bestehende Foto wenn vorhanden, sonst öffnet den Bild-Picker.
+  const openAdvisorPhotoEditor = async () => {
+    if (!fullPlayer?.id || uploadingAdvisorPhoto) return;
+    if (fullPlayer.photo_url) {
+      setAdvisorPhotoPreviewUri(fullPlayer.photo_url);
+      setAdvisorPhotoScale(1.0);
+      setAdvisorPhotoOffsetX(0);
+      setAdvisorPhotoOffsetY(0);
+      setShowAdvisorPhotoEditor(true);
+      return;
+    }
+    await pickAdvisorPhoto();
+  };
+
+  // Bild-Picker explizit aufrufen (vom Editor aus über "Neues Bild" oder initial wenn kein Foto da ist).
+  const pickAdvisorPhoto = async () => {
+    if (!fullPlayer?.id || uploadingAdvisorPhoto) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 1,
+    });
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+    setAdvisorPhotoPreviewUri(result.assets[0].uri);
+    setAdvisorPhotoScale(1.0);
+    setAdvisorPhotoOffsetX(0);
+    setAdvisorPhotoOffsetY(0);
+    setShowAdvisorPhotoEditor(true);
+  };
+
+  const cancelAdvisorPhoto = () => {
+    setShowAdvisorPhotoEditor(false);
+    setAdvisorPhotoPreviewUri(null);
+    setAdvisorPhotoScale(1.0);
+    setAdvisorPhotoOffsetX(0);
+    setAdvisorPhotoOffsetY(0);
+  };
+
+  const saveAdvisorPhoto = async () => {
+    if (!fullPlayer?.id || !advisorPhotoPreviewUri || uploadingAdvisorPhoto) return;
+    setUploadingAdvisorPhoto(true);
+    try {
+      const previewW = isMobile ? 110 : 140;
+      const previewH = isMobile ? 150 : 190;
+      const dpr = 2;
+      const targetW = previewW * dpr;
+      const targetH = previewH * dpr;
+      let blob: Blob;
+
+      if (Platform.OS === 'web' && typeof document !== 'undefined') {
+        const canvas = document.createElement('canvas');
+        canvas.width = targetW;
+        canvas.height = targetH;
+        const ctx = canvas.getContext('2d')!;
+        const img = new window.Image();
+        img.crossOrigin = 'anonymous';
+        img.src = advisorPhotoPreviewUri;
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve();
+          img.onerror = reject;
+        });
+        // "cover"-Logik: Bild füllt das Frame komplett, übersteht ggf. links/rechts oder oben/unten.
+        // Der überstehende Bereich wird durch das Frame (overflow:hidden) abgeschnitten.
+        // Identisch zum Live-Preview mit resizeMode="cover" + transform.
+        const imgAspect = img.width / img.height;
+        const frameAspect = targetW / targetH;
+        let fitW: number, fitH: number;
+        if (imgAspect > frameAspect) { fitH = targetH; fitW = targetH * imgAspect; }
+        else { fitW = targetW; fitH = targetW / imgAspect; }
+        const drawW = fitW * advisorPhotoScale;
+        const drawH = fitH * advisorPhotoScale;
+        const drawX = (targetW - drawW) / 2 + advisorPhotoOffsetX * dpr;
+        const drawY = (targetH - drawH) / 2 + advisorPhotoOffsetY * dpr;
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, targetW, targetH);
+        ctx.drawImage(img, drawX, drawY, drawW, drawH);
+        blob = await new Promise<Blob>((resolve) => canvas.toBlob(b => resolve(b!), 'image/png'));
+      } else {
+        // Native-Fallback: kein Editor, direkter Upload des Originals
+        const response = await fetch(advisorPhotoPreviewUri);
+        blob = await response.blob();
+      }
+
+      const fileName = `${fullPlayer.id}/photo.png`;
+      await supabase.storage.from('player-photos').remove([fileName]);
+      const { error: uploadErr } = await supabase.storage.from('player-photos').upload(fileName, blob, { contentType: 'image/png', upsert: true });
+      if (uploadErr) throw uploadErr;
+      const { data: urlData } = supabase.storage.from('player-photos').getPublicUrl(fileName);
+      const photoUrl = urlData.publicUrl + '?t=' + Date.now();
+      const { error: updateErr } = await supabase.from('player_details').update({ photo_url: photoUrl }).eq('id', fullPlayer.id);
+      if (updateErr) throw updateErr;
+      setFullPlayer({ ...fullPlayer, photo_url: photoUrl });
+      cancelAdvisorPhoto();
+    } catch (e: any) {
+      console.error('Photo save failed:', e);
+      if (typeof window !== 'undefined') window.alert('Foto konnte nicht gespeichert werden: ' + (e?.message || ''));
+    } finally {
+      setUploadingAdvisorPhoto(false);
+    }
+  };
+
+  const saveAll = async () => {
+    if (!fullPlayer?.id) return;
+    setCardSaving(true);
+    const updates: Record<string, any> = { ...editData };
+    // Slots → joined string
+    if (Array.isArray(updates.strengthSlots)) {
+      updates.strengths = updates.strengthSlots.map((s: string) => s.trim()).filter(Boolean).join('; ');
+      delete updates.strengthSlots;
+    }
+    if (Array.isArray(updates.potentialSlots)) {
+      updates.potentials = updates.potentialSlots.map((s: string) => s.trim()).filter(Boolean).join('; ');
+      delete updates.potentialSlots;
+    }
+    // Sekundärpositionen → kommagetrennter String
+    if (Array.isArray(updates.secondary_positions)) {
+      updates.secondary_position = updates.secondary_positions.filter(Boolean).join(', ');
+      delete updates.secondary_positions;
+    }
+    // Height als Number
+    if (updates.height !== undefined) updates.height = updates.height ? parseInt(updates.height, 10) : null;
+    // Prototype-Zuweisung separat verarbeiten (genau 1 Row pro Spieler)
+    const pendingProtoId: string | null | undefined = updates.prototype_id;
+    delete updates.prototype_id;
+    // SPLIT-FIELDS: `_player`-Spalten DARF der Berater NICHT überschreiben.
+    // Die wurden in editData nur für die Pille-Anzeige mitgeführt — nicht persistieren.
+    SPLIT_FIELDS.forEach(f => { delete updates[`${f}_player`]; });
+    // Auch: das aus dem Spieler-View gespeiste `additional_info_player` darf nicht
+    // vom Berater überschrieben werden.
+    delete updates.additional_info_player;
+    // Backwards-Compat: alte unsuffixed Spalten (phone, email, etc.) in einem Sweep
+    // mit dem advisor-Wert synchron halten, damit Screens, die noch die alten Spalten
+    // lesen, weiterhin den aktuellsten Berater-Wert sehen.
+    SPLIT_FIELDS.forEach(f => {
+      const advisorKey = `${f}_advisor`;
+      if (advisorKey in updates) updates[f] = updates[advisorKey];
+    });
+    // Leere Strings zu null
+    Object.keys(updates).forEach(k => { if (updates[k] === '') updates[k] = null; });
+    const { error } = await supabase.from('player_details').update(updates).eq('id', fullPlayer.id);
+    if (error) { setCardSaving(false); if (typeof window !== 'undefined') window.alert('Fehler beim Speichern: ' + error.message); return; }
+
+    // Single-Assignment: alte Row löschen, neue anlegen (nur wenn !== null)
+    if (pendingProtoId !== undefined) {
+      await supabase.from('player_prototype_assignments').delete().eq('player_id', fullPlayer.id);
+      if (pendingProtoId) {
+        await supabase.from('player_prototype_assignments').insert({ player_id: fullPlayer.id, prototype_id: pendingProtoId, is_primary: true });
+      }
+      setPlayerPrototypeId(pendingProtoId);
+    }
+
+    setCardSaving(false);
+    setFullPlayer({ ...fullPlayer, ...updates });
+    setIsEditing(false);
+    setEditData({});
+  };
+
+  const toggleTransferList = async () => {
+    if (!fullPlayer || transferBusy) return;
+    setTransferBusy(true);
+    const newValue = !fullPlayer.in_transfer_list;
+    const { error } = await supabase.from('player_details').update({ in_transfer_list: newValue }).eq('id', fullPlayer.id);
+    setTransferBusy(false);
+    if (error) { if (typeof window !== 'undefined') window.alert('Fehler: ' + error.message); return; }
+    setFullPlayer({ ...fullPlayer, in_transfer_list: newValue });
+  };
+
+  const handleInviteCode = async () => {
+    if (!fullPlayer) return;
+    setInviteCodeLoading(true);
+    try {
+      const { data } = await supabase.from('player_details').select('invitation_code, linked_user_id').eq('id', fullPlayer.id).single();
+      if (data?.linked_user_id) { if (typeof window !== 'undefined') window.alert('Dieser Spieler hat sich bereits registriert.'); setInviteCodeLoading(false); return; }
+      if (data?.invitation_code) { setInviteCode(data.invitation_code); setShowInviteCodeModal(true); setInviteCodeLoading(false); return; }
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let code = 'KMH-';
+      for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+      await supabase.from('player_details').update({ invitation_code: code }).eq('id', fullPlayer.id);
+      setInviteCode(code);
+      setShowInviteCodeModal(true);
+    } catch (err) {
+      console.error('Invite code error:', err);
+    }
+    setInviteCodeLoading(false);
+  };
+
+  const handleGeneratePdf = async () => {
+    if (!fullPlayer || pdfGenerating) return;
+    setPdfGenerating(true);
+    setShowPdfPreview(true);
+    if (pdfPreviewUrl) {
+      try { URL.revokeObjectURL(pdfPreviewUrl); } catch {}
+      setPdfPreviewUrl(null);
+    }
+    try {
+      // Karriereverlauf + PDF-Beschreibung aus DB nachladen — diese werden im
+      // PDF-Editor (PlayerDetailScreen) gespeichert, müssen aber beim Generieren
+      // des PDFs aus PlayerOverview ebenfalls übergeben werden, sonst rendert die
+      // Edge Function den Karriere-Block leer.
+      const [{ data: careerRows }, { data: detailsRow }] = await Promise.all([
+        supabase.from('player_career').select('*').eq('player_id', fullPlayer.id),
+        supabase.from('player_details').select('pdf_description, pdf_additional_info, pdf_highlight_video_id, pdf_highlight_video_url, pdf_language').eq('id', fullPlayer.id).single(),
+      ]);
+      const careerEntries = (careerRows || []).map((d: any) => {
+        let games = '', goals = '', assists = '';
+        if (d.stats) {
+          const sp = d.stats.match(/(\d+)\s*(?:Spiele|Spiel|Sp\b)/i);
+          const tg = d.stats.match(/(\d+)\s*(?:Tore|Tor\b|T(?!\w))/i);
+          const as = d.stats.match(/(\d+)\s*(?:Assists|Assist|A(?!\w))/i);
+          if (sp) games = sp[1];
+          if (tg) goals = tg[1];
+          if (as) assists = as[1];
+        }
+        return {
+          ...d,
+          from_date: d.from_date || d.from_year || '',
+          to_date: d.to_date || d.to_year || '',
+          is_current: d.is_current || false,
+          games,
+          goals,
+          assists,
+        };
+      });
+      const playerDescription = detailsRow?.pdf_description || '';
+      const additionalInfo = detailsRow?.pdf_additional_info || '';
+
+      // Highlight-Video resolven. Vorrang: direkte URL > Library-Video.
+      let highlightVideoUrl: string | undefined;
+      let highlightVideoTitle: string | undefined;
+      const directUrl = (detailsRow?.pdf_highlight_video_url || '').trim();
+      if (directUrl) {
+        highlightVideoUrl = directUrl;
+      } else if (detailsRow?.pdf_highlight_video_id) {
+        const { data: vid } = await supabase
+          .from('player_videos')
+          .select('label, description, video_url, video_path')
+          .eq('id', detailsRow.pdf_highlight_video_id)
+          .single();
+        if (vid) {
+          highlightVideoUrl = vid.video_url || (vid.video_path
+            ? supabase.storage.from('player-videos').getPublicUrl(vid.video_path).data.publicUrl
+            : undefined);
+          highlightVideoTitle = vid.label || vid.description || undefined;
+        }
+      }
+
+      // PDF startet immer auf Deutsch beim Öffnen. Wechsel zu English passiert
+      // erst manuell im Edit-Mode (PlayerDetailScreen).
+      const lang = 'de';
+      const { data, error } = await supabase.functions.invoke('generate-pdf', {
+        body: { player: fullPlayer, careerEntries, playerDescription, additionalInfo, highlightVideoUrl, highlightVideoTitle, lang }
+      });
+      if (error) {
+        if (typeof window !== 'undefined') window.alert('PDF konnte nicht erstellt werden');
+        setPdfGenerating(false);
+        setShowPdfPreview(false);
+        return;
+      }
+      if (data?.pdf && typeof window !== 'undefined') {
+        const byteCharacters = atob(data.pdf);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i);
+        const blob = new Blob([new Uint8Array(byteNumbers)], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob) + '#toolbar=0&navpanes=0';
+        setPdfPreviewUrl(url);
+      }
+    } catch (err) {
+      console.error('PDF error:', err);
+    }
+    setPdfGenerating(false);
+  };
+
+  const handlePdfDownload = () => {
+    if (!fullPlayer || !pdfPreviewUrl || typeof window === 'undefined') return;
+    const link = document.createElement('a');
+    link.href = pdfPreviewUrl;
+    const langSuffix = (fullPlayer as any)?.pdf_language === 'en' ? '_english' : '';
+    link.download = `Expose_${fullPlayer.last_name}_${fullPlayer.first_name}${langSuffix}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleClosePdfPreview = () => {
+    if (pdfPreviewUrl) {
+      try { URL.revokeObjectURL(pdfPreviewUrl); } catch {}
+    }
+    setPdfPreviewUrl(null);
+    setShowPdfPreview(false);
+  };
+
+  const handleEditPdf = () => {
+    if (!fullPlayer) return;
+    const pid = fullPlayer.id;
+    handleClosePdfPreview();
+    // Spielerprofil-Modal NICHT schließen — beim Zurückkehren vom PDF-Editor soll es noch offen sein
+    navigation.navigate('PlayerDetail', { playerId: pid, openPdfEditor: true });
+  };
+
+  const renderDetailField = (label: string, value: React.ReactNode, full: boolean = false) => (
+    <View style={[styles.detailField, full && styles.detailFieldFull]}>
+      <Text style={styles.detailFieldLabel}>{label}</Text>
+      <Text style={styles.detailFieldValue}>{value || '-'}</Text>
+    </View>
+  );
+
+  const DetailDropdown = ({ value, options, onChange, placeholder, dropdownKey, minWidth = 220, defaultScrollValue, formatValue }: {
+    value: string;
+    options: string[];
+    onChange: (v: string) => void;
+    placeholder?: string;
+    dropdownKey: string;
+    minWidth?: number;
+    defaultScrollValue?: string;
+    formatValue?: (v: string) => string;
+  }) => {
+    const open = openDropdown === dropdownKey;
+    const displayed = value ? (formatValue ? (formatValue(value) || value) : value) : '';
+    return (
+      <View {...({ 'data-kmh-dropdown': 'true', dataSet: { kmhDropdown: 'true' } } as any)} style={{ position: 'relative', zIndex: open ? 1000 : 1 }}>
+        <TouchableOpacity
+          style={[styles.detailEditInput, { paddingVertical: 4, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
+          onPress={() => setOpenDropdown(open ? null : dropdownKey)}
+        >
+          <Text numberOfLines={1} style={{ fontSize: 13, color: value ? '#fff' : 'rgba(255,255,255,0.3)', flex: 1 }}>{displayed || placeholder || '-'}</Text>
+          <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={14} color="rgba(255,255,255,0.5)" />
+        </TouchableOpacity>
+        {open ? (
+          <View style={[styles.detailDropdownList, { minWidth }]}>
+            <ScrollView
+              ref={(ref: any) => {
+                if (!ref) return;
+                const target = value || defaultScrollValue;
+                if (!target) return;
+                const idx = options.indexOf(target);
+                if (idx < 0) return;
+                const ITEM_HEIGHT = 34;
+                const MAX_HEIGHT = 260;
+                const offset = (idx + 1) * ITEM_HEIGHT;
+                const centered = Math.max(0, offset - MAX_HEIGHT / 2 + ITEM_HEIGHT / 2);
+                requestAnimationFrame(() => ref.scrollTo?.({ y: centered, animated: false }));
+              }}
+              style={{ maxHeight: 260 }}
+              nestedScrollEnabled
+            >
+              <TouchableOpacity style={styles.detailDropdownItem} onPress={() => { onChange(''); setOpenDropdown(null); }}>
+                <Text numberOfLines={1} style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>Leeren</Text>
+              </TouchableOpacity>
+              {options.map(opt => (
+                <TouchableOpacity key={opt} style={styles.detailDropdownItem} onPress={() => { onChange(opt); setOpenDropdown(null); }}>
+                  <Text numberOfLines={1} style={{ fontSize: 13, color: '#fff' }}>{opt}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
+      </View>
+    );
+  };
+
+  const MultiSelectDropdown = ({ values, options, onChange, placeholder, dropdownKey, minWidth = 260 }: {
+    values: string[];
+    options: string[];
+    onChange: (next: string[]) => void;
+    placeholder?: string;
+    dropdownKey: string;
+    minWidth?: number;
+  }) => {
+    const open = openDropdown === dropdownKey;
+    const displayText = values.length === 0 ? (placeholder || '-') : values.join(', ');
+    return (
+      <View {...({ 'data-kmh-dropdown': 'true', dataSet: { kmhDropdown: 'true' } } as any)} style={{ position: 'relative', zIndex: open ? 1000 : 1 }}>
+        <TouchableOpacity
+          style={[styles.detailEditInput, { paddingVertical: 4, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
+          onPress={() => setOpenDropdown(open ? null : dropdownKey)}
+        >
+          <Text numberOfLines={1} style={{ fontSize: 13, color: values.length ? '#fff' : 'rgba(255,255,255,0.3)', flex: 1 }}>{displayText}</Text>
+          <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={14} color="rgba(255,255,255,0.5)" />
+        </TouchableOpacity>
+        {open ? (
+          <View style={[styles.detailDropdownList, { minWidth }]}>
+            <ScrollView style={{ maxHeight: 280 }} nestedScrollEnabled>
+              <TouchableOpacity style={styles.detailDropdownItem} onPress={() => onChange([])}>
+                <Text numberOfLines={1} style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>Leeren</Text>
+              </TouchableOpacity>
+              {options.map(opt => {
+                const checked = values.includes(opt);
+                return (
+                  <TouchableOpacity
+                    key={opt}
+                    style={[styles.detailDropdownItem, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}
+                    onPress={() => {
+                      if (checked) onChange(values.filter(v => v !== opt));
+                      else onChange([...values, opt]);
+                    }}
+                  >
+                    <Ionicons name={checked ? 'checkbox' : 'square-outline'} size={16} color={checked ? '#22c55e' : 'rgba(255,255,255,0.5)'} />
+                    <Text numberOfLines={1} style={{ fontSize: 13, color: '#fff', flex: 1 }}>{opt}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        ) : null}
+      </View>
+    );
+  };
+
+  const DateDropdown = ({ field, dropdownKeyPrefix }: { field: string; dropdownKeyPrefix: string }) => {
+    const raw: string = editData[field] || '';
+    const today = new Date();
+    const parts = raw.length >= 10 ? raw.substring(0, 10).split('-') : ['', '', ''];
+    const year = parts[0] || '';
+    const month = parts[1] || '';
+    const day = parts[2] || '';
+
+    const DAYS = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'));
+    const MONTHS = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
+    const currentYear = today.getFullYear();
+    const YEARS = Array.from({ length: 40 }, (_, i) => String(currentYear - 10 + i));
+
+    const todayY = String(today.getFullYear());
+    const todayM = String(today.getMonth() + 1).padStart(2, '0');
+    const todayD = String(today.getDate()).padStart(2, '0');
+
+    const updatePart = (partKey: 'y' | 'm' | 'd', newVal: string) => {
+      if (!newVal) {
+        setEditData({ ...editData, [field]: '' });
+        return;
+      }
+      const y = partKey === 'y' ? newVal : (year || todayY);
+      const m = partKey === 'm' ? newVal : (month || todayM);
+      const d = partKey === 'd' ? newVal : (day || todayD);
+      setEditData({ ...editData, [field]: `${y}-${m}-${d}` });
+    };
+
+    return (
+      <View style={{ flexDirection: 'row', gap: 6 }}>
+        <View style={{ width: 72 }}>
+          <DetailDropdown
+            value={day}
+            options={DAYS}
+            onChange={(v) => updatePart('d', v)}
+            placeholder="Tag"
+            dropdownKey={`${dropdownKeyPrefix}_day`}
+            minWidth={100}
+            defaultScrollValue="30"
+          />
+        </View>
+        <View style={{ width: 80 }}>
+          <DetailDropdown
+            value={month}
+            options={MONTHS}
+            onChange={(v) => updatePart('m', v)}
+            placeholder="Monat"
+            dropdownKey={`${dropdownKeyPrefix}_month`}
+            minWidth={100}
+            defaultScrollValue="06"
+          />
+        </View>
+        <View style={{ width: 90 }}>
+          <DetailDropdown
+            value={year}
+            options={YEARS}
+            onChange={(v) => updatePart('y', v)}
+            placeholder="Jahr"
+            dropdownKey={`${dropdownKeyPrefix}_year`}
+            minWidth={110}
+            defaultScrollValue={String(currentYear)}
+          />
+        </View>
+      </View>
+    );
+  };
+
+  // EditableValue ist jetzt außerhalb des Component-Scopes definiert (siehe oben),
+  // damit der TextInput beim Tippen nicht unmounted wird.
+
+  const playerDetailModalJsx = selectedPlayer && (
+    <Modal visible={showPlayerDetailModal} transparent animationType={isMobile ? 'slide' : 'fade'} onRequestClose={closePlayerDetailModal}>
+      <View style={[styles.detailModalBackdrop, isMobile && { paddingHorizontal: 0, paddingVertical: 0, justifyContent: 'flex-end', alignItems: 'stretch' }]}>
+        <Pressable style={StyleSheet.absoluteFillObject} onPress={closePlayerDetailModal} />
+        <View style={[styles.detailModalBox, isMobile && { maxHeight: '80%', borderRadius: 0, borderTopLeftRadius: 16, borderTopRightRadius: 16, borderBottomWidth: 0 }]}>
+        <Image source={require('../../../assets/scouting-header-bg.jpg')} style={styles.detailBgImage} resizeMode="cover" />
+        <View style={styles.detailBgOverlay} />
+
+        {/* Toolbar */}
+        <View style={[styles.detailToolbar, isMobile && { paddingHorizontal: 10, gap: 6 }]}>
+          <View style={[styles.detailToolbarLeft, isMobile && { gap: 6 }]}>
+            <TouchableOpacity
+              style={[styles.detailToolbarBtn, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}
+              onPress={handleInviteCode}
+              disabled={!fullPlayer || inviteCodeLoading}
+            >
+              {inviteCodeLoading ? (
+                <Text style={[styles.detailToolbarBtnText, { color: '#fbbf24' }]}>...</Text>
+              ) : (
+                <>
+                  <Ionicons name="key-outline" size={11} color="#fbbf24" />
+                  <Text style={[styles.detailToolbarBtnText, { color: '#fbbf24' }]}>Code</Text>
+                </>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.detailToolbarBtn, fullPlayer?.in_transfer_list && { backgroundColor: '#dc3545', borderColor: '#dc3545' }, isMobile && { flexDirection: 'row', alignItems: 'center', gap: 2 }]}
+              onPress={toggleTransferList}
+              disabled={!fullPlayer || transferBusy}
+            >
+              {isMobile ? (
+                fullPlayer?.in_transfer_list ? (
+                  <Ionicons name="close" size={14} color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="arrow-up" size={12} color="#22c55e" />
+                    <Ionicons name="arrow-down" size={12} color="#ef4444" />
+                  </>
+                )
+              ) : (
+                <Text style={[styles.detailToolbarBtnText, fullPlayer?.in_transfer_list && { color: '#fff' }]}>
+                  {fullPlayer?.in_transfer_list ? 'Von Transfer entfernen' : 'Zu Transfer hinzufügen'}
+                </Text>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.detailToolbarBtn, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}
+              onPress={handleGeneratePdf}
+              disabled={!fullPlayer || pdfGenerating}
+            >
+              {pdfGenerating ? (
+                <Text style={[styles.detailToolbarBtnText, { color: colors.textSecondary }]}>...</Text>
+              ) : (
+                <Ionicons name="document-text-outline" size={14} color={colors.textSecondary} />
+              )}
+            </TouchableOpacity>
+          </View>
+          <View style={[styles.detailToolbarRight, isMobile && { gap: 6 }]}>
+            {isEditing ? (
+              <>
+                <TouchableOpacity
+                  style={[styles.detailToolbarBtn, { borderColor: '#dc2626' }]}
+                  onPress={async () => {
+                    if (!fullPlayer) return;
+                    const confirmed = typeof window !== 'undefined' && window.confirm
+                      ? window.confirm(`Spieler "${fullPlayer.first_name} ${fullPlayer.last_name}" wirklich endgültig löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden.`)
+                      : true;
+                    if (!confirmed) return;
+                    setCardSaving(true);
+                    const { error } = await supabase.from('player_details').delete().eq('id', fullPlayer.id);
+                    setCardSaving(false);
+                    if (error) {
+                      if (typeof window !== 'undefined') window.alert('Fehler beim Löschen: ' + error.message);
+                      return;
+                    }
+                    closePlayerDetailModal();
+                    fetchPlayers();
+                  }}
+                  disabled={cardSaving}
+                >
+                  <Text style={[styles.detailToolbarBtnText, { color: '#dc2626' }]}>Löschen</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.detailToolbarBtn} onPress={cancelEditAll} disabled={cardSaving}>
+                  <Text style={styles.detailToolbarBtnText}>Abbrechen</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.detailToolbarBtn, { backgroundColor: '#22c55e', borderColor: '#22c55e' }]} onPress={saveAll} disabled={cardSaving}>
+                  <Text style={[styles.detailToolbarBtnText, { color: '#fff' }]}>{cardSaving ? 'Speichern…' : 'Speichern'}</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <TouchableOpacity style={styles.detailToolbarBtn} onPress={startEditAll} disabled={!fullPlayer}>
+                <Text style={styles.detailToolbarBtnText}>Bearbeiten</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.detailToolbarCloseBtn} onPress={closePlayerDetailModal}>
+              <Text style={styles.detailCloseText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <ScrollView contentContainerStyle={{ paddingBottom: 16 }}>
+          {/* Header */}
+          <View style={styles.detailHeader}>
+            <View style={styles.detailHeaderTop}>
+              {/* Foto — im Edit-Mode klickbar (nur Berater darf das Foto verwalten) */}
+              <View style={{ position: 'relative' }}>
+                <TouchableOpacity
+                  onPress={isEditing && !showAdvisorPhotoEditor ? openAdvisorPhotoEditor : undefined}
+                  disabled={!isEditing || uploadingAdvisorPhoto || showAdvisorPhotoEditor}
+                  activeOpacity={isEditing && !showAdvisorPhotoEditor ? 0.7 : 1}
+                  style={[styles.detailPhoto, { width: isMobile ? 90 : 140, height: isMobile ? 120 : 190, position: 'relative', overflow: 'hidden', flexShrink: 0, flexGrow: 0 }]}
+                >
+                  {showAdvisorPhotoEditor && advisorPhotoPreviewUri ? (
+                    <Image
+                      source={{ uri: advisorPhotoPreviewUri }}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        transform: [
+                          { scale: advisorPhotoScale },
+                          { translateX: advisorPhotoOffsetX },
+                          { translateY: advisorPhotoOffsetY },
+                        ],
+                      }}
+                      resizeMode="cover"
+                    />
+                  ) : fullPlayer?.photo_url ? (
+                    <Image source={{ uri: fullPlayer.photo_url }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                  ) : (
+                    <View style={[styles.detailPhotoPlaceholder, { width: '100%', height: '100%' }]}>
+                      <Text style={styles.detailPhotoInitial}>{(selectedPlayer.first_name?.[0] || '') + (selectedPlayer.last_name?.[0] || '')}</Text>
+                    </View>
+                  )}
+                  {uploadingAdvisorPhoto ? (
+                    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ color: '#fff', fontSize: 11 }}>Lädt…</Text>
+                    </View>
+                  ) : null}
+                  {isEditing && !uploadingAdvisorPhoto && !showAdvisorPhotoEditor ? (
+                    <View style={{ position: 'absolute', bottom: 6, right: 6, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 14, width: 28, height: 28, alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="camera-outline" size={14} color="#fff" />
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+
+                {/* Photo-Editor-Toolbar direkt unter dem Foto. Block-Element (nicht absolute),
+                    damit das Layout der Stats-Row darunter ungestört bleibt und Klicks
+                    nicht durch andere Elemente blockiert werden. */}
+                {showAdvisorPhotoEditor ? (
+                  <View style={{ marginTop: 8, backgroundColor: 'rgba(0,0,0,0.85)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', padding: 10, zIndex: 200, elevation: 12, flexDirection: 'column', gap: 8, alignSelf: 'flex-start', minWidth: isMobile ? 220 : 260, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.5, shadowRadius: 12 }}>
+                    {/* Zoom */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', fontWeight: '600', letterSpacing: 0.6, width: 50 }}>ZOOM</Text>
+                      <TouchableOpacity
+                        style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}
+                        onPress={() => setAdvisorPhotoScale(s => Math.max(0.3, Math.round((s - 0.05) * 100) / 100))}
+                      >
+                        <Text style={{ fontSize: 14, color: '#fff' }}>−</Text>
+                      </TouchableOpacity>
+                      <Text style={{ fontSize: 11, color: '#fff', flex: 1, textAlign: 'center', fontWeight: '500' }}>{Math.round(advisorPhotoScale * 100)}%</Text>
+                      <TouchableOpacity
+                        style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}
+                        onPress={() => setAdvisorPhotoScale(s => Math.min(3.0, Math.round((s + 0.05) * 100) / 100))}
+                      >
+                        <Text style={{ fontSize: 14, color: '#fff' }}>+</Text>
+                      </TouchableOpacity>
+                    </View>
+                    {/* Position */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', fontWeight: '600', letterSpacing: 0.6, width: 50 }}>POS</Text>
+                      <TouchableOpacity style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }} onPress={() => setAdvisorPhotoOffsetX(x => x - 3)}>
+                        <Text style={{ fontSize: 12, color: '#fff' }}>←</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }} onPress={() => setAdvisorPhotoOffsetY(y => y - 3)}>
+                        <Text style={{ fontSize: 12, color: '#fff' }}>↑</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }} onPress={() => setAdvisorPhotoOffsetY(y => y + 3)}>
+                        <Text style={{ fontSize: 12, color: '#fff' }}>↓</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }} onPress={() => setAdvisorPhotoOffsetX(x => x + 3)}>
+                        <Text style={{ fontSize: 12, color: '#fff' }}>→</Text>
+                      </TouchableOpacity>
+                    </View>
+                    {/* Neues Bild wählen */}
+                    <TouchableOpacity
+                      style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(255,255,255,0.05)' }}
+                      onPress={pickAdvisorPhoto}
+                      disabled={uploadingAdvisorPhoto}
+                    >
+                      <Ionicons name="image-outline" size={12} color="rgba(255,255,255,0.85)" />
+                      <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)', fontWeight: '600' }}>Neues Bild wählen</Text>
+                    </TouchableOpacity>
+                    {/* Buttons */}
+                    <View style={{ flexDirection: 'row', gap: 6, marginTop: 2 }}>
+                      <TouchableOpacity
+                        style={{ flex: 1, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', alignItems: 'center' }}
+                        onPress={cancelAdvisorPhoto}
+                        disabled={uploadingAdvisorPhoto}
+                      >
+                        <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)', fontWeight: '600' }}>Abbrechen</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={{ flex: 1, paddingVertical: 6, borderRadius: 6, backgroundColor: '#22c55e', alignItems: 'center', opacity: uploadingAdvisorPhoto ? 0.5 : 1 }}
+                        onPress={saveAdvisorPhoto}
+                        disabled={uploadingAdvisorPhoto}
+                      >
+                        <Text style={{ fontSize: 11, color: '#fff', fontWeight: '600' }}>Speichern</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : null}
+              </View>
+
+              {/* Name + Club */}
+              <View style={styles.detailHeaderCenter}>
+                <Text style={[styles.detailHeaderName, { fontSize: isMobile ? 34 : 72, lineHeight: isMobile ? 38 : 76 }]}>
+                  {selectedPlayer.first_name}
+                </Text>
+                <Text style={[styles.detailHeaderName, { fontSize: isMobile ? 34 : 72, lineHeight: isMobile ? 38 : 76 }]}>
+                  {selectedPlayer.last_name}
+                </Text>
+                <View style={styles.detailHeaderClubRow}>
+                  {getClubLogo(selectedPlayer.club) && (
+                    <Image source={{ uri: getClubLogo(selectedPlayer.club)! }} style={{ width: isMobile ? 32 : 44, height: isMobile ? 32 : 44 }} resizeMode="contain" />
+                  )}
+                  <Text style={[styles.detailHeaderClubText, { fontSize: isMobile ? 15 : 30 }]}>{normalizeGermanClubName(selectedPlayer.club) || '-'}</Text>
+                </View>
+              </View>
+
+              {/* SPIELER-PROFIL-Label */}
+              {!isMobile && (
+                <View style={{ alignSelf: 'flex-start', paddingRight: 12, paddingTop: 4 }}>
+                  <Text style={styles.detailHeaderTitle}>Persönliche Daten</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.detailDivider} />
+            <View style={styles.detailStatsRow}>
+              <Pressable style={styles.detailStatCol} onHoverIn={() => setShowNatTooltip(true)} onHoverOut={() => setShowNatTooltip(false)}>
+                <Text style={styles.detailStatLabel}>Nationalität</Text>
+                {(() => {
+                  // Stamm-Daten: Spieler-Wert ?? Berater-Wert ?? alte Spalte
+                  const nat = fullPlayer?.nationality_player || fullPlayer?.nationality_advisor || fullPlayer?.nationality;
+                  return (
+                    <Text style={[styles.detailStatValue, { fontSize: 18, lineHeight: 20 }]}>
+                      {nat ? nationalityToFlags(nat) : '-'}
+                    </Text>
+                  );
+                })()}
+                {showNatTooltip && (fullPlayer?.nationality_player || fullPlayer?.nationality_advisor || fullPlayer?.nationality) ? (
+                  <View style={styles.detailTooltip}>
+                    <Text style={styles.detailTooltipText}>{fullPlayer?.nationality_player || fullPlayer?.nationality_advisor || fullPlayer?.nationality}</Text>
+                  </View>
+                ) : null}
+              </Pressable>
+              <View style={styles.detailStatCol}>
+                <Text style={styles.detailStatLabel}>Geburtsdatum</Text>
+                {(() => {
+                  const bd = fullPlayer?.birth_date_player || fullPlayer?.birth_date_advisor || selectedPlayer.birth_date;
+                  return (
+                    <Text style={styles.detailStatValue}>
+                      {bd ? `${formatDate(bd)}${calculateAge(bd) !== null ? `  (${calculateAge(bd)})` : ''}` : '-'}
+                    </Text>
+                  );
+                })()}
+              </View>
+              <View style={styles.detailStatCol}>
+                <Text style={styles.detailStatLabel}>Position</Text>
+                <Text style={styles.detailStatValue}>{selectedPlayer.position || '-'}</Text>
+              </View>
+              <View style={styles.detailStatCol}>
+                <Text style={styles.detailStatLabel}>Vertragsende</Text>
+                <Text style={[styles.detailStatValue, isContractInCurrentSeason(selectedPlayer.contract_end || '') && { color: '#ef4444' }]}>
+                  {formatDate(selectedPlayer.contract_end)}
+                </Text>
+              </View>
+              <View style={styles.detailStatCol}>
+                <Text style={styles.detailStatLabel}>Transfermarkt</Text>
+                {isEditing ? (
+                  <TextInput
+                    style={[styles.detailEditInput, { paddingVertical: 4, fontSize: 11, width: '100%', minWidth: 120 }]}
+                    value={(editData.transfermarkt_url as string) || ''}
+                    onChangeText={(v) => setEditData({ ...editData, transfermarkt_url: v })}
+                    placeholder="https://…"
+                    placeholderTextColor="rgba(255,255,255,0.3)"
+                    autoCapitalize="none"
+                  />
+                ) : fullPlayer?.transfermarkt_url ? (
+                  <TouchableOpacity onPress={() => { if (typeof window !== 'undefined') window.open(fullPlayer.transfermarkt_url, '_blank'); }}>
+                    <Ionicons name="link-outline" size={16} color="#fff" />
+                  </TouchableOpacity>
+                ) : (
+                  <Text style={styles.detailStatValue}>-</Text>
+                )}
+              </View>
+            </View>
+          </View>
+
+          {/* Karten-Grid */}
+          {fullPlayerLoading ? (
+            <View style={{ padding: 32, alignItems: 'center' }}>
+              <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>Laden...</Text>
+            </View>
+          ) : (
+            <View style={styles.detailCardGrid}>
+              {/* Spielerprofil — 3 Spalten */}
+              <View style={[styles.detailCard, { position: 'relative', zIndex: 100 }]}>
+                <Text style={styles.detailCardTitle}>Spielerprofil</Text>
+                <View style={{ flexDirection: 'row', gap: 24, flexWrap: 'wrap', zIndex: isEditing ? 200 : undefined, position: 'relative' }}>
+                  {/* Spalte 1: Position + Starker Fuß + Größe */}
+                  <View style={{ minWidth: 110, flexBasis: 120, flexGrow: 0, gap: 14, zIndex: isEditing ? 200 : undefined, position: 'relative' }}>
+                    <View style={{ zIndex: 30, position: 'relative' }}>
+                      <Text style={styles.detailFieldLabel}>Position</Text>
+                      {isEditing ? (
+                        <>
+                          <DetailDropdown
+                            value={editData.position || ''}
+                            options={POSITIONS}
+                            onChange={(v) => setEditData({ ...editData, position: v })}
+                            placeholder="Hauptposition"
+                            dropdownKey="position"
+                            formatValue={positionToShort}
+                          />
+                          <Text style={[styles.detailFieldLabel, { fontSize: 9, marginTop: 14 }]}>Nebenposition</Text>
+                          <View style={{ gap: 4 }}>
+                            {((editData.secondary_positions as string[]) || []).map((sp: string, i: number) => (
+                              <View key={i} style={{ zIndex: 100 - i, position: 'relative' }}>
+                                <DetailDropdown
+                                  value={sp}
+                                  options={POSITIONS.filter(p => p !== editData.position && !(editData.secondary_positions as string[]).includes(p) || p === sp)}
+                                  onChange={(v) => {
+                                    const arr = [...(editData.secondary_positions as string[])];
+                                    arr[i] = v;
+                                    setEditData({ ...editData, secondary_positions: arr });
+                                  }}
+                                  dropdownKey={`secondary_${i}`}
+                                  formatValue={positionToShort}
+                                />
+                              </View>
+                            ))}
+                          </View>
+                        </>
+                      ) : (
+                        <MiniPositionField
+                          primary={positionToShort(fullPlayer?.position)}
+                          secondaries={splitPositions(fullPlayer?.secondary_position)}
+                          maxWidth={100}
+                          circleSize={18}
+                        />
+                      )}
+                    </View>
+                    <View style={{ zIndex: 20, position: 'relative' }}>
+                      <Text style={styles.detailFieldLabel}>Starker Fuß</Text>
+                      {isEditing ? (
+                        <DetailDropdown
+                          value={editData.strong_foot || ''}
+                          options={['Rechts', 'Links', 'Beidfüßig']}
+                          onChange={(v) => setEditData({ ...editData, strong_foot: v })}
+                          placeholder="Auswählen"
+                          dropdownKey="strong_foot"
+                        />
+                      ) : (
+                        <Text style={styles.detailFieldValue}>{fullPlayer?.strong_foot || '-'}</Text>
+                      )}
+                    </View>
+                    <View style={{ zIndex: 10, position: 'relative' }}>
+                      <Text style={styles.detailFieldLabel}>Größe (in cm)</Text>
+                      {isEditing ? (
+                        <TextInput style={[styles.detailEditInput, { paddingVertical: 4 }]} value={editData.height?.toString() || ''} onChangeText={(v) => setEditData({ ...editData, height: v.replace(/\D/g, '') })} placeholder="cm" placeholderTextColor="rgba(255,255,255,0.3)" keyboardType="numeric" />
+                      ) : (
+                        <Text style={styles.detailFieldValue}>{fullPlayer?.height ? `${fullPlayer.height} cm` : '-'}</Text>
+                      )}
+                    </View>
+                  </View>
+
+                  {/* Spalte 2: Stärken */}
+                  <View style={{ flex: 1, minWidth: 140, gap: 6 }}>
+                    <Text style={[styles.detailFieldLabel, { marginBottom: 0 }]}>Stärken</Text>
+                    {isEditing ? (
+                      (editData.strengthSlots as string[] || []).map((val: string, i: number) => (
+                        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Ionicons name="chevron-forward-outline" size={10} color="#22c55e" />
+                          <TextInput
+                            style={[styles.detailEditInput, { flex: 1, paddingVertical: 4 }]}
+                            value={val}
+                            onChangeText={(v) => {
+                              const arr = [...(editData.strengthSlots as string[])];
+                              arr[i] = v;
+                              setEditData({ ...editData, strengthSlots: arr });
+                            }}
+                            placeholder={`Stärke ${i + 1}`}
+                            placeholderTextColor="rgba(255,255,255,0.3)"
+                          />
+                        </View>
+                      ))
+                    ) : (() => {
+                      const items: string[] = parseList(fullPlayer?.strengths);
+                      return items.length === 0 ? (
+                        <Text style={styles.detailFieldValue}>-</Text>
+                      ) : items.map((s, i) => (
+                        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Ionicons name="chevron-forward-outline" size={10} color="#22c55e" />
+                          <Text style={styles.detailListItem}>{s}</Text>
+                        </View>
+                      ));
+                    })()}
+                  </View>
+
+                  {/* Spalte 3: Potenziale */}
+                  <View style={{ flex: 1, minWidth: 140, gap: 6 }}>
+                    <Text style={[styles.detailFieldLabel, { marginBottom: 0 }]}>Potenziale</Text>
+                    {isEditing ? (
+                      (editData.potentialSlots as string[] || []).map((val: string, i: number) => (
+                        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Ionicons name="chevron-forward-outline" size={10} color="#ef4444" />
+                          <TextInput
+                            style={[styles.detailEditInput, { flex: 1, paddingVertical: 4 }]}
+                            value={val}
+                            onChangeText={(v) => {
+                              const arr = [...(editData.potentialSlots as string[])];
+                              arr[i] = v;
+                              setEditData({ ...editData, potentialSlots: arr });
+                            }}
+                            placeholder={`Potenzial ${i + 1}`}
+                            placeholderTextColor="rgba(255,255,255,0.3)"
+                          />
+                        </View>
+                      ))
+                    ) : (() => {
+                      const items: string[] = parseList(fullPlayer?.potentials);
+                      return items.length === 0 ? (
+                        <Text style={styles.detailFieldValue}>-</Text>
+                      ) : items.map((p, i) => (
+                        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Ionicons name="chevron-forward-outline" size={10} color="#ef4444" />
+                          <Text style={styles.detailListItem}>{p}</Text>
+                        </View>
+                      ));
+                    })()}
+                  </View>
+                </View>
+
+                {/* Prototyp-Zuordnung — genau 1 pro Spieler (DetailDropdown im KMH-Pattern) */}
+                <View style={{ marginTop: 18, paddingTop: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)', zIndex: 50, position: 'relative' }}>
+                  <Text style={styles.detailFieldLabel}>Prototyp</Text>
+                  {isEditing ? (() => {
+                    const currentId: string | null = editData.prototype_id ?? null;
+                    const currentProto = currentId ? allPrototypes.find(p => p.id === currentId) : null;
+                    const currentName = currentProto ? displayPrototypeName(currentProto.name) : '';
+                    const options = allPrototypes.map(p => displayPrototypeName(p.name));
+                    return (
+                      <DetailDropdown
+                        value={currentName}
+                        options={options}
+                        onChange={(displayName) => {
+                          if (!displayName) {
+                            setEditData({ ...editData, prototype_id: null });
+                            return;
+                          }
+                          const found = allPrototypes.find(p => displayPrototypeName(p.name) === displayName);
+                          setEditData({ ...editData, prototype_id: found?.id ?? null });
+                        }}
+                        placeholder="Prototyp wählen…"
+                        dropdownKey="prototype_assignment"
+                        minWidth={320}
+                      />
+                    );
+                  })() : (() => {
+                    if (!playerPrototypeId) return <Text style={[styles.detailFieldValue, { color: 'rgba(255,255,255,0.4)' }]}>Keine zugewiesen</Text>;
+                    const proto = allPrototypes.find(p => p.id === playerPrototypeId);
+                    if (!proto) return <Text style={[styles.detailFieldValue, { color: 'rgba(255,255,255,0.4)' }]}>—</Text>;
+                    return (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Ionicons name="chevron-forward-outline" size={10} color="rgba(255,255,255,0.5)" />
+                        <Text style={styles.detailListItem}>{displayPrototypeName(proto.name)}</Text>
+                      </View>
+                    );
+                  })()}
+                </View>
+              </View>
+
+              {/* Vertrag — 2 Spalten */}
+              <View style={[styles.detailCard, { position: 'relative', zIndex: 90 }]}>
+                <Text style={styles.detailCardTitle}>Vertrag</Text>
+                <View style={{ flexDirection: 'row', gap: 24, flexWrap: 'wrap' }}>
+                  {/* Spalte 1 */}
+                  <View style={{ flex: 1, minWidth: 180, gap: 14 }}>
+                    <View style={{ zIndex: 80, position: 'relative' }}>
+                      <Text style={styles.detailFieldLabel}>Verein</Text>
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="club" displayValue={fullPlayer?.club} />
+                    </View>
+                    {(isEditing || fullPlayer?.future_club) ? (
+                      <View style={{ zIndex: 70, position: 'relative' }} {...({ dataSet: { tmClubDropdown: 'true' } } as any)}>
+                        <Text style={styles.detailFieldLabel}>Zukünftiger Verein</Text>
+                        {isEditing ? (
+                          <View style={{ position: 'relative' }}>
+                            <TextInput
+                              style={[styles.detailEditInput, { paddingVertical: 4 }]}
+                              value={(editData.future_club ?? '').toString()}
+                              onChangeText={(v) => {
+                                setEditData({ ...editData, future_club: v });
+                                setTmClubSearchField('future_club');
+                                triggerTmClubSearch(v);
+                              }}
+                              onFocus={() => {
+                                setTmClubSearchField('future_club');
+                                if (editData.future_club) triggerTmClubSearch(editData.future_club);
+                              }}
+                              placeholder="Name" placeholderTextColor="rgba(255,255,255,0.3)"
+                            />
+                            {tmClubSearchField === 'future_club' && (tmClubSearching || tmClubResults.length > 0) ? (
+                              <View style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, backgroundColor: '#1e293b', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, zIndex: 1000, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12, maxHeight: 260 }}>
+                                <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                                  {tmClubSearching && tmClubResults.length === 0 ? (
+                                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, paddingHorizontal: 12, paddingVertical: 8 }}>Suche…</Text>
+                                  ) : null}
+                                  {tmClubResults.length > 0 ? (
+                                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '600', letterSpacing: 0.8, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6, textTransform: 'uppercase' }}>Transfermarkt-Ergebnisse</Text>
+                                  ) : null}
+                                  {tmClubResults.map((club, idx) => (
+                                    <TouchableOpacity
+                                      key={`${club.name}-${idx}`}
+                                      style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}
+                                      onPress={() => {
+                                        setEditData({ ...editData, future_club: club.name });
+                                        setTmClubSearchField(null);
+                                        setTmClubResults([]);
+                                      }}
+                                    >
+                                      {club.logoUrl ? <Image source={{ uri: club.logoUrl }} style={{ width: 18, height: 18 }} resizeMode="contain" /> : <View style={{ width: 18, height: 18 }} />}
+                                      <View style={{ flex: 1 }}>
+                                        <Text style={{ color: '#fff', fontSize: 13, fontWeight: '500' }} numberOfLines={1}>{club.name}</Text>
+                                        {club.liga ? <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }} numberOfLines={1}>{club.liga}{club.country ? ` · ${club.country}` : ''}</Text> : null}
+                                      </View>
+                                    </TouchableOpacity>
+                                  ))}
+                                </ScrollView>
+                              </View>
+                            ) : null}
+                          </View>
+                        ) : (
+                          <Text style={styles.detailFieldValue}>{fullPlayer.future_club}</Text>
+                        )}
+                      </View>
+                    ) : null}
+                    <View style={{ zIndex: 60, position: 'relative' }}>
+                      <Text style={styles.detailFieldLabel}>Liga</Text>
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="league" displayValue={fullPlayer?.league} />
+                    </View>
+                    <View style={{ zIndex: 50, position: 'relative' }}>
+                      <Text style={styles.detailFieldLabel}>U23-Spieler</Text>
+                      {(() => {
+                        const u23 = calculateU23Status(fullPlayer?.birth_date);
+                        if (!u23.isU23) return <Text style={[styles.detailFieldValue, { color: '#ef4444' }]}>Nein</Text>;
+                        return (
+                          <Text style={[styles.detailFieldValue, { color: '#22c55e' }]}>
+                            Ja <Text style={{ color: '#fff', fontWeight: '500' }}>— {u23.seasonsText}</Text>
+                          </Text>
+                        );
+                      })()}
+                    </View>
+                    <View style={{ zIndex: 40, position: 'relative' }}>
+                      <Text style={styles.detailFieldLabel}>Vertragsende</Text>
+                      {isEditing ? (
+                        <DateDropdown field="contract_end" dropdownKeyPrefix="contract_end" />
+                      ) : (
+                        <Text style={[styles.detailFieldValue, isContractInCurrentSeason(fullPlayer?.contract_end || '') && { color: '#ef4444' }]}>
+                          {formatDate(fullPlayer?.contract_end)}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={{ zIndex: 30, position: 'relative' }}>
+                      <Text style={styles.detailFieldLabel}>Vertrag gilt für</Text>
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="contract_scope" displayValue={fullPlayer?.contract_scope} />
+                    </View>
+                    <View style={{ zIndex: 20, position: 'relative' }}>
+                      <Text style={styles.detailFieldLabel}>Option</Text>
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="contract_option" displayValue={fullPlayer?.contract_option} />
+                    </View>
+                    <View style={{ zIndex: 10, position: 'relative' }}>
+                      <Text style={styles.detailFieldLabel}>Fixe Ablöse</Text>
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="fixed_fee" displayValue={fullPlayer?.fixed_fee} />
+                    </View>
+                  </View>
+                  {/* Spalte 2 */}
+                  <View style={{ flex: 1, minWidth: 180, gap: 14 }}>
+                    <View>
+                      <Text style={styles.detailFieldLabel}>Gehalt/Monat</Text>
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="salary_month" displayValue={fullPlayer?.salary_month} />
+                    </View>
+                    <View>
+                      <Text style={styles.detailFieldLabel}>Punktprämie</Text>
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="point_bonus" displayValue={fullPlayer?.point_bonus} />
+                    </View>
+                    <View>
+                      <Text style={styles.detailFieldLabel}>Auflaufprämie</Text>
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="appearance_bonus" displayValue={fullPlayer?.appearance_bonus} />
+                    </View>
+                    <View>
+                      <Text style={styles.detailFieldLabel}>Sonstiges</Text>
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="contract_notes" displayValue={fullPlayer?.contract_notes} multiline />
+                    </View>
+                    <View>
+                      <Text style={styles.detailFieldLabel}>Vertragsunterlagen</Text>
+                      {(() => {
+                        const docs = Array.isArray(fullPlayer?.contract_documents) ? fullPlayer.contract_documents : [];
+                        if (docs.length === 0) return <Text style={styles.detailFieldValue}>-</Text>;
+                        return docs.map((doc: any, i: number) => {
+                          const name = typeof doc === 'string' ? doc : (doc?.name || doc?.file_name || `Dokument ${i + 1}`);
+                          const url = typeof doc === 'string' ? doc : doc?.url;
+                          return (
+                            <TouchableOpacity
+                              key={i}
+                              onPress={() => { if (url && typeof window !== 'undefined') window.open(url, '_blank'); }}
+                              style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
+                            >
+                              <Ionicons name="document-outline" size={12} color="rgba(255,255,255,0.7)" />
+                              <Text style={[styles.detailListItem, { textDecorationLine: url ? 'underline' : 'none' }]}>{name}</Text>
+                            </TouchableOpacity>
+                          );
+                        });
+                      })()}
+                    </View>
+                    <View>
+                      <Text style={styles.detailFieldLabel}>Spielplan</Text>
+                      {isEditing ? (
+                        <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="fussball_de_url" placeholder="https://www.fussball.de/..." />
+                      ) : fullPlayer?.fussball_de_url ? (
+                        <TouchableOpacity
+                          onPress={() => { if (typeof window !== 'undefined') window.open(fullPlayer.fussball_de_url, '_blank'); }}
+                          style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.05)' }}
+                        >
+                          <Ionicons name="calendar-outline" size={14} color="rgba(255,255,255,0.85)" />
+                          <Text style={[styles.detailFieldValue, { fontSize: 12 }]}>fussball.de öffnen</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <Text style={styles.detailFieldValue}>-</Text>
+                      )}
+                    </View>
+                  </View>
+                </View>
+              </View>
+
+              {/* Mobile: Beratung VOR Kontaktdaten; Desktop: Reihenfolge wie im Source */}
+              <View style={isMobile ? { display: 'flex', flexDirection: 'column-reverse', gap: 16 } : ({ display: 'contents' } as any)}>
+              {/* Kontaktdaten — 2 Spalten */}
+              <View style={[styles.detailCard, { position: 'relative', zIndex: 80 }]}>
+                <Text style={styles.detailCardTitle}>Kontaktdaten</Text>
+                <View style={{ flexDirection: 'row', gap: 24, flexWrap: 'wrap' }}>
+                  {/* Spalte 1: Telefon, E-Mail */}
+                  <View style={{ flex: 1, minWidth: 180, gap: 14 }}>
+                    <View>
+                      <Text style={styles.detailFieldLabel}>Telefon</Text>
+                      {isEditing ? (
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                          <View style={{ width: 70 }}>
+                            <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="phone_country_code" placeholder="+49" />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="phone" placeholder="Nummer" />
+                          </View>
+                        </View>
+                      ) : (
+                        <Text style={styles.detailFieldValue}>
+                          {fullPlayer?.phone ? `${fullPlayer.phone_country_code || ''} ${fullPlayer.phone}`.trim() : '-'}
+                        </Text>
+                      )}
+                    </View>
+                    <View>
+                      <Text style={styles.detailFieldLabel}>E-Mail</Text>
+                      {isEditing ? (
+                        <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="email" placeholder="name@example.com" />
+                      ) : fullPlayer?.email ? (
+                        <TouchableOpacity onPress={() => { if (typeof window !== 'undefined') window.open(`mailto:${fullPlayer.email}`, '_blank'); }}>
+                          <Text style={[styles.detailFieldValue, { textDecorationLine: 'underline' }]}>{fullPlayer.email}</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <Text style={styles.detailFieldValue}>-</Text>
+                      )}
+                    </View>
+                  </View>
+                  {/* Spalte 2: Adresse, Internat */}
+                  <View style={{ flex: 1, minWidth: 180, gap: 14 }}>
+                    <View>
+                      <Text style={styles.detailFieldLabel}>Adresse</Text>
+                      {isEditing ? (
+                        <>
+                          <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="street" placeholder="Straße + Hausnummer" />
+                          <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
+                            <View style={{ width: 80 }}>
+                              <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="postal_code" placeholder="PLZ" />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="city" placeholder="Ort" />
+                            </View>
+                          </View>
+                        </>
+                      ) : (
+                        <Text style={styles.detailFieldValue}>
+                          {[fullPlayer?.street, [fullPlayer?.postal_code, fullPlayer?.city].filter(Boolean).join(' ')].filter(Boolean).join(', ') || '-'}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={{ zIndex: 20, position: 'relative' }}>
+                      <Text style={styles.detailFieldLabel}>Internat</Text>
+                      {isEditing ? (
+                        <>
+                          <DetailDropdown
+                            value={internatJa ? 'Ja' : ''}
+                            options={['Ja', 'Nein']}
+                            onChange={(v) => {
+                              if (v === 'Ja') {
+                                setInternatJa(true);
+                              } else {
+                                setInternatJa(false);
+                                setEditData({ ...editData, internat: '' });
+                              }
+                            }}
+                            placeholder="Auswählen"
+                            dropdownKey="internat_choice"
+                          />
+                          {internatJa ? (
+                            <View style={{ marginTop: 6 }}>
+                              <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="internat" placeholder="Adresse des Internats" multiline />
+                            </View>
+                          ) : null}
+                        </>
+                      ) : (
+                        <Text style={styles.detailFieldValue}>
+                          {fullPlayer?.internat ? `Ja — ${fullPlayer.internat}` : 'Nein'}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                </View>
+              </View>
+
+              {/* Beratung — 2 Spalten */}
+              <View style={[styles.detailCard, { position: 'relative', zIndex: 70 }]}>
+                <Text style={styles.detailCardTitle}>Beratung</Text>
+                <View style={{ flexDirection: 'row', gap: 24, flexWrap: 'wrap' }}>
+                  {/* Spalte 1: Listung, Zuständigkeit, Mandat gültig bis */}
+                  <View style={{ flex: 1, minWidth: 180, gap: 14 }}>
+                    <View style={{ zIndex: 30, position: 'relative' }}>
+                      <Text style={styles.detailFieldLabel}>Listung</Text>
+                      {isEditing ? (
+                        <DetailDropdown
+                          value={editData.listing || ''}
+                          options={LISTINGS}
+                          onChange={(v) => setEditData({ ...editData, listing: v })}
+                          placeholder="Auswählen"
+                          dropdownKey="listing"
+                          minWidth={260}
+                        />
+                      ) : (
+                        <Text style={styles.detailFieldValue}>{formatListing(fullPlayer?.listing)}</Text>
+                      )}
+                    </View>
+                    <View style={{ zIndex: 20, position: 'relative' }}>
+                      <Text style={styles.detailFieldLabel}>Zuständigkeit</Text>
+                      {isEditing ? (
+                        <MultiSelectDropdown
+                          values={(editData.responsibility || '').split(',').map((s: string) => s.trim()).filter(Boolean)}
+                          options={advisors.map(a => `${a.first_name} ${a.last_name}`.trim()).filter(Boolean)}
+                          onChange={(arr) => setEditData({ ...editData, responsibility: arr.join(', ') })}
+                          placeholder="Auswählen"
+                          dropdownKey="responsibility"
+                        />
+                      ) : (() => {
+                        const items: string[] = typeof fullPlayer?.responsibility === 'string'
+                          ? fullPlayer.responsibility.split(/[,;]+/).map((s: string) => s.trim()).filter(Boolean)
+                          : [];
+                        return items.length === 0 ? (
+                          <Text style={styles.detailFieldValue}>-</Text>
+                        ) : items.map((name, i) => (
+                          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Ionicons name="chevron-forward-outline" size={10} color="rgba(255,255,255,0.5)" />
+                            <Text style={styles.detailListItem}>{name}</Text>
+                          </View>
+                        ));
+                      })()}
+                    </View>
+                    <View style={{ zIndex: 10, position: 'relative' }}>
+                      <Text style={styles.detailFieldLabel}>Mandat gültig bis</Text>
+                      {isEditing ? (
+                        <DateDropdown field="mandate_until" dropdownKeyPrefix="mandate_until" />
+                      ) : (
+                        <Text style={styles.detailFieldValue}>{formatDate(fullPlayer?.mandate_until)}</Text>
+                      )}
+                    </View>
+                  </View>
+                  {/* Spalte 2: Provision, Weg-Vermittlung */}
+                  <View style={{ flex: 1, minWidth: 180, gap: 14 }}>
+                    <View>
+                      <Text style={styles.detailFieldLabel}>Provision</Text>
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="provision" displayValue={fullPlayer?.provision} />
+                    </View>
+                    <View>
+                      <Text style={styles.detailFieldLabel}>Weg-Vermittlung</Text>
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="transfer_commission" displayValue={fullPlayer?.transfer_commission} />
+                    </View>
+                  </View>
+                </View>
+              </View>
+              </View>
+
+              {/* Familie — 3 Spalten (Papa | Mama | Geschwister) */}
+              <View style={[styles.detailCard, { position: 'relative', zIndex: 60 }]}>
+                <Text style={styles.detailCardTitle}>Familie</Text>
+                <View style={{ flexDirection: 'row', gap: 24, flexWrap: 'wrap' }}>
+                  {/* Spalte 1: Papa */}
+                  <View style={{ flex: 1, minWidth: 160, gap: 14 }}>
+                    <View>
+                      <Text style={styles.detailFieldLabel}>Papa</Text>
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="father_name" displayValue={fullPlayer?.father_name} />
+                    </View>
+                    <View>
+                      <Text style={styles.detailFieldLabel}>Telefon</Text>
+                      {isEditing ? (
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                          <View style={{ width: 60 }}>
+                            <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="father_phone_country_code" placeholder="+49" />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="father_phone" placeholder="Nummer" />
+                          </View>
+                        </View>
+                      ) : (
+                        <Text style={styles.detailFieldValue}>
+                          {fullPlayer?.father_phone ? `${fullPlayer.father_phone_country_code || ''} ${fullPlayer.father_phone}`.trim() : '-'}
+                        </Text>
+                      )}
+                    </View>
+                    <View>
+                      <Text style={styles.detailFieldLabel}>Job</Text>
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="father_job" displayValue={fullPlayer?.father_job} />
+                    </View>
+                  </View>
+
+                  {/* Spalte 2: Mama */}
+                  <View style={{ flex: 1, minWidth: 160, gap: 14 }}>
+                    <View>
+                      <Text style={styles.detailFieldLabel}>Mama</Text>
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="mother_name" displayValue={fullPlayer?.mother_name} />
+                    </View>
+                    <View>
+                      <Text style={styles.detailFieldLabel}>Telefon</Text>
+                      {isEditing ? (
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                          <View style={{ width: 60 }}>
+                            <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="mother_phone_country_code" placeholder="+49" />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="mother_phone" placeholder="Nummer" />
+                          </View>
+                        </View>
+                      ) : (
+                        <Text style={styles.detailFieldValue}>
+                          {fullPlayer?.mother_phone ? `${fullPlayer.mother_phone_country_code || ''} ${fullPlayer.mother_phone}`.trim() : '-'}
+                        </Text>
+                      )}
+                    </View>
+                    <View>
+                      <Text style={styles.detailFieldLabel}>Job</Text>
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="mother_job" displayValue={fullPlayer?.mother_job} />
+                    </View>
+                  </View>
+
+                  {/* Spalte 3: Geschwister */}
+                  <View style={{ flex: 1, minWidth: 160, gap: 14 }}>
+                    <View>
+                      <Text style={styles.detailFieldLabel}>Geschwister</Text>
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="siblings" displayValue={fullPlayer?.siblings} multiline />
+                    </View>
+                  </View>
+                </View>
+              </View>
+
+              {/* Sonstiges */}
+              <View style={[styles.detailCard, { position: 'relative', zIndex: 50 }]}>
+                <Text style={styles.detailCardTitle}>Sonstiges</Text>
+                <View style={{ gap: 14 }}>
+                  <View style={{ flexDirection: 'row', gap: 16, flexWrap: 'wrap' }}>
+                    <View style={{ flex: 1, minWidth: 120 }}>
+                      <Text style={styles.detailFieldLabel}>Instagram</Text>
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="instagram" displayValue={fullPlayer?.instagram} />
+                    </View>
+                    <View style={{ flex: 1, minWidth: 120 }}>
+                      <Text style={styles.detailFieldLabel}>TikTok</Text>
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="tiktok" displayValue={fullPlayer?.tiktok} />
+                    </View>
+                    <View style={{ flex: 1, minWidth: 120 }}>
+                      <Text style={styles.detailFieldLabel}>LinkedIn</Text>
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="linkedin" displayValue={fullPlayer?.linkedin} />
+                    </View>
+                  </View>
+                  <View>
+                    <Text style={styles.detailFieldLabel}>Weitere Informationen</Text>
+                    {/* Im Read-Mode: zeigt Spieler-Beitrag wenn vorhanden + "VOM SPIELER"-Pille,
+                        sonst Berater-Wert (`interests`). Im Edit-Mode: Berater editiert `interests`. */}
+                    <EditableValue
+                      editData={editData}
+                      setEditData={setEditData}
+                      isEditing={isEditing}
+                      fullPlayer={fullPlayer}
+                      field="interests"
+                      displayValue={fullPlayer?.interests}
+                      playerValue={fullPlayer?.additional_info_player}
+                      multiline
+                    />
+                  </View>
+                  {(isEditing || fullPlayer?.other_notes) ? (
+                    <View>
+                      <Text style={styles.detailFieldLabel}>Beraterfeld — eigene Notizen zum Spieler</Text>
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="other_notes" displayValue={fullPlayer?.other_notes} multiline />
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+
+              {/* Ausbildung — 3 Spalten */}
+              <View style={[styles.detailCard, { position: 'relative', zIndex: 40 }]}>
+                <Text style={styles.detailCardTitle}>Ausbildung</Text>
+                <View style={{ flexDirection: 'row', gap: 24, flexWrap: 'wrap' }}>
+                  <View style={{ flex: 1, minWidth: 140 }}>
+                    <Text style={styles.detailFieldLabel}>Schulabschluss</Text>
+                    <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="education" displayValue={fullPlayer?.education} />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 140 }}>
+                    <Text style={styles.detailFieldLabel}>Ausbildung/Studium</Text>
+                    <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="training" displayValue={fullPlayer?.training} />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 140 }}>
+                    <Text style={styles.detailFieldLabel}>Job</Text>
+                    <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="job" displayValue={fullPlayer?.job} />
+                  </View>
+                </View>
+              </View>
+
+              {/* Verletzungen & Krankheiten */}
+              <View style={[styles.detailCard, { position: 'relative', zIndex: 30 }]}>
+                <Text style={styles.detailCardTitle}>Verletzungen & Krankheiten</Text>
+                <View>
+                  <Text style={styles.detailFieldLabel}>Historie</Text>
+                  <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="injuries" displayValue={fullPlayer?.injuries} multiline />
+                </View>
+              </View>
+
+            {/* Invite-Code Overlay innerhalb des Modals (vermeidet Z-Index-Probleme) */}
+            {showInviteCodeModal ? (
+              <View style={styles.detailInviteOverlay}>
+                <Pressable style={StyleSheet.absoluteFillObject} onPress={() => { setShowInviteCodeModal(false); setInviteCode(null); }} />
+                <View style={styles.detailInviteCodeBox}>
+                  <Text style={styles.detailInviteCodeTitle}>Einladungs-Code</Text>
+                  <Text style={styles.detailInviteCodeSubtitle}>
+                    Gib diesen Code an {selectedPlayer?.first_name} {selectedPlayer?.last_name} weiter
+                  </Text>
+                  <View style={styles.detailInviteCodePill}>
+                    <Text style={styles.detailInviteCodeText}>{inviteCode || '—'}</Text>
+                  </View>
+                  <Text style={styles.detailInviteCodeHint}>Gültig bis zur Registrierung</Text>
+                  <TouchableOpacity
+                    style={styles.detailInviteCodeCloseBtn}
+                    onPress={() => { setShowInviteCodeModal(false); setInviteCode(null); }}
+                  >
+                    <Text style={styles.detailInviteCodeCloseText}>Schließen</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : null}
+            </View>
+          )}
+
+        </ScrollView>
+        </View>
+
+        {/* PDF Vorschau-Overlay (innerhalb Spielerprofil-Modal, damit es darüberliegt) */}
+        {showPdfPreview && (
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: isMobile ? 'flex-end' : 'center', alignItems: isMobile ? 'stretch' : 'center', padding: isMobile ? 0 : 20, zIndex: 9999 }}>
+            <View style={[
+              { backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', overflow: 'hidden', display: 'flex', flexDirection: 'column' },
+              isMobile
+                ? { width: '100%', maxHeight: '98%', borderTopLeftRadius: 16, borderTopRightRadius: 16, borderBottomWidth: 0 }
+                : { width: '98%', maxWidth: 900, maxHeight: '98%', borderRadius: 16 }
+            ]}>
+              <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.45 }} resizeMode="cover" />
+              <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.55)' }} />
+              <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.3)', zIndex: 2, gap: 8 }}>
+                <Text style={{ fontFamily: 'Josefin Sans', fontSize: 16, fontWeight: '300', letterSpacing: 4, textTransform: 'uppercase', color: 'rgba(255,255,255,0.85)', flex: 1 }} numberOfLines={1}>CV</Text>
+                <TouchableOpacity
+                  style={{ backgroundColor: 'rgba(255,255,255,0.05)', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', opacity: pdfGenerating ? 0.5 : 1 }}
+                  onPress={handleEditPdf}
+                  disabled={pdfGenerating}
+                >
+                  <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 11, fontWeight: '600' }}>Bearbeiten</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={{ backgroundColor: 'rgba(255,255,255,0.05)', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', opacity: (pdfGenerating || !pdfPreviewUrl) ? 0.5 : 1, alignItems: 'center', justifyContent: 'center' }}
+                  onPress={handlePdfDownload}
+                  disabled={pdfGenerating || !pdfPreviewUrl}
+                  accessibilityLabel="Als PDF downloaden"
+                >
+                  <Ionicons name="download-outline" size={14} color="rgba(255,255,255,0.85)" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleClosePdfPreview} style={{ width: 22, height: 22, alignItems: 'center', justifyContent: 'center', marginLeft: 4 }}>
+                  <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 20, lineHeight: 22 }}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              {Platform.OS === 'web' ? (
+                <div style={{ flexShrink: 1, overflow: 'auto', paddingLeft: 16, paddingRight: 16, paddingTop: 32, paddingBottom: 16, position: 'relative', zIndex: 2 }}>
+                  {pdfGenerating || !pdfPreviewUrl ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12 }}>
+                      <div style={{ width: 40, height: 40, border: '3px solid rgba(255,255,255,0.15)', borderTopColor: 'rgba(255,255,255,0.85)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                      <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14 }}>PDF wird generiert...</span>
+                      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                    </div>
+                  ) : (
+                    <iframe
+                      src={pdfPreviewUrl}
+                      style={{ border: 'none', width: '100%', aspectRatio: 0.75, boxShadow: '0 4px 16px rgba(0,0,0,0.4)', borderRadius: 4, backgroundColor: 'rgba(0,0,0,0.55)', display: 'block' }}
+                    />
+                  )}
+                </div>
+              ) : (
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, zIndex: 2 }}>
+                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14 }}>PDF-Vorschau nur auf Web verfügbar.</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+      </View>
+    </Modal>
+  );
+
   // Mobile View
   if (isMobile) {
     return (
-      <View style={[styles.containerMobile, { backgroundColor: colors.background }]}>
+      <View style={[styles.containerMobile, { backgroundColor: 'transparent' }]}>
+        <AdvisorBackground />
         <MobileSidebar
           visible={showMobileSidebar}
           onClose={() => setShowMobileSidebar(false)}
@@ -961,44 +2977,40 @@ export function PlayerOverviewScreen({ navigation }: any) {
           profile={profile}
         />
 
-        <View style={[styles.mainContentMobile, { backgroundColor: colors.background }]}>
-          {/* Mobile Header */}
+        <View style={[styles.mainContentMobile, { backgroundColor: 'transparent' }]}>
+          {/* Mobile Header (Hero-Card-Stil wie Desktop) */}
           <MobileHeader
-            title="Spielerübersicht"
+            title="KMH-Spieler"
+            subtitle={`${filteredPlayers.length} aktive Profile`}
+            backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
+            backgroundImageOpacity={0.45}
             onMenuPress={() => setShowMobileSidebar(true)}
-            onProfilePress={() => navigation.navigate('MyProfile')}
-            profileInitials={profileInitials}
-          />
-
-          {/* Mobile Toolbar */}
-          <View style={[styles.mobileToolbar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-            <View style={[styles.mobileSearchContainer, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
-              <Text style={styles.searchIcon}>🔍</Text>
+          >
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.7)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 6, paddingHorizontal: 10, height: 28 }}>
+              <Ionicons name="search" size={12} color="rgba(255,255,255,0.5)" />
               <TextInput
-                style={[styles.mobileSearchInput, { color: colors.text }]}
+                style={{ flex: 1, paddingVertical: 0, fontSize: 12, color: '#fff', marginLeft: 6 }}
                 placeholder="Spieler suchen..."
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor="rgba(255,255,255,0.4)"
                 value={searchText}
                 onChangeText={setSearchText}
               />
             </View>
             <TouchableOpacity
-              style={[styles.mobileFilterButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }, activeFilterCount > 0 && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+              style={[
+                { width: 28, height: 28, borderRadius: 6, backgroundColor: 'rgba(0,0,0,0.7)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center', position: 'relative' },
+                activeFilterCount > 0 && { backgroundColor: colors.primary, borderColor: colors.primary },
+              ]}
               onPress={() => setShowMobileFilters(true)}
             >
-              <Ionicons name="filter" size={20} color={activeFilterCount > 0 ? colors.primaryText : colors.textSecondary} />
+              <Ionicons name="filter" size={14} color={activeFilterCount > 0 ? colors.primaryText : 'rgba(255,255,255,0.85)'} />
               {activeFilterCount > 0 && (
                 <View style={styles.filterCountBubble}>
                   <Text style={styles.filterCountText}>{activeFilterCount}</Text>
                 </View>
               )}
             </TouchableOpacity>
-          </View>
-
-          {/* Player Count */}
-          <View style={[styles.mobileSubheader, { backgroundColor: colors.surfaceSecondary }]}>
-            <Text style={[styles.mobileSubheaderText, { color: colors.textSecondary }]}>{filteredPlayers.length} Spieler</Text>
-          </View>
+          </MobileHeader>
 
           {/* Player Cards */}
           <ScrollView
@@ -1033,102 +3045,83 @@ export function PlayerOverviewScreen({ navigation }: any) {
 
           {/* Mobile Filter Modal */}
           <Modal visible={showMobileFilters} transparent animationType="slide">
-            <View style={[styles.mobileFilterModal, { backgroundColor: colors.surface }]}>
-              <View style={[styles.mobileFilterHeader, { borderBottomColor: colors.border }]}>
-                <Text style={[styles.mobileFilterTitle, { color: colors.text }]}>Filter</Text>
-                <TouchableOpacity onPress={() => setShowMobileFilters(false)}>
-                  <Text style={[styles.mobileFilterClose, { color: colors.textSecondary }]}>✕</Text>
+            <View style={styles.mobileFilterModal}>
+              <Image source={require('../../../assets/scouting-header-bg.jpg')} style={[StyleSheet.absoluteFillObject, { opacity: 0.85, ...({ objectFit: 'cover', objectPosition: 'center' } as any) }]} resizeMode="cover" />
+              <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />
+
+              <View style={styles.mobileFilterHeader}>
+                <Text style={styles.mobileFilterTitle}>Filter</Text>
+                <TouchableOpacity onPress={() => setShowMobileFilters(false)} style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 20 }}>✕</Text>
                 </TouchableOpacity>
               </View>
 
-              <ScrollView style={styles.mobileFilterContent}>
-                {/* Position Filter */}
-                <Text style={[styles.mobileFilterLabel, { color: colors.text }]}>Position</Text>
-                <View style={styles.mobileFilterChips}>
-                  {POSITIONS.map(pos => (
-                    <TouchableOpacity
-                      key={pos}
-                      style={[styles.mobileChip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedPositions.includes(pos) && { backgroundColor: colors.primary, borderColor: colors.primary }]}
-                      onPress={() => togglePosition(pos)}
-                    >
-                      <Text style={[styles.mobileChipText, { color: colors.textSecondary }, selectedPositions.includes(pos) && { color: colors.primaryText }]}>
-                        {POSITION_SHORT[pos]}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+              <ScrollView style={styles.mobileFilterContent} contentContainerStyle={{ paddingBottom: 24 }}>
+                <View style={{ zIndex: 60, position: 'relative', maxWidth: 280 }}>
+                  <Text style={styles.mobileFilterLabel}>Position</Text>
+                  <MultiSelectDropdown
+                    values={selectedPositions.map(p => POSITION_SHORT[p] || p)}
+                    options={POSITIONS.map(p => POSITION_SHORT[p] || p)}
+                    onChange={(arr) => {
+                      const longs = arr.map(short => POSITIONS.find(p => POSITION_SHORT[p] === short) || short);
+                      setSelectedPositions(longs);
+                    }}
+                    placeholder="Position auswählen"
+                    dropdownKey="filter_position"
+                  />
                 </View>
 
-                {/* Jahrgang Filter */}
-                <Text style={[styles.mobileFilterLabel, { color: colors.text }]}>Jahrgang</Text>
-                <View style={styles.mobileFilterChips}>
-                  {availableYears.map(year => (
-                    <TouchableOpacity
-                      key={year}
-                      style={[styles.mobileChip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedYears.includes(year) && { backgroundColor: colors.primary, borderColor: colors.primary }]}
-                      onPress={() => toggleYear(year)}
-                    >
-                      <Text style={[styles.mobileChipText, { color: colors.textSecondary }, selectedYears.includes(year) && { color: colors.primaryText }]}>
-                        {year}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                <View style={{ zIndex: 50, position: 'relative', marginTop: 14, maxWidth: 280 }}>
+                  <Text style={styles.mobileFilterLabel}>Jahrgang</Text>
+                  <MultiSelectDropdown
+                    values={selectedYears}
+                    options={availableYears.map(String)}
+                    onChange={(arr) => setSelectedYears(arr)}
+                    placeholder="Jahrgang auswählen"
+                    dropdownKey="filter_year"
+                  />
                 </View>
 
-                {/* Listung Filter */}
-                <Text style={[styles.mobileFilterLabel, { color: colors.text }]}>Listung</Text>
-                <View style={styles.mobileFilterChips}>
-                  {LISTINGS.map(listing => (
-                    <TouchableOpacity
-                      key={listing}
-                      style={[styles.mobileChip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedListings.includes(listing) && { backgroundColor: colors.primary, borderColor: colors.primary }]}
-                      onPress={() => toggleListing(listing)}
-                    >
-                      <Text style={[styles.mobileChipText, { color: colors.textSecondary }, selectedListings.includes(listing) && { color: colors.primaryText }]}>
-                        {listing === 'Karl Herzog Sportmanagement' ? 'KMH' : 'PM'}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                <View style={{ zIndex: 40, position: 'relative', marginTop: 14, maxWidth: 280 }}>
+                  <Text style={styles.mobileFilterLabel}>Listung</Text>
+                  <MultiSelectDropdown
+                    values={selectedListings.map(l => l === 'Karl Herzog Sportmanagement' ? 'KMH' : 'PM')}
+                    options={LISTINGS.map(l => l === 'Karl Herzog Sportmanagement' ? 'KMH' : 'PM')}
+                    onChange={(arr) => {
+                      const longs = arr.map(short => short === 'KMH' ? 'Karl Herzog Sportmanagement' : 'PM Sportmanagement');
+                      setSelectedListings(longs);
+                    }}
+                    placeholder="Listung auswählen"
+                    dropdownKey="filter_listing"
+                  />
                 </View>
 
-                {/* Zuständigkeit Filter */}
-                <Text style={[styles.mobileFilterLabel, { color: colors.text }]}>Zuständigkeit</Text>
-                <View style={styles.mobileFilterChips}>
-                  {advisors.map(advisor => {
-                    const name = `${advisor.first_name} ${advisor.last_name}`.trim();
-                    return (
-                      <TouchableOpacity
-                        key={advisor.id}
-                        style={[styles.mobileChip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedResponsibilities.includes(name) && { backgroundColor: colors.primary, borderColor: colors.primary }]}
-                        onPress={() => toggleResponsibility(name)}
-                      >
-                        <Text style={[styles.mobileChipText, { color: colors.textSecondary }, selectedResponsibilities.includes(name) && { color: colors.primaryText }]}>
-                          {advisor.first_name?.[0]}{advisor.last_name?.[0]}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
+                <View style={{ zIndex: 30, position: 'relative', marginTop: 14, maxWidth: 280 }}>
+                  <Text style={styles.mobileFilterLabel}>Zuständigkeit</Text>
+                  <MultiSelectDropdown
+                    values={selectedResponsibilities}
+                    options={advisors.map(a => `${a.first_name} ${a.last_name}`.trim()).filter(Boolean)}
+                    onChange={(arr) => setSelectedResponsibilities(arr)}
+                    placeholder="Berater auswählen"
+                    dropdownKey="filter_responsibility"
+                  />
                 </View>
 
-                {/* Vertragsende Filter */}
-                <Text style={[styles.mobileFilterLabel, { color: colors.text }]}>Vertragsende</Text>
-                <View style={styles.mobileFilterChips}>
-                  {contractYearOptions.map(year => (
-                    <TouchableOpacity
-                      key={year}
-                      style={[styles.mobileChip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedContractYears.includes(year) && { backgroundColor: colors.primary, borderColor: colors.primary }]}
-                      onPress={() => toggleContractYear(year)}
-                    >
-                      <Text style={[styles.mobileChipText, { color: colors.textSecondary }, selectedContractYears.includes(year) && { color: colors.primaryText }]}>
-                        {year}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                <View style={{ zIndex: 20, position: 'relative', marginTop: 14, maxWidth: 280 }}>
+                  <Text style={styles.mobileFilterLabel}>Vertragsende</Text>
+                  <MultiSelectDropdown
+                    values={selectedContractYears}
+                    options={contractYearOptions.map(String)}
+                    onChange={(arr) => setSelectedContractYears(arr)}
+                    placeholder="Jahr auswählen"
+                    dropdownKey="filter_contract_year"
+                  />
                 </View>
               </ScrollView>
 
-              <View style={[styles.mobileFilterFooter, { borderTopColor: colors.border }]}>
+              <View style={styles.mobileFilterFooter}>
                 <TouchableOpacity
-                  style={[styles.mobileFilterClearButton, { borderColor: colors.border }]}
+                  style={styles.mobileFilterClearButton}
                   onPress={() => {
                     clearPositions();
                     clearYears();
@@ -1137,50 +3130,73 @@ export function PlayerOverviewScreen({ navigation }: any) {
                     clearContractYears();
                   }}
                 >
-                  <Text style={[styles.mobileFilterClearText, { color: colors.textSecondary }]}>Alle löschen</Text>
+                  <Text style={styles.mobileFilterClearText}>Alle löschen</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.mobileFilterApplyButton, { backgroundColor: colors.primary }]} onPress={() => setShowMobileFilters(false)}>
-                  <Text style={[styles.mobileFilterApplyText, { color: colors.primaryText }]}>Anwenden ({filteredPlayers.length})</Text>
+                <TouchableOpacity style={styles.mobileFilterApplyButton} onPress={() => setShowMobileFilters(false)}>
+                  <Text style={styles.mobileFilterApplyText}>Anwenden ({filteredPlayers.length})</Text>
                 </TouchableOpacity>
               </View>
             </View>
           </Modal>
 
-          {/* Add Player Modal */}
+          {/* Add Player Modal — analog Desktop */}
           <Modal visible={showAddModal} transparent animationType="fade">
             <View style={styles.modalOverlay}>
-              <View style={[styles.modalContent, { backgroundColor: colors.surface, maxHeight: '90%', width: '92%', maxWidth: 540 }]}>
-                <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 20, position: 'relative' }}>
-                  <Text style={[styles.modalTitle, { color: colors.text, marginBottom: 0, textAlign: 'center' }]}>Neuen Spieler anlegen</Text>
-                  <TouchableOpacity onPress={() => { setShowAddModal(false); setTmSuggestions([]); setTmSelected(null); setNewFirstName(''); setNewLastName(''); }} style={{ position: 'absolute', right: 0, width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ color: colors.textSecondary, fontSize: 14, lineHeight: 16 }}>✕</Text>
-                  </TouchableOpacity>
+              <View style={[styles.modalContent, { overflow: 'visible', backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', maxHeight: '90%', width: '92%', maxWidth: 540, padding: 0, shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.7, shadowRadius: 30, elevation: 24 }]}>
+                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 16, overflow: 'hidden' }} pointerEvents="none">
+                  <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%', opacity: 0.85, ...({ objectFit: 'cover', objectPosition: 'center', backgroundSize: 'cover', backgroundPosition: 'center' } as any) }} resizeMode="cover" />
+                  <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.45)' }} />
                 </View>
-                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 2 }}>
-                  <TextInput style={[styles.modalInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Nachname" placeholderTextColor={colors.textMuted} value={newLastName} onChangeText={handleLastNameChange} autoFocus />
-                  <TextInput style={[styles.modalInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Vorname" placeholderTextColor={colors.textMuted} value={newFirstName} onChangeText={handleFirstNameChange} />
-                </View>
-                {tmSearching && <Text style={{ color: colors.textMuted, fontSize: 11, marginBottom: 4 }}>Suche auf Transfermarkt...</Text>}
-                {tmSuggestions.length > 0 && (
-                  <ScrollView style={{ maxHeight: 280, borderWidth: 1, borderColor: colors.border, borderRadius: 6, marginBottom: 8 }}>
-                    {tmSuggestions.map((s, i) => (
-                      <TouchableOpacity key={i} style={{ flexDirection: 'row', alignItems: 'baseline', paddingVertical: 5, paddingHorizontal: 8, borderBottomWidth: i < tmSuggestions.length - 1 ? StyleSheet.hairlineWidth : 0, borderBottomColor: colors.border }} onPress={() => selectTmPlayer(s)}>
-                        <Text style={{ color: colors.text, fontSize: 12, fontWeight: '600' }}>{s.name}</Text>
-                        <Text style={{ color: colors.textMuted, fontSize: 11, marginLeft: 6 }}>{[s.verein, s.position, s.age ? s.age + 'J' : ''].filter(Boolean).join(' · ')}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                )}
-                {tmLoading && <Text style={{ color: colors.primary, fontSize: 11, marginBottom: 6 }}>Lade Spielerdaten von Transfermarkt...</Text>}
-                {tmSelected && (
-                  <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: 6, padding: 8, marginBottom: 6, borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.3)' }}>
-                    <Text style={{ color: '#10b981', fontSize: 11, fontWeight: '600', marginBottom: 3 }}>Transfermarkt-Daten übernommen</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}><Text style={{ color: colors.text, fontSize: 12, fontWeight: '600', lineHeight: 16 }}>{newFirstName} {newLastName}</Text><Text style={{ color: colors.textMuted, fontSize: 11, marginLeft: 8, lineHeight: 16 }}>{[tmSelected.verein, tmSelected.tmPosition, tmSelected.tmAge ? tmSelected.tmAge + 'J' : ''].filter(Boolean).join(' · ')}</Text></View>
+                <View style={{ padding: 24, zIndex: 1 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 20, position: 'relative' }}>
+                    <Text style={{ fontFamily: 'Josefin Sans', fontSize: 16, fontWeight: '300', letterSpacing: 4, textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>Neuen Spieler anlegen</Text>
+                    <TouchableOpacity onPress={() => { setShowAddModal(false); setTmSuggestions([]); setTmSelected(null); setNewFirstName(''); setNewLastName(''); }} style={{ position: 'absolute', right: 0, width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 20 }}>✕</Text>
+                    </TouchableOpacity>
                   </View>
-                )}
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 28 }}>
-                  <Text style={[styles.modalHint, { color: colors.textSecondary }]}>Zuständigkeit: {currentUserName || 'Sie'}</Text>
-                  <TouchableOpacity style={[styles.modalSaveButton, { borderColor: '#10b981', opacity: tmLoading ? 0.5 : 1 }]} onPress={handleAddPlayer} disabled={tmLoading}><Text style={[styles.modalSaveButtonText, { color: '#10b981' }]}>{tmLoading ? 'Laden...' : 'Spieler anlegen'}</Text></TouchableOpacity>
+                  <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Nachname</Text>
+                      <TextInput
+                        style={{ backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 8, fontSize: 13, color: '#fff' }}
+                        placeholder="z.B. Mustermann" placeholderTextColor="rgba(255,255,255,0.3)"
+                        value={newLastName} onChangeText={handleLastNameChange} autoFocus
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Vorname</Text>
+                      <TextInput
+                        style={{ backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 8, fontSize: 13, color: '#fff' }}
+                        placeholder="z.B. Maximilian" placeholderTextColor="rgba(255,255,255,0.3)"
+                        value={newFirstName} onChangeText={handleFirstNameChange}
+                      />
+                    </View>
+                  </View>
+                  {tmSearching && <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginBottom: 4 }}>Suche auf Transfermarkt...</Text>}
+                  {tmSuggestions.length > 0 && (
+                    <ScrollView style={{ maxHeight: 240, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, marginBottom: 8, backgroundColor: '#1a1a1a' }}>
+                      {tmSuggestions.map((s, i) => (
+                        <TouchableOpacity key={i} style={{ flexDirection: 'row', alignItems: 'baseline', paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: i < tmSuggestions.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.05)' }} onPress={() => selectTmPlayer(s)}>
+                          <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>{s.name}</Text>
+                          <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginLeft: 6 }}>{[s.verein, s.position, s.age ? s.age + 'J' : ''].filter(Boolean).join(' · ')}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  )}
+                  {tmLoading && <Text style={{ color: '#22c55e', fontSize: 11, marginBottom: 6 }}>Lade Spielerdaten von Transfermarkt...</Text>}
+                  {tmSelected && (
+                    <View style={{ backgroundColor: 'rgba(34,197,94,0.1)', borderRadius: 6, padding: 8, marginBottom: 6, borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)' }}>
+                      <Text style={{ color: '#22c55e', fontSize: 11, fontWeight: '600', marginBottom: 3 }}>Transfermarkt-Daten übernommen</Text>
+                      <Text style={{ fontSize: 12 }} numberOfLines={1}><Text style={{ color: '#fff', fontWeight: '600' }}>{newFirstName} {newLastName}</Text>{'  '}<Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>{[tmSelected.verein, tmSelected.tmPosition, tmSelected.tmAge ? tmSelected.tmAge + 'J' : ''].filter(Boolean).join(' · ')}</Text>
+                      </Text>
+                    </View>
+                  )}
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20 }}>
+                    <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', fontStyle: 'italic' }}>Zuständigkeit: {currentUserName || 'Sie'}</Text>
+                    <TouchableOpacity style={{ backgroundColor: '#22c55e', borderWidth: 1, borderColor: '#22c55e', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 6, opacity: tmLoading ? 0.5 : 1 }} onPress={handleAddPlayer} disabled={tmLoading}>
+                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>{tmLoading ? 'Laden...' : 'Spieler anlegen'}</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
             </View>
@@ -1247,89 +3263,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
             </View>
           </Modal>
 
-          {/* Player Detail Modal */}
-          {selectedPlayer && (
-            <SlideUpModal visible={showPlayerDetailModal} onClose={() => { setShowPlayerDetailModal(false); setSelectedPlayer(null); }}>
-              <View style={[styles.mobileDetailHeader, { borderBottomColor: colors.border }]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.mobileDetailName, { color: colors.text }]}>
-                    {selectedPlayer.last_name}, {selectedPlayer.first_name}
-                  </Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                    {getClubLogo(selectedPlayer.club) && (
-                      <Image source={{ uri: getClubLogo(selectedPlayer.club)! }} style={{ width: 18, height: 18, marginRight: 6 }} />
-                    )}
-                    <Text style={{ fontSize: 14, color: colors.textSecondary }}>{selectedPlayer.club || '-'}</Text>
-                  </View>
-                </View>
-                <TouchableOpacity onPress={() => { setShowPlayerDetailModal(false); setSelectedPlayer(null); }}>
-                  <Text style={[styles.mobileDetailClose, { color: colors.textSecondary }]}>✕</Text>
-                </TouchableOpacity>
-              </View>
-              <ScrollView style={{ maxHeight: 500 }}>
-                <View style={{ padding: 16 }}>
-                  {/* Grunddaten */}
-                  <View style={[styles.mobileDetailBox, { backgroundColor: colors.surfaceSecondary }]}>
-                    <View style={{ flexDirection: 'row', gap: 16 }}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Position</Text>
-                        <Text style={[styles.mobileDetailValue, { color: colors.text }]}>
-                          {selectedPlayer.position ? POSITION_SHORT[selectedPlayer.position] || selectedPlayer.position : '-'}
-                        </Text>
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Jahrgang</Text>
-                        <Text style={[styles.mobileDetailValue, { color: colors.text }]}>
-                          {selectedPlayer.birth_date ? new Date(selectedPlayer.birth_date).getFullYear() : '-'}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-
-                  {/* Liga */}
-                  <View style={[styles.mobileDetailBox, { backgroundColor: colors.surfaceSecondary }]}>
-                    <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Liga</Text>
-                    <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{selectedPlayer.league || '-'}</Text>
-                  </View>
-
-                  {/* Vertragsende */}
-                  <View style={[styles.mobileDetailBox, { backgroundColor: colors.surfaceSecondary }]}>
-                    <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Vertragsende</Text>
-                    <Text style={[styles.mobileDetailValue, { color: colors.text }]}>
-                      {selectedPlayer.contract_end ? new Date(selectedPlayer.contract_end).toLocaleDateString('de-DE') : '-'}
-                    </Text>
-                  </View>
-
-                  {/* Listung & Zuständigkeit */}
-                  <View style={[styles.mobileDetailBox, { backgroundColor: colors.surfaceSecondary }]}>
-                    <View style={{ flexDirection: 'row', gap: 16 }}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Listung</Text>
-                        <Text style={[styles.mobileDetailValue, { color: colors.text }]}>
-                          {selectedPlayer.listing === 'Karl Herzog Sportmanagement' ? 'KMH' : selectedPlayer.listing === 'PM Sportmanagement' ? 'PM' : selectedPlayer.listing || '-'}
-                        </Text>
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Zuständigkeit</Text>
-                        <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{selectedPlayer.responsibility || '-'}</Text>
-                      </View>
-                    </View>
-                  </View>
-                </View>
-              </ScrollView>
-              <View style={[styles.mobileDetailButtons, { borderTopColor: colors.border }]}>
-                <TouchableOpacity
-                  style={[styles.mobileDetailButton, { backgroundColor: colors.primary }]}
-                  onPress={() => {
-                    setShowPlayerDetailModal(false);
-                    navigation.navigate('PlayerDetail', { playerId: selectedPlayer.id });
-                  }}
-                >
-                  <Text style={[styles.mobileDetailButtonText, { color: colors.primaryText }]}>Vollständiges Profil öffnen</Text>
-                </TouchableOpacity>
-              </View>
-            </SlideUpModal>
-          )}
+          {playerDetailModalJsx}
         </View>
       </View>
     );
@@ -1337,43 +3271,48 @@ export function PlayerOverviewScreen({ navigation }: any) {
 
   // Desktop View
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: 'transparent' }]}>
       {/* Sidebar / Mobile Header */}
+      <AdvisorBackground />
       <Sidebar navigation={navigation} activeScreen="players" profile={profile} />
 
       {/* Main Content */}
-      <View style={[styles.mainContent, { backgroundColor: colors.background }]}>
-        {/* Header Banner - weiß mit Titel mittig und Zurück links */}
-        <View style={[styles.headerBanner, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-          <View style={{ width: 40 }} />
-          <View style={styles.headerBannerCenter}>
-            <Text style={[styles.headerTitle, { color: colors.text }]}>KMH-Spieler</Text>
-            <Text style={[styles.headerSubtitle, { color: colors.textMuted }]}>Verwaltung aller Daten unserer {players.length} aktiven Spieler und Trainer</Text>
+      <View style={[styles.mainContent, { backgroundColor: 'transparent' }]}>
+        {/* Hero-Card im Spieler-Header-Stil */}
+        <View style={styles.heroCard}>
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 12, overflow: 'hidden' }} pointerEvents="none">
+            <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.45 }} resizeMode="cover" />
           </View>
-          <View style={{ width: 80 }} />
-        </View>
+          <View style={styles.heroTopRow}>
+            <View style={{ flex: 1 }} />
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={styles.heroScreenLabel}>KMH-SPIELER</Text>
+              <Text style={styles.heroScreenSubLabel}>{players.length} AKTIVE PROFILE</Text>
+            </View>
+          </View>
+          <View style={styles.heroDivider} />
 
-        {/* Toolbar wie Scouting */}
-        <Pressable style={[styles.toolbar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]} onPress={closeAllDropdowns}>
-          <TouchableOpacity style={{ paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }} onPress={() => navigation.navigate('AdvisorDashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
-          <View style={[styles.searchContainer, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
+          {/* Toolbar als Bottom-Row im Hero */}
+          <Pressable style={styles.heroToolbar} onPress={closeAllDropdowns}>
+          <TouchableOpacity style={{ height: 28, paddingVertical: 0, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center' }} onPress={() => navigation.navigate('AdvisorDashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
+          <View style={[styles.searchContainer, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)', height: 28, borderRadius: 6, paddingVertical: 0 }]}>
             <Text style={styles.searchIcon}>🔍</Text>
-            <TextInput style={[styles.searchInput, { color: colors.text }]} placeholder="Spieler, Verein suchen..." placeholderTextColor={colors.textMuted} value={searchText} onChangeText={setSearchText} onFocus={closeAllDropdowns} />
+            <TextInput style={[styles.searchInput, { color: colors.text, paddingVertical: 0 }]} placeholder="Spieler, Verein suchen..." placeholderTextColor={colors.textMuted} value={searchText} onChangeText={setSearchText} onFocus={closeAllDropdowns} />
           </View>
           
           <View style={styles.filterContainer}>
             {/* Position Filter */}
-            <View style={[styles.dropdownContainer, { zIndex: 50 }]}>
+            <View style={[styles.dropdownContainer, { zIndex: 50 }]} {...({ dataSet: { filterDropdown: 'true' } } as any)}>
               <TouchableOpacity
-                style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedPositions.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
+                style={[styles.filterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }, selectedPositions.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
                 onPress={(e) => { e.stopPropagation(); closeAllDropdowns(); setShowPositionDropdown(!showPositionDropdown); }}
               >
                 <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedPositions.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>{getPositionFilterLabel()} ▼</Text>
               </TouchableOpacity>
               {showPositionDropdown && (
-                <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
-                  <View style={[styles.filterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
-                    <Text style={[styles.filterDropdownTitle, { color: colors.text }]}>Positionen wählen</Text>
+                <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
+                  <View style={styles.filterDropdownHeader}>
+                    <Text style={styles.filterDropdownTitle}>Positionen wählen</Text>
                     {selectedPositions.length > 0 && <TouchableOpacity onPress={clearPositions}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
                   </View>
                   <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
@@ -1381,31 +3320,31 @@ export function PlayerOverviewScreen({ navigation }: any) {
                       const isSelected = selectedPositions.includes(pos);
                       const count = players.filter(p => p.position?.includes(pos)).length;
                       return (
-                        <TouchableOpacity key={pos} style={[styles.filterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => togglePosition(pos)}>
-                          <View style={[styles.checkbox, { borderColor: colors.border }, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                          <Text style={[styles.filterCheckboxText, { color: colors.text }]}>{POSITION_SHORT[pos]}</Text>
-                          <Text style={[styles.filterCountBadge, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
+                        <TouchableOpacity key={pos} style={styles.filterCheckboxItem} onPress={() => togglePosition(pos)}>
+                          <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                          <Text style={styles.filterCheckboxText}>{POSITION_SHORT[pos]}</Text>
+                          <Text style={styles.filterCountBadge}>{count}</Text>
                         </TouchableOpacity>
                       );
                     })}
                   </ScrollView>
-                  <TouchableOpacity style={[styles.filterDoneButton, { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border }]} onPress={() => setShowPositionDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                  <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowPositionDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
                 </Pressable>
               )}
             </View>
 
             {/* Jahrgang Filter */}
-            <View style={[styles.dropdownContainer, { zIndex: 40 }]}>
+            <View style={[styles.dropdownContainer, { zIndex: 40 }]} {...({ dataSet: { filterDropdown: 'true' } } as any)}>
               <TouchableOpacity
-                style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedYears.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
+                style={[styles.filterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }, selectedYears.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
                 onPress={(e) => { e.stopPropagation(); closeAllDropdowns(); setShowYearDropdown(!showYearDropdown); }}
               >
                 <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedYears.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>{getYearFilterLabel()} ▼</Text>
               </TouchableOpacity>
               {showYearDropdown && (
-                <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
-                  <View style={[styles.filterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
-                    <Text style={[styles.filterDropdownTitle, { color: colors.text }]}>Jahrgänge wählen</Text>
+                <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
+                  <View style={styles.filterDropdownHeader}>
+                    <Text style={styles.filterDropdownTitle}>Jahrgänge wählen</Text>
                     {selectedYears.length > 0 && <TouchableOpacity onPress={clearYears}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
                   </View>
                   <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
@@ -1413,31 +3352,31 @@ export function PlayerOverviewScreen({ navigation }: any) {
                       const isSelected = selectedYears.includes(year);
                       const count = players.filter(p => getYearFromDate(p.birth_date) === year).length;
                       return (
-                        <TouchableOpacity key={year} style={[styles.filterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => toggleYear(year)}>
-                          <View style={[styles.checkbox, { borderColor: colors.border }, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                          <Text style={[styles.filterCheckboxText, { color: colors.text }]}>Jg. {year}</Text>
-                          <Text style={[styles.filterCountBadge, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
+                        <TouchableOpacity key={year} style={styles.filterCheckboxItem} onPress={() => toggleYear(year)}>
+                          <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                          <Text style={styles.filterCheckboxText}>Jg. {year}</Text>
+                          <Text style={styles.filterCountBadge}>{count}</Text>
                         </TouchableOpacity>
                       );
                     })}
                   </ScrollView>
-                  <TouchableOpacity style={[styles.filterDoneButton, { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border }]} onPress={() => setShowYearDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                  <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowYearDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
                 </Pressable>
               )}
             </View>
 
             {/* Listung Filter */}
-            <View style={[styles.dropdownContainer, { zIndex: 30 }]}>
+            <View style={[styles.dropdownContainer, { zIndex: 30 }]} {...({ dataSet: { filterDropdown: 'true' } } as any)}>
               <TouchableOpacity
-                style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedListings.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
+                style={[styles.filterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }, selectedListings.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
                 onPress={(e) => { e.stopPropagation(); closeAllDropdowns(); setShowListingDropdown(!showListingDropdown); }}
               >
                 <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedListings.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>{getListingFilterLabel()} ▼</Text>
               </TouchableOpacity>
               {showListingDropdown && (
-                <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
-                  <View style={[styles.filterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
-                    <Text style={[styles.filterDropdownTitle, { color: colors.text }]}>Listung wählen</Text>
+                <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
+                  <View style={styles.filterDropdownHeader}>
+                    <Text style={styles.filterDropdownTitle}>Listung wählen</Text>
                     {selectedListings.length > 0 && <TouchableOpacity onPress={clearListings}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
                   </View>
                   <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
@@ -1445,31 +3384,31 @@ export function PlayerOverviewScreen({ navigation }: any) {
                       const isSelected = selectedListings.includes(listing);
                       const count = players.filter(p => p.listing === listing).length;
                       return (
-                        <TouchableOpacity key={listing} style={[styles.filterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => toggleListing(listing)}>
-                          <View style={[styles.checkbox, { borderColor: colors.border }, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                          <Text style={[styles.filterCheckboxText, { color: colors.text }]}>{listing === 'Karl Herzog Sportmanagement' ? 'KMH' : 'PM'}</Text>
-                          <Text style={[styles.filterCountBadge, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
+                        <TouchableOpacity key={listing} style={styles.filterCheckboxItem} onPress={() => toggleListing(listing)}>
+                          <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                          <Text style={styles.filterCheckboxText}>{listing === 'Karl Herzog Sportmanagement' ? 'KMH' : 'PM'}</Text>
+                          <Text style={styles.filterCountBadge}>{count}</Text>
                         </TouchableOpacity>
                       );
                     })}
                   </ScrollView>
-                  <TouchableOpacity style={[styles.filterDoneButton, { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border }]} onPress={() => setShowListingDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                  <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowListingDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
                 </Pressable>
               )}
             </View>
 
             {/* Zuständigkeit Filter */}
-            <View style={[styles.dropdownContainer, { zIndex: 20 }]}>
+            <View style={[styles.dropdownContainer, { zIndex: 20 }]} {...({ dataSet: { filterDropdown: 'true' } } as any)}>
               <TouchableOpacity
-                style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedResponsibilities.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
+                style={[styles.filterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }, selectedResponsibilities.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
                 onPress={(e) => { e.stopPropagation(); closeAllDropdowns(); setShowResponsibilityDropdown(!showResponsibilityDropdown); }}
               >
                 <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedResponsibilities.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>{getResponsibilityFilterLabel()} ▼</Text>
               </TouchableOpacity>
               {showResponsibilityDropdown && (
-                <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
-                  <View style={[styles.filterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
-                    <Text style={[styles.filterDropdownTitle, { color: colors.text }]}>Zuständigkeit wählen</Text>
+                <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
+                  <View style={styles.filterDropdownHeader}>
+                    <Text style={styles.filterDropdownTitle}>Zuständigkeit wählen</Text>
                     {selectedResponsibilities.length > 0 && <TouchableOpacity onPress={clearResponsibilities}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
                   </View>
                   <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
@@ -1479,31 +3418,31 @@ export function PlayerOverviewScreen({ navigation }: any) {
                       const isSelected = selectedResponsibilities.includes(name);
                       const count = players.filter(p => p.responsibility?.includes(name) || p.responsibility?.includes(lastName)).length;
                       return (
-                        <TouchableOpacity key={advisor.id} style={[styles.filterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => toggleResponsibility(name)}>
-                          <View style={[styles.checkbox, { borderColor: colors.border }, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                          <Text style={[styles.filterCheckboxText, { color: colors.text }]}>{name}</Text>
-                          <Text style={[styles.filterCountBadge, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
+                        <TouchableOpacity key={advisor.id} style={styles.filterCheckboxItem} onPress={() => toggleResponsibility(name)}>
+                          <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                          <Text style={styles.filterCheckboxText}>{name}</Text>
+                          <Text style={styles.filterCountBadge}>{count}</Text>
                         </TouchableOpacity>
                       );
                     })}
                   </ScrollView>
-                  <TouchableOpacity style={[styles.filterDoneButton, { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border }]} onPress={() => setShowResponsibilityDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                  <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowResponsibilityDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
                 </Pressable>
               )}
             </View>
 
             {/* Vertragsende Filter */}
-            <View style={[styles.dropdownContainer, { zIndex: 10 }]}>
+            <View style={[styles.dropdownContainer, { zIndex: 10 }]} {...({ dataSet: { filterDropdown: 'true' } } as any)}>
               <TouchableOpacity
-                style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedContractYears.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
+                style={[styles.filterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }, selectedContractYears.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
                 onPress={(e) => { e.stopPropagation(); closeAllDropdowns(); setShowContractDropdown(!showContractDropdown); }}
               >
                 <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedContractYears.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>{getContractFilterLabel()} ▼</Text>
               </TouchableOpacity>
               {showContractDropdown && (
-                <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
-                  <View style={[styles.filterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
-                    <Text style={[styles.filterDropdownTitle, { color: colors.text }]}>Vertragsende wählen</Text>
+                <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
+                  <View style={styles.filterDropdownHeader}>
+                    <Text style={styles.filterDropdownTitle}>Vertragsende wählen</Text>
                     {selectedContractYears.length > 0 && <TouchableOpacity onPress={clearContractYears}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
                   </View>
                   <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
@@ -1511,22 +3450,23 @@ export function PlayerOverviewScreen({ navigation }: any) {
                       const isSelected = selectedContractYears.includes(year);
                       const count = players.filter(p => p.contract_end && new Date(p.contract_end).getFullYear().toString() === year).length;
                       return (
-                        <TouchableOpacity key={year} style={[styles.filterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => toggleContractYear(year)}>
-                          <View style={[styles.checkbox, { borderColor: colors.border }, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                          <Text style={[styles.filterCheckboxText, { color: colors.text }]}>{year}</Text>
-                          <Text style={[styles.filterCountBadge, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
+                        <TouchableOpacity key={year} style={styles.filterCheckboxItem} onPress={() => toggleContractYear(year)}>
+                          <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                          <Text style={styles.filterCheckboxText}>{year}</Text>
+                          <Text style={styles.filterCountBadge}>{count}</Text>
                         </TouchableOpacity>
                       );
                     })}
                   </ScrollView>
-                  <TouchableOpacity style={[styles.filterDoneButton, { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border }]} onPress={() => setShowContractDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                  <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowContractDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
                 </Pressable>
               )}
             </View>
           </View>
           
-          <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setShowAddModal(true)}><Ionicons name="person-add-outline" size={12} color={colors.textSecondary} /></TouchableOpacity>
-        </Pressable>
+          <TouchableOpacity style={[styles.filterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }]} onPress={() => setShowAddModal(true)}><Ionicons name="person-add-outline" size={12} color={colors.textSecondary} /></TouchableOpacity>
+          </Pressable>
+        </View>
 
         {/* Dropdown Overlay - schließt alle Dropdowns beim Klicken */}
         {isAnyDropdownOpen && (
@@ -1534,10 +3474,11 @@ export function PlayerOverviewScreen({ navigation }: any) {
         )}
 
         <View style={styles.content}>
-          <View style={[styles.tableWrapper, { backgroundColor: colors.cardBackground, borderColor: colors.border }]} onLayout={(e) => setTableWidth(e.nativeEvent.layout.width - 32)}>
+          <View style={[styles.tableWrapper, { backgroundColor: 'rgba(0,0,0,0.55)', borderColor: 'rgba(255,255,255,0.15)' }]} onLayout={(e) => setTableWidth(e.nativeEvent.layout.width - 32)}>
             {tableWidth > 0 && (
               <TableHeader
                 columnDefs={PLAYER_COLUMNS}
+                backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
                 columnOrder={table.columnOrder}
                 getColumnWidth={table.getColumnWidth}
                 onResizeStart={table.onResizeStart}
@@ -1550,7 +3491,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
                 sortAsc={sortDirection === 'asc'}
                 colors={colors}
                 setHeaderRef={table.setHeaderRef}
-                style={{ backgroundColor: colors.surfaceSecondary, borderBottomWidth: 1, borderBottomColor: colors.border, paddingHorizontal: 16 }}
+                style={{ backgroundColor: 'rgba(0,0,0,0.45)', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 16 }}
               />
             )}
 
@@ -1626,20 +3567,8 @@ export function PlayerOverviewScreen({ navigation }: any) {
                           case 'contract_end': {
                             const inCurrentSeason = isContractInCurrentSeason(player.contract_end);
                             const hasSecuredFuture = hasFutureClubAndExpiringContract(player);
-                            if (hasSecuredFuture) {
-                              return (
-                                <View style={styles.contractBadgeGreen}>
-                                  <Text style={styles.contractBadgeTextGreen}>{formatDate(player.contract_end)}</Text>
-                                </View>
-                              );
-                            } else if (inCurrentSeason && player.contract_end) {
-                              return (
-                                <View style={styles.contractBadge}>
-                                  <Text style={styles.contractBadgeText}>{formatDate(player.contract_end)}</Text>
-                                </View>
-                              );
-                            }
-                            return <Text style={[styles.tableCell, { color: colors.text }]}>{formatDate(player.contract_end)}</Text>;
+                            const textColor = hasSecuredFuture ? '#22c55e' : (inCurrentSeason && player.contract_end ? '#ef4444' : colors.text);
+                            return <Text style={[styles.tableCell, { color: textColor }]}>{formatDate(player.contract_end)}</Text>;
                           }
                           case 'listing':
                             return renderListingBadge(player.listing);
@@ -1657,42 +3586,64 @@ export function PlayerOverviewScreen({ navigation }: any) {
           </View>
         </View>
 
-        {/* Add Player Modal */}
+        {/* Add Player Modal — KMH-Skill Style: schwarzer BG mit scouting-header BG-Image */}
         <Modal visible={showAddModal} transparent animationType="fade">
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: colors.surface, maxHeight: '90%', width: '92%', maxWidth: 540 }]}>
-              <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 20, position: 'relative' }}>
-                <Text style={[styles.modalTitle, { color: colors.text, marginBottom: 0, textAlign: 'center' }]}>Neuen Spieler anlegen</Text>
-                <TouchableOpacity onPress={() => { setShowAddModal(false); setTmSuggestions([]); setTmSelected(null); setNewFirstName(''); setNewLastName(''); }} style={{ position: 'absolute', right: 0, width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ color: colors.textSecondary, fontSize: 14, lineHeight: 16 }}>✕</Text>
-                </TouchableOpacity>
+            <View style={[styles.modalContent, { overflow: 'visible', backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', maxHeight: '90%', width: '92%', maxWidth: 540, padding: 0, shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.7, shadowRadius: 30, elevation: 24 }]}>
+              <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 16, overflow: 'hidden' }} pointerEvents="none">
+                <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%', opacity: 0.85, ...({ objectFit: 'cover', objectPosition: 'center', backgroundSize: 'cover', backgroundPosition: 'center' } as any) }} resizeMode="cover" />
+                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.45)' }} />
               </View>
-              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 2 }}>
-                <TextInput style={[styles.modalInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Nachname" placeholderTextColor={colors.textMuted} value={newLastName} onChangeText={handleLastNameChange} autoFocus />
-                <TextInput style={[styles.modalInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Vorname" placeholderTextColor={colors.textMuted} value={newFirstName} onChangeText={handleFirstNameChange} />
-              </View>
-              {tmSearching && <Text style={{ color: colors.textMuted, fontSize: 11, marginBottom: 4 }}>Suche auf Transfermarkt...</Text>}
-              {tmSuggestions.length > 0 && (
-                <ScrollView style={{ maxHeight: 280, borderWidth: 1, borderColor: colors.border, borderRadius: 6, marginBottom: 8 }}>
-                  {tmSuggestions.map((s, i) => (
-                    <TouchableOpacity key={i} style={{ flexDirection: 'row', alignItems: 'baseline', paddingVertical: 5, paddingHorizontal: 8, borderBottomWidth: i < tmSuggestions.length - 1 ? StyleSheet.hairlineWidth : 0, borderBottomColor: colors.border }} onPress={() => selectTmPlayer(s)}>
-                      <Text style={{ color: colors.text, fontSize: 12, fontWeight: '600' }}>{s.name}</Text>
-                      <Text style={{ color: colors.textMuted, fontSize: 11, marginLeft: 6 }}>{[s.verein, s.position, s.age ? s.age + 'J' : ''].filter(Boolean).join(' · ')}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              )}
-              {tmLoading && <Text style={{ color: colors.primary, fontSize: 11, marginBottom: 6 }}>Lade Spielerdaten von Transfermarkt...</Text>}
-              {tmSelected && (
-                <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: 6, padding: 8, marginBottom: 6, borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.3)' }}>
-                  <Text style={{ color: '#10b981', fontSize: 11, fontWeight: '600', marginBottom: 3 }}>Transfermarkt-Daten übernommen</Text>
-                  <Text style={{ fontSize: 12 }} numberOfLines={1}><Text style={{ color: colors.text, fontWeight: '600' }}>{newFirstName} {newLastName}</Text>{'  '}<Text style={{ color: colors.textMuted, fontSize: 11 }}>{[tmSelected.verein, tmSelected.tmPosition, tmSelected.tmAge ? tmSelected.tmAge + 'J' : ''].filter(Boolean).join(' · ')}</Text>
-                  </Text>
+              <View style={{ padding: 24, zIndex: 1 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 20, position: 'relative' }}>
+                  <Text style={{ fontFamily: 'Josefin Sans', fontSize: 16, fontWeight: '300', letterSpacing: 4, textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>Neuen Spieler anlegen</Text>
+                  <TouchableOpacity onPress={() => { setShowAddModal(false); setTmSuggestions([]); setTmSelected(null); setNewFirstName(''); setNewLastName(''); }} style={{ position: 'absolute', right: 0, width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 20 }}>✕</Text>
+                  </TouchableOpacity>
                 </View>
-              )}
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 28 }}>
-                <Text style={[styles.modalHint, { color: colors.textSecondary }]}>Zuständigkeit: {currentUserName || 'Sie'}</Text>
-                <TouchableOpacity style={[styles.modalSaveButton, { borderColor: '#10b981' }]} onPress={handleAddPlayer} disabled={tmLoading}><Text style={[styles.modalSaveButtonText, { color: '#10b981' }]}>{tmLoading ? 'Laden...' : 'Spieler anlegen'}</Text></TouchableOpacity>
+                <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Nachname</Text>
+                    <TextInput
+                      style={{ backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 8, fontSize: 13, color: '#fff' }}
+                      placeholder="z.B. Mustermann" placeholderTextColor="rgba(255,255,255,0.3)"
+                      value={newLastName} onChangeText={handleLastNameChange} autoFocus
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Vorname</Text>
+                    <TextInput
+                      style={{ backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 8, fontSize: 13, color: '#fff' }}
+                      placeholder="z.B. Maximilian" placeholderTextColor="rgba(255,255,255,0.3)"
+                      value={newFirstName} onChangeText={handleFirstNameChange}
+                    />
+                  </View>
+                </View>
+                {tmSearching && <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginBottom: 4 }}>Suche auf Transfermarkt...</Text>}
+                {tmSuggestions.length > 0 && (
+                  <ScrollView style={{ maxHeight: 280, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, marginBottom: 8, backgroundColor: '#1a1a1a' }}>
+                    {tmSuggestions.map((s, i) => (
+                      <TouchableOpacity key={i} style={{ flexDirection: 'row', alignItems: 'baseline', paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: i < tmSuggestions.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.05)' }} onPress={() => selectTmPlayer(s)}>
+                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>{s.name}</Text>
+                        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginLeft: 6 }}>{[s.verein, s.position, s.age ? s.age + 'J' : ''].filter(Boolean).join(' · ')}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
+                {tmLoading && <Text style={{ color: '#22c55e', fontSize: 11, marginBottom: 6 }}>Lade Spielerdaten von Transfermarkt...</Text>}
+                {tmSelected && (
+                  <View style={{ backgroundColor: 'rgba(34,197,94,0.1)', borderRadius: 6, padding: 8, marginBottom: 6, borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)' }}>
+                    <Text style={{ color: '#22c55e', fontSize: 11, fontWeight: '600', marginBottom: 3 }}>Transfermarkt-Daten übernommen</Text>
+                    <Text style={{ fontSize: 12 }} numberOfLines={1}><Text style={{ color: '#fff', fontWeight: '600' }}>{newFirstName} {newLastName}</Text>{'  '}<Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>{[tmSelected.verein, tmSelected.tmPosition, tmSelected.tmAge ? tmSelected.tmAge + 'J' : ''].filter(Boolean).join(' · ')}</Text>
+                    </Text>
+                  </View>
+                )}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20 }}>
+                  <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', fontStyle: 'italic' }}>Zuständigkeit: {currentUserName || 'Sie'}</Text>
+                  <TouchableOpacity style={{ backgroundColor: '#22c55e', borderWidth: 1, borderColor: '#22c55e', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 6, opacity: tmLoading ? 0.5 : 1 }} onPress={handleAddPlayer} disabled={tmLoading}>
+                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>{tmLoading ? 'Laden...' : 'Spieler anlegen'}</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </View>
@@ -1758,33 +3709,35 @@ export function PlayerOverviewScreen({ navigation }: any) {
             </View>
           </View>
         </Modal>
+
+        {playerDetailModalJsx}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, flexDirection: 'row', backgroundColor: '#f8fafc' },
-  containerMobile: { flex: 1, flexDirection: 'column', backgroundColor: '#f8fafc' },
+  container: { flex: 1, flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.45)' },
+  containerMobile: { flex: 1, flexDirection: 'column', backgroundColor: 'rgba(0,0,0,0.45)' },
   sidebarOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 100, flexDirection: 'row' },
-  sidebarMobile: { width: 280, height: '100%', backgroundColor: '#fff' },
-  mainContent: { flex: 1, backgroundColor: '#f8fafc' },
-  mainContentMobile: { flex: 1, backgroundColor: '#f8fafc' },
+  sidebarMobile: { width: 280, height: '100%', backgroundColor: 'rgba(0,0,0,0.55)' },
+  mainContent: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
+  mainContentMobile: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
 
   // Mobile Toolbar
   mobileToolbar: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: 'rgba(255,255,255,0.15)',
   },
   mobileSearchContainer: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: 'rgba(0,0,0,0.45)',
     borderRadius: 8,
     paddingHorizontal: 12,
     marginRight: 8,
@@ -1798,16 +3751,16 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 8,
-    backgroundColor: '#f8fafc',
+    backgroundColor: 'rgba(0,0,0,0.45)',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
     position: 'relative',
   },
   mobileFilterButtonActive: {
-    backgroundColor: '#e0f2fe',
+    backgroundColor: 'rgba(59,130,246,0.2)',
   },
   mobileFilterIcon: {
     fontSize: 18,
@@ -1831,11 +3784,11 @@ const styles = StyleSheet.create({
   // FAB
   fab: {
     position: 'absolute',
-    bottom: 20,
-    right: 20,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    bottom: 16,
+    right: 16,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -1844,16 +3797,16 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
   },
   fabText: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: '300',
-    lineHeight: 26,
+    lineHeight: 20,
   },
 
   // Mobile Subheader
   mobileSubheader: {
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: '#f8fafc',
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
   mobileSubheaderText: {
     fontSize: 11,
@@ -1872,12 +3825,13 @@ const styles = StyleSheet.create({
 
   // Player Card
   playerCard: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 16,
     padding: 12,
-    marginBottom: 8,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: 'rgba(255,255,255,0.15)',
+    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' } as any : {}),
   },
   playerCardLocked: {
     backgroundColor: '#fafafa',
@@ -1901,7 +3855,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#1a1a1a',
-    flex: 1,
+    flexShrink: 1,
   },
   lockIconMobile: {
     fontSize: 14,
@@ -1937,21 +3891,22 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   clubLogoMobile: {
-    width: 18,
-    height: 18,
+    width: 32,
+    height: 32,
     resizeMode: 'contain',
-    marginRight: 6,
   },
   playerCardClubText: {
     fontSize: 11,
     color: '#334155',
-    flex: 1,
   },
   playerCardPosition: {
-    fontSize: 11,
-    color: '#64748b',
-    fontWeight: '500',
-    backgroundColor: '#f1f5f9',
+    fontSize: 9,
+    color: '#60a5fa',
+    fontWeight: '600',
+    letterSpacing: 0.3,
+    backgroundColor: 'rgba(59,130,246,0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(59,130,246,0.5)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -1967,10 +3922,10 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   contractBadgeMobileRed: {
-    backgroundColor: '#fef2f2',
+    backgroundColor: 'rgba(239,68,68,0.15)',
   },
   contractBadgeMobileGreen: {
-    backgroundColor: '#f0fdf4',
+    backgroundColor: 'rgba(34,197,94,0.15)',
   },
   contractTextMobile: {
     fontSize: 11,
@@ -1988,39 +3943,49 @@ const styles = StyleSheet.create({
   // Mobile Filter Modal
   mobileFilterModal: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#000',
     marginTop: 60,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    overflow: 'hidden',
   },
   mobileFilterHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: 'rgba(255,255,255,0.15)',
   },
   mobileFilterTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1a1a1a',
+    fontFamily: 'Josefin Sans',
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: '300',
+    letterSpacing: 3,
+    textTransform: 'uppercase',
+    color: 'rgba(255,255,255,0.7)',
   },
   mobileFilterClose: {
     fontSize: 20,
-    color: '#64748b',
+    color: 'rgba(255,255,255,0.7)',
     padding: 4,
   },
   mobileFilterContent: {
     flex: 1,
-    padding: 16,
+    paddingHorizontal: 20,
+    paddingTop: 16,
   },
   mobileFilterLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
-    color: '#1a1a1a',
-    marginBottom: 10,
-    marginTop: 16,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: 'rgba(255,255,255,0.5)',
+    marginBottom: 6,
   },
   mobileFilterChips: {
     flexDirection: 'row',
@@ -2030,7 +3995,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 20,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: 'rgba(0,0,0,0.45)',
     marginRight: 8,
     marginBottom: 8,
   },
@@ -2046,27 +4011,39 @@ const styles = StyleSheet.create({
   },
   mobileFilterFooter: {
     flexDirection: 'row',
-    padding: 16,
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
     borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
+    borderTopColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   mobileFilterClearButton: {
     flex: 1,
-    paddingVertical: 14,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     alignItems: 'center',
-    marginRight: 8,
+    justifyContent: 'center',
   },
   mobileFilterClearText: {
     fontSize: 11,
-    color: '#ef4444',
-    fontWeight: '500',
+    color: 'rgba(255,255,255,0.85)',
+    fontWeight: '600',
   },
   mobileFilterApplyButton: {
-    flex: 2,
-    paddingVertical: 14,
-    backgroundColor: '#1a1a1a',
-    borderRadius: 10,
+    flex: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: '#22c55e',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#22c55e',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   mobileFilterApplyText: {
     fontSize: 11,
@@ -2079,32 +4056,51 @@ const styles = StyleSheet.create({
   headerBannerCenter: { flex: 1, alignItems: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a1a' },
   headerSubtitle: { fontSize: 11, color: '#64748b', marginTop: 4 },
+  heroCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 28,
+    paddingTop: 24,
+    paddingBottom: 0,
+    marginHorizontal: 24,
+    marginTop: 16,
+    marginBottom: 0,
+    zIndex: 1000,
+  },
+  heroTopRow: { flexDirection: 'row', alignItems: 'flex-start', minHeight: 60, paddingBottom: 4 },
+  heroScreenLabel: { fontFamily: 'Josefin Sans', fontSize: 26, fontWeight: '300', letterSpacing: 4, textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)' },
+  heroScreenSubLabel: { fontFamily: 'Josefin Sans', fontSize: 11, fontWeight: '300', letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', marginTop: 4 },
+  heroDivider: { height: 1, marginTop: 16, marginBottom: 0, backgroundColor: 'rgba(255,255,255,0.3)' },
+  heroToolbar: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 14, zIndex: 100 },
   
   // Toolbar - wie Scouting
   toolbar: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, zIndex: 100 },
-  searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', paddingHorizontal: 12 },
+  searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 12 },
   searchIcon: { fontSize: 16, marginRight: 8 },
   searchInput: { flex: 1, paddingVertical: 6, fontSize: 11 },
   filterContainer: { flexDirection: 'row', gap: 8 },
   dropdownContainer: { position: 'relative' },
   
   // Filter Buttons - wie Scouting
-  filterButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1 },
+  filterButton: { height: 28, paddingVertical: 0, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
   filterButtonText: { fontSize: 11 },
   
-  // Filter Dropdown - wie Scouting
-  filterDropdownMulti: { position: 'absolute', top: '100%', left: 0, borderRadius: 12, borderWidth: 1, marginTop: 4, minWidth: 220, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, zIndex: 1000, overflow: 'hidden' },
-  filterDropdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#e2e8f0', backgroundColor: '#f8fafc' },
-  filterDropdownTitle: { fontSize: 11, fontWeight: '600', color: '#1a1a1a' },
-  filterClearText: { fontSize: 11, color: '#ef4444' },
-  filterCheckboxItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  checkbox: { width: 20, height: 20, borderRadius: 4, borderWidth: 2, borderColor: '#cbd5e1', marginRight: 10, justifyContent: 'center', alignItems: 'center' },
-  checkboxSelected: { backgroundColor: '#3b82f6', borderColor: '#3b82f6' },
+  // Filter Dropdown — KMH-Skill: schwarzer Modal-Style, öffnet sich nach LINKS (right: 0)
+  // weil rechts der Bildschirmrand ist; minWidth groß genug für lange Labels.
+  filterDropdownMulti: { position: 'absolute', top: '100%', right: 0, backgroundColor: '#000', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', marginTop: 4, minWidth: 260, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12, zIndex: 1000, overflow: 'hidden' },
+  filterDropdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', backgroundColor: '#000' },
+  filterDropdownTitle: { fontFamily: 'Josefin Sans', fontSize: 11, fontWeight: '300', letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)' },
+  filterClearText: { fontSize: 11, color: '#ef4444', fontWeight: '500' },
+  filterCheckboxItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)', backgroundColor: '#000' },
+  checkbox: { width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.3)', marginRight: 12, justifyContent: 'center', alignItems: 'center' },
+  checkboxSelected: { backgroundColor: '#22c55e', borderColor: '#22c55e' },
   checkmark: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
-  filterCheckboxText: { flex: 1, fontSize: 11, color: '#333' },
-  filterCountBadge: { backgroundColor: '#f1f5f9', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, fontSize: 11, color: '#64748b', overflow: 'hidden' },
-  filterDoneButton: { padding: 12, backgroundColor: '#f8fafc', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#e2e8f0' },
-  filterDoneText: { fontSize: 11, fontWeight: '600', color: '#3b82f6' },
+  filterCheckboxText: { flex: 1, fontSize: 13, color: '#fff', fontWeight: '500' },
+  filterCountBadge: { backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, fontSize: 11, color: 'rgba(255,255,255,0.6)', overflow: 'hidden' },
+  filterDoneButton: { padding: 12, backgroundColor: '#000', alignItems: 'center', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)' },
+  filterDoneText: { fontSize: 12, fontWeight: '600', color: '#22c55e', letterSpacing: 0.5 },
   
   // Dropdown Overlay
   dropdownOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, backgroundColor: 'transparent' },
@@ -2113,7 +4109,7 @@ const styles = StyleSheet.create({
   content: { flex: 1, padding: 24 },
 
   // Table Wrapper with rounded borders
-  tableWrapper: { flex: 1, borderRadius: 12, borderWidth: 1, overflow: 'hidden' },
+  tableWrapper: { flex: 1, borderRadius: 12, borderWidth: 1, overflow: 'hidden', zIndex: 1, position: 'relative' },
 
   // Add Button
   addButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1 },
@@ -2143,9 +4139,9 @@ const styles = StyleSheet.create({
   colContract: { flex: 1.2, minWidth: 100 },
   colListing: { flex: 0.7, minWidth: 50 },
   colResponsibility: { flex: 1, minWidth: 85 },
-  contractBadge: { backgroundColor: '#fef2f2', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4, alignSelf: 'flex-start' },
+  contractBadge: { backgroundColor: 'rgba(239,68,68,0.15)', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4, alignSelf: 'flex-start' },
   contractBadgeText: { color: '#dc2626', fontSize: 11, fontWeight: '600' },
-  contractBadgeGreen: { backgroundColor: '#f0fdf4', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4, alignSelf: 'flex-start' },
+  contractBadgeGreen: { backgroundColor: 'rgba(34,197,94,0.15)', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4, alignSelf: 'flex-start' },
   contractBadgeTextGreen: { color: '#16a34a', fontSize: 11, fontWeight: '600' },
   listingBadge: { paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4, alignSelf: 'flex-start' },
   listingKMH: { backgroundColor: '#1e293b' },
@@ -2166,21 +4162,244 @@ const styles = StyleSheet.create({
   modalPlayerName: { fontWeight: 'bold' },
   modalSubText: { fontSize: 12, color: '#64748b', textAlign: 'center', marginBottom: 16 },
   modalHint: { fontSize: 11, color: '#64748b', textAlign: 'left', marginBottom: 0, fontStyle: 'italic' },
-  modalInput: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, padding: 8, fontSize: 13, marginBottom: 10 },
+  modalInput: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 6, padding: 8, fontSize: 13, marginBottom: 10 },
   modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 2, gap: 8 },
   modalCancelButton: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 5, backgroundColor: 'transparent', alignItems: 'center' },
   modalCancelButtonText: { color: '#64748b', fontWeight: '500', fontSize: 12 },
   modalSaveButton: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 5, backgroundColor: 'transparent', borderWidth: 1, borderColor: '#10b981', alignItems: 'center' },
   modalSaveButtonText: { color: '#10b981', fontWeight: '600', fontSize: 12 },
 
-  // Player Detail Modal Styles
-  mobileDetailHeader: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1 },
-  mobileDetailName: { fontSize: 18, fontWeight: '700' },
-  mobileDetailClose: { fontSize: 24, padding: 4 },
-  mobileDetailBox: { padding: 12, borderRadius: 8, marginBottom: 12 },
-  mobileDetailLabel: { fontSize: 12, marginBottom: 4 },
-  mobileDetailValue: { fontSize: 15, fontWeight: '500' },
-  mobileDetailButtons: { padding: 16, borderTopWidth: 1 },
-  mobileDetailButton: { padding: 14, borderRadius: 8, alignItems: 'center' },
-  mobileDetailButtonText: { fontSize: 15, fontWeight: '600' },
+  // Player Detail Modal Styles (PlayerPersonalDataScreen-Stil)
+  detailModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 32,
+    paddingVertical: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  detailModalBox: {
+    width: '100%',
+    maxWidth: 1400,
+    flex: 1,
+    maxHeight: '100%',
+    backgroundColor: '#000',
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  detailModalContainer: { flex: 1, backgroundColor: '#000' },
+  detailBgImage: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.6 },
+  detailBgOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)' },
+  detailHeader: {
+    margin: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 0,
+    flexDirection: 'column',
+  },
+  detailHeaderTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  detailPhoto: { borderRadius: 8, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.03)' },
+  detailPhotoPlaceholder: { alignItems: 'center', justifyContent: 'center' },
+  detailPhotoInitial: { fontSize: 42, fontWeight: '700', color: 'rgba(255,255,255,0.4)' },
+  detailHeaderCenter: { flex: 1, justifyContent: 'center' },
+  detailHeaderName: {
+    fontFamily: 'Josefin Sans',
+    fontWeight: '400',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    color: '#fff',
+  },
+  detailHeaderClubRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8 },
+  detailHeaderClubText: {
+    fontFamily: 'Josefin Sans',
+    fontWeight: '300',
+    letterSpacing: 3,
+    textTransform: 'uppercase',
+    color: 'rgba(255,255,255,0.7)',
+  },
+  detailHeaderTitle: {
+    fontFamily: 'Josefin Sans',
+    fontSize: 26,
+    fontWeight: '300',
+    letterSpacing: 4,
+    textTransform: 'uppercase',
+    color: 'rgba(255,255,255,0.5)',
+    textAlign: 'right',
+  },
+  detailDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.3)', marginTop: 16 },
+  detailStatsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 24, paddingVertical: 16, paddingHorizontal: 40 },
+  detailStatCol: { minWidth: 110, gap: 4, flex: 1, alignItems: 'center' },
+  detailStatLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 0.8,
+    color: 'rgba(255,255,255,0.5)',
+    textTransform: 'uppercase',
+  },
+  detailStatValue: { fontSize: 13, fontWeight: '500', color: '#fff', textAlign: 'center' },
+  detailCloseText: { fontSize: 20, color: 'rgba(255,255,255,0.7)' },
+  detailToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.3)',
+    gap: 10,
+    zIndex: 2,
+  },
+  detailToolbarLeft: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  detailToolbarRight: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  detailToolbarBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  detailToolbarBtnText: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.85)' },
+  detailToolbarCloseBtn: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 4,
+  },
+  detailCardGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, padding: 16 },
+  detailCard: {
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderColor: 'rgba(255,255,255,0.15)',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+    flexGrow: 1,
+    flexBasis: '40%',
+    minWidth: 280,
+  },
+  detailCardTitle: {
+    fontFamily: 'Josefin Sans',
+    fontSize: 16,
+    fontWeight: '300',
+    letterSpacing: 4,
+    textTransform: 'uppercase',
+    color: 'rgba(255,255,255,0.5)',
+    marginBottom: 16,
+  },
+  detailFieldsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, rowGap: 14 },
+  detailField: { minWidth: 120, flex: 1 },
+  detailFieldFull: { width: '100%' },
+  detailFieldLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 0.8,
+    color: 'rgba(255,255,255,0.5)',
+    textTransform: 'uppercase',
+    marginBottom: 6,
+  },
+  detailFieldValue: { fontSize: 13, fontWeight: '500', color: '#fff' },
+  detailListItem: { fontSize: 13, fontWeight: '500', lineHeight: 18, color: '#fff' },
+  detailEditInput: {
+    backgroundColor: '#000',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    fontSize: 13,
+    color: '#fff',
+  },
+  detailCardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+  },
+  detailCardEditBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  detailCardEditText: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.85)' },
+  detailCardCancelBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  detailCardCancelText: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.7)' },
+  detailCardSaveBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 6,
+    backgroundColor: '#22c55e',
+  },
+  detailCardSaveText: { fontSize: 12, fontWeight: '600', color: '#fff' },
+  detailDropdownList: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    marginTop: 2,
+    backgroundColor: '#1e293b',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 6,
+    zIndex: 1000,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.45,
+    shadowRadius: 12,
+    elevation: 12,
+  },
+  detailDropdownItem: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  detailInviteOverlay: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+  },
+  detailInviteCodeBox: {
+    backgroundColor: '#1a1a1a',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 12,
+    paddingVertical: 28,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+    minWidth: 320,
+    maxWidth: 420,
+  },
+  detailInviteCodeTitle: { fontFamily: 'Josefin Sans', fontSize: 16, fontWeight: '400', letterSpacing: 3, textTransform: 'uppercase', color: '#fff', marginBottom: 8 },
+  detailInviteCodeSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 20, textAlign: 'center' },
+  detailInviteCodePill: { backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', paddingVertical: 16, paddingHorizontal: 36, borderRadius: 10, marginBottom: 12 },
+  detailInviteCodeText: { color: '#22c55e', fontSize: 32, fontWeight: '700', letterSpacing: 6 },
+  detailInviteCodeHint: { color: 'rgba(255,255,255,0.4)', fontSize: 11, marginBottom: 20 },
+  detailInviteCodeCloseBtn: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 32 },
+  detailInviteCodeCloseText: { color: 'rgba(255,255,255,0.85)', fontSize: 13, fontWeight: '600' },
+  detailTooltip: { position: 'absolute', bottom: '100%', marginBottom: 4, backgroundColor: 'rgba(0,0,0,0.9)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 4, zIndex: 10 },
+  detailTooltipText: { fontSize: 11, color: '#fff' },
+  detailFooter: { padding: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)' },
+  detailFooterButton: { backgroundColor: '#22c55e', borderRadius: 8, padding: 14, alignItems: 'center' },
+  detailFooterButtonText: { fontSize: 14, fontWeight: '600', color: '#fff', letterSpacing: 1, textTransform: 'uppercase' },
 });

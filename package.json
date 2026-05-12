@@ -34,6 +34,7 @@
     "react-native-screens": "^4.19.0",
     "react-native-web": "^0.21.0",
     "react-native-webview": "13.15.0",
+    "recharts": "^3.8.1",
     "undefined": "/Users/matti/Desktop/KMH-App"
   },
   "devDependencies": {

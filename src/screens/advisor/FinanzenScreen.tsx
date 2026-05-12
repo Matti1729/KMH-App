@@ -5,6 +5,8 @@ import {
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { Sidebar } from '../../components/Sidebar';
+import { AdvisorBackground } from '../../components/AdvisorBackground';
+import { AdvisorHeroHeader } from '../../components/AdvisorHeroHeader';
 import { MobileHeader } from '../../components/MobileHeader';
 import { MobileSidebar } from '../../components/MobileSidebar';
 import { useIsMobile } from '../../hooks/useIsMobile';
@@ -848,15 +850,15 @@ export function FinanzenScreen({ navigation }: any) {
 
   const renderSummary = () => (
     <View style={[styles.summaryRow, isMobile && { flexDirection: 'column' }]}>
-      <View style={[styles.summaryCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+      <View style={[styles.summaryCard, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}>
         <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Offen</Text>
         <Text style={[styles.summaryValue, { color: '#d97706' }]}>{formatCurrency(totals.offen)}</Text>
       </View>
-      <View style={[styles.summaryCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+      <View style={[styles.summaryCard, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}>
         <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Bezahlt</Text>
         <Text style={[styles.summaryValue, { color: '#16a34a' }]}>{formatCurrency(totals.bezahlt)}</Text>
       </View>
-      <View style={[styles.summaryCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+      <View style={[styles.summaryCard, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}>
         <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Gesamt</Text>
         <Text style={[styles.summaryValue, { color: colors.text }]}>{formatCurrency(totals.gesamt)}</Text>
       </View>
@@ -954,7 +956,7 @@ export function FinanzenScreen({ navigation }: any) {
   const renderDetailModal = () => (
     <Modal visible={showDetail} transparent animationType="fade">
       <Pressable style={styles.modalOverlay} onPress={() => setShowDetail(false)}>
-        <Pressable style={[styles.modalContent, { backgroundColor: colors.cardBackground }]} onPress={e => { e.stopPropagation(); setActiveDatePicker(null); setShowRateDropdown(false); }}>
+        <Pressable style={[styles.modalContent, { backgroundColor: 'rgba(255,255,255,0.08)' }]} onPress={e => { e.stopPropagation(); setActiveDatePicker(null); setShowRateDropdown(false); }}>
           {/* Header */}
           <View style={styles.modalHeader}>
             <View style={{ flex: 1 }}>
@@ -1253,8 +1255,9 @@ export function FinanzenScreen({ navigation }: any) {
 
   if (isMobile) {
     return (
-      <View style={[styles.containerMobile, { backgroundColor: colors.background }]}>
-        <MobileHeader title="Finanzen" onMenuPress={() => setShowMobileSidebar(true)} navigation={navigation} />
+      <View style={[styles.containerMobile, { backgroundColor: 'transparent' }]}>
+        <MobileHeader title="Finanzen" backgroundImage={require('../../../assets/scouting-header-bg.jpg')} onMenuPress={() => setShowMobileSidebar(true)} />
+        <AdvisorBackground />
         <MobileSidebar visible={showMobileSidebar} onClose={() => setShowMobileSidebar(false)} navigation={navigation} activeScreen="finanzen" />
         {renderDetailModal()}
 
@@ -1275,14 +1278,13 @@ export function FinanzenScreen({ navigation }: any) {
   // --- Desktop View ---
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: 'transparent' }]}>
+      <AdvisorBackground />
       <Sidebar navigation={navigation} activeScreen="finanzen" profile={authProfile} />
       {renderDetailModal()}
 
       <View style={styles.mainContent}>
-        <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-          <Text style={[styles.title, { color: colors.text }]}>Finanzen</Text>
-        </View>
+        <AdvisorHeroHeader title="FINANZEN" subtitle="PROVISIONEN · ABRECHNUNGEN · EINNAHMEN" backgroundImage={require('../../../assets/scouting-header-bg.jpg')} backgroundImageOpacity={0.45} />
 
         <View style={styles.content}>
           <View style={styles.seasonRow}>
@@ -1295,10 +1297,11 @@ export function FinanzenScreen({ navigation }: any) {
 
           <Text style={[styles.rowCount, { color: colors.textMuted }]}>{provisionCount} Provisionen · {playerOnlyCount} Spieler ohne Einträge</Text>
 
-          <View style={[styles.tableWrapper, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]} onLayout={(e) => setTableWidth(e.nativeEvent.layout.width - 32)}>
+          <View style={[styles.tableWrapper, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]} onLayout={(e) => setTableWidth(e.nativeEvent.layout.width - 32)}>
             {tableWidth > 0 && (
               <TableHeader
                 columnDefs={FINANZEN_COLUMNS}
+                backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
                 columnOrder={table.columnOrder}
                 getColumnWidth={table.getColumnWidth}
                 onResizeStart={table.onResizeStart}

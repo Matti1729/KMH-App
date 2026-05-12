@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert, Image, ScrollView, Swi
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../config/supabase';
 import { useTheme } from '../../contexts/ThemeContext';
+import { AdvisorBackground } from '../../components/AdvisorBackground';
 
 const COUNTRY_CODES = [
   { code: '+49', country: 'DE' }, { code: '+43', country: 'AT' }, { code: '+41', country: 'CH' },
@@ -250,7 +251,7 @@ export function MyProfileScreen({ navigation }: any) {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}><AdvisorBackground />
         <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Laden...</Text>
       </SafeAreaView>
     );
@@ -290,7 +291,7 @@ export function MyProfileScreen({ navigation }: any) {
         </View>
 
         {/* Dark Mode Card */}
-        <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+        <View style={[styles.card, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}>
           <Text style={[styles.cardTitle, { color: colors.text }]}>Erscheinungsbild</Text>
 
           <View style={styles.darkModeRow}>
@@ -305,7 +306,7 @@ export function MyProfileScreen({ navigation }: any) {
         </View>
 
         {/* Profile Card */}
-        <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+        <View style={[styles.card, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}>
           <Text style={[styles.cardTitle, { color: colors.text }]}>Persönliche Daten</Text>
 
           <View style={styles.infoRow}>
@@ -382,7 +383,7 @@ export function MyProfileScreen({ navigation }: any) {
         </View>
 
         {/* Account Card */}
-        <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+        <View style={[styles.card, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}>
           <Text style={[styles.cardTitle, { color: colors.text }]}>Account</Text>
 
           <View style={styles.infoRow}>

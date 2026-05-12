@@ -101,81 +101,74 @@ serve(async (req: Request) => {
 
     console.log(`Searching Transfermarkt for: ${name}`);
 
-    const searchUrl = `https://www.transfermarkt.de/schnellsuche/ergebnis/schnellsuche?query=${encodeURIComponent(name)}`;
+    const baseUrl = `https://www.transfermarkt.de/schnellsuche/ergebnis/schnellsuche?query=${encodeURIComponent(name)}`;
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
+    const fetchHtml = async (url: string): Promise<string> => {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 15000);
+      try {
+        const r = await fetch(url, {
+          method: "GET",
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "de-DE,de;q=0.9,en;q=0.8",
+          },
+          signal: ctrl.signal,
+        });
+        clearTimeout(t);
+        if (!r.ok) return "";
+        return await r.text();
+      } catch { clearTimeout(t); return ""; }
+    };
 
-    const response = await fetch(searchUrl, {
-      method: "GET",
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "de-DE,de;q=0.9,en;q=0.8",
-      },
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
+    const parsePlayers = (html: string, results: any[]) => {
+      const playerSection = html.match(/id="player-grid"[\s\S]*?<\/tbody>/);
+      if (!playerSection) return;
+      const rows = playerSection[0].split(/<tr\s+class="(?:odd|even)"[^>]*>/).filter(r => r.includes("profil/spieler/"));
+      for (const row of rows) {
+        const profileMatch = row.match(/href="([^"]*\/profil\/spieler\/\d+)"[^>]*>([^<]+)<\/a>/);
+        if (!profileMatch) continue;
+        const profileUrl = `https://www.transfermarkt.de${profileMatch[1]}`;
+        const playerName = profileMatch[2].trim();
+        const vereinMatch = row.match(/<a\s+title="([^"]+)"[^>]*href="[^"]*\/startseite\/verein\/\d+"/);
+        let verein = vereinMatch ? vereinMatch[1] : "";
+        if (verein === "Karriereende" || verein === "Vereinslos" || verein === "---") verein = "";
+        const posMatch = row.match(/<td[^>]*class="zentriert"[^>]*>([A-ZÄÖÜa-zäöü][A-ZÄÖÜa-zäöüß\/\- ]*)<\/td>/);
+        const position = posMatch ? posMatch[1].trim() : "";
+        const ageMatch = row.match(/<td[^>]*class="zentriert"[^>]*>(\d{1,2})<\/td>/);
+        const age = ageMatch ? ageMatch[1] : "";
+        const natMatch = row.match(/title="([^"]+)"[^>]*class="flaggenrahmen"/);
+        const nationality = natMatch ? natMatch[1] : "";
+        const logoMatch = row.match(/tmssl\.akamaized\.net\/\/images\/wappen\/tiny\/(\d+)\.png/);
+        const logoUrl = logoMatch ? `https://tmssl.akamaized.net//images/wappen/big/${logoMatch[1]}.png` : "";
+        if (!results.find(r => r.url === profileUrl)) {
+          results.push({ name: playerName, url: profileUrl, nationality, verein, position, age, logoUrl, type: "player" });
+        }
+      }
+    };
 
-    if (!response.ok) {
-      console.error(`Transfermarkt responded with ${response.status}`);
+    // Erste Seite holen + total pages aus Pagination ablesen
+    const firstHtml = await fetchHtml(baseUrl);
+    if (!firstHtml) {
       return new Response(
         JSON.stringify({ results: [] }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    const html = await response.text();
+    const html = firstHtml; // Behalte für Trainer-Section unten
     const results: any[] = [];
 
-    // Spieler-Sektion parsen
+    // Spieler-Sektion parsen — Seiten 1-5 immer parallel holen
     if (type === 'player' || type === 'all') {
-      const playerSection = html.match(/id="player-grid"[\s\S]*?<\/tbody>/);
-      if (playerSection) {
-        const rows = playerSection[0].split(/<tr\s+class="(?:odd|even)"[^>]*>/).filter(r => r.includes("profil/spieler/"));
-
-        for (const row of rows) {
-          const profileMatch = row.match(/href="([^"]*\/profil\/spieler\/\d+)"[^>]*>([^<]+)<\/a>/);
-          if (!profileMatch) continue;
-
-          const profileUrl = `https://www.transfermarkt.de${profileMatch[1]}`;
-          const playerName = profileMatch[2].trim();
-
-          // Verein
-          const vereinMatch = row.match(/<a\s+title="([^"]+)"[^>]*href="[^"]*\/startseite\/verein\/\d+"/);
-          let verein = vereinMatch ? vereinMatch[1] : "";
-          if (verein === "Karriereende" || verein === "Vereinslos" || verein === "---") verein = "";
-
-          // Position (z.B. "HS", "IV", "TW", "Mittelfeld")
-          const posMatch = row.match(/<td[^>]*class="zentriert"[^>]*>([A-ZÄÖÜa-zäöü][A-ZÄÖÜa-zäöüß\/\- ]*)<\/td>/);
-          const position = posMatch ? posMatch[1].trim() : "";
-
-          // Alter
-          const ageMatch = row.match(/<td[^>]*class="zentriert"[^>]*>(\d{1,2})<\/td>/);
-          const age = ageMatch ? ageMatch[1] : "";
-
-          // Nationalität (aus Flaggen-Bild — title steht vor class)
-          const natMatch = row.match(/title="([^"]+)"[^>]*class="flaggenrahmen"/);
-          const nationality = natMatch ? natMatch[1] : "";
-
-          // Vereins-Logo URL
-          const logoMatch = row.match(/tmssl\.akamaized\.net\/\/images\/wappen\/tiny\/(\d+)\.png/);
-          const logoUrl = logoMatch ? `https://tmssl.akamaized.net//images/wappen/big/${logoMatch[1]}.png` : "";
-
-          if (!results.find(r => r.url === profileUrl)) {
-            results.push({
-              name: playerName,
-              url: profileUrl,
-              nationality,
-              verein,
-              position,
-              age,
-              logoUrl,
-              type: "player",
-            });
-          }
-        }
-      }
+      parsePlayers(firstHtml, results);
+      const pageHtmls = await Promise.all([
+        fetchHtml(`${baseUrl}&Spieler_page=2`),
+        fetchHtml(`${baseUrl}&Spieler_page=3`),
+        fetchHtml(`${baseUrl}&Spieler_page=4`),
+        fetchHtml(`${baseUrl}&Spieler_page=5`),
+      ]);
+      for (const ph of pageHtmls) if (ph) parsePlayers(ph, results);
     }
 
     // Coach/Trainer Sektion parsen

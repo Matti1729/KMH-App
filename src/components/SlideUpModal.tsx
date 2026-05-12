@@ -9,9 +9,10 @@ interface SlideUpModalProps {
   onClose: () => void;
   children: React.ReactNode;
   maxHeight?: `${number}%` | number;
+  height?: `${number}%` | number;
 }
 
-export function SlideUpModal({ visible, onClose, children, maxHeight = '95%' }: SlideUpModalProps) {
+export function SlideUpModal({ visible, onClose, children, maxHeight = '95%', height }: SlideUpModalProps) {
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [shouldRender, setShouldRender] = useState(false);
@@ -73,6 +74,11 @@ export function SlideUpModal({ visible, onClose, children, maxHeight = '95%' }: 
               transform: [{ translateY: slideAnim }],
               backgroundColor: colors.surface,
               maxHeight: typeof maxHeight === 'string' ? maxHeight : maxHeight,
+              ...(height !== undefined ? {
+                height: typeof height === 'string' && height.endsWith('%')
+                  ? SCREEN_HEIGHT * (parseFloat(height) / 100)
+                  : (height as number)
+              } : {}),
             }
           ]}
         >

@@ -89,24 +89,24 @@ const CARDS: DashboardCardDef[] = [
     screen: 'KmhTeam',
   },
   {
-    id: 'news',
-    title: 'News',
-    subtitle: 'Updates & Mitteilungen',
-    icon: '📰',
-    screen: 'News',
-  },
-  {
     id: 'beratung',
     title: 'Was bedeutet Beratung',
     subtitle: 'Unsere Leistungen für dich',
     icon: '💡',
     screen: 'Beratung',
   },
+  {
+    id: 'news',
+    title: 'News',
+    subtitle: 'Updates & Mitteilungen',
+    icon: '📰',
+    screen: 'News',
+  },
 ];
 
 export function PlayerHomeScreen() {
   const navigation = useNavigation<any>();
-  const { session, profile, viewAsPlayer, setViewAsPlayer } = useAuth();
+  const { session, profile, viewAsPlayer, viewAsPlayerId, setViewAsPlayer } = useAuth();
   const { colors } = useTheme();
   const isMobile = useIsMobile();
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
@@ -116,13 +116,16 @@ export function PlayerHomeScreen() {
   const fetchPlayer = useCallback(async () => {
     if (!session?.user?.id) return;
     try {
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('player_details_id')
-        .eq('id', session.user.id)
-        .single();
+      let playerDetailsId = viewAsPlayerId || null;
 
-      let playerDetailsId = profileData?.player_details_id;
+      if (!playerDetailsId) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('player_details_id')
+          .eq('id', session.user.id)
+          .single();
+        playerDetailsId = profileData?.player_details_id;
+      }
 
       if (!playerDetailsId && profile?.first_name && profile?.last_name) {
         const { data: matchData } = await supabase
@@ -146,7 +149,7 @@ export function PlayerHomeScreen() {
     } catch (err) {
       console.warn('fetchPlayer error', err);
     }
-  }, [session?.user?.id, profile?.first_name, profile?.last_name]);
+  }, [session?.user?.id, profile?.first_name, profile?.last_name, viewAsPlayerId]);
 
   const fetchClubLogos = useCallback(async () => {
     const { data } = await supabase.from('club_logos').select('club_name, logo_url');
@@ -162,12 +165,12 @@ export function PlayerHomeScreen() {
   const { width: windowWidth } = useWindowDimensions();
   const SIDEBAR_WIDTH = isMobile ? 0 : 240;
   const CONTENT_PADDING = 48; // 24 left + 24 right
-  const GAP = 24;
+  const GAP = 16;
   const cardWidth = Math.max(160, Math.floor((windowWidth - SIDEBAR_WIDTH - CONTENT_PADDING - GAP * 2) / 3));
-  const CARD_HEIGHT = 220;
+  const CARD_HEIGHT = 160;
   const GRID_COLS = 3;
   const GRID_ROWS = Math.ceil(CARDS.length / GRID_COLS);
-  const HEADER_HEIGHT = isMobile ? 290 : 320;
+  const HEADER_HEIGHT = isMobile ? 300 : 330;
   const HEADER_GAP = 24;
   const canvasWidth = Math.max(480, windowWidth - SIDEBAR_WIDTH - CONTENT_PADDING);
   const canvasHeight = HEADER_HEIGHT + HEADER_GAP + GRID_ROWS * CARD_HEIGHT + (GRID_ROWS - 1) * GAP;
@@ -178,7 +181,7 @@ export function PlayerHomeScreen() {
     <TouchableOpacity
       key={card.id}
       activeOpacity={0.85}
-      style={[styles.gridCard, { width: cardWidth, borderColor: colors.cardBorder, overflow: 'hidden' }]}
+      style={[styles.gridCard, { width: cardWidth }]}
       onPress={() => navigation.navigate(card.screen)}
     >
       <Image
@@ -191,10 +194,9 @@ export function PlayerHomeScreen() {
           top: -(HEADER_HEIGHT + HEADER_GAP + rowIdx * (CARD_HEIGHT + GAP)),
         }}
       />
-      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.55)' }]} />
-      <View style={styles.cardFooter}>
-        <Text style={[styles.cardTitle, { color: '#fff' }]}>{card.title}</Text>
-        <Text style={[styles.cardSubtitle, { color: 'rgba(255,255,255,0.85)' }]}>{card.subtitle}</Text>
+      <View style={styles.cardTextBand}>
+        <Text style={styles.cardTitle}>{card.title}</Text>
+        <Text style={styles.cardSubtitle}>{card.subtitle}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -208,7 +210,7 @@ export function PlayerHomeScreen() {
   const nameLineHeight = isMobile ? 52 : 76;
 
   const Header = (
-    <View style={[styles.headerCard, { borderColor: colors.cardBorder, overflow: 'hidden', height: HEADER_HEIGHT }]}>
+    <View style={[styles.headerCard, { minHeight: HEADER_HEIGHT }]}>
       <Image
         source={FIELD_IMAGE}
         style={isMobile ? {
@@ -236,51 +238,39 @@ export function PlayerHomeScreen() {
             </Text>
           </View>
         )}
-        <View style={{ flex: 1, justifyContent: 'space-between', minHeight: photoHeight }}>
-          <View>
-            {firstName ? <Text style={[styles.playerNameHuge, { color: '#fff', fontSize: nameFontSize, lineHeight: nameLineHeight }]}>{firstName}</Text> : null}
-            {lastName ? <Text style={[styles.playerNameHuge, { color: '#fff', fontSize: nameFontSize, lineHeight: nameLineHeight }]}>{lastName}</Text> : null}
+        <View style={{ flex: 1, justifyContent: 'space-between', minHeight: photoHeight, paddingBottom: 8 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <View>
+              {firstName ? <Text style={[styles.playerNameHuge, { fontSize: nameFontSize, lineHeight: nameLineHeight }]}>{firstName}</Text> : null}
+              {lastName ? <Text style={[styles.playerNameHuge, { fontSize: nameFontSize, lineHeight: nameLineHeight }]}>{lastName}</Text> : null}
+            </View>
+            <Text style={[styles.headerScreenLabel, { textAlign: 'left' }]}>Karl Herzog Sportmanagement</Text>
           </View>
-          <View style={styles.clubRow}>
-            {clubLogo ? (
-              <Image source={{ uri: clubLogo }} style={styles.clubLogoLarge} />
-            ) : null}
-            <Text style={[styles.clubName, { color: 'rgba(255,255,255,0.85)' }]} numberOfLines={1}>
-              {player?.club || 'VEREINSLOS'}
-            </Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <View style={styles.clubRow}>
+              {clubLogo ? (
+                <Image source={{ uri: clubLogo }} style={styles.clubLogoLarge} />
+              ) : null}
+              <Text style={styles.clubName} numberOfLines={1}>
+                {player?.club || 'VEREINSLOS'}
+              </Text>
+            </View>
           </View>
         </View>
-        {player?.transfermarkt_url ? (
-          <TouchableOpacity
-            style={[styles.tmButton, { backgroundColor: 'rgba(255,255,255,0.92)', borderColor: 'rgba(255,255,255,0.4)' }]}
-            onPress={() => Linking.openURL(player.transfermarkt_url)}
-          >
-            <Image source={TransfermarktIcon} style={styles.tmIcon} resizeMode="contain" />
-            <Text style={[styles.tmButtonText, { color: '#111' }]}>Transfermarkt</Text>
-          </TouchableOpacity>
-        ) : null}
       </View>
 
-      <View style={[styles.headerDivider, { backgroundColor: 'rgba(255,255,255,0.3)' }]} />
+      <View style={styles.headerDivider} />
 
-      <Text style={[styles.quoteText, { color: '#fff' }]}>
-        „{PLAYER_QUOTE}"
-      </Text>
+      <View style={{ flex: 1, justifyContent: 'center' }}>
+        <Text style={styles.quoteText}>
+          „{PLAYER_QUOTE}"
+        </Text>
+      </View>
     </View>
   );
 
   const Content = (
     <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-      {/* Zurück zur Berater-Ansicht */}
-      {viewAsPlayer && (
-        <TouchableOpacity
-          style={styles.backToAdvisorButton}
-          onPress={() => setViewAsPlayer(false)}
-        >
-          <Text style={styles.backToAdvisorText}>{'\u2190'} Zur{'\u00FC'}ck zur Berater-Ansicht</Text>
-        </TouchableOpacity>
-      )}
-
       {Header}
 
       <View style={styles.grid}>
@@ -299,15 +289,6 @@ export function PlayerHomeScreen() {
   if (isMobile) {
     const MobileContent = (
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContentMobile}>
-        {viewAsPlayer && (
-          <TouchableOpacity
-            style={styles.backToAdvisorButton}
-            onPress={() => setViewAsPlayer(false)}
-          >
-            <Text style={styles.backToAdvisorText}>{'\u2190'} Zur{'\u00FC'}ck zur Berater-Ansicht</Text>
-          </TouchableOpacity>
-        )}
-
         {Header}
 
         <View style={styles.mobileCardsContainer}>
@@ -315,7 +296,7 @@ export function PlayerHomeScreen() {
             <TouchableOpacity
               key={card.id}
               activeOpacity={0.85}
-              style={[styles.mobileCard, { borderColor: colors.cardBorder, overflow: 'hidden', height: MOBILE_CARD_HEIGHT, padding: 0 }]}
+              style={[styles.mobileCard, { overflow: 'hidden', height: MOBILE_CARD_HEIGHT, padding: 0 }]}
               onPress={() => navigation.navigate(card.screen)}
             >
               <Image
@@ -327,12 +308,9 @@ export function PlayerHomeScreen() {
                   top: -(HEADER_HEIGHT + idx * MOBILE_CARD_HEIGHT),
                 }}
               />
-              <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.55)' }]} />
-              <View style={[styles.mobileCardContent, { padding: 16 }]}>
-                <View style={styles.mobileCardText}>
-                  <Text style={[styles.mobileCardTitle, { color: '#fff' }]}>{card.title}</Text>
-                  <Text style={[styles.mobileCardSubtitle, { color: 'rgba(255,255,255,0.85)' }]}>{card.subtitle}</Text>
-                </View>
+              <View style={[styles.cardTextBand, { position: 'relative', bottom: 0 }]}>
+                <Text style={styles.cardTitle}>{card.title}</Text>
+                <Text style={styles.cardSubtitle}>{card.subtitle}</Text>
               </View>
             </TouchableOpacity>
           ))}
@@ -430,54 +408,52 @@ const styles = StyleSheet.create({
   },
   backToAdvisorText: { color: '#fff', fontSize: 11, fontWeight: '600' },
 
-  // Neuer Header
+  // Header
   headerCard: {
     borderRadius: 12,
     borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
     paddingHorizontal: 28,
-    paddingVertical: 28,
-    marginBottom: 24,
+    paddingTop: 28,
+    paddingBottom: 0,
+    marginBottom: 16,
+    overflow: 'hidden',
   },
   headerTopRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 20 },
   photoPlaceholder: { alignItems: 'center', justifyContent: 'center' },
-  photoInitials: { fontSize: 42, fontWeight: '700' },
-  playerNameHuge: { fontWeight: '900', letterSpacing: -1.5 },
-  clubRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 6 },
+  photoInitials: { fontSize: 42, fontWeight: '700', color: '#fff' },
+  playerNameHuge: { fontFamily: 'Josefin Sans', fontWeight: '400', letterSpacing: 2, textTransform: 'uppercase', color: '#fff' },
+  clubRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   clubLogoLarge: { width: 44, height: 44, resizeMode: 'contain' },
-  clubName: { fontSize: 26, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' },
-  tmButton: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, borderWidth: 1, alignSelf: 'flex-start' },
-  tmIcon: { width: 20, height: 20 },
-  tmButtonText: { fontSize: 13, fontWeight: '600' },
-  headerDivider: { height: 1, marginVertical: 20 },
-  quoteText: { fontSize: 22, fontStyle: 'italic', lineHeight: 32, textAlign: 'center', fontWeight: '500' },
-  grid: {
-    gap: 24,
-  },
-  gridRow: {
-    flexDirection: 'row',
-    gap: 24,
-  },
+  clubName: { fontFamily: 'Josefin Sans', fontSize: 30, lineHeight: 38, fontWeight: '300', letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)', marginTop: 4, fontVariant: ['lining-nums'] },
+  headerScreenLabel: { fontFamily: 'Josefin Sans', fontSize: 26, fontWeight: '300', letterSpacing: 4, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)' },
+  tmButton: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)', backgroundColor: 'rgba(255,255,255,0.92)' },
+  tmIcon: { width: 14, height: 14 },
+  tmButtonText: { fontSize: 12, fontWeight: '600', color: '#111' },
+  headerDivider: { height: 1, marginTop: 20, marginBottom: 0, backgroundColor: 'rgba(255,255,255,0.3)' },
+  quoteText: { fontFamily: 'Josefin Sans', fontSize: 18, fontStyle: 'italic', lineHeight: 28, textAlign: 'center', fontWeight: '300', letterSpacing: 1, color: 'rgba(255,255,255,0.8)' },
+
+  // Grid
+  grid: { gap: 16 },
+  gridRow: { flexDirection: 'row', gap: 16 },
   gridCard: {
-    height: 220,
+    height: 160,
     borderRadius: 12,
-    padding: 20,
     borderWidth: 1,
-    justifyContent: 'space-between',
+    borderColor: 'rgba(255,255,255,0.15)',
+    overflow: 'hidden',
   },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+
+  // Card text band
+  cardTextBand: {
+    position: 'absolute',
+    bottom: 14,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
   },
-  cardIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cardIconText: { fontSize: 18 },
-  cardFooter: { marginTop: 'auto' },
-  cardTitle: { fontSize: 13, fontWeight: '700' },
-  cardSubtitle: { fontSize: 13, marginTop: 4, lineHeight: 18 },
+  cardTitle: { fontFamily: 'Josefin Sans', fontSize: 14, fontWeight: '400', letterSpacing: 2, textTransform: 'uppercase', color: '#fff' },
+  cardSubtitle: { fontFamily: 'Josefin Sans', fontSize: 12, fontWeight: '300', letterSpacing: 1, marginTop: 4, lineHeight: 18, color: 'rgba(255,255,255,0.7)' },
 });

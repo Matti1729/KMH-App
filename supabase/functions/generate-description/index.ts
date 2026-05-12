@@ -43,6 +43,7 @@ interface RequestBody {
   player: PlayerData;
   careerEntries?: CareerEntry[];
   bulletPoints?: string;
+  lang?: 'de' | 'en';
 }
 
 // --- Hilfsfunktionen ---
@@ -224,6 +225,32 @@ INHALTS-STRUKTUR (ohne Überschriften, als Fließtext):
 
 GIB NUR DEN FERTIGEN TEXT AUS (keine Erklärungen, keine Stichpunkte).`;
 
+const SYSTEM_PROMPT_EN = `You are a professional scouting analyst and write profile texts for scouts, coaches, and managers.
+
+TASK:
+Write exactly 1 profile text about the player based on the data below. You'll also receive "Extra Notes" as bullet points. Incorporate this information when relevant and credibly verifiable.
+
+HARD RULES (must be followed):
+- Length: 90–110 words (strict).
+- When the name is mentioned in the text: ONLY the first name (no surname in the running text).
+- Tone: professional, fact-based, serious. No superlatives, no marketing fluff.
+- Strengths must be concrete and situational (e.g., under pressure, in the half-space, in transition, against a deep block).
+- Mention measurements (height etc.) only if they are exceptional.
+- Club name: only mention if truly relevant; otherwise omit.
+- Extra notes: integrate, but do not list — turn into flowing prose. Avoid contradictions with the core data.
+- Closing sentence: no generic closer like "reliable building block", "valuable addition", "interesting option". Instead, name a concrete fit or perspective.
+- Phrase naturally and directly — like a scouting report, not a marketing brochure.
+- FORBIDDEN PHRASES (never use): "predictable performer", "valuable addition", "reliable building block", "interesting option", "prove himself", "make his mark". Use natural, concrete phrasing instead.
+
+CONTENT STRUCTURE (no headings, as flowing prose):
+1) Player-type framing in 1 sentence: First name + age/birth year + position/role + optionally league + clear USP.
+2) Role & playing style (1–2 sentences): How he affects possession / transition / defense.
+3) Facts/Output (1 sentence): Games/Goals/Assists or position-relevant metric + timeframe.
+4) Strengths (1–2 sentences): 2–3 concrete strengths, tied to game situations where possible.
+5) Character + brief fit (1 sentence).
+
+OUTPUT THE FINISHED TEXT ONLY (no explanations, no bullet points).`;
+
 // --- Server ---
 
 serve(async (req: Request) => {
@@ -242,7 +269,8 @@ serve(async (req: Request) => {
       );
     }
 
-    const { player, careerEntries = [], bulletPoints = '' }: RequestBody = await req.json();
+    const { player, careerEntries = [], bulletPoints = '', lang = 'de' }: RequestBody = await req.json();
+    const language: 'de' | 'en' = lang === 'en' ? 'en' : 'de';
     console.log("Player:", player?.first_name, player?.last_name, "Position:", player?.position);
 
     // Daten aufbereiten
@@ -307,7 +335,7 @@ ${extraNotes}`;
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
           max_tokens: 300,
-          system: SYSTEM_PROMPT,
+          system: language === 'en' ? SYSTEM_PROMPT_EN : SYSTEM_PROMPT,
           messages: [{ role: "user", content: userMessage }],
         }),
       });

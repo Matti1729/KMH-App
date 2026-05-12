@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Pressable, ActivityIndicator, Image, Alert, Linking } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Pressable, ActivityIndicator, Image, Alert, Linking, Platform } from 'react-native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
+import { AdvisorBackground } from '../../components/AdvisorBackground';
+import { AdvisorHeroHeader, heroCardAttachedToolbar } from '../../components/AdvisorHeroHeader';
+import { useGameSync } from '../../contexts/GameSyncContext';
 import { MobileHeader } from '../../components/MobileHeader';
 import { MobileSidebar } from '../../components/MobileSidebar';
 import { useIsMobile } from '../../hooks/useIsMobile';
@@ -123,7 +126,7 @@ export function TermineScreen({ navigation }: any) {
   const { colors, isDark } = useTheme();
   const dataLoadedRef = useRef(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
+  const [viewMode, setViewMode] = useState<ViewMode>('spiele');
   const [profile, setProfile] = useState<Advisor | null>(null);
   const [termine, setTermine] = useState<Termin[]>([]);
   const [advisors, setAdvisors] = useState<Advisor[]>([]);
@@ -151,12 +154,30 @@ export function TermineScreen({ navigation }: any) {
   const [showPlayerDropdown, setShowPlayerDropdown] = useState(false);
   const [showMobilePlayerSection, setShowMobilePlayerSection] = useState(false);
   const [showMobileRespSection, setShowMobileRespSection] = useState(false);
-  const [syncingGames, setSyncingGames] = useState(false);
-  const [syncProgress, setSyncProgress] = useState<{ current: number; total: number; playerName: string } | null>(null);
-  const [gameSyncResult, setGameSyncResult] = useState<{ added: number; updated: number; deleted: number; errors: string[] } | null>(null);
+
+  // Click-outside-Handler für Mobile-Filter-Dropdowns (Skill-Pattern)
+  useEffect(() => {
+    if (!showMobilePlayerSection && !showMobileRespSection) return;
+    if (typeof document === 'undefined') return;
+    const handler = (e: any) => {
+      const target = e.target;
+      if (target && target.closest && target.closest('[data-kmh-dropdown]')) return;
+      setShowMobilePlayerSection(false);
+      setShowMobileRespSection(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showMobilePlayerSection, showMobileRespSection]);
+  // Sync-State kommt jetzt aus globalem Context — bleibt erhalten beim Screen-Wechsel
+  const { syncing: syncingGames, progress: syncProgress, result: gameSyncResult, startSync, clearResult } = useGameSync();
+  const setGameSyncResult = (v: any) => { if (v === null) clearResult(); };
   const [showTokenModal, setShowTokenModal] = useState(false);
   const [apiToken, setApiToken] = useState('');
   const [playersWithUrl, setPlayersWithUrl] = useState<any[]>([]);
+  // Tooltip-State für Change-Badge (Hover/Tap zeigt Details)
+  const [tooltipGameId, setTooltipGameId] = useState<string | null>(null);
+  // Hover-State für Result-Banner Detail-Popover
+  const [resultHover, setResultHover] = useState(false);
   
   // Sorting state
   const [sortField, setSortField] = useState<SortField>('datum');
@@ -248,8 +269,10 @@ export function TermineScreen({ navigation }: any) {
   const fetchPlayerGames = async () => {
     try {
       const games = await loadUpcomingGames(supabase);
+      // Selection-State NICHT aus DB übernehmen — User soll bewusst auswählen pro Session
       setPlayerGames(games.map(g => ({
         ...g,
+        selected: false,
         player_name: g.player ? `${g.player.first_name} ${g.player.last_name}` : g.player_name || '-'
       })));
     } catch (err) {
@@ -620,46 +643,15 @@ export function TermineScreen({ navigation }: any) {
   };
 
   const handleSyncGames = async () => {
-    // Prüfen ob Token vorhanden
-    const token = await getApiToken(supabase);
-    if (!token) {
-      setShowTokenModal(true);
-      return;
-    }
-
     if (playersWithUrl.length === 0) {
       Alert.alert('Hinweis', 'Keine Spieler mit fussball.de URL gefunden.\n\nBitte trage zuerst im Spielerprofil die fussball.de URL ein.');
       return;
     }
-
     const filteredIds = getFilteredPlayerIds();
-    const syncCount = filteredIds ? filteredIds.length : playersWithUrl.length;
-
-    setSyncingGames(true);
-    setGameSyncResult(null);
-    setSyncProgress({ current: 0, total: syncCount, playerName: '' });
-
-    try {
-      const result = await syncAllPlayerGames(
-        supabase,
-        (current, total, playerName) => {
-          setSyncProgress({ current, total, playerName });
-        },
-        filteredIds
-      );
-
-      setGameSyncResult(result);
-
-      // Spiele neu laden
-      await fetchPlayerGames();
-
-    } catch (error: any) {
-      console.error('Sync error:', error);
-      Alert.alert('Fehler', 'Fehler bei der Synchronisierung: ' + error.message);
-    } finally {
-      setSyncingGames(false);
-      setSyncProgress(null);
-    }
+    // Sync läuft im globalen Context — überlebt Screen-Wechsel
+    await startSync(filteredIds);
+    // Nach Sync-Ende Spiele neu laden
+    await fetchPlayerGames();
   };
 
   const handleSaveToken = async () => {
@@ -963,8 +955,9 @@ END:VEVENT
   }, [playerGames]);
 
   const filteredGames = useMemo(() => {
-    let games = [...playerGames];
-    
+    // Cancelled-Spiele tauchen nicht mehr in der Liste auf — werden nur im Notiz-Banner gezählt
+    let games = playerGames.filter((g: any) => g.status !== 'cancelled');
+
     if (gamesSearchText) {
       const search = gamesSearchText.toLowerCase();
       games = games.filter(g => 
@@ -1088,12 +1081,17 @@ END:VEVENT
   );
 
   const formatGameDate = (dateStr: string): string => {
-    const date = new Date(dateStr);
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    if (!dateStr || dateStr.length < 10) return '';
+    const parts = dateStr.substring(0, 10).split('-');
+    if (parts.length !== 3) return dateStr;
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10);
+    const day = parseInt(parts[2], 10);
+    // Lokale Konstruktion vermeidet Timezone-Shift bei reinen ISO-Dates
+    const date = new Date(year, month - 1, day);
     const weekdays = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
     const weekday = weekdays[date.getDay()];
-    return `${weekday}, ${day}.${month}.`;
+    return `${weekday}, ${day.toString().padStart(2, '0')}.${month.toString().padStart(2, '0')}.`;
   };
 
   // Hilfsfunktion: Heutiges Datum in mitteleuropäischer Zeit
@@ -1155,7 +1153,7 @@ END:VEVENT
             {/* Spiele unserer Spieler */}
             <DashboardCard
               id="spiele"
-              style={[styles.mobileCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
+              style={[styles.mobileCard, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}
               onPress={() => setViewMode('spiele')}
               hoverStyle={styles.lightCardHovered}
             >
@@ -1200,7 +1198,7 @@ END:VEVENT
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <View style={styles.gridContainer}>
           <View style={styles.row}>
-            <DashboardCard id="spiele" style={[styles.mainCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]} onPress={() => setViewMode('spiele')} hoverStyle={styles.mainCardHovered}>
+            <DashboardCard id="spiele" style={[styles.mainCard, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]} onPress={() => setViewMode('spiele')} hoverStyle={styles.mainCardHovered}>
               <Text style={[styles.todayCountTopRight, { color: colors.text }]}>{getTodayGamesCount()}</Text>
               <View style={styles.mainCardContent}>
                 <View style={styles.mainCardLeft}>
@@ -1220,7 +1218,7 @@ END:VEVENT
                 </View>
               </View>
             </DashboardCard>
-            <DashboardCard id="termine" style={[styles.termineCardFull, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]} onPress={() => setViewMode('termine')} hoverStyle={styles.lightCardHovered}>
+            <DashboardCard id="termine" style={[styles.termineCardFull, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]} onPress={() => setViewMode('termine')} hoverStyle={styles.lightCardHovered}>
               <Text style={[styles.todayCountTopRight, { color: colors.text }]}>{getTodayTermineCount()}</Text>
               <View style={styles.termineHeader}>
                 <View style={[styles.termineIcon, { backgroundColor: colors.surfaceSecondary }]}><Text style={styles.termineIconText}>📋</Text></View>
@@ -1283,122 +1281,108 @@ END:VEVENT
       const activeFilterCount = selectedPlayers.length + selectedResponsibilities.length;
 
       return (
-        <View style={[styles.mobileGamesContainer, { backgroundColor: colors.background }]}>
-          {/* Toolbar mit Zurück, Filter und Sync */}
-          <View style={[styles.mobileGamesToolbar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-            <TouchableOpacity style={{ paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }} onPress={() => setViewMode('dashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
-
-            <View style={{ flex: 1 }} />
-
-            {/* Alle auswählen / abwählen */}
-            <TouchableOpacity
-              style={[styles.mobileGamesIconBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, areAllFilteredSelected() && styles.mobileGamesToolbarBtnActive]}
-              onPress={toggleSelectAllFiltered}
-            >
-              <Ionicons name={areAllFilteredSelected() ? "checkbox" : "checkbox-outline"} size={18} color={areAllFilteredSelected() ? "#fff" : colors.textSecondary} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.mobileGamesIconBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, activeFilterCount > 0 && styles.mobileGamesToolbarBtnActive]}
-              onPress={() => setShowPlayerDropdown(true)}
-            >
-              <Ionicons name="filter" size={18} color={activeFilterCount > 0 ? "#fff" : colors.textSecondary} />
-              {activeFilterCount > 0 && (
-                <Text style={styles.mobileGamesFilterCount}>{activeFilterCount}</Text>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.mobileGamesIconBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, syncingGames && { opacity: 0.6 }]}
-              onPress={handleSyncGames}
-              disabled={syncingGames}
-            >
-              <Text style={[styles.mobileGamesIconBtnText, { color: colors.textSecondary }]}>{syncingGames ? '⏳' : '↻'}</Text>
-            </TouchableOpacity>
-          </View>
+        <View style={[styles.mobileGamesContainer, { backgroundColor: 'transparent' }]}>
+          {/* Toolbar-Buttons sind jetzt im MobileHeader integriert */}
 
           {/* Filter Modal */}
           <Modal visible={showPlayerDropdown} transparent animationType="slide">
-            <View style={[styles.mobileGamesFilterModal, { backgroundColor: colors.surface }]}>
-              <View style={[styles.mobileGamesFilterHeader, { borderBottomColor: colors.border }]}>
-                <Text style={[styles.mobileGamesFilterTitle, { color: colors.text }]}>Filter</Text>
-                <TouchableOpacity onPress={() => setShowPlayerDropdown(false)}>
-                  <Text style={[styles.mobileGamesFilterClose, { color: colors.textSecondary }]}>✕</Text>
+            <View style={{ flex: 1, marginTop: 60, backgroundColor: '#000', borderTopLeftRadius: 16, borderTopRightRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', overflow: 'hidden' }}>
+              <Image source={require('../../../assets/scouting-header-bg.jpg')} style={[StyleSheet.absoluteFillObject, { width: '100%', height: '100%', opacity: 0.85, ...({ objectFit: 'cover', objectPosition: 'center', backgroundSize: 'cover', backgroundPosition: 'center' } as any) }]} resizeMode="cover" />
+              <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />
+
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', zIndex: 1 }}>
+                <Text style={{ fontFamily: 'Josefin Sans', fontSize: 20, lineHeight: 26, fontWeight: '300', letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)' }}>Filter</Text>
+                <TouchableOpacity onPress={() => setShowPlayerDropdown(false)} style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 20 }}>✕</Text>
                 </TouchableOpacity>
               </View>
-              <ScrollView style={styles.mobileGamesFilterContent}>
-                {/* Spieler Filter - Dropdown */}
-                <TouchableOpacity
-                  style={[styles.mobileFilterDropdownBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
-                  onPress={() => setShowMobilePlayerSection(!showMobilePlayerSection)}
-                >
-                  <Text style={[styles.mobileFilterDropdownBtnText, { color: colors.text }]}>
-                    Spieler{selectedPlayers.length > 0 ? ` (${selectedPlayers.length})` : ''}
-                  </Text>
-                  <Ionicons name={showMobilePlayerSection ? "chevron-up" : "chevron-down"} size={18} color={colors.textSecondary} />
-                </TouchableOpacity>
-                {showMobilePlayerSection && (
-                  <View style={[styles.mobileFilterDropdownList, { borderColor: colors.border }]}>
-                    {availablePlayers.map(player => {
-                      const isSelected = selectedPlayers.includes(player.id);
-                      return (
-                        <TouchableOpacity
-                          key={player.id}
-                          style={[styles.mobileFilterDropdownItem, { borderBottomColor: colors.border }, isSelected && { backgroundColor: colors.primary + '22' }]}
-                          onPress={() => togglePlayer(player.id)}
-                        >
-                          <Text style={[styles.mobileFilterDropdownItemText, { color: colors.text }, isSelected && { color: colors.primary, fontWeight: '600' }]}>
-                            {player.name}
-                          </Text>
-                          {isSelected && <Ionicons name="checkmark" size={18} color={colors.primary} />}
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                )}
 
-                {/* Zuständigkeit Filter - Dropdown */}
-                <TouchableOpacity
-                  style={[styles.mobileFilterDropdownBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
-                  onPress={() => setShowMobileRespSection(!showMobileRespSection)}
-                >
-                  <Text style={[styles.mobileFilterDropdownBtnText, { color: colors.text }]}>
-                    Zuständigkeit{selectedResponsibilities.length > 0 ? ` (${selectedResponsibilities.length})` : ''}
-                  </Text>
-                  <Ionicons name={showMobileRespSection ? "chevron-up" : "chevron-down"} size={18} color={colors.textSecondary} />
-                </TouchableOpacity>
-                {showMobileRespSection && (
-                  <View style={[styles.mobileFilterDropdownList, { borderColor: colors.border }]}>
-                    {availableResponsibilities.map(resp => {
-                      const isSelected = selectedResponsibilities.includes(resp);
-                      return (
-                        <TouchableOpacity
-                          key={resp}
-                          style={[styles.mobileFilterDropdownItem, { borderBottomColor: colors.border }, isSelected && { backgroundColor: colors.primary + '22' }]}
-                          onPress={() => toggleResponsibility(resp)}
-                        >
-                          <Text style={[styles.mobileFilterDropdownItemText, { color: colors.text }, isSelected && { color: colors.primary, fontWeight: '600' }]}>
-                            {resp}
-                          </Text>
-                          {isSelected && <Ionicons name="checkmark" size={18} color={colors.primary} />}
+              <ScrollView style={{ flex: 1, zIndex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24 }}>
+                {/* Spieler Filter */}
+                <View {...({ 'data-kmh-dropdown': 'true' } as any)} style={{ marginBottom: 14, maxWidth: 280, zIndex: 50, position: 'relative' }}>
+                  <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Spieler</Text>
+                  <TouchableOpacity
+                    style={{ backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 4, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                    onPress={() => setShowMobilePlayerSection(!showMobilePlayerSection)}
+                  >
+                    <Text numberOfLines={1} style={{ fontSize: 13, color: selectedPlayers.length ? '#fff' : 'rgba(255,255,255,0.3)', flex: 1 }}>
+                      {selectedPlayers.length === 0 ? 'Spieler auswählen' : selectedPlayers.map(id => availablePlayers.find(p => p.id === id)?.name).filter(Boolean).join(', ')}
+                    </Text>
+                    <Ionicons name={showMobilePlayerSection ? 'chevron-up' : 'chevron-down'} size={14} color="rgba(255,255,255,0.5)" />
+                  </TouchableOpacity>
+                  {showMobilePlayerSection ? (
+                    <View style={{ position: 'absolute', top: '100%', left: 0, minWidth: 220, marginTop: 2, backgroundColor: '#1e293b', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12 }}>
+                      <ScrollView style={{ maxHeight: 260 }} nestedScrollEnabled>
+                        <TouchableOpacity style={{ paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }} onPress={() => { setSelectedPlayers([]); saveFilter(STORAGE_KEY_PLAYERS, []); }}>
+                          <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>Leeren</Text>
                         </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                )}
+                        {availablePlayers.map(player => {
+                          const checked = selectedPlayers.includes(player.id);
+                          return (
+                            <TouchableOpacity
+                              key={player.id}
+                              style={{ paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)', flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                              onPress={() => togglePlayer(player.id)}
+                            >
+                              <Ionicons name={checked ? 'checkbox' : 'square-outline'} size={16} color={checked ? '#22c55e' : 'rgba(255,255,255,0.5)'} />
+                              <Text numberOfLines={1} style={{ fontSize: 13, color: '#fff', flex: 1 }}>{player.name}</Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </ScrollView>
+                    </View>
+                  ) : null}
+                </View>
+
+                {/* Zuständigkeit Filter */}
+                <View {...({ 'data-kmh-dropdown': 'true' } as any)} style={{ marginBottom: 14, maxWidth: 280, zIndex: 40, position: 'relative' }}>
+                  <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Zuständigkeit</Text>
+                  <TouchableOpacity
+                    style={{ backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 4, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                    onPress={() => setShowMobileRespSection(!showMobileRespSection)}
+                  >
+                    <Text numberOfLines={1} style={{ fontSize: 13, color: selectedResponsibilities.length ? '#fff' : 'rgba(255,255,255,0.3)', flex: 1 }}>
+                      {selectedResponsibilities.length === 0 ? 'Berater auswählen' : selectedResponsibilities.join(', ')}
+                    </Text>
+                    <Ionicons name={showMobileRespSection ? 'chevron-up' : 'chevron-down'} size={14} color="rgba(255,255,255,0.5)" />
+                  </TouchableOpacity>
+                  {showMobileRespSection ? (
+                    <View style={{ position: 'absolute', top: '100%', left: 0, minWidth: 220, marginTop: 2, backgroundColor: '#1e293b', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12 }}>
+                      <ScrollView style={{ maxHeight: 260 }} nestedScrollEnabled>
+                        <TouchableOpacity style={{ paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }} onPress={() => { setSelectedResponsibilities([]); saveFilter(STORAGE_KEY_RESPONSIBILITIES, []); }}>
+                          <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>Leeren</Text>
+                        </TouchableOpacity>
+                        {availableResponsibilities.map(resp => {
+                          const checked = selectedResponsibilities.includes(resp);
+                          return (
+                            <TouchableOpacity
+                              key={resp}
+                              style={{ paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)', flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                              onPress={() => toggleResponsibility(resp)}
+                            >
+                              <Ionicons name={checked ? 'checkbox' : 'square-outline'} size={16} color={checked ? '#22c55e' : 'rgba(255,255,255,0.5)'} />
+                              <Text numberOfLines={1} style={{ fontSize: 13, color: '#fff', flex: 1 }}>{resp}</Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </ScrollView>
+                    </View>
+                  ) : null}
+                </View>
               </ScrollView>
-              <View style={[styles.mobileGamesFilterFooter, { borderTopColor: colors.border }]}>
+
+              <View style={{ flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingVertical: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)', backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1 }}>
                 <TouchableOpacity
-                  style={[styles.mobileGamesFilterClearBtn, { backgroundColor: colors.surfaceSecondary }]}
+                  style={{ flex: 1, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' }}
                   onPress={() => { setSelectedPlayers([]); setSelectedResponsibilities([]); saveFilter(STORAGE_KEY_PLAYERS, []); saveFilter(STORAGE_KEY_RESPONSIBILITIES, []); }}
                 >
-                  <Text style={[styles.mobileGamesFilterClearText, { color: colors.textSecondary }]}>Alle löschen</Text>
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.85)' }}>Alle löschen</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.mobileGamesFilterApplyBtn, { backgroundColor: colors.primary }]}
+                  style={{ flex: 1, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: '#22c55e', backgroundColor: '#22c55e', alignItems: 'center', justifyContent: 'center' }}
                   onPress={() => setShowPlayerDropdown(false)}
                 >
-                  <Text style={[styles.mobileGamesFilterApplyText, { color: colors.primaryText }]}>Anwenden</Text>
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: '#fff' }}>Anwenden</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1441,7 +1425,7 @@ END:VEVENT
                 return (
                   <TouchableOpacity
                     key={game.id}
-                    style={[styles.mobileGameCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }, isToday && { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#d1fae5', borderColor: '#10b981' }]}
+                    style={[styles.mobileGameCard, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }, isToday && { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#d1fae5', borderColor: '#10b981' }]}
                     onPress={() => toggleGameSelection(game.id, game.selected)}
                     activeOpacity={0.7}
                   >
@@ -1488,56 +1472,142 @@ END:VEVENT
 
     // Desktop View
     return (
-      <View style={[styles.scoutingMainContent, { backgroundColor: colors.background }]}>
-        {/* Header Banner */}
-        <Pressable style={[styles.scoutingHeaderBanner, { backgroundColor: colors.surface, borderBottomColor: colors.border }]} onPress={closeAllGameDropdowns}>
-          <View style={{ width: 40 }} />
-          <View style={styles.scoutingHeaderBannerCenter}>
-            <Text style={[styles.scoutingTitle, { color: colors.text }]}>Spiele unserer Spieler</Text>
-            <Text style={[styles.scoutingSubtitle, { color: colors.textSecondary }]}>
-              {playersWithUrl.length} Spieler • {playerGames.length} Spiele geladen
-            </Text>
-          </View>
-          <View style={{ width: 40 }} />
-        </Pressable>
+      <View style={[styles.scoutingMainContent, { backgroundColor: 'transparent' }]}>
+        {/* Header Banner mit floatendem Sync-Indicator links oben */}
+        <View style={{ position: 'relative', zIndex: 1000 }}>
+          {/* Sync Progress — Text "Aktualisiere: <Name>" + grüner Balken + Prozent rechts (oben links im Header) */}
+          {syncingGames && syncProgress && (() => {
+            const pct = Math.round((syncProgress.current / syncProgress.total) * 100);
+            return (
+              <View pointerEvents="none" style={{ position: 'absolute', top: 40, left: 52, width: 320, zIndex: 10 }}>
+                <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)', fontWeight: '500', marginBottom: 4 }} numberOfLines={1}>
+                  Aktualisiere: {syncProgress.playerName}
+                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+                    <View style={{ height: '100%', width: `${pct}%`, backgroundColor: '#84cc16', borderRadius: 3 }} />
+                  </View>
+                  <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)', width: 36, textAlign: 'right' }}>{pct}%</Text>
+                </View>
+              </View>
+            );
+          })()}
 
-        {/* Sync Progress */}
-        {syncingGames && syncProgress && (
-          <View style={[styles.syncProgressBar, { backgroundColor: colors.surfaceSecondary }]}>
-            <View style={[styles.syncProgressFill, { width: `${(syncProgress.current / syncProgress.total) * 100}%` }]} />
-            <Text style={[styles.syncProgressText, { color: colors.text }]}>
-              Lade Spiele für: {syncProgress.playerName}
-            </Text>
-          </View>
-        )}
+          {/* Sync Result — Badge mit Counter aus DB + Hover-Popover + Alle bestätigen (oben links im Header) */}
+          {!syncingGames && (() => {
+            const cancelledUnseen = playerGames.filter((g: any) => g.status === 'cancelled' && !g.user_seen_at);
+            const newGames = playerGames.filter((g: any) => g.status !== 'cancelled' && g.change_summary?.new === true && !g.user_seen_at);
+            const changedGames = playerGames.filter((g: any) => g.status !== 'cancelled' && !g.change_summary?.new && g.last_changed_at && !g.user_seen_at);
+            const totalUnseen = cancelledUnseen.length + newGames.length + changedGames.length;
+            if (totalUnseen === 0) return null;
 
-        {/* Sync Result */}
-        {gameSyncResult && !syncingGames && (
-          <View style={[styles.syncResultBanner, gameSyncResult.errors.length > 0 ? styles.syncResultWarning : { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : '#bbf7d0' }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.syncResultText, { color: gameSyncResult.errors.length > 0 ? '#991b1b' : colors.text }]}>
-                ✓ {gameSyncResult.added > 0 ? `${gameSyncResult.added} neue Spiele` : 'Spiele aktualisiert'}
-                {gameSyncResult.deleted > 0 && ` • ${gameSyncResult.deleted} Spiele entfernt`}
-                {gameSyncResult.errors.length > 0 && ` • ${gameSyncResult.errors.length} Fehler`}
-              </Text>
-              {gameSyncResult.errors.map((err, i) => (
-                <Text key={i} style={{ color: '#991b1b', fontSize: 12, marginTop: 2 }}>⚠ {err}</Text>
-              ))}
-            </View>
-            <TouchableOpacity onPress={() => setGameSyncResult(null)}>
-              <Text style={[styles.syncResultClose, { color: gameSyncResult.errors.length > 0 ? '#991b1b' : colors.textSecondary }]}>✕</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+            const labelFor = (g: any) => `${g.home_team} - ${g.away_team}`;
+            const parts: string[] = [];
+            if (newGames.length > 0) parts.push(`${newGames.length} neu`);
+            if (changedGames.length > 0) parts.push(`${changedGames.length} geändert`);
+            if (cancelledUnseen.length > 0) parts.push(`${cancelledUnseen.length} abgesagt`);
+            const text = `✓ ${parts.join(' · ')}`;
 
-        {/* Toolbar */}
-        <Pressable style={[styles.scoutingToolbar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]} onPress={closeAllGameDropdowns}>
-          <TouchableOpacity style={{ paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }} onPress={() => setViewMode('dashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
-          <Pressable style={[styles.spieleSearchContainer, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={closeAllGameDropdowns}>
+            return (
+              <View style={{ position: 'absolute', top: 60, left: 52, zIndex: 500 }}>
+                <Pressable
+                  onHoverIn={() => setResultHover(true)}
+                  onHoverOut={() => setResultHover(false)}
+                  style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 4, backgroundColor: 'rgba(34,197,94,0.25)', borderWidth: 1, borderColor: '#22c55e', overflow: 'hidden' }}
+                >
+                  <Text style={{ fontSize: 10, color: '#86efac', fontWeight: '600', letterSpacing: 0.3, paddingHorizontal: 10, paddingVertical: 4 }}>{text}</Text>
+                  <View style={{ width: 1, alignSelf: 'stretch', backgroundColor: '#22c55e' }} />
+                  <Pressable
+                    onPress={async () => {
+                      await supabase.from('player_games').update({ user_seen_at: new Date().toISOString() })
+                        .not('last_changed_at', 'is', null).is('user_seen_at', null);
+                      setResultHover(false);
+                      fetchPlayerGames();
+                    }}
+                    style={({ pressed }: any) => [
+                      { paddingHorizontal: 10, paddingVertical: 4, backgroundColor: pressed ? 'rgba(34,197,94,0.5)' : 'transparent' },
+                    ]}
+                  >
+                    <Text style={{ fontSize: 9, color: '#fff', fontWeight: '600' }}>Alle bestätigen</Text>
+                  </Pressable>
+                </Pressable>
+
+                {resultHover && (
+                  <View
+                    pointerEvents="none"
+                    style={({
+                      position: 'absolute',
+                      top: 28,
+                      left: 0,
+                      paddingHorizontal: 12,
+                      paddingVertical: 10,
+                      borderRadius: 6,
+                      backgroundColor: '#000',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255,255,255,0.25)',
+                      zIndex: 9999,
+                      elevation: 24,
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: 0.6,
+                      shadowRadius: 12,
+                      minWidth: 360,
+                      maxWidth: 520,
+                    } as any)}
+                  >
+                    {newGames.length > 0 && (
+                      <View style={{ marginBottom: changedGames.length > 0 || cancelledUnseen.length > 0 ? 6 : 0 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                          <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: '#fbbf24' }} />
+                          <Text style={{ fontSize: 11, color: '#fff', fontWeight: '600' }}>{newGames.length} neu</Text>
+                        </View>
+                        <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)', lineHeight: 14 }}>
+                          {newGames.slice(0, 5).map(labelFor).join(', ')}{newGames.length > 5 ? ` +${newGames.length - 5}` : ''}
+                        </Text>
+                      </View>
+                    )}
+                    {changedGames.length > 0 && (
+                      <View style={{ marginBottom: cancelledUnseen.length > 0 ? 6 : 0 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                          <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: '#ea580c' }} />
+                          <Text style={{ fontSize: 11, color: '#fff', fontWeight: '600' }}>{changedGames.length} geändert</Text>
+                        </View>
+                        <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)', lineHeight: 14 }}>
+                          {changedGames.slice(0, 5).map(labelFor).join(', ')}{changedGames.length > 5 ? ` +${changedGames.length - 5}` : ''}
+                        </Text>
+                      </View>
+                    )}
+                    {cancelledUnseen.length > 0 && (
+                      <View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                          <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: '#dc2626' }} />
+                          <Text style={{ fontSize: 11, color: '#fff', fontWeight: '600' }}>{cancelledUnseen.length} abgesagt</Text>
+                        </View>
+                        <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)', lineHeight: 14 }}>
+                          {cancelledUnseen.slice(0, 5).map(labelFor).join(', ')}{cancelledUnseen.length > 5 ? ` +${cancelledUnseen.length - 5}` : ''}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </View>
+            );
+          })()}
+
+          <Pressable onPress={closeAllGameDropdowns}>
+            <AdvisorHeroHeader
+              title="SPIELTAGE"
+              subtitle={`${playersWithUrl.length} SPIELER · ${playerGames.length} SPIELE GELADEN`}
+              backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
+              backgroundImageOpacity={0.45}
+            >
+          {/* Filter werden als children im AdvisorHeroHeader gerendert */}
+          <TouchableOpacity style={{ height: 28, paddingVertical: 0, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center' }} onPress={() => navigation.navigate('AdvisorDashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
+          <Pressable style={[styles.spieleSearchContainer, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)', height: 28, borderRadius: 6, paddingVertical: 0, flex: 1 }]} onPress={closeAllGameDropdowns}>
             <Text style={styles.scoutingSearchIcon}>🔍</Text>
             <TextInput
-              style={[styles.scoutingSearchInput, { color: colors.text }]}
-              placeholder="Spieler, Verein suchen..." 
+              style={[styles.scoutingSearchInput, { color: colors.text, paddingVertical: 0 }]}
+              placeholder="Spieler, Verein suchen..."
               placeholderTextColor={colors.textMuted}
               value={gamesSearchText}
               onChangeText={setGamesSearchText}
@@ -1549,7 +1619,7 @@ END:VEVENT
             {/* Spieler Filter */}
             <View style={[styles.scoutingDropdownContainer, { zIndex: 40 }]}>
               <TouchableOpacity
-                style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedPlayers.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
+                style={[styles.scoutingFilterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }, selectedPlayers.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
                 onPress={(e) => { e.stopPropagation(); setShowPlayerDropdown(!showPlayerDropdown); setShowResponsibilityDropdown(false); }}
               >
                 <Text style={[styles.scoutingFilterButtonText, { color: colors.textSecondary }, selectedPlayers.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>
@@ -1595,7 +1665,7 @@ END:VEVENT
             {/* Zuständigkeit Filter */}
             <View style={[styles.scoutingDropdownContainer, { zIndex: 30 }]}>
               <TouchableOpacity
-                style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedResponsibilities.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
+                style={[styles.scoutingFilterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }, selectedResponsibilities.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
                 onPress={(e) => { e.stopPropagation(); setShowResponsibilityDropdown(!showResponsibilityDropdown); setShowPlayerDropdown(false); }}
               >
                 <Text style={[styles.scoutingFilterButtonText, { color: colors.textSecondary }, selectedResponsibilities.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>
@@ -1642,40 +1712,51 @@ END:VEVENT
               )}
             </View>
             {getSelectedGamesCount() > 0 && (
-              <TouchableOpacity style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={exportSelectedToCalendar}>
+              <TouchableOpacity style={[styles.scoutingFilterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }]} onPress={exportSelectedToCalendar}>
                 <Text style={[styles.scoutingFilterButtonText, { color: colors.textSecondary }]}>📅 {getSelectedGamesCount()}</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity
-              style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, syncingGames && { opacity: 0.6 }]}
+              style={[styles.scoutingFilterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }, syncingGames && { opacity: 0.6 }]}
               onPress={handleSyncGames}
               disabled={syncingGames}
             >
               <Ionicons name="refresh-outline" size={13} color={syncingGames ? colors.textMuted : colors.textSecondary} />
             </TouchableOpacity>
           </View>
-        </Pressable>
+            </AdvisorHeroHeader>
+          </Pressable>
+        </View>
 
         {/* Tabelle */}
         <Pressable style={styles.scoutingContent} onPress={closeAllGameDropdowns}>
-          <View style={[styles.scoutingGamesContainer, { backgroundColor: colors.cardBackground }]}>
-            <View style={[styles.scoutingTableHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
-              <TouchableOpacity
-                style={[styles.scoutingTableHeaderCell, { width: 40 }]}
-                onPress={toggleSelectAllFiltered}
-              >
-                <View style={[styles.gameCheckbox, { backgroundColor: colors.surface, borderColor: colors.border }, areAllFilteredSelected() && styles.gameCheckboxSelected]}>
-                  {areAllFilteredSelected() && <Text style={styles.gameCheckmark}>✓</Text>}
-                </View>
+          <View style={[styles.scoutingGamesContainer, { backgroundColor: 'rgba(0,0,0,0.55)', borderColor: 'rgba(255,255,255,0.15)', borderWidth: 1, borderRadius: 12 }]}>
+            <View style={[styles.scoutingTableHeaderOuter, { backgroundColor: 'rgba(0,0,0,0.45)', borderBottomColor: 'rgba(255,255,255,0.15)', overflow: 'hidden' }]}>
+              <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.45 }} resizeMode="cover" />
+              <TouchableOpacity onPress={toggleSelectAllFiltered} style={{ width: 36, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons
+                  name={areAllFilteredSelected() ? 'checkbox' : 'square-outline'}
+                  size={18}
+                  color={areAllFilteredSelected() ? colors.primary : colors.textMuted}
+                />
               </TouchableOpacity>
-              <Text style={[styles.scoutingTableHeaderCell, { flex: 0.8, color: colors.textSecondary }]}>Datum</Text>
-              <Text style={[styles.scoutingTableHeaderCell, { flex: 0.5, color: colors.textSecondary }]}>Zeit</Text>
-              <Text style={[styles.scoutingTableHeaderCell, { flex: 0.8, color: colors.textSecondary }]}>Mannschaft</Text>
-              <Text style={[styles.scoutingTableHeaderCell, { flex: 2.2, color: colors.textSecondary }]}>Spiel</Text>
-              <Text style={[styles.scoutingTableHeaderCell, { flex: 0.7, color: colors.textSecondary }]}>Art</Text>
-              <Text style={[styles.scoutingTableHeaderCell, { flex: 0.5, color: colors.textSecondary, textAlign: 'left' }]}>Link</Text>
-              <Text style={[styles.scoutingTableHeaderCell, { flex: 1.2, color: colors.textSecondary }]}>Spieler</Text>
-              <Text style={[styles.scoutingTableHeaderCell, { flex: 1.2, color: colors.textSecondary }]}>Zuständigkeit</Text>
+              <View style={styles.scoutingTableHeader}>
+                <Text style={[styles.scoutingTableHeaderCell, { flex: 0.8, color: colors.textSecondary }]}>Datum</Text>
+                <View style={styles.scoutingTableHeaderDivider}><View style={styles.scoutingTableHeaderDividerLine} /></View>
+                <Text style={[styles.scoutingTableHeaderCell, { flex: 0.5, color: colors.textSecondary }]}>Zeit</Text>
+                <View style={styles.scoutingTableHeaderDivider}><View style={styles.scoutingTableHeaderDividerLine} /></View>
+                <Text style={[styles.scoutingTableHeaderCell, { flex: 0.8, color: colors.textSecondary }]}>Mannschaft</Text>
+                <View style={styles.scoutingTableHeaderDivider}><View style={styles.scoutingTableHeaderDividerLine} /></View>
+                <Text style={[styles.scoutingTableHeaderCell, { flex: 2.2, color: colors.textSecondary }]}>Spiel</Text>
+                <View style={styles.scoutingTableHeaderDivider}><View style={styles.scoutingTableHeaderDividerLine} /></View>
+                <Text style={[styles.scoutingTableHeaderCell, { flex: 0.7, color: colors.textSecondary }]}>Art</Text>
+                <View style={styles.scoutingTableHeaderDivider}><View style={styles.scoutingTableHeaderDividerLine} /></View>
+                <Text style={[styles.scoutingTableHeaderCell, { flex: 0.5, color: colors.textSecondary, textAlign: 'left' }]}>Link</Text>
+                <View style={styles.scoutingTableHeaderDivider}><View style={styles.scoutingTableHeaderDividerLine} /></View>
+                <Text style={[styles.scoutingTableHeaderCell, { flex: 1.2, color: colors.textSecondary }]}>Spieler</Text>
+                <View style={styles.scoutingTableHeaderDivider}><View style={styles.scoutingTableHeaderDividerLine} /></View>
+                <Text style={[styles.scoutingTableHeaderCell, { flex: 1.2, color: colors.textSecondary }]}>Zuständigkeit</Text>
+              </View>
             </View>
             <ScrollView onScrollBeginDrag={closeAllGameDropdowns}>
               {filteredGames.length === 0 ? (
@@ -1723,11 +1804,18 @@ END:VEVENT
                     return 'Sonstiges';
                   };
 
+                  const isCancelled = (game as any).status === 'cancelled';
+                  const hasUnseenChange = (game as any).last_changed_at && !(game as any).user_seen_at;
+                  const changeSummary = (game as any).change_summary;
+
+                  const isTooltipOpen = tooltipGameId === game.id;
                   return (
                     <View key={game.id} style={[
                       styles.scoutingTableRow,
                       { borderBottomColor: colors.border },
-                      isToday && { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#d1fae5' }
+                      isToday && { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#d1fae5' },
+                      isCancelled && { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : '#fee2e2', opacity: 0.75 },
+                      isTooltipOpen && ({ zIndex: 9999, elevation: 24 } as any),
                     ]}>
                       <TouchableOpacity
                         style={[styles.scoutingTableCell, { width: 40 }]}
@@ -1737,10 +1825,101 @@ END:VEVENT
                           {game.selected && <Text style={styles.gameCheckmark}>✓</Text>}
                         </View>
                       </TouchableOpacity>
-                      <Text style={[styles.scoutingTableCell, { flex: 0.8, color: colors.text }, isToday && styles.textBold]}>
-                        {formatGameDate(game.date)}
-                      </Text>
-                      <Text style={[styles.scoutingTableCell, { flex: 0.5, color: colors.text }]}>
+                      <View style={[styles.scoutingTableCell, { flex: 0.8, flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
+                        <Text style={[styles.scoutingTableCell, { color: colors.text, paddingRight: 0 }, isCancelled && { textDecorationLine: 'line-through' }]} numberOfLines={1}>
+                          {formatGameDate(game.date)}
+                        </Text>
+                        {isCancelled && (
+                          <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, backgroundColor: '#dc2626' }}>
+                            <Text style={{ fontSize: 9, fontWeight: '700', color: '#fff', letterSpacing: 0.5 }}>ABGESAGT</Text>
+                          </View>
+                        )}
+                        {hasUnseenChange && (() => {
+                          // Differenzierte Badge-Farben + Hover-Tooltip mit Detail-Popover
+                          const isNew = changeSummary?.new === true;
+                          const isReinstated = changeSummary?.reinstated === true;
+                          const label = isNew ? 'NEU' : (isReinstated ? 'WIEDER DA' : 'GEÄNDERT');
+                          const bg = isNew ? '#fbbf24' : '#ea580c';
+                          const fg = isNew ? '#000' : '#fff';
+
+                          // Detail-Zeilen für Tooltip — Datum in deutschem Format DD.MM.YYYY
+                          const formatDateGerman = (val: any) => {
+                            if (typeof val !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(val)) return val ?? '–';
+                            const [y, m, d] = val.substring(0, 10).split('-');
+                            return `${d}.${m}.${y}`;
+                          };
+                          const labelMap: Record<string, string> = { date: 'Datum', time: 'Zeit', location: 'Ort', league: 'Liga' };
+                          const detailLines: string[] = [];
+                          if (isNew) {
+                            detailLines.push('Neues Spiel im Spielplan');
+                          } else if (isReinstated) {
+                            detailLines.push('War abgesagt — ist wieder eingesetzt');
+                          } else {
+                            for (const [k, v] of Object.entries(changeSummary || {})) {
+                              if (k === 'new' || k === 'reinstated') continue;
+                              const lbl = labelMap[k] || k;
+                              const oldRaw = (v as any)?.old;
+                              const newRaw = (v as any)?.new;
+                              const oldVal = k === 'date' ? formatDateGerman(oldRaw) : (oldRaw ?? '–');
+                              const newVal = k === 'date' ? formatDateGerman(newRaw) : (newRaw ?? '–');
+                              detailLines.push(`${lbl}:  ${oldVal}  →  ${newVal}`);
+                            }
+                          }
+
+                          const isOpen = tooltipGameId === game.id;
+
+                          return (
+                            <View style={{ position: 'relative' }}>
+                              <Pressable
+                                onHoverIn={() => setTooltipGameId(game.id)}
+                                onHoverOut={() => setTooltipGameId((prev) => prev === game.id ? null : prev)}
+                                onPress={async () => {
+                                  // Mobile-Logic: erste Berührung öffnet Tooltip, zweite bestätigt + schließt
+                                  if (!isOpen && Platform.OS !== 'web') {
+                                    setTooltipGameId(game.id);
+                                    return;
+                                  }
+                                  await supabase.from('player_games').update({ user_seen_at: new Date().toISOString() }).eq('id', game.id);
+                                  setTooltipGameId(null);
+                                  fetchPlayerGames();
+                                }}
+                                style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, backgroundColor: bg }}
+                              >
+                                <Text style={{ fontSize: 9, fontWeight: '700', color: fg, letterSpacing: 0.5 }}>{label}</Text>
+                              </Pressable>
+
+                              {isOpen && (
+                                <View
+                                  pointerEvents="none"
+                                  style={({
+                                    position: 'absolute',
+                                    top: 22,
+                                    left: 0,
+                                    paddingHorizontal: 10,
+                                    paddingVertical: 8,
+                                    borderRadius: 6,
+                                    backgroundColor: '#000',
+                                    borderWidth: 1,
+                                    borderColor: 'rgba(255,255,255,0.25)',
+                                    zIndex: 9999,
+                                    elevation: 24,
+                                    shadowColor: '#000',
+                                    shadowOffset: { width: 0, height: 4 },
+                                    shadowOpacity: 0.6,
+                                    shadowRadius: 12,
+                                    minWidth: 280,
+                                  } as any)}
+                                >
+                                  <Text style={{ fontSize: 11, color: '#fff', lineHeight: 16 }}>
+                                    {detailLines.join('\n')}
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+                          );
+                        })()}
+                      </View>
+                      <Text style={[styles.scoutingTableCell, { flex: 0.5, color: colors.text }, isCancelled && { textDecorationLine: 'line-through' }]}>
                         {game.time || '-'}
                       </Text>
                       <Text style={[styles.scoutingTableCell, { flex: 0.8, color: colors.text }]} numberOfLines={1}>
@@ -1877,10 +2056,10 @@ END:VEVENT
       };
 
       return (
-        <View style={[styles.mobileTermineContainer, { backgroundColor: colors.background }]}>
+        <View style={[styles.mobileTermineContainer, { backgroundColor: 'transparent' }]}>
           {/* Toolbar */}
           <View style={[styles.mobileTermineToolbar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-            <TouchableOpacity style={{ paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }} onPress={() => setViewMode('dashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
+            <TouchableOpacity style={{ paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }} onPress={() => navigation.navigate('AdvisorDashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
 
             <View style={{ flex: 1 }} />
 
@@ -2003,7 +2182,7 @@ END:VEVENT
                     key={termin.id}
                     style={[
                       styles.mobileTerminCard,
-                      { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
+                      { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' },
                       isRunning && !isPast && { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#dcfce7', borderColor: '#10b981' },
                       isPast && { backgroundColor: colors.surfaceSecondary }
                     ]}
@@ -2067,15 +2246,15 @@ END:VEVENT
 
     // Desktop View
     return (
-      <View style={[styles.scoutingMainContent, { backgroundColor: colors.background }]}>
+      <View style={[styles.scoutingMainContent, { backgroundColor: 'transparent' }]}>
         <View style={[styles.scoutingHeaderBanner, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-          <TouchableOpacity style={{ paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }} onPress={() => setViewMode('dashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
+          <TouchableOpacity style={{ paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }} onPress={() => navigation.navigate('AdvisorDashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
           <View style={styles.scoutingHeaderBannerCenter}>
             <Text style={[styles.scoutingTitle, { color: colors.text }]}>Weitere Termine</Text>
             <Text style={[styles.scoutingSubtitle, { color: colors.textSecondary }]}>{dfbCount} Lehrgänge & Sichtungen • {hallenCount} Turniere</Text>
           </View>
           <View style={styles.termineHeaderButtons}>
-            <TouchableOpacity onPress={() => setShowSyncModal(true)} style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
+            <TouchableOpacity onPress={() => setShowSyncModal(true)} style={[styles.scoutingFilterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }]}>
               <Text style={[styles.scoutingFilterButtonText, { color: colors.textSecondary }]}>Aktualisieren</Text>
             </TouchableOpacity>
           </View>
@@ -2099,7 +2278,7 @@ END:VEVENT
             {/* Jahrgang Filter */}
             <View style={[styles.scoutingDropdownContainer, { zIndex: 40 }]}>
               <TouchableOpacity
-                style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, termineJahrgangFilter.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
+                style={[styles.scoutingFilterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }, termineJahrgangFilter.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
                 onPress={(e) => { e.stopPropagation(); setShowTermineJahrgangDropdown(!showTermineJahrgangDropdown); }}
               >
                 <Text style={[styles.scoutingFilterButtonText, { color: colors.textSecondary }, termineJahrgangFilter.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>
@@ -2145,7 +2324,7 @@ END:VEVENT
             {/* Anstehend / Archiv Toggle + Neuer Termin */}
             <TouchableOpacity
               onPress={() => setShowTermineArchiv(false)}
-              style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, !showTermineArchiv && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
+              style={[styles.scoutingFilterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }, !showTermineArchiv && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
             >
               <Text style={[styles.scoutingFilterButtonText, { color: colors.textSecondary }, !showTermineArchiv && { color: isDark ? '#93c5fd' : '#0369a1' }]}>
                 Anstehend ({filteredTermine.length})
@@ -2153,21 +2332,22 @@ END:VEVENT
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setShowTermineArchiv(true)}
-              style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, showTermineArchiv && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
+              style={[styles.scoutingFilterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }, showTermineArchiv && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
             >
               <Text style={[styles.scoutingFilterButtonText, { color: colors.textSecondary }, showTermineArchiv && { color: isDark ? '#93c5fd' : '#0369a1' }]}>
                 Archiv ({archivTermine.length})
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={openAddModal} style={[styles.scoutingFilterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}><Ionicons name="add-outline" size={12} color={colors.textSecondary} /></TouchableOpacity>
+            <TouchableOpacity onPress={openAddModal} style={[styles.scoutingFilterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }]}><Ionicons name="add-outline" size={12} color={colors.textSecondary} /></TouchableOpacity>
           </View>
         </Pressable>
 
         <View style={styles.scoutingContent}>
-          <View style={[styles.scoutingGamesContainer, { backgroundColor: colors.cardBackground }]} onLayout={(e) => setTermineTableWidth(e.nativeEvent.layout.width - 32)}>
+          <View style={[styles.scoutingGamesContainer, { backgroundColor: 'rgba(255,255,255,0.08)' }]} onLayout={(e) => setTermineTableWidth(e.nativeEvent.layout.width - 32)}>
             {termineTableWidth > 0 && (
               <TableHeader
                 columnDefs={TERMINE_COLUMNS}
+                backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
                 columnOrder={termineTable.columnOrder}
                 getColumnWidth={termineTable.getColumnWidth}
                 onResizeStart={termineTable.onResizeStart}
@@ -2219,7 +2399,7 @@ END:VEVENT
                       onPress={() => openEditModal(termin)}
                       style={[
                         styles.termineTableRow,
-                        { backgroundColor: colors.cardBackground, borderBottomColor: colors.border },
+                        { backgroundColor: 'rgba(255,255,255,0.08)', borderBottomColor: colors.border },
                         isRunning && !isPast && { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#dcfce7' },
                         isPast && { backgroundColor: colors.surfaceSecondary }
                       ]}
@@ -2268,8 +2448,8 @@ END:VEVENT
   };
 
   const renderKalenderPlaceholder = () => (
-    <View style={[styles.placeholderContainer, { backgroundColor: colors.background }]}>
-      <TouchableOpacity onPress={() => setViewMode('dashboard')} style={styles.backButtonTop}>
+    <View style={[styles.placeholderContainer, { backgroundColor: 'transparent' }]}>
+      <TouchableOpacity onPress={() => navigation.navigate('AdvisorDashboard')} style={styles.backButtonTop}>
         <Ionicons name="arrow-back" size={20} color={colors.textSecondary} />
       </TouchableOpacity>
       <View style={styles.placeholderContent}>
@@ -2799,7 +2979,8 @@ END:VEVENT
   const profileInitials = profile ? `${profile.first_name?.[0] || ''}${profile.last_name?.[0] || ''}` : '?';
 
   return (
-    <View style={[styles.container, isMobile && styles.containerMobile, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, isMobile && styles.containerMobile, { backgroundColor: 'transparent' }]}>
+      <AdvisorBackground />
       {/* Mobile Sidebar Overlay */}
       {isMobile && (
         <MobileSidebar
@@ -2814,32 +2995,68 @@ END:VEVENT
       {/* Desktop Sidebar */}
       {!isMobile && <Sidebar navigation={navigation} activeScreen="termine" profile={profile} />}
 
-      <View style={[styles.mainContent, { backgroundColor: colors.background }]}>
+      <View style={[styles.mainContent, { backgroundColor: 'transparent' }]}>
         {/* Mobile Header */}
         {isMobile && (
           <MobileHeader
             title={viewMode === 'spiele' ? 'Spiele unserer Spieler' : viewMode === 'termine' ? 'Weitere Termine' : 'Spieltage'}
+            backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
             onMenuPress={() => setShowMobileSidebar(true)}
-            onProfilePress={() => navigation.navigate('MyProfile')}
-            profileInitials={profileInitials}
-          />
+          >
+            {viewMode === 'spiele' ? (
+              <>
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.7)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 6, paddingHorizontal: 10, height: 28 }}>
+                  <Ionicons name="search" size={12} color="rgba(255,255,255,0.5)" />
+                  <TextInput
+                    style={{ flex: 1, paddingVertical: 0, fontSize: 12, color: '#fff', marginLeft: 6 }}
+                    placeholder="Spiele, Verein suchen..."
+                    placeholderTextColor="rgba(255,255,255,0.4)"
+                    value={gamesSearchText}
+                    onChangeText={setGamesSearchText}
+                  />
+                </View>
+                <TouchableOpacity
+                  style={[
+                    { width: 28, height: 28, borderRadius: 6, borderWidth: 1, backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center' },
+                    areAllFilteredSelected() && { backgroundColor: '#22c55e', borderColor: '#22c55e' },
+                  ]}
+                  onPress={toggleSelectAllFiltered}
+                >
+                  <Ionicons name={areAllFilteredSelected() ? 'checkbox' : 'checkbox-outline'} size={14} color={areAllFilteredSelected() ? '#fff' : 'rgba(255,255,255,0.85)'} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    { width: 28, height: 28, borderRadius: 6, borderWidth: 1, backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center', position: 'relative' },
+                    (selectedPlayers.length + selectedResponsibilities.length) > 0 && { backgroundColor: '#22c55e', borderColor: '#22c55e' },
+                  ]}
+                  onPress={() => setShowPlayerDropdown(true)}
+                >
+                  <Ionicons name="filter" size={14} color={(selectedPlayers.length + selectedResponsibilities.length) > 0 ? '#fff' : 'rgba(255,255,255,0.85)'} />
+                  {(selectedPlayers.length + selectedResponsibilities.length) > 0 && (
+                    <Text style={styles.mobileGamesFilterCount}>{selectedPlayers.length + selectedResponsibilities.length}</Text>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    { width: 28, height: 28, borderRadius: 6, borderWidth: 1, backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center' },
+                    syncingGames && { opacity: 0.6 },
+                  ]}
+                  onPress={handleSyncGames}
+                  disabled={syncingGames}
+                >
+                  <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)' }}>{syncingGames ? '⏳' : '↻'}</Text>
+                </TouchableOpacity>
+              </>
+            ) : null}
+          </MobileHeader>
         )}
 
         {/* Desktop Header */}
         {!isMobile && viewMode === 'dashboard' && (
-          <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-            <View style={{ width: 40 }} />
-            <View style={styles.headerCenter}>
-              <Text style={[styles.headerTitle, { color: colors.text }]}>Spieltage</Text>
-              <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Übersicht über Spieltage unserer Spieler und weitere Lehrgänge und Termine</Text>
-            </View>
-            <View style={{ width: 80 }} />
-          </View>
-        )}
-        {!isMobile && viewMode === 'dashboard' && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 16, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border }}>
-            <TouchableOpacity style={{ paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }} onPress={() => navigation.navigate('AdvisorDashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
-          </View>
+          <AdvisorHeroHeader title="SPIELTAGE" subtitle="ÜBERSICHT ÜBER SPIELTAGE · LEHRGÄNGE · TERMINE" backgroundImage={require('../../../assets/scouting-header-bg.jpg')} backgroundImageOpacity={0.45}>
+            <TouchableOpacity style={{ height: 28, paddingVertical: 0, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center' }} onPress={() => navigation.navigate('AdvisorDashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
+            <View style={{ flex: 1 }} />
+          </AdvisorHeroHeader>
         )}
         {renderContent()}
       </View>
@@ -2857,14 +3074,14 @@ const styles = StyleSheet.create({
 
   // Sidebar Overlay (Mobile)
   sidebarOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 100, flexDirection: 'row' },
-  sidebarMobile: { width: 280, height: '100%', backgroundColor: '#fff' },
+  sidebarMobile: { width: 280, height: '100%', backgroundColor: 'rgba(0,0,0,0.55)' },
 
   mainContent: { flex: 1, backgroundColor: '#f5f5f5' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 16, backgroundColor: 'rgba(0,0,0,0.55)', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)' },
   headerCenter: { flex: 1, alignItems: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a1a' },
   headerSubtitle: { fontSize: 11, color: '#64748b', marginTop: 4 },
-  backButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0' },
+  backButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   backButtonText: { fontSize: 11, color: '#64748b' },
   scrollView: { flex: 1 },
   scrollContent: { padding: 24 },
@@ -2873,7 +3090,7 @@ const styles = StyleSheet.create({
   // Mobile Cards
   mobileCardsContainer: {},
   mobileCard: {
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
@@ -2957,18 +3174,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: 'rgba(255,255,255,0.15)',
     gap: 8,
   },
   mobileGamesToolbarBtn: {
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: '#f8fafc',
+    backgroundColor: 'rgba(0,0,0,0.45)',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: 'rgba(255,255,255,0.15)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2986,9 +3203,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 36,
     borderRadius: 8,
-    backgroundColor: '#f8fafc',
+    backgroundColor: 'rgba(0,0,0,0.45)',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: 'rgba(255,255,255,0.15)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -3026,7 +3243,7 @@ const styles = StyleSheet.create({
   },
   mobileGamesFilterModal: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     marginTop: 50,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
@@ -3041,7 +3258,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: 'rgba(255,255,255,0.15)',
   },
   mobileGamesFilterTitle: {
     fontSize: 18,
@@ -3104,9 +3321,9 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 20,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: 'rgba(0,0,0,0.45)',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: 'rgba(255,255,255,0.15)',
   },
   mobileGamesFilterChipActive: {
     backgroundColor: '#1a1a1a',
@@ -3131,7 +3348,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 8,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: 'rgba(0,0,0,0.45)',
     alignItems: 'center',
   },
   mobileGamesFilterClearText: {
@@ -3205,11 +3422,13 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   mobileGameCard: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 16,
     padding: 12,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: 'rgba(255,255,255,0.15)',
+    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' } as any : {}),
   },
   mobileGameCardToday: {
     backgroundColor: '#d1fae5',
@@ -3239,7 +3458,7 @@ const styles = StyleSheet.create({
     borderColor: '#d1d5db',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.55)',
   },
   mobileGameCardCheckboxSelected: {
     backgroundColor: '#10b981',
@@ -3323,7 +3542,7 @@ const styles = StyleSheet.create({
   mainCardLeft: { flex: 1, justifyContent: 'space-between' },
   mainCardRight: { width: 120, alignItems: 'center', justifyContent: 'center' },
   mainCardIcon: { fontSize: 80, opacity: 0.15 },
-  playerCountBadge: { backgroundColor: '#e0f2fe', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, marginTop: 8 },
+  playerCountBadge: { backgroundColor: 'rgba(59,130,246,0.2)', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, marginTop: 8 },
   mainCardTitle: { fontSize: 28, fontWeight: '700', color: '#1a1a1a', marginBottom: 12 },
   mainCardSubtitle: { fontSize: 11, color: '#888', lineHeight: 18 },
   mainCardFooter: { flexDirection: 'row', alignItems: 'center', marginTop: 'auto' as any, paddingTop: 20 },
@@ -3408,22 +3627,22 @@ const styles = StyleSheet.create({
   saveButtonText: { color: '#fff', fontWeight: '600' },
   
   // Scouting-Style
-  scoutingMainContent: { flex: 1, backgroundColor: '#f8fafc' },
+  scoutingMainContent: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
   scoutingHeaderBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 20, paddingHorizontal: 24, borderBottomWidth: 1 },
   scoutingHeaderBannerCenter: { alignItems: 'center', flex: 1 },
   scoutingTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a1a' },
   scoutingSubtitle: { fontSize: 11, color: '#64748b', marginTop: 4 },
   headerButtonsRow: { flexDirection: 'row', gap: 8 },
   scoutingToolbar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, zIndex: 100 },
-  spieleSearchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 6, borderWidth: 1, borderColor: '#e2e8f0', paddingHorizontal: 10, flex: 1 },
+  spieleSearchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 10, flex: 1 },
   scoutingSearchIcon: { fontSize: 16, marginRight: 8 },
   scoutingSearchInput: { flex: 1, paddingVertical: 6, fontSize: 11, outlineStyle: 'none' as any },
   scoutingFilterContainer: { flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: 16 },
   scoutingDropdownContainer: { position: 'relative' as any },
-  scoutingFilterButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1 },
+  scoutingFilterButton: { height: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 0, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1 },
   scoutingFilterButtonText: { fontSize: 11 },
   scoutingFilterDropdownMulti: { position: 'absolute' as any, top: '100%', right: 0, borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, minWidth: 220, marginTop: 4, zIndex: 1002, borderWidth: 1 },
-  scoutingFilterDropdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', backgroundColor: '#f8fafc', borderTopLeftRadius: 12, borderTopRightRadius: 12 },
+  scoutingFilterDropdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', backgroundColor: 'rgba(0,0,0,0.45)', borderTopLeftRadius: 12, borderTopRightRadius: 12 },
   scoutingFilterDropdownTitle: { fontSize: 11, fontWeight: '600', color: '#475569' },
   scoutingFilterClearText: { fontSize: 11, color: '#ef4444', fontWeight: '500' },
   scoutingFilterCheckboxItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
@@ -3431,15 +3650,18 @@ const styles = StyleSheet.create({
   scoutingCheckboxSelected: { backgroundColor: '#3b82f6', borderColor: '#3b82f6' },
   scoutingCheckmark: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
   scoutingFilterCheckboxText: { flex: 1, fontSize: 11, color: '#333' },
-  scoutingFilterCountBadge: { backgroundColor: '#f1f5f9', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, fontSize: 11, color: '#64748b' },
-  scoutingFilterDoneButton: { padding: 12, backgroundColor: '#f8fafc', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#e2e8f0' },
+  scoutingFilterCountBadge: { backgroundColor: 'rgba(0,0,0,0.45)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, fontSize: 11, color: '#64748b' },
+  scoutingFilterDoneButton: { padding: 12, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#e2e8f0' },
   scoutingFilterDoneText: { fontSize: 11, fontWeight: '600', color: '#3b82f6' },
   scoutingNoDataText: { padding: 16, textAlign: 'center', color: '#94a3b8', fontSize: 11 },
   scoutingDropdownOverlay: { position: 'absolute' as any, top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000 },
-  scoutingContent: { flex: 1, padding: 16 },
+  scoutingContent: { flex: 1, padding: 24 },
   scoutingGamesContainer: { flex: 1, borderRadius: 12, overflow: 'hidden' },
-  scoutingTableHeader: { flexDirection: 'row', backgroundColor: '#f8fafc', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  scoutingTableHeaderCell: { fontSize: 11, fontWeight: '600', color: '#64748b', textTransform: 'uppercase' as any, paddingRight: 12 },
+  scoutingTableHeaderOuter: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.45)', paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)' },
+  scoutingTableHeader: { flexDirection: 'row', flex: 1, alignItems: 'center', paddingVertical: 6 },
+  scoutingTableHeaderCell: { fontSize: 11, fontWeight: '600', color: '#64748b', textTransform: 'uppercase' as any, letterSpacing: 0.3, paddingHorizontal: 4 },
+  scoutingTableHeaderDivider: { width: 12, alignSelf: 'stretch', justifyContent: 'center', alignItems: 'center' },
+  scoutingTableHeaderDividerLine: { width: 1, height: '100%', backgroundColor: 'rgba(255,255,255,0.4)', borderRadius: 1 },
   scoutingTableRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', alignItems: 'center' },
   scoutingTableCell: { fontSize: 11, color: '#1a1a1a', paddingRight: 12 },
   scoutingClubLogo: { width: 20, height: 20, resizeMode: 'contain' as any, marginHorizontal: 4 },
@@ -3474,12 +3696,12 @@ const styles = StyleSheet.create({
   
   // Termine styles
   termineHeaderButtons: { flexDirection: 'row', gap: 8 },
-  termineTableHeader: { flexDirection: 'row', backgroundColor: '#f8fafc', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  termineTableHeader: { flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.45)', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)' },
   termineTableHeaderText: { fontSize: 11, fontWeight: '600', color: '#64748b', textTransform: 'uppercase' as any },
   sortableHeader: { cursor: 'pointer' as any },
   termineTableRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, alignItems: 'center' },
   termineTableRowRunning: { backgroundColor: '#dcfce7' },
-  termineTableRowArchiv: { backgroundColor: '#f8fafc' },
+  termineTableRowArchiv: { backgroundColor: 'rgba(0,0,0,0.45)' },
   termineCellArchiv: { color: '#94a3b8' },
   artBadgeArchiv: { opacity: 0.6 },
   termineTabButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: 'transparent' },
@@ -3509,21 +3731,21 @@ const styles = StyleSheet.create({
   // Mobile Termine Styles
   mobileTermineContainer: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
   mobileTermineToolbar: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: 'rgba(255,255,255,0.15)',
     gap: 8,
   },
   mobileTermineToggle: {
     flexDirection: 'row',
-    backgroundColor: '#f1f5f9',
+    backgroundColor: 'rgba(0,0,0,0.45)',
     borderRadius: 8,
     padding: 4,
     marginHorizontal: 12,
@@ -3536,7 +3758,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   mobileTermineToggleBtnActive: {
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -3559,12 +3781,12 @@ const styles = StyleSheet.create({
     paddingBottom: 80,
   },
   mobileTerminCard: {
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     borderRadius: 12,
     padding: 14,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: 'rgba(255,255,255,0.15)',
     minHeight: 80,
     justifyContent: 'space-between',
   },
@@ -3573,8 +3795,8 @@ const styles = StyleSheet.create({
     borderColor: '#86efac',
   },
   mobileTerminCardArchiv: {
-    backgroundColor: '#f8fafc',
-    borderColor: '#e2e8f0',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderColor: 'rgba(255,255,255,0.15)',
   },
   mobileTerminCardHeader: {
     flexDirection: 'row',
@@ -3658,7 +3880,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   mobileModalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '90%',
@@ -3670,7 +3892,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: 'rgba(255,255,255,0.15)',
   },
   mobileModalTitle: {
     fontSize: 17,
@@ -3711,7 +3933,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
   mobileModalCancelText: {
     fontSize: 11,
@@ -3738,11 +3960,11 @@ const styles = StyleSheet.create({
   },
   mobileFormInput: {
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: 'rgba(255,255,255,0.15)',
     borderRadius: 8,
     padding: 12,
     fontSize: 11,
-    backgroundColor: '#f8fafc',
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
   mobileFormRow: {
     flexDirection: 'row',
@@ -3756,10 +3978,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: 'rgba(255,255,255,0.15)',
     borderRadius: 8,
     padding: 12,
-    backgroundColor: '#f8fafc',
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
   mobileDropdownButtonText: {
     fontSize: 11,
@@ -3774,9 +3996,9 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 20,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: 'rgba(0,0,0,0.45)',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: 'rgba(255,255,255,0.15)',
   },
   mobileArtOptionSelected: {
     backgroundColor: '#1a1a1a',

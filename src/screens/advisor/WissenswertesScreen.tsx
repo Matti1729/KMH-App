@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable } from 'react-native';
 import { Sidebar } from '../../components/Sidebar';
+import { AdvisorBackground } from '../../components/AdvisorBackground';
+import { AdvisorHeroHeader } from '../../components/AdvisorHeroHeader';
 import { MobileHeader } from '../../components/MobileHeader';
 import { MobileSidebar } from '../../components/MobileSidebar';
 import { useIsMobile } from '../../hooks/useIsMobile';
@@ -14,7 +16,23 @@ export function WissenswertesScreen({ navigation }: { navigation: any }) {
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
 
+  const isMatti = session?.user?.id === '892d4dbc-3c5b-4908-9735-ac0ca3794dfc';
+
   const tools = [
+    {
+      id: 'prototypes',
+      icon: '🎯',
+      title: 'Prototypen',
+      subtitle: 'Positions-Profile & Anforderungen',
+      screen: 'PlayerPrototypes',
+    },
+    {
+      id: 'videolibrary',
+      icon: '🎬',
+      title: 'Video-Library',
+      subtitle: 'Kuratierte Clips für Stärken & Potenziale',
+      screen: 'VideoLibrary',
+    },
     {
       id: 'ae-rechner',
       icon: '📊',
@@ -22,17 +40,24 @@ export function WissenswertesScreen({ navigation }: { navigation: any }) {
       subtitle: 'AE-Rechner nach DFL/DFB 2024',
       screen: 'AECalculator',
     },
+    ...(isMatti ? [{
+      id: 'finanzen',
+      icon: '💰',
+      title: 'Finanzen',
+      subtitle: 'Provisionen & Rechnungen',
+      screen: 'Finanzen',
+    }] : []),
   ];
 
   // --- Mobile View ---
   if (isMobile) {
     return (
-      <View style={[styles.containerMobile, { backgroundColor: colors.background }]}>
-        <MobileHeader title="Wissenswertes" onMenuPress={() => setShowMobileSidebar(true)} navigation={navigation} />
+      <View style={[styles.containerMobile, { backgroundColor: 'transparent' }]}>
+        <AdvisorBackground />
         <MobileSidebar visible={showMobileSidebar} onClose={() => setShowMobileSidebar(false)} navigation={navigation} activeScreen="wissenswertes" />
+        <MobileHeader title="Wissenswertes" subtitle="Tools & Informationen" backgroundImage={require('../../../assets/scouting-header-bg.jpg')} onMenuPress={() => setShowMobileSidebar(true)} />
 
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 80 }}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Tools & Informationen</Text>
           {tools.map((tool) => (
             <Pressable
               key={tool.id}
@@ -41,7 +66,7 @@ export function WissenswertesScreen({ navigation }: { navigation: any }) {
               onHoverOut={() => setHoveredCard(null)}
               style={[
                 styles.toolCard,
-                { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
+                { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' },
                 hoveredCard === tool.id && { backgroundColor: colors.surfaceSecondary },
               ]}
             >
@@ -64,13 +89,12 @@ export function WissenswertesScreen({ navigation }: { navigation: any }) {
 
   // --- Desktop View ---
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: 'transparent' }]}>
+      <AdvisorBackground />
       <Sidebar navigation={navigation} activeScreen="wissenswertes" profile={profile} />
 
       <View style={styles.mainContent}>
-        <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-          <Text style={[styles.title, { color: colors.text }]}>Wissenswertes</Text>
-        </View>
+        <AdvisorHeroHeader title="WISSENSWERTES" subtitle="TOOLS · RECHNER · INFORMATIONEN" backgroundImage={require('../../../assets/scouting-header-bg.jpg')} backgroundImageOpacity={0.45} />
 
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 32 }}>
           <Text style={[styles.sectionTitleDesktop, { color: colors.text }]}>Tools & Informationen</Text>
@@ -83,7 +107,7 @@ export function WissenswertesScreen({ navigation }: { navigation: any }) {
                 onHoverOut={() => setHoveredCard(null)}
                 style={[
                   styles.toolCardDesktop,
-                  { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
+                  { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' },
                   hoveredCard === tool.id && { backgroundColor: colors.surfaceSecondary },
                 ]}
               >

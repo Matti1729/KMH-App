@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import { View, Text, StyleSheet, Platform, Image, ImageSourcePropType } from 'react-native';
 import { ColumnDef } from '../../types/tableColumns';
 
 interface TableHeaderProps {
@@ -18,6 +18,8 @@ interface TableHeaderProps {
   style?: any;
   renderHeaderExtra?: (key: string) => React.ReactNode;
   setHeaderRef?: (ref: any) => void;
+  backgroundImage?: ImageSourcePropType;
+  backgroundImageOpacity?: number;
 }
 
 const DIVIDER_WIDTH = 12;
@@ -38,6 +40,8 @@ export function TableHeader({
   style,
   renderHeaderExtra,
   setHeaderRef,
+  backgroundImage,
+  backgroundImageOpacity = 0.45,
 }: TableHeaderProps) {
   const defMap = new Map(columnDefs.map(d => [d.key, d]));
 
@@ -50,8 +54,20 @@ export function TableHeader({
   return (
     <View
       ref={headerRefCallback}
-      style={[styles.headerRow, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }, style]}
+      style={[
+        styles.headerRow,
+        { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border },
+        backgroundImage ? { overflow: 'hidden' } : null,
+        style,
+      ]}
     >
+      {backgroundImage && (
+        <Image
+          source={backgroundImage}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: backgroundImageOpacity }}
+          resizeMode="cover"
+        />
+      )}
       {columnOrder.map((key, idx) => {
         const def = defMap.get(key);
         if (!def) return null;
@@ -176,7 +192,7 @@ const styles = StyleSheet.create({
   },
   resizeLine: {
     height: '100%',
-    backgroundColor: '#000',
+    backgroundColor: 'rgba(255,255,255,0.4)',
     borderRadius: 1,
   },
 });

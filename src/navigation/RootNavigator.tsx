@@ -11,11 +11,12 @@ import { TermineScreen } from '../screens/advisor/TermineScreen';
 import { ScoutingScreen } from '../screens/advisor/ScoutingScreen';
 import { TransfersScreen } from '../screens/advisor/TransfersScreen';
 import { TransferDetailScreen } from '../screens/advisor/TransferDetailScreen';
-import { TasksRemindersScreen } from '../screens/advisor/TasksRemindersScreen';
 import { FootballNetworkScreen } from '../screens/advisor/FootballNetworkScreen';
 import { FinanzenScreen } from '../screens/advisor/FinanzenScreen';
 import { WissenswertesScreen } from '../screens/advisor/WissenswertesScreen';
 import { AECalculatorScreen } from '../screens/advisor/AECalculatorScreen';
+import { PlayerPrototypesScreen } from '../screens/advisor/PlayerPrototypesScreen';
+import { VideoLibraryScreen } from '../screens/advisor/VideoLibraryScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -57,19 +58,20 @@ export function RootNavigator() {
             <Stack.Screen name="Calendar" component={TermineScreen} />
             <Stack.Screen name="Scouting" component={ScoutingScreen} />
             <Stack.Screen name="Transfers" component={TransfersScreen} />
-            <Stack.Screen 
-              name="TransferDetail" 
-              component={TransferDetailScreen} 
+            <Stack.Screen
+              name="TransferDetail"
+              component={TransferDetailScreen}
               options={{
                 presentation: 'transparentModal',
-                animation: 'fade',
+                animation: 'none',
               }}
             />
-            <Stack.Screen name="Tasks" component={TasksRemindersScreen} />
             <Stack.Screen name="FootballNetwork" component={FootballNetworkScreen} />
             <Stack.Screen name="Finanzen" component={FinanzenScreen} />
             <Stack.Screen name="Wissenswertes" component={WissenswertesScreen} />
             <Stack.Screen name="AECalculator" component={AECalculatorScreen} />
+            <Stack.Screen name="PlayerPrototypes" component={PlayerPrototypesScreen} />
+            <Stack.Screen name="VideoLibrary" component={VideoLibraryScreen} />
           </>
         ) : (
           <>

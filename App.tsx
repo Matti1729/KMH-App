@@ -4,6 +4,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
+import { GameSyncProvider } from './src/contexts/GameSyncContext';
 import { RootNavigator } from './src/navigation';
 
 // Wrapper component to apply theme to StatusBar
@@ -13,14 +14,26 @@ function ThemedApp() {
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     if (typeof document === 'undefined') return;
-    if (document.getElementById('kmh-scrollbar-hide')) return;
-    const style = document.createElement('style');
-    style.id = 'kmh-scrollbar-hide';
-    style.textContent = `
-      *::-webkit-scrollbar { display: none; }
-      * { scrollbar-width: none; -ms-overflow-style: none; }
-    `;
-    document.head.appendChild(style);
+
+    // Scrollbar ausblenden
+    if (!document.getElementById('kmh-scrollbar-hide')) {
+      const style = document.createElement('style');
+      style.id = 'kmh-scrollbar-hide';
+      style.textContent = `
+        *::-webkit-scrollbar { display: none; }
+        * { scrollbar-width: none; -ms-overflow-style: none; }
+      `;
+      document.head.appendChild(style);
+    }
+
+    // Josefin Sans (Google Fonts)
+    if (!document.getElementById('kmh-google-fonts')) {
+      const link = document.createElement('link');
+      link.id = 'kmh-google-fonts';
+      link.rel = 'stylesheet';
+      link.href = 'https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@100;200;300;400;500;600;700&display=swap';
+      document.head.appendChild(link);
+    }
   }, []);
 
   return (
@@ -43,7 +56,9 @@ function ThemedApp() {
         }} />
       )}
       <AuthProvider>
-        <RootNavigator />
+        <GameSyncProvider>
+          <RootNavigator />
+        </GameSyncProvider>
       </AuthProvider>
     </View>
   );

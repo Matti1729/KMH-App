@@ -1,0 +1,1 @@
+ALTER TABLE player_details ADD COLUMN IF NOT EXISTS job TEXT;

@@ -5,6 +5,7 @@ import { supabase } from '../../config/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Sidebar } from '../../components/Sidebar';
+import { AdvisorBackground } from '../../components/AdvisorBackground';
 import { MobileSidebar } from '../../components/MobileSidebar';
 import { MobileHeader } from '../../components/MobileHeader';
 import { useIsMobile } from '../../hooks/useIsMobile';
@@ -373,7 +374,8 @@ Achte dabei auf:
   const profileInitials = profile ? `${profile.first_name?.[0] || ''}${profile.last_name?.[0] || ''}` : '?';
 
   return (
-    <View style={[styles.container, isMobile && styles.containerMobile, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, isMobile && styles.containerMobile, { backgroundColor: 'transparent' }]}>
+      <AdvisorBackground />
       {/* Mobile Sidebar Overlay */}
       {isMobile && (
         <MobileSidebar
@@ -388,14 +390,13 @@ Achte dabei auf:
       {/* Desktop Sidebar */}
       {!isMobile && <Sidebar navigation={navigation} activeScreen="admin" profile={profile} />}
 
-      <View style={[styles.mainContent, { backgroundColor: colors.background }]}>
+      <View style={[styles.mainContent, { backgroundColor: 'transparent' }]}>
         {/* Mobile Header */}
         {isMobile && (
           <MobileHeader
             title="Administration"
+            backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
             onMenuPress={() => setShowMobileSidebar(true)}
-            onProfilePress={() => navigation.navigate('MyProfile')}
-            profileInitials={profileInitials}
           />
         )}
 
@@ -441,7 +442,7 @@ Achte dabei auf:
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={[styles.content, { backgroundColor: colors.background }]}>
+      <ScrollView style={[styles.content, { backgroundColor: 'transparent' }]}>
         {loading ? (
           <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Laden...</Text>
         ) : activeTab === 'requests' ? (
@@ -453,7 +454,7 @@ Achte dabei auf:
           ) : (
             <View style={styles.requestsGrid}>
               {pendingRequests.map((request) => (
-                <View key={request.id} style={[styles.requestCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+                <View key={request.id} style={[styles.requestCard, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}>
                   <View style={styles.requestHeader}>
                     <View style={styles.requestInfo}>
                       <Text style={[styles.requestPlayer, { color: colors.text }]}>{request.player_name}</Text>
@@ -487,7 +488,7 @@ Achte dabei auf:
               if (a.role !== 'admin' && b.role === 'admin') return 1;
               return (a.last_name || '').localeCompare(b.last_name || '');
             }).map((advisor) => (
-              <View key={advisor.id} style={[styles.advisorCard, isMobile && styles.advisorCardMobile, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+              <View key={advisor.id} style={[styles.advisorCard, isMobile && styles.advisorCardMobile, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}>
                 <View style={styles.advisorHeader}>
                   <View style={styles.advisorNameSection}>
                     <Text style={[styles.advisorName, { color: colors.text }]} numberOfLines={1}>
@@ -558,7 +559,7 @@ Achte dabei auf:
             </View>
           ) : (
             feedbackList.filter(f => f.status === 'open').map((feedback) => (
-              <View key={feedback.id} style={[styles.feedbackCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+              <View key={feedback.id} style={[styles.feedbackCard, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}>
                 <View style={styles.feedbackHeader}>
                   <View style={styles.feedbackHeaderLeft}>
                     <View style={[
@@ -666,14 +667,14 @@ const styles = StyleSheet.create({
   container: { flex: 1, flexDirection: 'row', backgroundColor: '#f5f5f5' },
   containerMobile: { flexDirection: 'column' },
   mainContent: { flex: 1, backgroundColor: '#f5f5f5' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  backButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0' },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 16, backgroundColor: 'rgba(0,0,0,0.55)', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)' },
+  backButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   backButtonText: { fontSize: 14, color: '#64748b' },
   headerCenter: { flex: 1, alignItems: 'center' },
   headerTitle: { fontSize: 24, fontWeight: '700', color: '#1a1a1a' },
   headerSubtitle: { fontSize: 14, color: '#64748b', marginTop: 4 },
   placeholder: { width: 90 },
-  tabs: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#ddd' },
+  tabs: { flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.55)', borderBottomWidth: 1, borderBottomColor: '#ddd' },
   tab: { flex: 1, paddingVertical: 14, alignItems: 'center' },
   tabActive: { borderBottomWidth: 2, borderBottomColor: '#000' },
   tabText: { fontSize: 15, color: '#666' },
@@ -683,7 +684,7 @@ const styles = StyleSheet.create({
   emptyContainer: { padding: 40, alignItems: 'center' },
   emptyText: { color: '#999', fontSize: 16 },
   requestsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  requestCard: { backgroundColor: '#fff', borderRadius: 10, padding: 12, borderWidth: 1, width: 240, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
+  requestCard: { backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 10, padding: 12, borderWidth: 1, width: 240, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
   requestHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
   requestInfo: { flex: 1 },
   requestPlayer: { fontSize: 14, fontWeight: '600', color: '#1a1a1a' },
@@ -692,11 +693,11 @@ const styles = StyleSheet.create({
   requestActions: { flexDirection: 'row', gap: 6 },
   approveButton: { flex: 1, backgroundColor: '#1a1a1a', paddingVertical: 6, borderRadius: 6, alignItems: 'center' },
   approveButtonText: { color: '#fff', fontSize: 12, fontWeight: '600' },
-  rejectButton: { flex: 1, paddingVertical: 6, borderRadius: 6, backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca', alignItems: 'center' },
+  rejectButton: { flex: 1, paddingVertical: 6, borderRadius: 6, backgroundColor: 'rgba(239,68,68,0.15)', borderWidth: 1, borderColor: '#fecaca', alignItems: 'center' },
   rejectButtonText: { color: '#dc2626', fontSize: 12, fontWeight: '600' },
   advisorsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   advisorsGridMobile: { flexDirection: 'column' },
-  advisorCard: { backgroundColor: '#fff', borderRadius: 10, padding: 12, borderWidth: 1, width: '31%', minWidth: 220, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
+  advisorCard: { backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 10, padding: 12, borderWidth: 1, width: '31%', minWidth: 220, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
   advisorCardMobile: { width: '100%', minWidth: 0 },
   advisorHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   advisorNameSection: { flex: 1 },
@@ -716,16 +717,16 @@ const styles = StyleSheet.create({
   roleBadgeText: { color: '#fff', fontSize: 10, fontWeight: '600' },
   makeAdminButton: { backgroundColor: '#1a1a1a', paddingVertical: 3, paddingHorizontal: 6, borderRadius: 3, alignItems: 'center', alignSelf: 'flex-end', marginLeft: 10 },
   makeAdminButtonText: { color: '#fff', fontSize: 10, fontWeight: '600' },
-  removeAdminButton: { backgroundColor: '#fef2f2', paddingVertical: 3, paddingHorizontal: 6, borderRadius: 3, borderWidth: 1, borderColor: '#fecaca', alignItems: 'center', alignSelf: 'flex-end', marginLeft: 10 },
+  removeAdminButton: { backgroundColor: 'rgba(239,68,68,0.15)', paddingVertical: 3, paddingHorizontal: 6, borderRadius: 3, borderWidth: 1, borderColor: '#fecaca', alignItems: 'center', alignSelf: 'flex-end', marginLeft: 10 },
   removeAdminButtonText: { color: '#dc2626', fontSize: 10, fontWeight: '600' },
   // Feedback Styles
-  feedbackCard: { backgroundColor: '#fff', borderRadius: 6, padding: 8, marginBottom: 6, borderWidth: 1, maxWidth: 500 },
+  feedbackCard: { backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 6, padding: 8, marginBottom: 6, borderWidth: 1, maxWidth: 500 },
   feedbackCardDone: { opacity: 0.6, backgroundColor: '#f9fafb' },
   feedbackHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   feedbackHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   feedbackTypeBadge: { paddingVertical: 1, paddingHorizontal: 5, borderRadius: 3 },
-  feedbackTypeBug: { backgroundColor: '#fef2f2' },
-  feedbackTypeFeature: { backgroundColor: '#f0fdf4' },
+  feedbackTypeBug: { backgroundColor: 'rgba(239,68,68,0.15)' },
+  feedbackTypeFeature: { backgroundColor: 'rgba(34,197,94,0.15)' },
   feedbackTypeOther: { backgroundColor: '#f0f9ff' },
   feedbackTypeBadgeText: { fontSize: 9, fontWeight: '600' },
   feedbackScreen: { fontSize: 9, color: '#6b7280' },
@@ -740,15 +741,15 @@ const styles = StyleSheet.create({
   toggleStatusButtonDone: { backgroundColor: '#f3f4f6' },
   toggleStatusButtonText: { fontSize: 10, color: '#fff', fontWeight: '600' },
   toggleStatusButtonTextDone: { color: '#6b7280' },
-  deleteFeedbackButton: { paddingVertical: 3, paddingHorizontal: 6, borderRadius: 3, backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca', alignItems: 'center' },
+  deleteFeedbackButton: { paddingVertical: 3, paddingHorizontal: 6, borderRadius: 3, backgroundColor: 'rgba(239,68,68,0.15)', borderWidth: 1, borderColor: '#fecaca', alignItems: 'center' },
   deleteFeedbackButtonText: { fontSize: 10, color: '#dc2626', fontWeight: '600' },
   // Confirmation Modal Styles
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  confirmModal: { backgroundColor: '#fff', borderRadius: 12, padding: 20, width: '85%', maxWidth: 320, alignItems: 'center' },
+  confirmModal: { backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 12, padding: 20, width: '85%', maxWidth: 320, alignItems: 'center' },
   confirmTitle: { fontSize: 16, fontWeight: '600', color: '#1a1a1a', marginBottom: 10 },
   confirmText: { fontSize: 14, textAlign: 'center', marginBottom: 20, lineHeight: 20 },
   confirmButtons: { flexDirection: 'row', gap: 10, width: '100%' },
-  confirmCancelBtn: { flex: 1, paddingVertical: 10, backgroundColor: '#f1f5f9', borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0' },
+  confirmCancelBtn: { flex: 1, paddingVertical: 10, backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   confirmCancelText: { fontSize: 14, fontWeight: '500' },
   confirmActionBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
   confirmActionText: { fontSize: 14, fontWeight: '600' },

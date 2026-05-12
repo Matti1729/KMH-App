@@ -39,7 +39,38 @@ export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedde
   const [feedbackImage, setFeedbackImage] = useState<string | null>(null);
   const [generatedPrompt, setGeneratedPrompt] = useState<string>('');
   const [promptCopied, setPromptCopied] = useState(false);
-  const { user, profile: authProfile, setViewAsPlayer } = useAuth();
+  const { user, profile: authProfile, setViewAsPlayer, setViewAsPlayerId } = useAuth();
+  const [showPlayerPicker, setShowPlayerPicker] = useState(false);
+  const [playerList, setPlayerList] = useState<Array<{ id: string; first_name: string; last_name: string; club: string }>>([]);
+  const [playerSearch, setPlayerSearch] = useState('');
+
+  const openPlayerPicker = async () => {
+    const { data } = await supabase
+      .from('player_details')
+      .select('id, first_name, last_name, club')
+      .order('last_name', { ascending: true });
+    if (data) setPlayerList(data);
+    setPlayerSearch('');
+    setShowPlayerPicker(true);
+  };
+
+  const selectPlayer = (playerId: string) => {
+    setShowPlayerPicker(false);
+    setViewAsPlayerId(playerId);
+    setViewAsPlayer(true);
+  };
+
+  const filteredPlayers = playerList
+    .filter(p => {
+      if (!playerSearch) return true;
+      const q = playerSearch.toLowerCase();
+      return `${p.first_name} ${p.last_name}`.toLowerCase().includes(q) || (p.club || '').toLowerCase().includes(q);
+    })
+    .sort((a, b) => {
+      const ln = (a.last_name || '').localeCompare(b.last_name || '', 'de');
+      if (ln !== 0) return ln;
+      return (a.first_name || '').localeCompare(b.first_name || '', 'de');
+    });
   const { width } = useWindowDimensions();
   const isMobile = width < MOBILE_BREAKPOINT;
   const { colors, isDark } = useTheme();
@@ -161,8 +192,8 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
         { id: 'personalData', label: 'Persönliche Daten', icon: '👤', screen: 'PersonalData' },
         { id: 'performance', label: 'Performance', icon: '📈', screen: 'Performance' },
         { id: 'kmhTeam', label: 'Unser KMH-Team', icon: '🤝', screen: 'KmhTeam' },
-        { id: 'news', label: 'News', icon: '📰', screen: 'News' },
         { id: 'beratung', label: 'Was bedeutet Beratung', icon: '💡', screen: 'Beratung' },
+        { id: 'news', label: 'News', icon: '📰', screen: 'News' },
       ]
     : [
         { id: 'players', label: 'KMH-Spieler', icon: '👤', screen: 'PlayerOverview' },
@@ -170,13 +201,14 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
         { id: 'scouting', label: 'Scouting', icon: '🔍', screen: 'Scouting' },
         { id: 'network', label: 'Football Network', icon: '💼', screen: 'FootballNetwork' },
         { id: 'termine', label: 'Spieltage', icon: '📅', screen: 'Calendar' },
-        { id: 'aufgaben', label: 'Aufgaben & Erinnerungen', icon: '✓', screen: 'Tasks' },
       ];
 
-  // Sidebar-Inhalt (wird sowohl für Desktop als auch Mobile verwendet)
-  const SidebarContent = () => (
+  // Sidebar-Inhalt: Logo fixed oben, alles andere in einer scrollbaren ScrollView.
+  // Als JSX-Konstante (nicht als Function-Component) definiert, damit React die ScrollView
+  // bei Re-Renders nicht neu mountet und die Scroll-Position erhalten bleibt.
+  const sidebarContent = (
     <>
-      {/* Logo - klickbar zum Dashboard */}
+      {/* Logo - klickbar zum Dashboard (fixed oben) */}
       <Pressable onPress={goToDashboard} style={styles.logoContainer}>
         <Image
           source={require('../../assets/kmh-logo.png')}
@@ -185,155 +217,150 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
         <Text style={[styles.logoTitle, { color: colors.text }]}>Sports Agency</Text>
       </Pressable>
 
-      {/* Navigation */}
-      <View style={styles.navContainer}>
-        {navItems.map((item) => (
-          <Pressable
-            key={item.id}
-            onHoverIn={() => setHoveredNav(item.id)}
-            onHoverOut={() => setHoveredNav(null)}
-            onPress={() => handleNavigation(item.screen, item.id)}
-            style={[
-              styles.navItem,
-              activeScreen === item.id && { backgroundColor: colors.surfaceSecondary },
-              hoveredNav === item.id && { backgroundColor: colors.surfaceSecondary },
-            ]}
-          >
-            {item.id === 'aufgaben' ? (
-              <View style={[styles.checkboxIcon, { borderColor: isDark ? '#fff' : '#64748b' }]}>
-                <Text style={[styles.checkboxIconText, { color: isDark ? '#fff' : '#64748b' }]}>✓</Text>
-              </View>
-            ) : (
-              <Text style={styles.navIcon}>{item.icon}</Text>
-            )}
-            <Text style={[
-              styles.navLabel,
-              { color: colors.textSecondary },
-              activeScreen === item.id && { color: colors.text, fontWeight: '600' }
-            ]}>{item.label}</Text>
-          </Pressable>
-        ))}
-      </View>
-
-      {/* Finanzen - only for Matti */}
-      {!playerMode && profile?.id === '892d4dbc-3c5b-4908-9735-ac0ca3794dfc' && (
-        <View style={{ marginTop: 4 }}>
-          <Pressable
-            onHoverIn={() => setHoveredNav('finanzen')}
-            onHoverOut={() => setHoveredNav(null)}
-            onPress={() => handleNavigation('Finanzen', 'finanzen')}
-            style={[
-              styles.navItem,
-              activeScreen === 'finanzen' && { backgroundColor: colors.surfaceSecondary },
-              hoveredNav === 'finanzen' && { backgroundColor: colors.surfaceSecondary },
-            ]}
-          >
-            <Text style={styles.navIcon}>💰</Text>
-            <Text style={[
-              styles.navLabel,
-              { color: colors.textSecondary },
-              activeScreen === 'finanzen' && { color: colors.text, fontWeight: '600' }
-            ]}>Finanzen</Text>
-          </Pressable>
+      {/* Scrollbarer Bereich für ALLE Nav- und Action-Buttons */}
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1 }}>
+        {/* Navigation */}
+        <View style={styles.navContainer}>
+          {navItems.map((item) => (
+            <Pressable
+              key={item.id}
+              onHoverIn={() => setHoveredNav(item.id)}
+              onHoverOut={() => setHoveredNav(null)}
+              onPress={() => handleNavigation(item.screen, item.id)}
+              style={[
+                styles.navItem,
+                activeScreen === item.id && { backgroundColor: colors.surfaceSecondary },
+                hoveredNav === item.id && { backgroundColor: colors.surfaceSecondary },
+              ]}
+            >
+              {item.id === 'aufgaben' ? (
+                <View style={[styles.checkboxIcon, { borderColor: isDark ? '#fff' : '#64748b' }]}>
+                  <Text style={[styles.checkboxIconText, { color: isDark ? '#fff' : '#64748b' }]}>✓</Text>
+                </View>
+              ) : (
+                <Text style={styles.navIcon}>{item.icon}</Text>
+              )}
+              <Text style={[
+                styles.navLabel,
+                { color: colors.textSecondary },
+                activeScreen === item.id && { color: colors.text, fontWeight: '600' }
+              ]}>{item.label}</Text>
+            </Pressable>
+          ))}
         </View>
-      )}
 
-      {/* Wissenswertes - only for Matti */}
-      {!playerMode && profile?.id === '892d4dbc-3c5b-4908-9735-ac0ca3794dfc' && (
-        <View style={{ marginTop: 4 }}>
+        {/* Wissenswertes — TEMPORÄR nur für Matti (Feature noch in Bearbeitung) */}
+        {!playerMode && user?.id === '892d4dbc-3c5b-4908-9735-ac0ca3794dfc' && (
+          <View style={{ marginTop: 4 }}>
+            <Pressable
+              onHoverIn={() => setHoveredNav('wissenswertes')}
+              onHoverOut={() => setHoveredNav(null)}
+              onPress={() => handleNavigation('Wissenswertes', 'wissenswertes')}
+              style={[
+                styles.navItem,
+                activeScreen === 'wissenswertes' && { backgroundColor: colors.surfaceSecondary },
+                hoveredNav === 'wissenswertes' && { backgroundColor: colors.surfaceSecondary },
+              ]}
+            >
+              <Text style={styles.navIcon}>💡</Text>
+              <Text style={[
+                styles.navLabel,
+                { color: colors.textSecondary },
+                activeScreen === 'wissenswertes' && { color: colors.text, fontWeight: '600' }
+              ]}>Wissenswertes</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {/* Spacer schiebt die Bottom-Buttons nach unten, solange genug Platz da ist */}
+        <View style={{ flex: 1, minHeight: 8 }} />
+
+        {/* Admin - only if admin */}
+        {!playerMode && profile?.role === 'admin' && (
           <Pressable
-            onHoverIn={() => setHoveredNav('wissenswertes')}
+            onHoverIn={() => setHoveredNav('admin')}
             onHoverOut={() => setHoveredNav(null)}
-            onPress={() => handleNavigation('Wissenswertes', 'wissenswertes')}
+            onPress={() => {
+              navigation.navigate('AdminPanel');
+              onNavigate?.();
+            }}
             style={[
               styles.navItem,
-              activeScreen === 'wissenswertes' && { backgroundColor: colors.surfaceSecondary },
-              hoveredNav === 'wissenswertes' && { backgroundColor: colors.surfaceSecondary },
+              activeScreen === 'admin' && { backgroundColor: colors.surfaceSecondary },
+              hoveredNav === 'admin' && { backgroundColor: colors.surfaceSecondary },
             ]}
           >
-            <Text style={styles.navIcon}>💡</Text>
+            <Text style={styles.navIcon}>⚙️</Text>
             <Text style={[
               styles.navLabel,
               { color: colors.textSecondary },
-              activeScreen === 'wissenswertes' && { color: colors.text, fontWeight: '600' }
-            ]}>Wissenswertes</Text>
+              activeScreen === 'admin' && { color: colors.text, fontWeight: '600' }
+            ]}>Administration</Text>
           </Pressable>
-        </View>
-      )}
+        )}
 
-      {/* Spacer */}
-      <View style={{ flex: 1 }} />
-
-      {/* Admin - only if admin */}
-      {!playerMode && profile?.role === 'admin' && (
+        {/* Feedback Button */}
         <Pressable
-          onHoverIn={() => setHoveredNav('admin')}
+          onHoverIn={() => setHoveredNav('feedback')}
           onHoverOut={() => setHoveredNav(null)}
-          onPress={() => {
-            navigation.navigate('AdminPanel');
-            onNavigate?.();
-          }}
-          style={[
-            styles.navItem,
-            activeScreen === 'admin' && { backgroundColor: colors.surfaceSecondary },
-            hoveredNav === 'admin' && { backgroundColor: colors.surfaceSecondary },
-          ]}
-        >
-          <Text style={styles.navIcon}>⚙️</Text>
-          <Text style={[
-            styles.navLabel,
-            { color: colors.textSecondary },
-            activeScreen === 'admin' && { color: colors.text, fontWeight: '600' }
-          ]}>Administration</Text>
-        </Pressable>
-      )}
-
-      {/* Feedback Button */}
-      <Pressable
-        onHoverIn={() => setHoveredNav('feedback')}
-        onHoverOut={() => setHoveredNav(null)}
-        onPress={() => setShowFeedbackModal(true)}
-        style={[
-          styles.feedbackButton,
-          { backgroundColor: isDark ? 'rgba(2, 132, 199, 0.2)' : '#f0f9ff' },
-          hoveredNav === 'feedback' && { backgroundColor: isDark ? 'rgba(2, 132, 199, 0.3)' : '#e0f2fe' },
-        ]}
-      >
-        <Text style={styles.feedbackIcon}>💬</Text>
-        <Text style={[styles.feedbackText, { color: isDark ? '#7dd3fc' : '#0284c7' }]}>Feedback / Bug</Text>
-      </Pressable>
-
-      {/* Als Spieler ansehen */}
-      {!playerMode && (authProfile?.role === 'admin' || authProfile?.role === 'advisor') && (
-        <Pressable
-          onHoverIn={() => setHoveredNav('viewPlayer')}
-          onHoverOut={() => setHoveredNav(null)}
-          onPress={() => setViewAsPlayer(true)}
+          onPress={() => setShowFeedbackModal(true)}
           style={[
             styles.feedbackButton,
-            { backgroundColor: isDark ? 'rgba(34, 197, 94, 0.15)' : '#f0fdf4' },
-            hoveredNav === 'viewPlayer' && { backgroundColor: isDark ? 'rgba(34, 197, 94, 0.25)' : '#dcfce7' },
+            { backgroundColor: isDark ? 'rgba(2, 132, 199, 0.2)' : '#f0f9ff' },
+            hoveredNav === 'feedback' && { backgroundColor: isDark ? 'rgba(2, 132, 199, 0.3)' : '#e0f2fe' },
           ]}
         >
-          <Text style={styles.feedbackIcon}>👁️</Text>
-          <Text style={[styles.feedbackText, { color: isDark ? '#4ade80' : '#16a34a' }]}>Als Spieler ansehen</Text>
+          <Text style={styles.feedbackIcon}>💬</Text>
+          <Text style={[styles.feedbackText, { color: isDark ? '#7dd3fc' : '#0284c7' }]}>Feedback / Bug</Text>
         </Pressable>
-      )}
 
-      {/* Logout */}
-      <Pressable
-        onHoverIn={() => setHoveredNav('logout')}
-        onHoverOut={() => setHoveredNav(null)}
-        onPress={handleLogout}
-        style={[
-          styles.logoutButton,
-          { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.2)' : '#fef2f2' },
-          hoveredNav === 'logout' && { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.3)' : '#fee2e2' },
-        ]}
-      >
-        <Text style={styles.logoutIcon}>↪</Text>
-        <Text style={styles.logoutText}>Logout</Text>
-      </Pressable>
+        {/* Als Spieler ansehen — TEMPORÄR nur für Matti (Feature noch in Bearbeitung) */}
+        {!playerMode && user?.id === '892d4dbc-3c5b-4908-9735-ac0ca3794dfc' && (
+          <Pressable
+            onHoverIn={() => setHoveredNav('viewPlayer')}
+            onHoverOut={() => setHoveredNav(null)}
+            onPress={openPlayerPicker}
+            style={[
+              styles.feedbackButton,
+              { backgroundColor: isDark ? 'rgba(34, 197, 94, 0.15)' : '#f0fdf4' },
+              hoveredNav === 'viewPlayer' && { backgroundColor: isDark ? 'rgba(34, 197, 94, 0.25)' : '#dcfce7' },
+            ]}
+          >
+            <Text style={styles.feedbackIcon}>👁️</Text>
+            <Text style={[styles.feedbackText, { color: isDark ? '#4ade80' : '#16a34a' }]}>Als Spieler ansehen</Text>
+          </Pressable>
+        )}
+        {playerMode && (authProfile?.role === 'admin' || authProfile?.role === 'advisor') && (
+          <Pressable
+            onHoverIn={() => setHoveredNav('backAdvisor')}
+            onHoverOut={() => setHoveredNav(null)}
+            onPress={() => { setViewAsPlayer(false); setViewAsPlayerId(null); }}
+            style={[
+              styles.feedbackButton,
+              { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff' },
+              hoveredNav === 'backAdvisor' && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.25)' : '#dbeafe' },
+            ]}
+          >
+            <Text style={styles.feedbackIcon}>←</Text>
+            <Text style={[styles.feedbackText, { color: isDark ? '#60a5fa' : '#2563eb' }]}>Zurück zur Berateransicht</Text>
+          </Pressable>
+        )}
+
+        {/* Logout */}
+        <Pressable
+          onHoverIn={() => setHoveredNav('logout')}
+          onHoverOut={() => setHoveredNav(null)}
+          onPress={handleLogout}
+          style={[
+            styles.logoutButton,
+            { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.2)' : '#fef2f2' },
+            hoveredNav === 'logout' && { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.3)' : '#fee2e2' },
+          ]}
+        >
+          <Text style={styles.logoutIcon}>↪</Text>
+          <Text style={styles.logoutText}>Logout</Text>
+        </Pressable>
+      </ScrollView>
     </>
   );
 
@@ -341,7 +368,7 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
   if (isMobile && embedded) {
     return (
       <View style={[styles.sidebarEmbedded, { backgroundColor: colors.surface }]}>
-        <SidebarContent />
+        {sidebarContent}
         <Modal visible={showFeedbackModal} transparent animationType="fade">
           <View style={styles.modalOverlay}>
             <View style={[styles.modalContent, isMobile && styles.modalContentMobile, { backgroundColor: colors.surface }]}>
@@ -480,7 +507,7 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
   // Desktop: Normale Sidebar
   return (
     <View style={[styles.sidebar, { backgroundColor: colors.surface, borderRightColor: colors.border }]}>
-      <SidebarContent />
+      {sidebarContent}
       <Modal visible={showFeedbackModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, isMobile && styles.modalContentMobile, { backgroundColor: colors.surface }]}>
@@ -602,6 +629,48 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
                   {submitting ? 'Sende...' : 'Absenden'}
                 </Text>
               </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Spieler-Auswahl Modal */}
+      <Modal visible={showPlayerPicker} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.playerPickerBox, isMobile && { width: '95%' }]}>
+            <Image source={require('../../assets/scouting-header-bg.jpg')} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.45 }} resizeMode="cover" />
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.55)' }} />
+            <View style={{ zIndex: 1 }}>
+              <Text style={styles.playerPickerTitle}>Spieler auswählen</Text>
+              <TextInput
+                style={styles.playerPickerSearch}
+                placeholder="Suche nach Name oder Verein…"
+                placeholderTextColor="rgba(255,255,255,0.3)"
+                value={playerSearch}
+                onChangeText={setPlayerSearch}
+              />
+              <ScrollView style={{ height: 460 }} contentContainerStyle={{ flexGrow: 1 }}>
+                {filteredPlayers.map(p => (
+                  <TouchableOpacity
+                    key={p.id}
+                    style={styles.playerPickerItem}
+                    onPress={() => selectPlayer(p.id)}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: '500', color: '#fff' }}>
+                      {p.last_name}, {p.first_name}
+                      {p.club ? <Text style={{ color: 'rgba(255,255,255,0.5)', fontWeight: '400' }}> · {p.club}</Text> : null}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+                {filteredPlayers.length === 0 && (
+                  <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', textAlign: 'center', paddingVertical: 20 }}>Keine Spieler gefunden</Text>
+                )}
+              </ScrollView>
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.3)' }}>
+                <TouchableOpacity style={styles.playerPickerCancelBtn} onPress={() => setShowPlayerPicker(false)}>
+                  <Text style={styles.playerPickerCancelText}>Abbrechen</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </View>
@@ -861,6 +930,55 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  playerPickerBox: {
+    width: 460,
+    maxWidth: '92%' as any,
+    backgroundColor: '#000',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    padding: 20,
+    overflow: 'hidden',
+  },
+  playerPickerTitle: {
+    fontFamily: 'Josefin Sans',
+    fontSize: 16,
+    fontWeight: '300',
+    letterSpacing: 4,
+    textTransform: 'uppercase',
+    color: 'rgba(255,255,255,0.85)',
+    marginBottom: 14,
+  },
+  playerPickerSearch: {
+    backgroundColor: '#1a1a1a',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    fontSize: 13,
+    color: '#fff',
+    marginBottom: 12,
+  },
+  playerPickerItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  playerPickerCancelBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  playerPickerCancelText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.85)',
   },
   modalContent: {
     backgroundColor: '#fff',

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Pressable, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Pressable, useWindowDimensions, Platform } from 'react-native';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
+import { AdvisorBackground } from '../../components/AdvisorBackground';
 import { MobileHeader } from '../../components/MobileHeader';
 import { MobileSidebar } from '../../components/MobileSidebar';
 import { useIsMobile } from '../../hooks/useIsMobile';
@@ -9,6 +10,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 
 interface AdvisorProfile {
+  id: string;
   first_name: string;
   last_name: string;
   photo_url: string;
@@ -24,7 +26,7 @@ export function AdvisorHomeScreen({ navigation }: any) {
   const [profile, setProfile] = useState<AdvisorProfile | null>(null);
   const currentWeekday = WEEKDAYS_DE[new Date().getDay()];
   const { width: windowWidth } = useWindowDimensions();
-  const uniformCardWidth = Math.max(160, Math.floor((windowWidth - (isMobile ? 0 : 240) - 48 - 48) / 3));
+  const uniformCardWidth = Math.max(160, Math.floor((windowWidth - (isMobile ? 0 : 240) - 48 - 32) / 3));
   const [playerCount, setPlayerCount] = useState(0);
   const [scoutingCount, setScoutingCount] = useState(0);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
@@ -32,7 +34,6 @@ export function AdvisorHomeScreen({ navigation }: any) {
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const [openFeedbackCount, setOpenFeedbackCount] = useState(0);
   const [todayGamesCount, setTodayGamesCount] = useState(0);
-  const [tasksAndRemindersCount, setTasksAndRemindersCount] = useState(0);
   const [networkContactsCount, setNetworkContactsCount] = useState(0);
   const dataLoadedRef = useRef(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
@@ -51,7 +52,6 @@ export function AdvisorHomeScreen({ navigation }: any) {
     fetchPendingRequestsCount();
     fetchOpenFeedbackCount();
     fetchTodayGamesCount();
-    fetchTasksAndRemindersCount();
     fetchNetworkContactsCount();
   }, [authLoading, session]);
 
@@ -60,10 +60,10 @@ export function AdvisorHomeScreen({ navigation }: any) {
     if (user) {
       const { data } = await supabase
         .from('advisors')
-        .select('first_name, last_name, photo_url, role')
+        .select('id, first_name, last_name, photo_url, role')
         .eq('id', user.id)
         .single();
-      
+
       if (data) setProfile(data);
     }
   };
@@ -185,40 +185,6 @@ export function AdvisorHomeScreen({ navigation }: any) {
     setTodayGamesCount(totalCount);
   };
 
-  const fetchTasksAndRemindersCount = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    let totalCount = 0;
-
-    // Offene Hauptaufgaben zählen (Subtasks sind in separater Tabelle)
-    const { count: tasksCount } = await supabase
-      .from('tasks')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .eq('completed', false);
-
-    totalCount += tasksCount || 0;
-
-    // Nur heutige offene Erinnerungen zählen
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    const { count: remindersCount } = await supabase
-      .from('reminders')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .eq('completed', false)
-      .gte('due_date', today.toISOString())
-      .lt('due_date', tomorrow.toISOString());
-
-    totalCount += remindersCount || 0;
-
-    setTasksAndRemindersCount(totalCount);
-  };
-
   const fetchNetworkContactsCount = async () => {
     const { count } = await supabase
       .from('football_network_contacts')
@@ -260,7 +226,8 @@ export function AdvisorHomeScreen({ navigation }: any) {
   // Mobile View
   if (isMobile) {
     return (
-      <View style={[styles.containerMobile, { backgroundColor: colors.background }]}>
+      <View style={[styles.containerMobile, { backgroundColor: 'transparent' }]}>
+        <AdvisorBackground />
         <MobileSidebar
           visible={showMobileSidebar}
           onClose={() => setShowMobileSidebar(false)}
@@ -269,29 +236,27 @@ export function AdvisorHomeScreen({ navigation }: any) {
           profile={profile}
         />
 
-        <View style={[styles.mainContentMobile, { backgroundColor: colors.background }]}>
+        <View style={[styles.mainContentMobile, { backgroundColor: 'transparent' }]}>
           <MobileHeader
             title="Dashboard"
+            backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
             onMenuPress={() => setShowMobileSidebar(true)}
             onProfilePress={() => navigation.navigate('MyProfile')}
             profileInitials={profileInitials}
-          />
-
-          {/* Mobile Greeting */}
-          <View style={[styles.mobileGreetingBanner, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-            <Text style={[styles.mobileGreetingText, { color: colors.text }]}>
+          >
+            <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: '500' }}>
               Schönen {currentWeekday}, {profile?.first_name || 'User'}!
             </Text>
-          </View>
+          </MobileHeader>
 
           <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContentMobile}>
             <View style={styles.mobileCardsContainer}>
               {/* KMH-Spieler */}
               <DashboardCard
                 id="players"
-                style={[styles.mobileCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
+                style={[styles.mobileCard, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}
                 onPress={() => navigation.navigate('PlayerOverview')}
-                hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
+                hoverStyle={{ backgroundColor: 'transparent' }}
               >
                 <View style={styles.mobileCardContent}>
                   <View style={[styles.mobileCardIcon, { backgroundColor: colors.surfaceSecondary }]}><Text style={styles.mobileCardIconText}>👤</Text></View>
@@ -306,9 +271,9 @@ export function AdvisorHomeScreen({ navigation }: any) {
               {/* Transfers */}
               <DashboardCard
                 id="transfers"
-                style={[styles.mobileCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
+                style={[styles.mobileCard, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}
                 onPress={() => navigation.navigate('Transfers')}
-                hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
+                hoverStyle={{ backgroundColor: 'transparent' }}
               >
                 <View style={styles.mobileCardContent}>
                   <View style={[styles.mobileCardIcon, { backgroundColor: colors.surfaceSecondary }]}><Text style={styles.mobileCardIconText}>🔄</Text></View>
@@ -320,29 +285,12 @@ export function AdvisorHomeScreen({ navigation }: any) {
                 </View>
               </DashboardCard>
 
-              {/* Scouting */}
-              <DashboardCard
-                id="scouting"
-                style={[styles.mobileCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
-                onPress={() => navigation.navigate('Scouting')}
-                hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
-              >
-                <View style={styles.mobileCardContent}>
-                  <View style={[styles.mobileCardIcon, { backgroundColor: colors.surfaceSecondary }]}><Text style={styles.mobileCardIconText}>🔍</Text></View>
-                  <View style={styles.mobileCardText}>
-                    <Text style={[styles.mobileCardTitle, { color: colors.text }]}>Scouting</Text>
-                    <Text style={[styles.mobileCardSubtitle, { color: colors.textSecondary }]}>Talente im Blick</Text>
-                  </View>
-                  <Text style={[styles.mobileCardCount, { color: colors.text }]}>{scoutingCount}</Text>
-                </View>
-              </DashboardCard>
-
               {/* Football Network */}
               <DashboardCard
                 id="network"
-                style={[styles.mobileCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
+                style={[styles.mobileCard, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}
                 onPress={() => navigation.navigate('FootballNetwork')}
-                hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
+                hoverStyle={{ backgroundColor: 'transparent' }}
               >
                 <View style={styles.mobileCardContent}>
                   <View style={[styles.mobileCardIcon, { backgroundColor: colors.surfaceSecondary }]}><Text style={styles.mobileCardIconText}>💼</Text></View>
@@ -354,12 +302,29 @@ export function AdvisorHomeScreen({ navigation }: any) {
                 </View>
               </DashboardCard>
 
+              {/* Scouting */}
+              <DashboardCard
+                id="scouting"
+                style={[styles.mobileCard, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}
+                onPress={() => navigation.navigate('Scouting')}
+                hoverStyle={{ backgroundColor: 'transparent' }}
+              >
+                <View style={styles.mobileCardContent}>
+                  <View style={[styles.mobileCardIcon, { backgroundColor: colors.surfaceSecondary }]}><Text style={styles.mobileCardIconText}>🔍</Text></View>
+                  <View style={styles.mobileCardText}>
+                    <Text style={[styles.mobileCardTitle, { color: colors.text }]}>Scouting</Text>
+                    <Text style={[styles.mobileCardSubtitle, { color: colors.textSecondary }]}>Talente im Blick</Text>
+                  </View>
+                  <Text style={[styles.mobileCardCount, { color: colors.text }]}>{scoutingCount}</Text>
+                </View>
+              </DashboardCard>
+
               {/* Spieltage */}
               <DashboardCard
                 id="termine"
-                style={[styles.mobileCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
+                style={[styles.mobileCard, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}
                 onPress={() => navigation.navigate('Calendar')}
-                hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
+                hoverStyle={{ backgroundColor: 'transparent' }}
               >
                 <View style={styles.mobileCardContent}>
                   <View style={[styles.mobileCardIcon, { backgroundColor: colors.surfaceSecondary }]}><Text style={styles.mobileCardIconText}>📅</Text></View>
@@ -373,50 +338,13 @@ export function AdvisorHomeScreen({ navigation }: any) {
                 </View>
               </DashboardCard>
 
-              {/* Aufgaben */}
-              <DashboardCard
-                id="aufgaben"
-                style={[styles.mobileCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
-                onPress={() => navigation.navigate('Tasks')}
-                hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
-              >
-                <View style={styles.mobileCardContent}>
-                  <View style={[styles.mobileCardIcon, { backgroundColor: colors.surfaceSecondary }]}><Text style={styles.mobileCardIconText}>✓</Text></View>
-                  <View style={styles.mobileCardText}>
-                    <Text style={[styles.mobileCardTitle, { color: colors.text }]}>Aufgaben</Text>
-                    <Text style={[styles.mobileCardSubtitle, { color: colors.textSecondary }]}>To-Dos & Erinnerungen</Text>
-                  </View>
-                  <View style={[styles.mobileCardBadgeRed, { backgroundColor: colors.error }]}>
-                    <Text style={styles.mobileCardBadgeRedText}>{tasksAndRemindersCount}</Text>
-                  </View>
-                </View>
-              </DashboardCard>
-
-              {/* Finanzen - only for Matti */}
-              {session?.user?.id === '892d4dbc-3c5b-4908-9735-ac0ca3794dfc' && (
-                <DashboardCard
-                  id="finanzen"
-                  style={[styles.mobileCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
-                  onPress={() => navigation.navigate('Finanzen')}
-                  hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
-                >
-                  <View style={styles.mobileCardContent}>
-                    <View style={[styles.mobileCardIcon, { backgroundColor: colors.surfaceSecondary }]}><Text style={styles.mobileCardIconText}>💰</Text></View>
-                    <View style={styles.mobileCardText}>
-                      <Text style={[styles.mobileCardTitle, { color: colors.text }]}>Finanzen</Text>
-                      <Text style={[styles.mobileCardSubtitle, { color: colors.textSecondary }]}>Provisionen & Rechnungen</Text>
-                    </View>
-                  </View>
-                </DashboardCard>
-              )}
-
-              {/* Wissenswertes - only for Matti */}
+              {/* Wissenswertes — TEMPORÄR nur für Matti (Feature in Bearbeitung) */}
               {session?.user?.id === '892d4dbc-3c5b-4908-9735-ac0ca3794dfc' && (
                 <DashboardCard
                   id="wissenswertes"
-                  style={[styles.mobileCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
+                  style={[styles.mobileCard, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}
                   onPress={() => navigation.navigate('Wissenswertes')}
-                  hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
+                  hoverStyle={{ backgroundColor: 'transparent' }}
                 >
                   <View style={styles.mobileCardContent}>
                     <View style={[styles.mobileCardIcon, { backgroundColor: colors.surfaceSecondary }]}><Text style={styles.mobileCardIconText}>💡</Text></View>
@@ -432,9 +360,9 @@ export function AdvisorHomeScreen({ navigation }: any) {
               {profile?.role === 'admin' && (
                 <DashboardCard
                   id="admin"
-                  style={[styles.mobileCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
+                  style={[styles.mobileCard, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}
                   onPress={() => navigation.navigate('AdminPanel')}
-                  hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
+                  hoverStyle={{ backgroundColor: 'transparent' }}
                 >
                   <View style={styles.mobileCardContent}>
                     <View style={[styles.mobileCardIcon, { backgroundColor: colors.surfaceSecondary }]}><Text style={styles.mobileCardIconText}>⚙️</Text></View>
@@ -459,51 +387,54 @@ export function AdvisorHomeScreen({ navigation }: any) {
 
   // Desktop View
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: 'transparent' }]}>
       {/* Sidebar */}
+      <AdvisorBackground />
       <Sidebar navigation={navigation} activeScreen="dashboard" profile={profile} />
 
       {/* Main Content */}
-      <View style={[styles.mainContent, { backgroundColor: colors.background }]}>
+      <View style={[styles.mainContent, { backgroundColor: 'transparent' }]}>
         {/* Header */}
-        <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.greeting, { color: colors.text }]}>
+        <View style={[styles.header, { overflow: 'hidden' }]}>
+          <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.45 }} resizeMode="cover" />
+          <View style={styles.headerTopRow}>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('MyProfile')}
+              style={styles.profileButton}
+            >
+              {profile?.photo_url ? (
+                <Image source={{ uri: profile.photo_url }} style={styles.profileAvatar} />
+              ) : (
+                <View style={[styles.profileAvatarPlaceholder, { backgroundColor: colors.primary }]}>
+                  <Text style={[styles.profileAvatarText, { color: colors.primaryText }]}>
+                    {profile?.first_name?.[0] || ''}{profile?.last_name?.[0] || ''}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <View style={{ flex: 1 }} />
+            <Text style={styles.headerTitle}>KARL HERZOG SPORTMANAGEMENT</Text>
+          </View>
+          <View style={styles.headerDivider} />
+          <View style={styles.headerBottomRow}>
+            <Text style={styles.greeting}>
               Einen schönen {currentWeekday}, {profile?.first_name || 'User'}.
             </Text>
-            <Text style={[styles.subGreeting, { color: colors.textMuted }]}>
-              Willkommen im Karl M. Herzog Sportmanagement!
-            </Text>
           </View>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('MyProfile')}
-            style={styles.profileButton}
-          >
-            {profile?.photo_url ? (
-              <Image source={{ uri: profile.photo_url }} style={styles.profileAvatar} />
-            ) : (
-              <View style={[styles.profileAvatarPlaceholder, { backgroundColor: colors.primary }]}>
-                <Text style={[styles.profileAvatarText, { color: colors.primaryText }]}>
-                  {profile?.first_name?.[0] || ''}{profile?.last_name?.[0] || ''}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
         </View>
 
         {/* Dashboard Content */}
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContentUniform}>
           {(() => {
-            const isMatti = session?.user?.id === '892d4dbc-3c5b-4908-9735-ac0ca3794dfc';
             const isAdmin = profile?.role === 'admin';
+            const isMatti = session?.user?.id === '892d4dbc-3c5b-4908-9735-ac0ca3794dfc';
             const allCards = [
               { id: 'players', icon: '👤', title: 'KMH-Spieler', subtitle: 'Verwaltung aller Spieler', count: playerCount, screen: 'PlayerOverview' },
               { id: 'transfers', icon: '🔄', title: 'Transfers', subtitle: 'Auslaufende Verträge & Wechsel', count: transferCount, screen: 'Transfers' },
-              { id: 'network', icon: '💼', title: 'Football Network', subtitle: 'Kontakte zu Vereinen & Entscheidern', count: networkContactsCount, screen: 'FootballNetwork' },
               { id: 'scouting', icon: '🔍', title: 'Scouting', subtitle: 'Talente im Blick', count: scoutingCount, screen: 'Scouting' },
+              { id: 'network', icon: '💼', title: 'Football Network', subtitle: 'Kontakte zu Vereinen & Entscheidern', count: networkContactsCount, screen: 'FootballNetwork' },
               { id: 'termine', icon: '📅', title: 'Spieltage', subtitle: 'Lehrgänge, Spiele & Turniere', badge: todayGamesCount, screen: 'Calendar' },
-              { id: 'aufgaben', icon: '✓', title: 'Aufgaben & Erinnerungen', subtitle: 'Deine To-Dos & Erinnerungen', badge: tasksAndRemindersCount, screen: 'Tasks' },
-              ...(isMatti ? [{ id: 'finanzen', icon: '💰', title: 'Finanzen', subtitle: 'Provisionen & Rechnungen', screen: 'Finanzen' }] : []),
+              // Wissenswertes TEMPORÄR nur für Matti (Feature in Bearbeitung)
               ...(isMatti ? [{ id: 'wissenswertes', icon: '💡', title: 'Wissenswertes', subtitle: 'Tools & Informationen', screen: 'Wissenswertes' }] : []),
               ...(isAdmin ? [{ id: 'admin', icon: '⚙️', title: 'Administration', subtitle: 'Benutzer & Rechte verwalten', badge: pendingRequestsCount + openFeedbackCount, screen: 'AdminPanel' }] : []),
             ] as Array<{ id: string; icon: string; title: string; subtitle: string; count?: number; badge?: number; screen: string }>;
@@ -518,20 +449,24 @@ export function AdvisorHomeScreen({ navigation }: any) {
                 {rows.map((rowCards, rowIdx) => {
                   return (
                     <View key={rowIdx} style={styles.uniformGridRow}>
-                      {rowCards.map((card) => (
+                      {rowCards.map((card) => {
+                        const isHovered = hoveredCard === card.id;
+                        return (
                         <DashboardCard
                           key={card.id}
                           id={card.id}
-                          style={[styles.uniformCard, { width: uniformCardWidth, backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
+                          style={[
+                            styles.uniformCard,
+                            { width: uniformCardWidth, backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' },
+                            isHovered && Platform.OS === 'web' ? ({ backdropFilter: 'none', WebkitBackdropFilter: 'none' } as any) : null,
+                          ]}
                           onPress={() => navigation.navigate(card.screen)}
-                          hoverStyle={{ backgroundColor: colors.surfaceSecondary }}
+                          hoverStyle={{ backgroundColor: 'transparent' }}
                         >
                           <View style={styles.uniformCardHeader}>
-                            <View style={[styles.uniformCardIcon, { backgroundColor: colors.surfaceSecondary }]}>
-                              <Text style={styles.uniformCardIconText}>{card.icon}</Text>
-                            </View>
+                            <View style={{ flex: 1 }} />
                             {typeof card.count === 'number' && (
-                              <Text style={[styles.uniformCardCount, { color: colors.text }]}>{card.count}</Text>
+                              <Text style={[styles.uniformCardCount, { color: '#fff' }]}>{card.count}</Text>
                             )}
                             {typeof card.badge === 'number' && card.badge > 0 && (
                               <View style={[styles.redBadge, { backgroundColor: colors.error }]}>
@@ -539,12 +474,13 @@ export function AdvisorHomeScreen({ navigation }: any) {
                               </View>
                             )}
                           </View>
-                          <View style={styles.uniformCardFooter}>
-                            <Text style={[styles.uniformCardTitle, { color: colors.text }]}>{card.title}</Text>
-                            <Text style={[styles.uniformCardSubtitle, { color: colors.textMuted }]}>{card.subtitle}</Text>
+                          <View style={[styles.uniformCardFooter, isHovered && { backgroundColor: 'transparent' }]}>
+                            <Text style={styles.uniformCardTitle}>{card.title}</Text>
+                            <Text style={styles.uniformCardSubtitle}>{card.subtitle}</Text>
                           </View>
                         </DashboardCard>
-                      ))}
+                        );
+                      })}
                     </View>
                   );
                 })}
@@ -583,7 +519,7 @@ const styles = StyleSheet.create({
   sidebarMobile: {
     width: 280,
     height: '100%',
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.35)',
   },
   mainContentMobile: {
     flex: 1,
@@ -592,7 +528,7 @@ const styles = StyleSheet.create({
 
   // Mobile Greeting Banner
   mobileGreetingBanner: {
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.35)',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
@@ -610,31 +546,63 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   header: {
+    paddingHorizontal: 28,
+    paddingTop: 24,
+    paddingBottom: 16,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    marginHorizontal: 24,
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  headerTopRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    minHeight: 60,
+    paddingBottom: 4,
+  },
+  headerTitle: {
+    fontFamily: 'Josefin Sans',
+    fontSize: 26,
+    fontWeight: '300',
+    letterSpacing: 4,
+    textTransform: 'uppercase',
+    color: 'rgba(255,255,255,0.7)',
+  },
+  headerDivider: {
+    height: 1,
+    marginTop: 16,
+    marginBottom: 16,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
+  headerBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   headerMobile: {
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
   greeting: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1a1a1a',
+    fontFamily: 'Josefin Sans',
+    fontSize: 22,
+    fontWeight: '300',
+    letterSpacing: 1,
+    color: '#fff',
   },
   greetingMobile: {
     fontSize: 18,
   },
   subGreeting: {
+    fontFamily: 'Josefin Sans',
     fontSize: 11,
-    color: '#888',
-    marginTop: 2,
+    fontWeight: '300',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    color: 'rgba(255,255,255,0.45)',
+    marginTop: 6,
   },
   subGreetingMobile: {
     fontSize: 11,
@@ -678,18 +646,19 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   uniformGrid: {
-    gap: 24,
+    gap: 16,
   },
   uniformGridRow: {
     flexDirection: 'row',
-    gap: 24,
+    gap: 16,
   },
   uniformCard: {
-    height: 220,
+    height: 160,
     borderRadius: 12,
     padding: 20,
     borderWidth: 1,
     justifyContent: 'space-between',
+    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' } as any : {}),
   },
   uniformCardHeader: {
     flexDirection: 'row',
@@ -705,19 +674,37 @@ const styles = StyleSheet.create({
   },
   uniformCardIconText: { fontSize: 18 },
   uniformCardCount: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Josefin Sans',
+    fontSize: 32,
+    fontWeight: '300',
+    letterSpacing: 2,
+    color: '#fff',
   },
   uniformCardFooter: {
-    marginTop: 'auto',
+    position: 'absolute',
+    bottom: 14,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
   },
   uniformCardTitle: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontFamily: 'Josefin Sans',
+    fontSize: 14,
+    fontWeight: '400',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    color: '#fff',
   },
   uniformCardSubtitle: {
-    fontSize: 11,
+    fontFamily: 'Josefin Sans',
+    fontSize: 12,
+    fontWeight: '300',
+    letterSpacing: 1,
     marginTop: 4,
+    lineHeight: 18,
+    color: 'rgba(255,255,255,0.7)',
   },
   scrollContentMobile: {
     padding: 16,
@@ -728,12 +715,13 @@ const styles = StyleSheet.create({
     // gap not supported in older mobile browsers
   },
   mobileCard: {
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.35)',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
     borderColor: '#eee',
     marginBottom: 12,
+    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' } as any : {}),
   },
   mobileCardDark: {
     backgroundColor: '#1a1a1a',
@@ -812,7 +800,7 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
   },
 
-  // Card base styles
+  // Card base styles mit 3D-Lift-Effekt (asymmetrische Borders + starker Shadow + Web-Inset-Highlight)
   card: {
     borderRadius: 20,
     overflow: 'hidden',
@@ -820,6 +808,20 @@ const styles = StyleSheet.create({
     cursor: 'pointer',
     // @ts-ignore
     transition: 'all 0.2s ease',
+    borderWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.22)',
+    borderLeftColor: 'rgba(255,255,255,0.12)',
+    borderRightColor: 'rgba(255,255,255,0.12)',
+    borderBottomColor: 'rgba(0,0,0,0.5)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.55,
+    shadowRadius: 24,
+    elevation: 12,
+    // @ts-ignore — Web-only: kombinierter Drop-Shadow + Inset-Highlight oben/unten
+    ...(Platform.OS === 'web' ? {
+      boxShadow: '0 22px 44px rgba(0,0,0,0.6), 0 6px 16px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1), inset 0 -1px 0 rgba(0,0,0,0.3)',
+    } : {}),
   },
   cardHovered: {
     // @ts-ignore
@@ -848,7 +850,7 @@ const styles = StyleSheet.create({
   // Main KMH Spieler Card
   mainCard: {
     flex: 2,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.35)',
     padding: 28,
     minHeight: 300,
     borderWidth: 1,
@@ -971,7 +973,7 @@ const styles = StyleSheet.create({
   // Scouting Card
   scoutingCard: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.35)',
     padding: 20,
     borderWidth: 1,
     borderColor: '#eee',
@@ -979,7 +981,7 @@ const styles = StyleSheet.create({
   },
   scoutingCardWide: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.35)',
     padding: 20,
     borderWidth: 1,
     borderColor: '#eee',
@@ -989,7 +991,7 @@ const styles = StyleSheet.create({
   // Scouting Card - Tall (Säule) - Light
   scoutingCardTallLight: {
     width: 130,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.35)',
     padding: 16,
     justifyContent: 'flex-start',
     position: 'relative',
@@ -1097,7 +1099,7 @@ const styles = StyleSheet.create({
   // Football Network Card - Wide (unter KMH + Transfers) - Light
   networkCardWide: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.35)',
     padding: 20,
     borderWidth: 1,
     borderColor: '#eee',
@@ -1246,7 +1248,7 @@ const styles = StyleSheet.create({
   // Light Bottom Cards (Aufgaben, Spieltage, Admin)
   lightBottomCard: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.35)',
     padding: 16,
     justifyContent: 'center',
     minHeight: 70,
@@ -1330,7 +1332,7 @@ const styles = StyleSheet.create({
   // Admin Card - Light, full width
   adminCardLight: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.35)',
     padding: 16,
     justifyContent: 'center',
     minHeight: 70,
@@ -1397,7 +1399,7 @@ const styles = StyleSheet.create({
   // Transfer Card
   transferCard: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.35)',
     padding: 20,
     borderWidth: 1,
     borderColor: '#eee',
@@ -1441,7 +1443,7 @@ const styles = StyleSheet.create({
   // Bottom Cards
   bottomCard: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.35)',
     padding: 20,
     borderWidth: 1,
     borderColor: '#eee',

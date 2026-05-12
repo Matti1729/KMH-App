@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal,
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
+import { AdvisorBackground } from '../../components/AdvisorBackground';
+import { AdvisorHeroHeader, heroCardAttachedToolbar } from '../../components/AdvisorHeroHeader';
 import { MobileHeader } from '../../components/MobileHeader';
 import { MobileSidebar } from '../../components/MobileSidebar';
 import { SlideUpModal } from '../../components/SlideUpModal';
@@ -55,6 +57,8 @@ interface ScoutedPlayer {
   transfermarkt_url?: string; agent_name?: string; agent_updated_at?: string;
   phone?: string; additional_info?: string;
   current_status?: string; // IST-Stand Freitext
+  responsibility?: string; // Mehrfach-Zuständigkeit (kommagetrennt)
+  scouts?: string; // Mehrfach-Scouts inkl. externe Namen (kommagetrennt)
   archived?: boolean; archived_at?: string; archive_reason?: string;
 }
 
@@ -98,7 +102,7 @@ interface GamePlayer {
 
 interface Advisor { id: string; first_name: string; last_name: string; }
 
-type ViewMode = 'kanban' | 'liste' | 'archiv';
+type ViewMode = 'kanban' | 'archiv';
 type ActiveTab = 'spieler' | 'spiele';
 
 const getYearFromDate = (dateStr: string): string => {
@@ -168,21 +172,21 @@ const isGameToday = (dateStr: string): boolean => {
 
 // Badge color helper for game types
 const getGameTypeBadgeStyle = (gameType: string | undefined): { backgroundColor: string; color: string } => {
-  if (!gameType) return { backgroundColor: '#f1f5f9', color: '#64748b' };
+  if (!gameType) return { backgroundColor: 'rgba(0,0,0,0.45)', color: '#64748b' };
   const type = gameType.toLowerCase();
   if (type.includes('punktspiel') || type.includes('liga')) {
-    return { backgroundColor: '#dbeafe', color: '#1d4ed8' }; // Blue
+    return { backgroundColor: 'rgba(59,130,246,0.2)', color: '#1d4ed8' }; // Blue
   }
   if (type.includes('pokal')) {
-    return { backgroundColor: '#fef3c7', color: '#b45309' }; // Gold
+    return { backgroundColor: 'rgba(234,179,8,0.2)', color: '#b45309' }; // Gold
   }
   if (type.includes('freundschaft') || type.includes('test')) {
-    return { backgroundColor: '#f1f5f9', color: '#64748b' }; // Gray
+    return { backgroundColor: 'rgba(0,0,0,0.45)', color: '#64748b' }; // Gray
   }
   if (type.includes('turnier') || type.includes('hallen')) {
     return { backgroundColor: '#ede9fe', color: '#7c3aed' }; // Purple
   }
-  return { backgroundColor: '#f1f5f9', color: '#64748b' };
+  return { backgroundColor: 'rgba(0,0,0,0.45)', color: '#64748b' };
 };
 
 // Function to fetch agent from Transfermarkt (via proxy/scraping service)
@@ -279,6 +283,7 @@ export function ScoutingScreen({ navigation }: any) {
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [headerOpenDropdown, setHeaderOpenDropdown] = useState<string | null>(null);
   const [archiveReason, setArchiveReason] = useState('');
   const [transferListing, setTransferListing] = useState('');
   const [transferResponsibility, setTransferResponsibility] = useState('');
@@ -287,12 +292,19 @@ export function ScoutingScreen({ navigation }: any) {
   const [showClubDropdown, setShowClubDropdown] = useState(false);
   const [editClubSearchText, setEditClubSearchText] = useState('');
   const [showEditClubDropdown, setShowEditClubDropdown] = useState(false);
+  const [showEditScoutDropdown, setShowEditScoutDropdown] = useState(false);
+  const [showEditResponsibilityDropdown, setShowEditResponsibilityDropdown] = useState(false);
+  const [editScoutManualText, setEditScoutManualText] = useState('');
 
-  const [newPlayer, setNewPlayer] = useState({
-    first_name: '', last_name: '', birth_date: '2005', position: 'ST',
-    club: '', rating: 5, notes: '', status: 'gesichtet', photo_url: '', 
-    transfermarkt_url: '', agent_name: '', phone: '', additional_info: '', current_status: ''
-  });
+  const EMPTY_NEW_PLAYER = {
+    first_name: '', last_name: '', birth_date: '', position: '',
+    club: '', rating: 0, notes: '', status: 'gesichtet', photo_url: '',
+    transfermarkt_url: '', agent_name: '', phone: '', additional_info: '', current_status: '',
+    scout_id: '', scout_manual: '', responsibility: '',
+  };
+  const [newPlayer, setNewPlayer] = useState(EMPTY_NEW_PLAYER);
+  const [showNewPlayerScoutDropdown, setShowNewPlayerScoutDropdown] = useState(false);
+  const [showNewPlayerResponsibilityDropdown, setShowNewPlayerResponsibilityDropdown] = useState(false);
   const [newPlayerClubSearch, setNewPlayerClubSearch] = useState('');
   const [showNewPlayerClubDropdown, setShowNewPlayerClubDropdown] = useState(false);
 
@@ -594,7 +606,9 @@ export function ScoutingScreen({ navigation }: any) {
           const { data: scouts } = await supabase.from('advisors').select('id, first_name, last_name').in('id', scoutIds);
           const scoutMap: Record<string, string> = {};
           scouts?.forEach(s => scoutMap[s.id] = `${s.first_name} ${s.last_name}`);
-          setScoutedPlayers(data.map(p => ({ ...p, scout_name: scoutMap[p.scout_id] || 'Unbekannt' })));
+          // Kein scout_id → scout_name explizit undefined lassen, damit das UI "-" anzeigt
+          // statt "Unbekannt" (was als truthy String den Fallback im View blockieren würde).
+          setScoutedPlayers(data.map(p => ({ ...p, scout_name: p.scout_id ? (scoutMap[p.scout_id] || 'Unbekannt') : undefined })));
         } else {
           setScoutedPlayers(data);
         }
@@ -691,6 +705,41 @@ export function ScoutingScreen({ navigation }: any) {
     return showAll ? filtered.slice(0, 50) : filtered.slice(0, 20);
   };
 
+  // Liga-Rang Mapping für Sortierung (deutsche Top-Vereine)
+  const LIGA_RANK_MAP: Record<string, number> = {
+    'FC Bayern München': 1, 'Bayern München': 1, 'Borussia Dortmund': 1, 'RB Leipzig': 1, 'Bayer 04 Leverkusen': 1, 'Bayer Leverkusen': 1,
+    'VfB Stuttgart': 1, 'Eintracht Frankfurt': 1, 'SC Freiburg': 1, 'TSG 1899 Hoffenheim': 1, 'TSG Hoffenheim': 1, 'VfL Wolfsburg': 1,
+    '1. FC Heidenheim 1846': 1, '1. FC Heidenheim': 1, 'FC Heidenheim': 1, '1. FSV Mainz 05': 1, 'FSV Mainz 05': 1, 'Mainz 05': 1, 'FC Augsburg': 1,
+    '1. FC Köln': 1, 'FC Köln': 1, 'Werder Bremen': 1, 'SV Werder Bremen': 1, 'Borussia Mönchengladbach': 1, 'VfL Bochum': 1,
+    '1. FC Union Berlin': 1, 'Union Berlin': 1, 'FC St. Pauli': 1, 'St. Pauli': 1, 'Holstein Kiel': 1, 'Hamburger SV': 1, '1. FC Nürnberg': 1, 'FC Nürnberg': 1,
+    // 2. Bundesliga
+    'Hertha BSC': 2, 'Hannover 96': 2, 'Karlsruher SC': 2, 'Fortuna Düsseldorf': 2, 'SV Darmstadt 98': 2, 'Darmstadt 98': 2,
+    'FC Schalke 04': 2, 'Schalke 04': 2, 'SC Paderborn 07': 2, 'SC Paderborn': 2, '1. FC Kaiserslautern': 2, 'FC Kaiserslautern': 2,
+    'Eintracht Braunschweig': 2, 'SpVgg Greuther Fürth': 2, 'Greuther Fürth': 2, 'SV Elversberg': 2, 'Elversberg': 2,
+    // 3. Liga
+    '1. FC Magdeburg': 3, 'FC Magdeburg': 3, 'Preußen Münster': 3, 'SC Preußen Münster': 3, 'Dynamo Dresden': 3, 'SG Dynamo Dresden': 3,
+    'Erzgebirge Aue': 3, 'FC Erzgebirge Aue': 3, 'TSV 1860 München': 3, '1860 München': 3, 'Arminia Bielefeld': 3, 'DSC Arminia Bielefeld': 3,
+    'Rot-Weiss Essen': 3, 'Hansa Rostock': 3, 'FC Hansa Rostock': 3, 'VfB Lübeck': 3, 'Energie Cottbus': 3, 'FC Energie Cottbus': 3,
+    'Viktoria Köln': 3, 'FC Viktoria Köln': 3, 'Waldhof Mannheim': 3, 'SV Waldhof Mannheim': 3, 'Borussia Dortmund II': 3,
+    'SV Sandhausen': 3, 'FC Ingolstadt 04': 3, 'Ingolstadt': 3, 'SC Verl': 3,
+  };
+  const getLigaRank = (verein?: string): number => {
+    if (!verein) return 99;
+    const v = verein.trim();
+    if (LIGA_RANK_MAP[v] !== undefined) return LIGA_RANK_MAP[v];
+    // Fuzzy match: enthält bekannten Vereinsnamen
+    for (const key of Object.keys(LIGA_RANK_MAP)) {
+      if (v.includes(key) || key.includes(v)) return LIGA_RANK_MAP[key];
+    }
+    // U-Mannschaften / II-Teams ranken eine Stufe niedriger als Stammverein
+    const cleanV = v.replace(/\s+(U\d+|II|2)$/i, '').trim();
+    for (const key of Object.keys(LIGA_RANK_MAP)) {
+      const cleanKey = key.replace(/\s+(U\d+|II|2)$/i, '').trim();
+      if (cleanV === cleanKey) return LIGA_RANK_MAP[key] + 0.5;
+    }
+    return 50; // Unbekannt → zwischen 3.Liga und Vereinslos
+  };
+
   // ── TM Search Functions (for Add Player modal) ──
   const searchTmPlayers = async (query: string) => {
     if (query.trim().length < 2) { setTmSuggestions([]); return; }
@@ -702,15 +751,22 @@ export function ScoutingScreen({ navigation }: any) {
       results.sort((a: any, b: any) => {
         const aName = (a.name || '').toLowerCase();
         const bName = (b.name || '').toLowerCase();
-        const aExact = aName === q || aName.startsWith(q) ? 0 : 1;
-        const bExact = bName === q || bName.startsWith(q) ? 0 : 1;
+        const aRank = getLigaRank(a.verein);
+        const bRank = getLigaRank(b.verein);
+        // 1. Liga-Rang (höchste Liga zuerst: 1=BL, 2=2.BL, 3=3.Liga, 50=unbekannt, 99=vereinslos)
+        if (aRank !== bRank) return aRank - bRank;
+        // 2. Exact name match
+        const aExact = aName === q ? 0 : 1;
+        const bExact = bName === q ? 0 : 1;
         if (aExact !== bExact) return aExact - bExact;
-        const aClub = a.verein ? 0 : 1;
-        const bClub = b.verein ? 0 : 1;
-        if (aClub !== bClub) return aClub - bClub;
-        return 0;
+        // 3. Starts-with
+        const aStart = aName.startsWith(q) ? 0 : 1;
+        const bStart = bName.startsWith(q) ? 0 : 1;
+        if (aStart !== bStart) return aStart - bStart;
+        // 4. Alphabetisch nach Name
+        return aName.localeCompare(bName);
       });
-      setTmSuggestions(results.slice(0, 30));
+      setTmSuggestions(results);
     } catch { setTmSuggestions([]); }
     setTmSearching(false);
   };
@@ -721,13 +777,40 @@ export function ScoutingScreen({ navigation }: any) {
     tmDebounceRef.current = setTimeout(() => searchTmPlayers(query), 500);
   };
 
+  // Reset TM-automatisch ausgefüllte Felder (Verein, Position, Geburtsdatum, TM-Link)
+  // — bleibt: first_name, last_name, status, scout_id, scout_manual, responsibility, etc.
+  const clearTmAutoFields = (overrides: Partial<typeof EMPTY_NEW_PLAYER> = {}) => {
+    setNewPlayer(prev => ({
+      ...prev,
+      club: '',
+      position: '',
+      birth_date: '',
+      transfermarkt_url: '',
+      rating: 0,
+      ...overrides,
+    }));
+    setNewPlayerClubSearch('');
+    setTmSelected(null);
+  };
+
   const handleScoutingLastNameChange = (text: string) => {
+    // Wenn Nachname geleert wird UND ein TM-Spieler ausgewählt war → alle Auto-Felder leeren
+    if (!text.trim() && newPlayer.transfermarkt_url) {
+      clearTmAutoFields({ last_name: '' });
+      setTmSuggestions([]);
+      return;
+    }
     setNewPlayer(prev => ({ ...prev, last_name: text }));
     setTmSelected(null);
     triggerTmSearch(text, newPlayer.first_name);
   };
 
   const handleScoutingFirstNameChange = (text: string) => {
+    if (!text.trim() && newPlayer.transfermarkt_url) {
+      clearTmAutoFields({ first_name: '' });
+      setTmSuggestions([]);
+      return;
+    }
     setNewPlayer(prev => ({ ...prev, first_name: text }));
     setTmSelected(null);
     triggerTmSearch(newPlayer.last_name, text);
@@ -844,18 +927,29 @@ export function ScoutingScreen({ navigation }: any) {
       if (fetchedAgent) agentName = fetchedAgent;
     }
     
-    const playerData = {
-      ...newPlayer,
-      agent_name: agentName,
+    // Strip helper fields not in DB schema
+    const { scout_manual, ...playerFields } = newPlayer;
+    const playerData: any = {
+      ...playerFields,
+      // Leere Strings → null für Felder die DB als nullable hat (DATE/TEXT)
+      birth_date: playerFields.birth_date || null,
+      position: playerFields.position || '',
+      club: playerFields.club || '',
+      rating: playerFields.rating || null,
+      transfermarkt_url: playerFields.transfermarkt_url || null,
+      agent_name: agentName || null,
       agent_updated_at: newPlayer.transfermarkt_url ? new Date().toISOString() : null,
-      scout_id: currentUserId,
-      archived: false
+      scout_id: newPlayer.scout_id || currentUserId,
+      // Wenn manueller Scout eingegeben → an additional_info als "Externer Scout: <name>" anhängen
+      additional_info: scout_manual && !newPlayer.scout_id ? `${newPlayer.additional_info ? newPlayer.additional_info + '\n' : ''}Externer Scout: ${scout_manual}` : (newPlayer.additional_info || null),
+      responsibility: newPlayer.responsibility || null,
+      archived: false,
     };
-    
+
     const { error } = await supabase.from('scouted_players').insert(playerData);
     if (error) {
       console.error('Error adding player:', error);
-      alert('Fehler beim Hinzufügen: ' + error.message);
+      alert('Fehler beim Hinzufügen: ' + (error.message || JSON.stringify(error)));
     } else {
       // If this was from a game player, mark them as added
       if (addingGamePlayerId) {
@@ -864,7 +958,7 @@ export function ScoutingScreen({ navigation }: any) {
       }
       
       setShowAddPlayerModal(false);
-      setNewPlayer({ first_name: '', last_name: '', birth_date: '2005', position: 'ST', club: '', rating: 5, notes: '', status: 'gesichtet', photo_url: '', transfermarkt_url: '', agent_name: '', phone: '', additional_info: '', current_status: '' });
+      setNewPlayer(EMPTY_NEW_PLAYER);
       setNewPlayerClubSearch('');
       setTmSuggestions([]);
       setTmSelected(null);
@@ -909,6 +1003,11 @@ export function ScoutingScreen({ navigation }: any) {
       phone: editData.phone,
       additional_info: editData.additional_info,
       current_status: editData.current_status,
+      // Wenn editData.scout_id explizit gesetzt ist (auch leer = "Leeren"), übernehmen.
+      // `undefined` = nicht angefasst → alten Wert behalten. Leerer String wird zu null.
+      scout_id: 'scout_id' in editData ? (editData.scout_id || null) : selectedPlayer.scout_id,
+      responsibility: editData.responsibility || '',
+      scouts: editData.scouts || '',
     };
     
     const { error } = await supabase.from('scouted_players').update(updatePayload).eq('id', selectedPlayer.id);
@@ -916,7 +1015,18 @@ export function ScoutingScreen({ navigation }: any) {
       console.error('Update error:', error);
       alert('Fehler beim Speichern: ' + error.message);
     } else {
-      const updatedPlayer = { ...selectedPlayer, ...updatePayload };
+      // scout_name lokal mit aktualisieren (sonst zeigt das UI noch den alten Namen
+      // obwohl scout_id auf null gesetzt wurde).
+      let newScoutName: string | undefined = undefined;
+      if (updatePayload.scout_id) {
+        const { data: scoutRow } = await supabase
+          .from('advisors')
+          .select('first_name, last_name')
+          .eq('id', updatePayload.scout_id)
+          .single();
+        newScoutName = scoutRow ? `${scoutRow.first_name} ${scoutRow.last_name}` : 'Unbekannt';
+      }
+      const updatedPlayer = { ...selectedPlayer, ...updatePayload, scout_name: newScoutName } as ScoutedPlayer;
       setScoutedPlayers(prev => prev.map(p => p.id === selectedPlayer.id ? updatedPlayer : p));
       setSelectedPlayer(updatedPlayer);
       setIsEditing(false);
@@ -961,6 +1071,7 @@ export function ScoutingScreen({ navigation }: any) {
       notes: player.notes, photo_url: player.photo_url, transfermarkt_url: player.transfermarkt_url,
       agent_name: player.agent_name, phone: player.phone, additional_info: player.additional_info,
       current_status: player.current_status,
+      scout_id: player.scout_id, responsibility: player.responsibility, scouts: player.scouts,
     });
     setEditClubSearchText(player.club || '');
     setShowPlayerDetailModal(true);
@@ -1087,23 +1198,17 @@ export function ScoutingScreen({ navigation }: any) {
     
     // Prefill the new player form with data from the game player
     setNewPlayer({
+      ...EMPTY_NEW_PLAYER,
       first_name: player.first_name || '',
       last_name: player.last_name || '',
-      birth_date: player.birth_year || '2005',
-      position: player.position || 'ST',
+      birth_date: player.birth_year || '',
+      position: player.position || '',
       club: clubName,
-      rating: player.rating || 5,
+      rating: player.rating || 0,
       notes: player.notes || '',
-      status: 'gesichtet',
-      photo_url: '',
-      transfermarkt_url: '',
-      agent_name: '',
-      phone: '',
-      additional_info: '',
-      current_status: ''
     });
     setNewPlayerClubSearch(clubName);
-    
+
     // Open the add player modal
     setShowAddPlayerModal(true);
   };
@@ -1220,7 +1325,11 @@ export function ScoutingScreen({ navigation }: any) {
 
   const getPlayersByStatus = (status: string) => filteredPlayers
     .filter(p => p.status === status)
-    .sort((a, b) => (a.last_name || '').localeCompare(b.last_name || '', 'de'));
+    .sort((a, b) => {
+      const ln = (a.last_name || '').localeCompare(b.last_name || '', 'de');
+      if (ln !== 0) return ln;
+      return (a.first_name || '').localeCompare(b.first_name || '', 'de');
+    });
 
   // Archivieren
   const archivePlayer = async () => {
@@ -1432,12 +1541,12 @@ export function ScoutingScreen({ navigation }: any) {
           placeholderTextColor={colors.textMuted}
         />
         {showDrop && list.length > 0 && (
-          <View style={[styles.clubDropdown, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={[styles.clubDropdown, { backgroundColor: '#000', borderColor: 'rgba(255,255,255,0.25)', borderWidth: 1, borderRadius: 8, marginTop: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.6, shadowRadius: 16, elevation: 16, overflow: 'hidden' }]}>
             <ScrollView style={styles.clubDropdownScroll} nestedScrollEnabled keyboardShouldPersistTaps="handled">
               {list.map((club) => (
-                <TouchableOpacity key={club} style={[styles.clubDropdownItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }]} onPress={() => { setSearchTxt(club); onSelect(club); setShowDrop(false); }}>
+                <TouchableOpacity key={club} style={[styles.clubDropdownItem, { backgroundColor: '#000', borderBottomColor: 'rgba(255,255,255,0.06)' }]} onPress={() => { setSearchTxt(club); onSelect(club); setShowDrop(false); }}>
                   {getClubLogo(club) && <Image source={{ uri: getClubLogo(club)! }} style={styles.clubDropdownLogo} />}
-                  <Text style={[styles.clubDropdownText, { color: colors.text }]}>{club}</Text>
+                  <Text style={[styles.clubDropdownText, { color: '#fff' }]}>{club}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -1461,6 +1570,7 @@ export function ScoutingScreen({ navigation }: any) {
             notes: player.notes, photo_url: player.photo_url, transfermarkt_url: player.transfermarkt_url,
             agent_name: player.agent_name, phone: player.phone, additional_info: player.additional_info,
             current_status: player.current_status,
+            scout_id: player.scout_id, responsibility: player.responsibility, scouts: player.scouts,
           });
           setEditClubSearchText(player.club || '');
           setShowPlayerDetailModal(true);
@@ -1493,15 +1603,23 @@ export function ScoutingScreen({ navigation }: any) {
     if (Platform.OS === 'web') {
       return (
         <div key={player.id} data-player-id={player.id} draggable onDragStart={(e) => onDragStart(e, player.id)} onDragEnd={onDragEnd}
-          style={{ backgroundColor: colors.cardBackground, borderRadius: 10, marginBottom: 10, boxShadow: isDark ? '0 2px 4px rgba(0,0,0,0.3)' : '0 2px 4px rgba(0,0,0,0.05)', cursor: 'grab', opacity: isDraggingCard ? 0.4 : 1 }}>
+          style={{
+            backgroundColor: 'rgba(0,0,0,0.78)',
+            borderRadius: 10,
+            marginBottom: 16,
+            border: '1px solid rgba(255,255,255,0.2)',
+            boxShadow: '0 4px 10px rgba(0,0,0,0.35)',
+            cursor: 'grab',
+            opacity: isDraggingCard ? 0.4 : 1,
+          }}>
           {cardContent}
         </div>
       );
     }
-    return <View key={player.id} style={[styles.playerCard, { backgroundColor: colors.cardBackground }]}>{cardContent}</View>;
+    return <View key={player.id} style={styles.playerCard}>{cardContent}</View>;
   };
 
-  const renderKanbanColumn = (status: typeof SCOUTING_STATUS[0]) => {
+  const renderKanbanColumn = (status: typeof SCOUTING_STATUS[0], index: number = 0) => {
     const players = getPlayersByStatus(status.id);
     const isDropTarget = dragOverStatus === status.id;
 
@@ -1511,126 +1629,53 @@ export function ScoutingScreen({ navigation }: any) {
           style={{
             flex: 1,
             minWidth: 250,
-            backgroundColor: isDropTarget ? '#dbeafe' : (isDark ? colors.surfaceSecondary : '#f1f5f9'),
+            position: 'relative',
+            backgroundColor: isDropTarget ? 'rgba(34,197,94,0.18)' : 'transparent',
             borderRadius: 12,
             padding: 12,
-            border: isDropTarget ? '2px dashed #3b82f6' : '2px solid transparent',
+            overflow: 'hidden',
+            border: isDropTarget ? '2px dashed #22c55e' : '1px solid rgba(255,255,255,0.15)',
             transition: 'background-color 0.2s',
             display: 'flex',
             flexDirection: 'column',
             maxHeight: 'calc(100vh - 250px)',
           }}>
-          <View style={[styles.kanbanHeader, { borderBottomColor: colors.border }]}>
+          {!isDropTarget && (
+            <Image source={require('../../../assets/scouting-header-bg.jpg')} style={({ position: 'absolute', top: 0, left: `calc(${-100 * index}% - ${12 * index}px)`, width: 'calc(300% + 24px)', height: '100%', opacity: 0.75, objectPosition: 'right bottom' } as any)} resizeMode="cover" />
+          )}
+          <View style={[styles.kanbanHeader, { zIndex: 1 }]}>
             <View style={styles.kanbanHeaderTop}>
               <View style={[styles.statusDot, { backgroundColor: status.color }]} />
               <Text style={[styles.kanbanTitle, { color: colors.textSecondary }]}>{status.label}</Text>
-              <View style={[styles.countBadge, { backgroundColor: colors.border }]}><Text style={[styles.countText, { color: colors.textSecondary }]}>{players.length}</Text></View>
+              <View style={[styles.countBadge, { backgroundColor: '#000' }]}><Text style={[styles.countText, { color: '#fff' }]}>{players.length}</Text></View>
             </View>
-            <Text style={[styles.kanbanDescription, { color: colors.textMuted }]}>{status.description}</Text>
+            <Text style={[styles.kanbanDescription, { color: colors.textSecondary }]}>{status.description}</Text>
           </View>
-          <div style={{ flex: 1, overflowY: 'scroll', paddingRight: 4 }}>
+          <div style={{ flex: 1, overflowY: 'scroll', paddingRight: 4, position: 'relative', zIndex: 1 }}>
             {players.map(player => renderPlayerCard(player))}
           </div>
         </div>
       );
     }
     return (
-      <View style={[styles.kanbanColumn, { backgroundColor: isDark ? colors.surfaceSecondary : '#f1f5f9' }, isDropTarget && styles.kanbanColumnDropTarget]} key={status.id}>
-        <View style={[styles.kanbanHeader, { borderBottomColor: colors.border }]}>
+      <View style={[styles.kanbanColumn, isDropTarget && styles.kanbanColumnDropTarget]} key={status.id}>
+        {!isDropTarget && (
+          <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ position: 'absolute', top: 0, left: `${-100 * index}%` as any, width: '300%' as any, height: '100%' as any, opacity: 0.45 }} resizeMode="cover" />
+        )}
+        <View style={[styles.kanbanHeader, { zIndex: 1 }]}>
           <View style={styles.kanbanHeaderTop}>
             <View style={[styles.statusDot, { backgroundColor: status.color }]} />
             <Text style={[styles.kanbanTitle, { color: colors.textSecondary }]}>{status.label}</Text>
             <View style={[styles.countBadge, { backgroundColor: colors.border }]}><Text style={[styles.countText, { color: colors.textSecondary }]}>{players.length}</Text></View>
           </View>
-          <Text style={[styles.kanbanDescription, { color: colors.textMuted }]}>{status.description}</Text>
+          <Text style={[styles.kanbanDescription, { color: colors.textSecondary }]}>{status.description}</Text>
         </View>
-        <ScrollView style={styles.kanbanContent} showsVerticalScrollIndicator={false}>
+        <ScrollView style={[styles.kanbanContent, { zIndex: 1 }]} showsVerticalScrollIndicator={false}>
           {players.map(player => renderPlayerCard(player))}
         </ScrollView>
       </View>
     );
   };
-
-  const renderListView = () => (
-    <View style={[styles.tableContainer, { backgroundColor: colors.cardBackground }]} onLayout={(e) => setScoutingTableWidth(e.nativeEvent.layout.width - 32)}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceSecondary, borderBottomWidth: 1, borderBottomColor: colors.border }}>
-        {scoutingTableWidth > 0 && (
-          <TableHeader
-            columnDefs={SCOUTING_LIST_COLUMNS}
-            columnOrder={scoutingTable.columnOrder}
-            getColumnWidth={scoutingTable.getColumnWidth}
-            onResizeStart={scoutingTable.onResizeStart}
-            onDragStart={scoutingTable.onDragStart}
-            resizingKey={scoutingTable.resizingKey}
-            draggingKey={scoutingTable.draggingKey}
-            dragOverKey={scoutingTable.dragOverKey}
-            colors={colors}
-            setHeaderRef={scoutingTable.setHeaderRef}
-            style={{ flex: 1, borderBottomWidth: 0, paddingHorizontal: 16 }}
-          />
-        )}
-      </View>
-      <ScrollView>
-        {filteredPlayers.map(player => (
-          <View key={player.id} style={[styles.tableRow, { borderBottomColor: colors.border }]}>
-            <TableRow
-              columnOrder={scoutingTable.columnOrder}
-              getColumnWidth={scoutingTable.getColumnWidth}
-              onPress={() => {
-                setSelectedPlayer(player);
-                setEditData({ first_name: player.first_name, last_name: player.last_name, birth_date: player.birth_date,
-                  position: player.position, club: player.club, rating: player.rating, status: player.status,
-                  notes: player.notes, photo_url: player.photo_url, transfermarkt_url: player.transfermarkt_url,
-                  agent_name: player.agent_name, phone: player.phone, additional_info: player.additional_info,
-                  current_status: player.current_status });
-                setEditClubSearchText(player.club || '');
-                setShowPlayerDetailModal(true);
-              }}
-              style={{ flex: 1 }}
-              renderCell={(key) => {
-                switch (key) {
-                  case 'name':
-                    return <Text style={[styles.tableCell, styles.tableCellText, { color: colors.text }]} numberOfLines={1}>{player.last_name} <Text style={{ color: colors.textSecondary, fontWeight: '400' }}>({getYearFromDate(player.birth_date)})</Text></Text>;
-                  case 'vorname':
-                    return <Text style={[styles.tableCell, styles.tableCellText, { color: colors.text }]} numberOfLines={1}>{player.first_name || '-'}</Text>;
-                  case 'position':
-                    return (
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
-                        {parsePositions(player.position).map((pos, idx) => (
-                          <View key={idx} style={styles.positionBadgeSmall}><Text style={styles.positionTextSmall}>{pos}</Text></View>
-                        ))}
-                      </View>
-                    );
-                  case 'club':
-                    return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{player.club}</Text>;
-                  case 'agent':
-                    return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{player.agent_name || '-'}</Text>;
-                  case 'rating':
-                    return player.rating ? <View style={styles.ratingBadgeList}><Text style={styles.ratingTextList}>⭐ {player.rating}/10</Text></View> : <Text style={[styles.tableCell, { color: colors.text }]}>-</Text>;
-                  case 'scout':
-                    return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{player.scout_name}</Text>;
-                  case 'status':
-                    return (
-                      <Text style={[styles.tableCell, { color: SCOUTING_STATUS.find(s => s.id === player.status)?.color }]}>
-                        {SCOUTING_STATUS.find(s => s.id === player.status)?.label}
-                      </Text>
-                    );
-                  case 'tm':
-                    return player.transfermarkt_url ? (
-                      <TouchableOpacity onPress={(e) => { e.stopPropagation(); openTransfermarkt(player.transfermarkt_url!); }}>
-                        <Image source={TransfermarktLogo} style={styles.tmLogoSmall} />
-                      </TouchableOpacity>
-                    ) : null;
-                  default:
-                    return null;
-                }
-              }}
-            />
-          </View>
-        ))}
-      </ScrollView>
-    </View>
-  );
 
   // Check if a game player is already in the scouted_players database (by name match)
   const isPlayerInDatabase = (player: GamePlayer): boolean => {
@@ -1646,20 +1691,14 @@ export function ScoutingScreen({ navigation }: any) {
     const clubName = player.team_name || '';
     
     setNewPlayer({
+      ...EMPTY_NEW_PLAYER,
       first_name: player.first_name || '',
       last_name: player.last_name || '',
-      birth_date: player.birth_year || '2005',
-      position: player.position || 'ST',
+      birth_date: player.birth_year || '',
+      position: player.position || '',
       club: clubName,
-      rating: player.rating || 5,
+      rating: player.rating || 0,
       notes: player.notes || '',
-      status: 'gesichtet',
-      photo_url: '',
-      transfermarkt_url: '',
-      agent_name: '',
-      phone: '',
-      additional_info: '',
-      current_status: ''
     });
     setNewPlayerClubSearch(clubName);
     setShowAddPlayerModal(true);
@@ -1676,7 +1715,7 @@ export function ScoutingScreen({ navigation }: any) {
     };
     
     return (
-      <Pressable style={[styles.gamesContainer, { backgroundColor: colors.cardBackground }]} onPress={closeGamesDropdowns}>
+      <Pressable style={[styles.gamesContainer, { backgroundColor: 'rgba(255,255,255,0.08)' }]} onPress={closeGamesDropdowns}>
         {/* Search Results */}
         {gamesViewMode === 'search' && (
           <ScrollView>
@@ -1686,7 +1725,8 @@ export function ScoutingScreen({ navigation }: any) {
                 <View style={[styles.searchResultsHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
                   <Text style={[styles.searchResultsTitle, { color: colors.text }]}>Events ({searchResultsEvents.length})</Text>
                 </View>
-                <View style={[styles.tableHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+                <View style={[styles.tableHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border, overflow: 'hidden' }]}>
+                  <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.45 }} resizeMode="cover" />
                   <Text style={[styles.tableHeaderCell, { flex: 1, color: colors.textSecondary }]}>Datum</Text>
                   <Text style={[styles.tableHeaderCell, { flex: 0.8, color: colors.textSecondary }]}>Art</Text>
                   <Text style={[styles.tableHeaderCell, { flex: 2, color: colors.textSecondary }]}>Beschreibung</Text>
@@ -1715,7 +1755,8 @@ export function ScoutingScreen({ navigation }: any) {
                 <View style={[styles.searchResultsHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }, searchResultsEvents.length > 0 && { marginTop: 16 }]}>
                   <Text style={[styles.searchResultsTitle, { color: colors.text }]}>Spieler ({searchResultsPlayers.length})</Text>
                 </View>
-                <View style={[styles.tableHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+                <View style={[styles.tableHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border, overflow: 'hidden' }]}>
+                  <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.45 }} resizeMode="cover" />
                   <Text style={[styles.tableHeaderCell, { flex: 1, color: colors.textSecondary }]}>Name</Text>
                   <Text style={[styles.tableHeaderCell, { flex: 0.7, color: colors.textSecondary }]}>Position</Text>
                   <Text style={[styles.tableHeaderCell, { flex: 0.8, color: colors.textSecondary }]}>Verein</Text>
@@ -1799,7 +1840,8 @@ export function ScoutingScreen({ navigation }: any) {
         {/* Games List (upcoming or archive) */}
         {gamesViewMode !== 'search' && (
           <>
-            <View style={[styles.tableHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+            <View style={[styles.tableHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border, overflow: 'hidden' }]}>
+              <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.45 }} resizeMode="cover" />
               <Text style={[styles.tableHeaderCell, { flex: 1, color: colors.textSecondary }]}>Datum</Text>
               <Text style={[styles.tableHeaderCell, { flex: 0.8, color: colors.textSecondary }]}>Art</Text>
               <Text style={[styles.tableHeaderCell, { flex: 2, color: colors.textSecondary }]}>Beschreibung</Text>
@@ -1835,8 +1877,9 @@ export function ScoutingScreen({ navigation }: any) {
   };
 
   const renderArchivView = () => (
-    <View style={[styles.tableContainer, { backgroundColor: colors.cardBackground }]}>
-      <View style={[styles.tableHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+    <View style={[styles.tableContainer, { backgroundColor: 'rgba(255,255,255,0.08)' }]}>
+      <View style={[styles.tableHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border, overflow: 'hidden' }]}>
+        <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.45 }} resizeMode="cover" />
         <Text style={[styles.tableHeaderCell, { flex: 2, color: colors.textSecondary }]}>Name</Text>
         <Text style={[styles.tableHeaderCell, { flex: 0.5, color: colors.textSecondary }]}>Geb.</Text>
         <Text style={[styles.tableHeaderCell, { flex: 0.8, color: colors.textSecondary }]}>Pos.</Text>
@@ -1871,6 +1914,97 @@ export function ScoutingScreen({ navigation }: any) {
     </View>
   );
 
+  // Click-outside handler für alle Dropdowns (Header + Custom Scout/Zuständigkeit, AddModal + EditModal) — Web
+  useEffect(() => {
+    const anyOpen = headerOpenDropdown || showNewPlayerScoutDropdown || showNewPlayerResponsibilityDropdown || showEditScoutDropdown || showEditResponsibilityDropdown;
+    if (!anyOpen || typeof document === 'undefined') return;
+    const handler = (e: any) => {
+      const target = e.target;
+      if (target && target.closest && target.closest('[data-kmhdropdown]')) return;
+      setHeaderOpenDropdown(null);
+      setShowNewPlayerScoutDropdown(false);
+      setShowNewPlayerResponsibilityDropdown(false);
+      setShowEditScoutDropdown(false);
+      setShowEditResponsibilityDropdown(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [headerOpenDropdown, showNewPlayerScoutDropdown, showNewPlayerResponsibilityDropdown, showEditScoutDropdown, showEditResponsibilityDropdown]);
+
+  const HeaderDateDropdown = ({ value, options, onChange, dropdownKey, placeholder, width, minListWidth }: {
+    value: string; options: string[]; onChange: (v: string) => void; dropdownKey: string; placeholder: string; width: number | string; minListWidth?: number;
+  }) => {
+    const open = headerOpenDropdown === dropdownKey;
+    return (
+      <View {...({ dataSet: { kmhdropdown: 'true' } } as any)} style={{ position: 'relative', width: width as any, zIndex: open ? 1000 : 1 }}>
+        <TouchableOpacity
+          style={styles.headerDateBtn}
+          onPress={() => setHeaderOpenDropdown(open ? null : dropdownKey)}
+        >
+          <Text style={[styles.headerDateBtnText, !value && { color: 'rgba(255,255,255,0.3)' }]} numberOfLines={1}>{value || placeholder}</Text>
+          <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={11} color="rgba(255,255,255,0.5)" />
+        </TouchableOpacity>
+        {open && (
+          <View style={[styles.headerDateList, minListWidth ? { minWidth: minListWidth } : null]}>
+            <ScrollView style={{ maxHeight: 220 }} nestedScrollEnabled>
+              <TouchableOpacity style={styles.headerDateItem} onPress={() => { onChange(''); setHeaderOpenDropdown(null); }}>
+                <Text style={[styles.headerDateItemText, { color: 'rgba(255,255,255,0.5)' }]}>Leeren</Text>
+              </TouchableOpacity>
+              {options.map(opt => (
+                <TouchableOpacity key={opt} style={styles.headerDateItem} onPress={() => { onChange(opt); setHeaderOpenDropdown(null); }}>
+                  <Text style={styles.headerDateItemText}>{opt}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  const HeaderMultiSelectDropdown = ({ values, options, onChange, dropdownKey, placeholder, width, minListWidth = 160 }: {
+    values: string[]; options: string[]; onChange: (next: string[]) => void; dropdownKey: string; placeholder: string; width: number | string; minListWidth?: number;
+  }) => {
+    const open = headerOpenDropdown === dropdownKey;
+    const display = values.length === 0 ? placeholder : values.join(', ');
+    return (
+      <View {...({ dataSet: { kmhdropdown: 'true' } } as any)} style={{ position: 'relative', width: width as any, zIndex: open ? 1000 : 1 }}>
+        <TouchableOpacity
+          style={styles.headerDateBtn}
+          onPress={() => setHeaderOpenDropdown(open ? null : dropdownKey)}
+        >
+          <Text style={[styles.headerDateBtnText, values.length === 0 && { color: 'rgba(255,255,255,0.3)' }]} numberOfLines={1}>{display}</Text>
+          <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={11} color="rgba(255,255,255,0.5)" />
+        </TouchableOpacity>
+        {open && (
+          <View style={[styles.headerDateList, { minWidth: minListWidth }]}>
+            <ScrollView style={{ maxHeight: 240 }} nestedScrollEnabled>
+              <TouchableOpacity style={styles.headerDateItem} onPress={() => onChange([])}>
+                <Text style={[styles.headerDateItemText, { color: 'rgba(255,255,255,0.5)' }]}>Leeren</Text>
+              </TouchableOpacity>
+              {options.map(opt => {
+                const checked = values.includes(opt);
+                return (
+                  <TouchableOpacity
+                    key={opt}
+                    style={[styles.headerDateItem, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}
+                    onPress={() => {
+                      if (checked) onChange(values.filter(v => v !== opt));
+                      else onChange([...values, opt]);
+                    }}
+                  >
+                    <Ionicons name={checked ? 'checkbox' : 'square-outline'} size={14} color={checked ? '#22c55e' : 'rgba(255,255,255,0.5)'} />
+                    <Text style={[styles.headerDateItemText, { flex: 1 }]}>{opt}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+      </View>
+    );
+  };
+
   const renderPlayerForm = (
     data: any, setData: (d: any) => void,
     clubSearch: string, setClubSearch: (t: string) => void,
@@ -1878,7 +2012,7 @@ export function ScoutingScreen({ navigation }: any) {
   ) => (
     <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={true} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
       {/* Status-Auswahl */}
-      <View style={[styles.detailInfo, { alignSelf: 'flex-start', marginBottom: 12, backgroundColor: colors.surfaceSecondary }]}>
+      <View style={[styles.detailInfo, { alignSelf: 'flex-start', marginBottom: 12 }]}>
         <Text style={[styles.formLabel, { marginBottom: 6, color: colors.textSecondary }]}>Status</Text>
         <View style={styles.statusSelector}>
           {SCOUTING_STATUS.map(status => (
@@ -1901,130 +2035,173 @@ export function ScoutingScreen({ navigation }: any) {
         </View>
       </View>
 
-      {/* Erste Säule: Grunddaten + Kontakt */}
-      <View style={[styles.detailInfo, { zIndex: 9999, backgroundColor: colors.surfaceSecondary }]}>
-        <View style={styles.formRow}>
-          <View style={styles.formField}>
-            <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Vorname *</Text>
-            <TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={data.first_name} onChangeText={(t) => setData({...data, first_name: t})} placeholder="Vorname" placeholderTextColor={colors.textMuted} />
-          </View>
-          <View style={styles.formField}>
-            <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Nachname *</Text>
-            <TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={data.last_name} onChangeText={(t) => setData({...data, last_name: t})} placeholder="Nachname" placeholderTextColor={colors.textMuted} />
-          </View>
-        </View>
-        <View style={[styles.formRow, { zIndex: 9999 }]}>
-          <View style={[styles.formField, { zIndex: 9999 }]}>
-            <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Verein</Text>
-            {renderClubSelector(clubSearch, setClubSearch, showClubDrop, setShowClubDrop, (c) => setData({...data, club: c}))}
-          </View>
-          <View style={styles.formField}>
-            <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Geburtsdatum / Jahrgang</Text>
-            <TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={data.birth_date || ''} onChangeText={(t) => setData({...data, birth_date: t})} placeholder="YYYY-MM-DD oder YYYY" placeholderTextColor={colors.textMuted} />
-          </View>
-        </View>
-        <View style={styles.formRow}>
-          <View style={styles.formField}>
-            <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Kontakt</Text>
+      {/* Kontakt-Bereich (Vorname/Nachname/Verein sind im Header-Card editierbar) */}
+      <View style={styles.detailInfo}>
+        <View style={[styles.formRow, { marginBottom: 0 }]}>
+          <View style={[styles.formField, { marginBottom: 0 }]}>
+            <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Kontaktperson</Text>
             <TextInput
               style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
               value={data.phone || ''}
               onChangeText={(t) => setData({...data, phone: t})}
-              placeholder="Telefonnummer..."
+              placeholder="z.B. Papa - Markus, +49 151 12345678"
               placeholderTextColor={colors.textMuted}
-              keyboardType="phone-pad"
             />
           </View>
-          <View style={styles.formField}>
+          <View style={[styles.formField, { marginBottom: 0 }]}>
             <Text style={[styles.formLabel, { color: colors.textSecondary }]}>IST-Stand</Text>
             <TextInput
               style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
               value={data.current_status || ''}
               onChangeText={(t) => setData({...data, current_status: t})}
-              placeholder="z.B. Termin am 15.01."
+              placeholder="z.B. Termin am 15.01., Trainer hat Interesse"
               placeholderTextColor={colors.textMuted}
             />
           </View>
         </View>
       </View>
 
-      {/* Zweite Säule: Position + Einschätzung */}
-      <View style={[styles.detailInfo, { zIndex: 1, backgroundColor: colors.surfaceSecondary }]}>
-        <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Position:</Text>
-          <View style={styles.positionPickerSmall}>
-            <TouchableOpacity
-              style={[styles.positionOptionSmall, { backgroundColor: isDark ? colors.surface : '#f1f5f9' }, (!data.position || data.position === '') && styles.positionOptionSelected]}
-              onPress={() => setData({...data, position: ''})}
-            >
-              <Text style={[styles.positionOptionTextSmall, { color: colors.textSecondary }, (!data.position || data.position === '') && styles.positionOptionTextSelected]}>-</Text>
-            </TouchableOpacity>
-            {POSITIONS.map(pos => {
-              const currentPositions = parsePositions(data.position || '');
-              const isSelected = currentPositions.includes(pos);
+      {/* Scout + Zuständigkeit */}
+      <View style={[styles.detailInfo, { zIndex: 8000 }]}>
+        <View style={[styles.formRow, { marginBottom: 0, zIndex: 8000 }]}>
+          <View {...({ dataSet: { kmhdropdown: 'true' } } as any)} style={[styles.formField, { marginBottom: 0, zIndex: showEditScoutDropdown ? 8100 : 1 }]}>
+            <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Scout</Text>
+            {(() => {
+              const scoutsList = (data.scouts || (data.scout_id && advisors.find(a => a.id === data.scout_id) ? `${advisors.find(a => a.id === data.scout_id)!.first_name} ${advisors.find(a => a.id === data.scout_id)!.last_name}` : '')).split(',').map((s: string) => s.trim()).filter(Boolean);
+              const display = scoutsList.length === 0 ? 'Scout auswählen...' : scoutsList.join(', ');
               return (
-                <TouchableOpacity
-                  key={pos}
-                  style={[styles.positionOptionSmall, { backgroundColor: isDark ? colors.surface : '#f1f5f9' }, isSelected && styles.positionOptionSelected]}
-                  onPress={() => {
-                    const newPositions = isSelected
-                      ? currentPositions.filter(p => p !== pos)
-                      : [...currentPositions, pos];
-                    setData({...data, position: formatPositions(newPositions)});
-                  }}
-                >
-                  <Text style={[styles.positionOptionTextSmall, { color: colors.textSecondary }, isSelected && styles.positionOptionTextSelected]}>{pos}</Text>
-                </TouchableOpacity>
+                <>
+                  <TouchableOpacity
+                    style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
+                    onPress={() => { setShowEditScoutDropdown(!showEditScoutDropdown); setShowEditResponsibilityDropdown(false); }}
+                  >
+                    <Text style={{ color: scoutsList.length > 0 ? colors.text : 'rgba(255,255,255,0.3)', fontSize: 13, fontWeight: '500', flex: 1 }} numberOfLines={1}>
+                      {display}
+                    </Text>
+                    <Ionicons name={showEditScoutDropdown ? 'chevron-up' : 'chevron-down'} size={14} color="rgba(255,255,255,0.5)" />
+                  </TouchableOpacity>
+                  {showEditScoutDropdown && (
+                    <View style={[styles.headerDateList, { left: 0, right: 0, minWidth: undefined }]}>
+                      <ScrollView style={{ maxHeight: 280 }} nestedScrollEnabled>
+                        <TouchableOpacity style={styles.headerDateItem} onPress={() => setData({ ...data, scouts: '', scout_id: '' })}>
+                          <Text style={[styles.headerDateItemText, { color: 'rgba(255,255,255,0.5)' }]}>Leeren</Text>
+                        </TouchableOpacity>
+                        {advisors.map(adv => {
+                          const advName = `${adv.first_name} ${adv.last_name}`;
+                          const checked = scoutsList.includes(advName);
+                          return (
+                            <TouchableOpacity
+                              key={adv.id}
+                              style={[styles.headerDateItem, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}
+                              onPress={() => {
+                                const next = checked ? scoutsList.filter((n: string) => n !== advName) : [...scoutsList, advName];
+                                // Erster Eintrag wird auch als scout_id gespeichert (Backwards-Compat)
+                                const firstAdvName = next.find(n => advisors.some(a => `${a.first_name} ${a.last_name}` === n));
+                                const firstAdvId = firstAdvName ? advisors.find(a => `${a.first_name} ${a.last_name}` === firstAdvName)?.id || '' : '';
+                                setData({ ...data, scouts: next.join(', '), scout_id: firstAdvId });
+                              }}
+                            >
+                              <Ionicons name={checked ? 'checkbox' : 'square-outline'} size={14} color={checked ? '#22c55e' : 'rgba(255,255,255,0.5)'} />
+                              <Text style={[styles.headerDateItemText, { flex: 1 }]}>{advName}</Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                        {/* Manueller Eintrag */}
+                        <View style={{ padding: 8, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' }}>
+                          <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 6 }}>Externer Scout hinzufügen</Text>
+                          <View style={{ flexDirection: 'row', gap: 6 }}>
+                            <TextInput
+                              style={[styles.formInput, { flex: 1, backgroundColor: '#000', borderColor: colors.inputBorder, color: colors.text }]}
+                              value={editScoutManualText}
+                              onChangeText={setEditScoutManualText}
+                              placeholder="z.B. Hans Müller"
+                              placeholderTextColor="rgba(255,255,255,0.3)"
+                              onSubmitEditing={() => {
+                                const name = editScoutManualText.trim();
+                                if (!name || scoutsList.includes(name)) return;
+                                setData({ ...data, scouts: [...scoutsList, name].join(', ') });
+                                setEditScoutManualText('');
+                              }}
+                            />
+                            <TouchableOpacity
+                              style={{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, backgroundColor: '#22c55e', borderWidth: 1, borderColor: '#22c55e', justifyContent: 'center' }}
+                              onPress={() => {
+                                const name = editScoutManualText.trim();
+                                if (!name || scoutsList.includes(name)) return;
+                                setData({ ...data, scouts: [...scoutsList, name].join(', ') });
+                                setEditScoutManualText('');
+                              }}
+                            >
+                              <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>+</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      </ScrollView>
+                    </View>
+                  )}
+                </>
               );
-            })}
+            })()}
           </View>
-        </View>
-        <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Einschätzung:</Text>
-          <View style={styles.ratingPickerSmall}>
-            <TouchableOpacity style={[styles.ratingOptionSmall, { backgroundColor: isDark ? colors.surface : '#f1f5f9' }, !data.rating && styles.ratingOptionSelected]} onPress={() => setData({...data, rating: null})}>
-              <Text style={[styles.ratingOptionTextSmall, { color: colors.textSecondary }, !data.rating && styles.ratingOptionTextSelected]}>-</Text>
-            </TouchableOpacity>
-            {[1,2,3,4,5,6,7,8,9,10].map(r => (
-              <TouchableOpacity key={r} style={[styles.ratingOptionSmall, { backgroundColor: isDark ? colors.surface : '#f1f5f9' }, data.rating === r && styles.ratingOptionSelected]} onPress={() => setData({...data, rating: r})}>
-                <Text style={[styles.ratingOptionTextSmall, { color: colors.textSecondary }, data.rating === r && styles.ratingOptionTextSelected]}>{r}</Text>
-              </TouchableOpacity>
-            ))}
+          <View {...({ dataSet: { kmhdropdown: 'true' } } as any)} style={[styles.formField, { marginBottom: 0, zIndex: showEditResponsibilityDropdown ? 8100 : 1 }]}>
+            <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Zuständigkeit</Text>
+            {(() => {
+              const respList = (data.responsibility || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+              const display = respList.length === 0 ? 'Berater auswählen...' : respList.join(', ');
+              return (
+                <>
+                  <TouchableOpacity
+                    style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
+                    onPress={() => { setShowEditResponsibilityDropdown(!showEditResponsibilityDropdown); setShowEditScoutDropdown(false); }}
+                  >
+                    <Text style={{ color: respList.length > 0 ? colors.text : 'rgba(255,255,255,0.3)', fontSize: 13, fontWeight: '500', flex: 1 }} numberOfLines={1}>
+                      {display}
+                    </Text>
+                    <Ionicons name={showEditResponsibilityDropdown ? 'chevron-up' : 'chevron-down'} size={14} color="rgba(255,255,255,0.5)" />
+                  </TouchableOpacity>
+                  {showEditResponsibilityDropdown && (
+                    <View style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 2, backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 6, zIndex: 9000, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12 }}>
+                      <ScrollView style={{ maxHeight: 240 }} nestedScrollEnabled>
+                        <TouchableOpacity style={{ paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }} onPress={() => setData({ ...data, responsibility: '' })}>
+                          <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: '500' }}>Leeren</Text>
+                        </TouchableOpacity>
+                        {advisors.map(adv => {
+                          const advName = `${adv.first_name} ${adv.last_name}`;
+                          const checked = respList.includes(advName);
+                          return (
+                            <TouchableOpacity
+                              key={adv.id}
+                              style={{ paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)', flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                              onPress={() => {
+                                const next = checked ? respList.filter((n: string) => n !== advName) : [...respList, advName];
+                                setData({ ...data, responsibility: next.join(', ') });
+                              }}
+                            >
+                              <Ionicons name={checked ? 'checkbox' : 'square-outline'} size={14} color={checked ? '#22c55e' : 'rgba(255,255,255,0.5)'} />
+                              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '500', flex: 1 }}>{advName}</Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </ScrollView>
+                    </View>
+                  )}
+                </>
+              );
+            })()}
           </View>
         </View>
       </View>
 
-      {/* Dritte Säule: Transfermarkt + Scout */}
-      <View style={[styles.detailInfo, { backgroundColor: colors.surfaceSecondary }]}>
-        <View style={styles.formField}>
-          <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Transfermarkt Link</Text>
-          <View style={styles.tmInputRow}>
-            <TextInput
-              style={[styles.formInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
-              value={data.transfermarkt_url || ''}
-              onChangeText={(t) => setData({...data, transfermarkt_url: t})}
-              placeholder="https://www.transfermarkt.de/spieler/profil/..."
-              placeholderTextColor={colors.textMuted}
-            />
-            {data.transfermarkt_url && (
-              <TouchableOpacity style={[styles.tmButton, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => openTransfermarkt(data.transfermarkt_url)}>
-                <Image source={TransfermarktLogo} style={styles.tmLogoMedium} />
-              </TouchableOpacity>
-            )}
-          </View>
+      {/* Weitere Infos + Fußballerische Einschätzung — in einem Rahmen wie oben */}
+      <View style={styles.detailInfo}>
+        <View style={[styles.formField, { marginBottom: 20 }]}>
+          <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Weitere Infos</Text>
+          <TextInput style={[styles.formInput, styles.textArea, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={data.additional_info || ''} onChangeText={(t) => setData({...data, additional_info: t})} placeholder="z.B. Empfehlung von Trainer Schmidt, Hospitanz beim Heimspiel möglich" placeholderTextColor={colors.textMuted} multiline />
         </View>
-      </View>
-
-      {/* Vierte Säule: Weitere Infos */}
-      <View style={[styles.detailSection, { marginBottom: 10 }]}>
-        <Text style={[styles.detailSectionTitle, { color: colors.text }]}>Weitere Infos</Text>
-        <TextInput style={[styles.formInput, styles.textArea, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={data.additional_info || ''} onChangeText={(t) => setData({...data, additional_info: t})} placeholder="Weitere Informationen..." placeholderTextColor={colors.textMuted} multiline />
-      </View>
-
-      {/* Ganz unten: Fußballerische Einschätzung */}
-      <View style={[styles.detailSection, { marginBottom: 20 }]}>
-        <Text style={[styles.detailSectionTitle, { color: colors.text }]}>Fußballerische Einschätzung</Text>
-        <TextInput style={[styles.formInput, styles.textArea, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={data.notes || ''} onChangeText={(t) => setData({...data, notes: t})} placeholder="Fußballerische Einschätzung..." placeholderTextColor={colors.textMuted} multiline />
+        <View style={[styles.formField, { marginBottom: 0 }]}>
+          <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Fußballerische Einschätzung</Text>
+          <TextInput style={[styles.formInput, styles.textArea, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={data.notes || ''} onChangeText={(t) => setData({...data, notes: t})} placeholder="z.B. Schneller, beidfüßiger Außenverteidiger mit guter Übersicht und solidem Stellungsspiel" placeholderTextColor={colors.textMuted} multiline />
+        </View>
       </View>
     </ScrollView>
   );
@@ -2056,10 +2233,26 @@ export function ScoutingScreen({ navigation }: any) {
     setShowGamesRatingDropdown(false);
   };
 
-  const closeAddPlayerModal = () => {
-    setShowAddPlayerModal(false);
+  const openEmptyAddPlayerModal = () => {
+    setNewPlayer({ ...EMPTY_NEW_PLAYER, responsibility: currentUserName || '' });
     setNewPlayerClubSearch('');
     setShowNewPlayerClubDropdown(false);
+    setShowNewPlayerScoutDropdown(false);
+    setShowNewPlayerResponsibilityDropdown(false);
+    setTmSuggestions([]);
+    setTmSelected(null);
+    setTmSearching(false);
+    setTmLoading(false);
+    setShowAddPlayerModal(true);
+  };
+
+  const closeAddPlayerModal = () => {
+    setShowAddPlayerModal(false);
+    setNewPlayer(EMPTY_NEW_PLAYER);
+    setNewPlayerClubSearch('');
+    setShowNewPlayerClubDropdown(false);
+    setShowNewPlayerScoutDropdown(false);
+    setShowNewPlayerResponsibilityDropdown(false);
     setAddingGamePlayerId(null);
     setTmSuggestions([]);
     setTmSelected(null);
@@ -2086,7 +2279,7 @@ export function ScoutingScreen({ navigation }: any) {
     return (
       <TouchableOpacity
         key={player.id}
-        style={[styles.mobilePlayerCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
+        style={[styles.mobilePlayerCard, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}
         onPress={() => openPlayerDetailModal(player)}
       >
         {/* Row 1: Name with year (left) | Position badges (right) */}
@@ -2147,7 +2340,7 @@ export function ScoutingScreen({ navigation }: any) {
         key={game.id}
         style={[
           styles.mobileGameCard,
-          { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
+          { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' },
           isToday && !isPast && { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#dcfce7', borderColor: '#10b981' },
           isPast && { backgroundColor: colors.surfaceSecondary }
         ]}
@@ -2228,8 +2421,9 @@ export function ScoutingScreen({ navigation }: any) {
     }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     return (
-      <Pressable style={[styles.mobileContainer, { backgroundColor: colors.background }]} onPress={closeAllDropdowns}>
+      <Pressable style={[styles.mobileContainer, { backgroundColor: 'transparent' }]} onPress={closeAllDropdowns}>
         {/* Mobile Sidebar Overlay */}
+        <AdvisorBackground />
         <MobileSidebar
           visible={showMobileSidebar}
           onClose={() => setShowMobileSidebar(false)}
@@ -2240,73 +2434,61 @@ export function ScoutingScreen({ navigation }: any) {
 
         <MobileHeader
           title="Scouting"
+          backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
           onMenuPress={() => setShowMobileSidebar(true)}
-          onProfilePress={() => navigation.navigate('MyProfile')}
-          profileInitials={profileInitials}
-        />
+        >
+          {/* Column-Stack: Search zuerst, dann Sub-Tabs */}
+          <View style={{ flex: 1, flexDirection: 'column', alignItems: 'stretch' }}>
+            {/* Search-Bar (zuerst direkt unter dem Divider) */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.7)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 6, paddingHorizontal: 10, height: 28 }}>
+              <Ionicons name="search" size={12} color="rgba(255,255,255,0.5)" />
+              <TextInput
+                style={{ flex: 1, paddingVertical: 0, fontSize: 12, color: '#fff', marginLeft: 6 }}
+                placeholder="Spieler, Verein suchen..."
+                placeholderTextColor="rgba(255,255,255,0.4)"
+                value={searchText}
+                onChangeText={setSearchText}
+              />
+              {searchText ? (
+                <TouchableOpacity onPress={() => setSearchText('')}>
+                  <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)' }}>✕</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
 
-        {/* Main Tabs: Spieler / Termine */}
-        <View style={[styles.mobileTabs, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-          <TouchableOpacity style={[styles.mobileTab, activeTab === 'spieler' && styles.mobileTabActive, activeTab === 'spieler' && { borderBottomColor: colors.primary }]} onPress={() => setActiveTab('spieler')}>
-            <Text style={[styles.mobileTabText, { color: colors.textSecondary }, activeTab === 'spieler' && styles.mobileTabTextActive, activeTab === 'spieler' && { color: colors.text }]}>Spieler</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.mobileTab, activeTab === 'spiele' && styles.mobileTabActive, activeTab === 'spiele' && { borderBottomColor: colors.primary }]} onPress={() => setActiveTab('spiele')}>
-            <Text style={[styles.mobileTabText, { color: colors.textSecondary }, activeTab === 'spiele' && styles.mobileTabTextActive, activeTab === 'spiele' && { color: colors.text }]}>Termine</Text>
-          </TouchableOpacity>
-        </View>
-
-        {activeTab === 'spieler' ? (
-          <>
-            {/* Status Tabs */}
-            <View style={[styles.mobileStatusTabs, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+            {/* Sub-Tabs: Talentpool / Go-Kandidaten / Austausch / Archiv */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 }}>
               {SCOUTING_STATUS.map(status => {
                 const count = getPlayersByStatus(status.id).length;
                 const isActive = mobileStatusTab === status.id;
                 return (
                   <TouchableOpacity
                     key={status.id}
-                    style={[styles.mobileStatusTab, isActive && { borderBottomColor: status.color }]}
+                    style={{ flex: 1, paddingVertical: 6, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: isActive ? status.color : 'transparent' }}
                     onPress={() => setMobileStatusTab(status.id as MobileStatusTab)}
                   >
-                    <Text style={[styles.mobileStatusTabText, { color: colors.textSecondary }, isActive && { color: status.color }]} numberOfLines={1}>
-                      {status.label.split(' ')[0]}
-                    </Text>
-                    <View style={[styles.mobileStatusBadge, { backgroundColor: isActive ? status.color : colors.surfaceSecondary }]}>
-                      <Text style={[styles.mobileStatusBadgeText, !isActive && { color: colors.textSecondary }]}>{count}</Text>
+                    <Text style={{ fontSize: 10, fontWeight: '600', color: isActive ? status.color : 'rgba(255,255,255,0.5)' }} numberOfLines={1}>{status.label.split(' ')[0]}</Text>
+                    <View style={{ marginTop: 4, minWidth: 20, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, backgroundColor: isActive ? status.color : 'rgba(255,255,255,0.1)', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 9, fontWeight: '600', color: '#fff' }}>{count}</Text>
                     </View>
                   </TouchableOpacity>
                 );
               })}
-              {/* Archiv Tab */}
               <TouchableOpacity
-                style={[styles.mobileStatusTab, mobileStatusTab === 'archiv' && { borderBottomColor: colors.textSecondary }]}
+                style={{ flex: 1, paddingVertical: 6, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: mobileStatusTab === 'archiv' ? '#64748b' : 'transparent' }}
                 onPress={() => setMobileStatusTab('archiv')}
               >
-                <Text style={[styles.mobileStatusTabText, { color: colors.textSecondary }, mobileStatusTab === 'archiv' && { color: colors.textSecondary }]}>Archiv</Text>
-                <View style={[styles.mobileStatusBadge, { backgroundColor: mobileStatusTab === 'archiv' ? '#64748b' : colors.surfaceSecondary }]}>
-                  <Text style={[styles.mobileStatusBadgeText, mobileStatusTab !== 'archiv' && { color: colors.textSecondary }]}>
-                    {scoutedPlayers.filter(p => p.archived).length}
-                  </Text>
+                <Text style={{ fontSize: 10, fontWeight: '600', color: mobileStatusTab === 'archiv' ? '#cbd5e1' : 'rgba(255,255,255,0.5)' }}>Archiv</Text>
+                <View style={{ marginTop: 4, minWidth: 20, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, backgroundColor: mobileStatusTab === 'archiv' ? '#64748b' : 'rgba(255,255,255,0.1)', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 9, fontWeight: '600', color: '#fff' }}>{scoutedPlayers.filter(p => p.archived).length}</Text>
                 </View>
               </TouchableOpacity>
             </View>
+          </View>
+        </MobileHeader>
 
-            {/* Search */}
-            <View style={[styles.mobileSearchContainer, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
-              <Text style={styles.mobileSearchIcon}>🔍</Text>
-              <TextInput
-                style={[styles.mobileSearchInput, { color: colors.text }]}
-                placeholder="Spieler, Verein suchen..."
-                placeholderTextColor={colors.textMuted}
-                value={searchText}
-                onChangeText={setSearchText}
-              />
-              {searchText && (
-                <TouchableOpacity onPress={() => setSearchText('')}>
-                  <Text style={styles.mobileSearchClear}>✕</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+        {true ? (
+          <>
 
             {/* Player List */}
             <ScrollView
@@ -2334,7 +2516,7 @@ export function ScoutingScreen({ navigation }: any) {
             </ScrollView>
 
             {/* FAB */}
-            <TouchableOpacity style={[styles.mobileFab, { backgroundColor: colors.primary }]} onPress={() => setShowAddPlayerModal(true)}>
+            <TouchableOpacity style={[styles.mobileFab, { backgroundColor: colors.primary }]} onPress={openEmptyAddPlayerModal}>
               <Text style={[styles.mobileFabIcon, { color: colors.primaryText }]}>+</Text>
             </TouchableOpacity>
           </>
@@ -2517,7 +2699,7 @@ export function ScoutingScreen({ navigation }: any) {
                     <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>Heimmannschaft *</Text>
                     <TextInput
                       style={{ borderWidth: 1, borderColor: colors.inputBorder, borderRadius: 8, padding: 12, fontSize: 15, backgroundColor: colors.inputBackground, color: colors.text }}
-                      placeholder="Vereinsname"
+                      placeholder="z.B. Borussia Dortmund"
                       placeholderTextColor={colors.textMuted}
                       value={newGame.home_team || ''}
                       onChangeText={(text) => setNewGame({ ...newGame, home_team: text })}
@@ -2527,7 +2709,7 @@ export function ScoutingScreen({ navigation }: any) {
                     <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>Gastmannschaft *</Text>
                     <TextInput
                       style={{ borderWidth: 1, borderColor: colors.inputBorder, borderRadius: 8, padding: 12, fontSize: 15, backgroundColor: colors.inputBackground, color: colors.text }}
-                      placeholder="Vereinsname"
+                      placeholder="z.B. FC Schalke 04"
                       placeholderTextColor={colors.textMuted}
                       value={newGame.away_team || ''}
                       onChangeText={(text) => setNewGame({ ...newGame, away_team: text })}
@@ -2537,7 +2719,7 @@ export function ScoutingScreen({ navigation }: any) {
                     <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>Spielort</Text>
                     <TextInput
                       style={{ borderWidth: 1, borderColor: colors.inputBorder, borderRadius: 8, padding: 12, fontSize: 15, backgroundColor: colors.inputBackground, color: colors.text }}
-                      placeholder="Adresse oder Stadion"
+                      placeholder="z.B. Signal Iduna Park, Dortmund"
                       placeholderTextColor={colors.textMuted}
                       value={newGame.location || ''}
                       onChangeText={(text) => setNewGame({ ...newGame, location: text })}
@@ -2557,7 +2739,7 @@ export function ScoutingScreen({ navigation }: any) {
                     <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>Notizen</Text>
                     <TextInput
                       style={{ borderWidth: 1, borderColor: colors.inputBorder, borderRadius: 8, padding: 12, fontSize: 15, minHeight: 80, backgroundColor: colors.inputBackground, color: colors.text }}
-                      placeholder="Weitere Infos..."
+                      placeholder="z.B. Hospitanz beim Trainerteam möglich"
                       placeholderTextColor={colors.textMuted}
                       multiline
                       value={newGame.notes || ''}
@@ -2579,91 +2761,128 @@ export function ScoutingScreen({ navigation }: any) {
         </Modal>
 
         {/* Add Player Modal (Mobile) */}
-        <Modal visible={showAddPlayerModal} transparent animationType="slide">
+        <Modal visible={showAddPlayerModal} transparent animationType="fade">
           <View style={styles.mobileModalOverlay}>
-            <View style={[styles.mobileModalContent, { backgroundColor: colors.surface }]}>
-              <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border, position: 'relative' }}>
-                <Text style={[styles.mobileModalTitle, { color: colors.text, textAlign: 'center' }]}>Neuen Spieler anlegen</Text>
-                <TouchableOpacity onPress={closeAddPlayerModal} style={{ position: 'absolute', right: 16, width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ color: colors.textSecondary, fontSize: 14, lineHeight: 16 }}>✕</Text>
+            <View style={[styles.mobileModalContent, { overflow: 'visible', backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderTopLeftRadius: 16, borderTopRightRadius: 16, maxHeight: '92%' }]}>
+              <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden' }} pointerEvents="none">
+                <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%', opacity: 0.85, ...({ objectFit: 'cover', objectPosition: 'center', backgroundSize: 'cover', backgroundPosition: 'center' } as any) }} resizeMode="cover" />
+                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.45)' }} />
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 16, position: 'relative', zIndex: 1 }}>
+                <Text style={{ fontFamily: 'Josefin Sans', fontSize: 16, fontWeight: '300', letterSpacing: 4, textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>Neuen Spieler anlegen</Text>
+                <TouchableOpacity onPress={closeAddPlayerModal} style={{ position: 'absolute', right: 16, width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 20 }}>✕</Text>
                 </TouchableOpacity>
               </View>
-              <ScrollView style={styles.mobileModalScroll} keyboardShouldPersistTaps="handled">
-                <View style={{ padding: 16 }}>
-                  <View style={{ flexDirection: 'row', gap: 8, marginBottom: 2 }}>
-                    <TextInput style={[styles.formInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Nachname" placeholderTextColor={colors.textMuted} value={newPlayer.last_name} onChangeText={handleScoutingLastNameChange} autoFocus />
-                    <TextInput style={[styles.formInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Vorname" placeholderTextColor={colors.textMuted} value={newPlayer.first_name} onChangeText={handleScoutingFirstNameChange} />
+
+              <ScrollView style={{ paddingHorizontal: 20, zIndex: 1 }} contentContainerStyle={{ paddingBottom: 16 }} keyboardShouldPersistTaps="handled">
+                {/* Nachname + Vorname */}
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Nachname</Text>
+                    <TextInput style={[styles.formInput]} placeholder="z.B. Mustermann" placeholderTextColor="rgba(255,255,255,0.3)" value={newPlayer.last_name} onChangeText={handleScoutingLastNameChange} autoFocus />
                   </View>
-                  {tmSearching && <Text style={{ color: colors.textMuted, fontSize: 11, marginBottom: 4 }}>Suche auf Transfermarkt...</Text>}
-                  {tmSuggestions.length > 0 && (
-                    <ScrollView style={{ maxHeight: 220, borderWidth: 1, borderColor: colors.border, borderRadius: 6, marginBottom: 8 }} nestedScrollEnabled keyboardShouldPersistTaps="handled">
-                      {tmSuggestions.map((s, i) => (
-                        <TouchableOpacity key={i} style={{ flexDirection: 'row', alignItems: 'baseline', paddingVertical: 5, paddingHorizontal: 8, borderBottomWidth: i < tmSuggestions.length - 1 ? StyleSheet.hairlineWidth : 0, borderBottomColor: colors.border }} onPress={() => selectTmScoutingPlayer(s)}>
-                          <Text style={{ color: colors.text, fontSize: 12, fontWeight: '600' }}>{s.name}</Text>
-                          <Text style={{ color: colors.textMuted, fontSize: 11, marginLeft: 6 }}>{[s.verein, s.position, s.age ? s.age + 'J' : ''].filter(Boolean).join(' · ')}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-                  )}
-                  {tmLoading && <Text style={{ color: colors.primary, fontSize: 11, marginBottom: 6 }}>Lade Spielerdaten von Transfermarkt...</Text>}
-                  {tmSelected && (
-                    <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: 6, padding: 8, marginBottom: 6, borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.3)' }}>
-                      <Text style={{ color: '#10b981', fontSize: 11, fontWeight: '600', marginBottom: 3 }}>Transfermarkt-Daten übernommen</Text>
-                      <Text style={{ fontSize: 12 }} numberOfLines={1}><Text style={{ color: colors.text, fontWeight: '600' }}>{newPlayer.first_name} {newPlayer.last_name}</Text>{'  '}<Text style={{ color: colors.textMuted, fontSize: 11 }}>{[tmSelected.verein, tmSelected.tmPosition, tmSelected.tmAge ? tmSelected.tmAge + 'J' : ''].filter(Boolean).join(' · ')}</Text></Text>
-                    </View>
-                  )}
-                  {!tmSelected && (
-                    <>
-                      {/* Club field with autocomplete */}
-                      <View style={[styles.formField, { zIndex: 9999, marginTop: 8 }]}>
-                        <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Verein</Text>
-                        {renderClubSelector(newPlayerClubSearch, setNewPlayerClubSearch, showNewPlayerClubDropdown, setShowNewPlayerClubDropdown, (c) => setNewPlayer(prev => ({ ...prev, club: c })))}
-                      </View>
-                      {/* Position */}
-                      <View style={[styles.formField, { marginTop: 8 }]}>
-                        <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Position</Text>
-                        <View style={styles.positionPickerSmall}>
-                          {POSITIONS.map(pos => {
-                            const currentPositions = parsePositions(newPlayer.position || '');
-                            const isSelected = currentPositions.includes(pos);
-                            return (
-                              <TouchableOpacity key={pos} style={[styles.positionOptionSmall, { backgroundColor: isDark ? colors.surface : '#f1f5f9' }, isSelected && styles.positionOptionSelected]} onPress={() => {
-                                const newPositions = isSelected ? currentPositions.filter(p => p !== pos) : [...currentPositions, pos];
-                                setNewPlayer(prev => ({ ...prev, position: formatPositions(newPositions) }));
-                              }}>
-                                <Text style={[styles.positionOptionTextSmall, { color: colors.textSecondary }, isSelected && styles.positionOptionTextSelected]}>{pos}</Text>
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </View>
-                      </View>
-                      {/* Birth year */}
-                      <View style={[styles.formField, { marginTop: 8 }]}>
-                        <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Geburtsdatum / Jahrgang</Text>
-                        <TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newPlayer.birth_date || ''} onChangeText={(t) => setNewPlayer(prev => ({ ...prev, birth_date: t }))} placeholder="YYYY-MM-DD oder YYYY" placeholderTextColor={colors.textMuted} />
-                      </View>
-                      {/* Rating */}
-                      <View style={[styles.formField, { marginTop: 8 }]}>
-                        <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Einschätzung</Text>
-                        <View style={styles.ratingPickerSmall}>
-                          <TouchableOpacity style={[styles.ratingOptionSmall, { backgroundColor: isDark ? colors.surface : '#f1f5f9' }, !newPlayer.rating && styles.ratingOptionSelected]} onPress={() => setNewPlayer(prev => ({ ...prev, rating: 0 }))}>
-                            <Text style={[styles.ratingOptionTextSmall, { color: colors.textSecondary }, !newPlayer.rating && styles.ratingOptionTextSelected]}>-</Text>
-                          </TouchableOpacity>
-                          {[1,2,3,4,5,6,7,8,9,10].map(r => (
-                            <TouchableOpacity key={r} style={[styles.ratingOptionSmall, { backgroundColor: isDark ? colors.surface : '#f1f5f9' }, newPlayer.rating === r && styles.ratingOptionSelected]} onPress={() => setNewPlayer(prev => ({ ...prev, rating: r }))}>
-                              <Text style={[styles.ratingOptionTextSmall, { color: colors.textSecondary }, newPlayer.rating === r && styles.ratingOptionTextSelected]}>{r}</Text>
-                            </TouchableOpacity>
-                          ))}
-                        </View>
-                      </View>
-                    </>
-                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Vorname</Text>
+                    <TextInput style={[styles.formInput]} placeholder="z.B. Maximilian" placeholderTextColor="rgba(255,255,255,0.3)" value={newPlayer.first_name} onChangeText={handleScoutingFirstNameChange} />
+                  </View>
                 </View>
+
+                {tmSearching && <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginBottom: 6 }}>Suche auf Transfermarkt...</Text>}
+                {tmSuggestions.length > 0 && (
+                  <ScrollView style={{ maxHeight: 200, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, marginBottom: 10, backgroundColor: '#1a1a1a' }} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                    {tmSuggestions.map((s, i) => (
+                      <TouchableOpacity key={i} style={{ flexDirection: 'row', alignItems: 'baseline', paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: i < tmSuggestions.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.05)' }} onPress={() => selectTmScoutingPlayer(s)}>
+                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>{s.name}</Text>
+                        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginLeft: 6 }}>{[s.verein, s.position, s.age ? s.age + 'J' : ''].filter(Boolean).join(' · ')}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
+                {tmLoading && <Text style={{ color: '#22c55e', fontSize: 11, marginBottom: 6 }}>Lade Spielerdaten von Transfermarkt...</Text>}
+                {tmSelected && (
+                  <View style={{ backgroundColor: 'rgba(34,197,94,0.1)', borderRadius: 6, padding: 8, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)' }}>
+                    <Text style={{ color: '#22c55e', fontSize: 11, fontWeight: '600', marginBottom: 3 }}>Transfermarkt-Daten übernommen</Text>
+                    <Text style={{ fontSize: 12 }} numberOfLines={1}><Text style={{ color: '#fff', fontWeight: '600' }}>{newPlayer.first_name} {newPlayer.last_name}</Text>{'  '}<Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>{[tmSelected.verein, tmSelected.tmPosition, tmSelected.tmAge ? tmSelected.tmAge + 'J' : ''].filter(Boolean).join(' · ')}</Text></Text>
+                  </View>
+                )}
+
+                {!tmSelected && (
+                  <>
+                    {/* Verein */}
+                    <View style={{ marginBottom: 10, zIndex: 9999 }}>
+                      <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Verein</Text>
+                      {renderClubSelector(newPlayerClubSearch, setNewPlayerClubSearch, showNewPlayerClubDropdown, setShowNewPlayerClubDropdown, (c) => setNewPlayer(prev => ({ ...prev, club: c })))}
+                    </View>
+
+                    {/* Position */}
+                    <View style={{ marginBottom: 10, zIndex: headerOpenDropdown === 'newPlayerPosition_mobile' ? 100 : 1 }}>
+                      <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Position</Text>
+                      <HeaderMultiSelectDropdown
+                        values={parsePositions(newPlayer.position || '')}
+                        options={POSITIONS}
+                        onChange={(next) => setNewPlayer(prev => ({ ...prev, position: formatPositions(next) }))}
+                        dropdownKey="newPlayerPosition_mobile"
+                        placeholder="Auswählen"
+                        width="100%"
+                        minListWidth={220}
+                      />
+                    </View>
+
+                    {/* Geburtsdatum */}
+                    <View style={{ marginBottom: 10, zIndex: headerOpenDropdown?.startsWith('newPlayerBirth_mobile_') ? 100 : 1 }}>
+                      <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Geburtsdatum</Text>
+                      {(() => {
+                        const raw: string = newPlayer.birth_date || '';
+                        let day = '', month = '', year = '';
+                        if (/^\d{4}$/.test(raw)) {
+                          year = raw;
+                        } else {
+                          const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                          const ger = raw.match(/^(\d{2})\.(\d{2})\.(\d{4})/);
+                          if (iso) { year = iso[1]; month = iso[2]; day = iso[3]; }
+                          else if (ger) { day = ger[1]; month = ger[2]; year = ger[3]; }
+                        }
+                        const setBirth = (newD: string, newM: string, newY: string) => {
+                          if (!newY) { setNewPlayer(prev => ({ ...prev, birth_date: '' })); return; }
+                          if (!newD || !newM) { setNewPlayer(prev => ({ ...prev, birth_date: newY })); return; }
+                          setNewPlayer(prev => ({ ...prev, birth_date: `${newY}-${newM.padStart(2,'0')}-${newD.padStart(2,'0')}` }));
+                        };
+                        const DAYS_STR = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'));
+                        const MONTHS_STR = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
+                        const currentYear = new Date().getFullYear();
+                        const YEARS_STR = Array.from({ length: 30 }, (_, i) => String(currentYear - i));
+                        return (
+                          <View style={{ flexDirection: 'row', gap: 6 }}>
+                            <View style={{ flex: 1 }}><HeaderDateDropdown value={day} options={DAYS_STR} onChange={(v) => setBirth(v, month, year || String(currentYear))} dropdownKey="newPlayerBirth_mobile_day" placeholder="Tag" width="100%" minListWidth={80} /></View>
+                            <View style={{ flex: 1 }}><HeaderDateDropdown value={month} options={MONTHS_STR} onChange={(v) => setBirth(day, v, year || String(currentYear))} dropdownKey="newPlayerBirth_mobile_month" placeholder="Monat" width="100%" minListWidth={80} /></View>
+                            <View style={{ flex: 1.2 }}><HeaderDateDropdown value={year} options={YEARS_STR} onChange={(v) => setBirth(day, month, v)} dropdownKey="newPlayerBirth_mobile_year" placeholder="Jahr" width="100%" minListWidth={96} /></View>
+                          </View>
+                        );
+                      })()}
+                    </View>
+
+                    {/* Einschätzung */}
+                    <View style={{ marginBottom: 10, zIndex: headerOpenDropdown === 'newPlayerRating_mobile' ? 100 : 1 }}>
+                      <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Einschätzung</Text>
+                      <HeaderDateDropdown
+                        value={newPlayer.rating ? `${newPlayer.rating} / 10` : ''}
+                        options={['1','2','3','4','5','6','7','8','9','10']}
+                        onChange={(v) => setNewPlayer(prev => ({ ...prev, rating: v ? parseInt(v, 10) : 0 }))}
+                        dropdownKey="newPlayerRating_mobile"
+                        placeholder="-"
+                        width="100%"
+                        minListWidth={120}
+                      />
+                    </View>
+                  </>
+                )}
               </ScrollView>
-              <View style={[styles.mobileModalButtons, { borderTopColor: colors.border }]}>
-                <Text style={{ color: colors.textSecondary, fontSize: 12 }}>Zuständigkeit: {currentUserName || 'Sie'}</Text>
-                <TouchableOpacity style={[styles.mobileModalSaveBtn, { opacity: tmLoading ? 0.5 : 1 }]} onPress={addScoutedPlayer} disabled={tmLoading}>
-                  <Text style={styles.mobileModalSaveText}>{tmLoading ? 'Laden...' : 'Spieler anlegen'}</Text>
+
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)', zIndex: 1 }}>
+                <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', fontStyle: 'italic' }}>Zuständigkeit: {currentUserName || 'Sie'}</Text>
+                <TouchableOpacity style={{ backgroundColor: '#22c55e', borderWidth: 1, borderColor: '#22c55e', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 6, opacity: tmLoading ? 0.5 : 1 }} onPress={addScoutedPlayer} disabled={tmLoading}>
+                  <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>{tmLoading ? 'Laden...' : 'Spieler anlegen'}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -2671,176 +2890,278 @@ export function ScoutingScreen({ navigation }: any) {
         </Modal>
 
 
-        {/* Player Detail Modal - reuse desktop modal */}
+        {/* Player Detail Modal - Desktop-Layout für Mobile (halber Screen + Skyline-BG) */}
         {selectedPlayer && (
-          <SlideUpModal visible={showPlayerDetailModal} onClose={() => { setShowPlayerDetailModal(false); setIsEditing(false); }}>
-                <View style={[styles.mobileModalHeader, { borderBottomColor: colors.border }]}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.mobileModalTitle, { color: colors.text }]}>
-                      {selectedPlayer.last_name}, {selectedPlayer.first_name}
-                      {selectedPlayer.birth_date && (
-                        <Text style={{ fontSize: 14, fontWeight: '400', color: colors.textSecondary }}> ({new Date(selectedPlayer.birth_date).getFullYear()})</Text>
-                      )}
-                    </Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                      {getClubLogo(selectedPlayer.club) && (
-                        <Image source={{ uri: getClubLogo(selectedPlayer.club)! }} style={{ width: 18, height: 18, marginRight: 6 }} />
-                      )}
-                      <Text style={{ fontSize: 14, color: colors.textSecondary }}>{selectedPlayer.club || '-'}</Text>
-                    </View>
-                  </View>
-                  <TouchableOpacity onPress={() => { setShowPlayerDetailModal(false); setIsEditing(false); }}>
-                    <Text style={[styles.mobileModalClose, { color: colors.textSecondary }]}>✕</Text>
+          <SlideUpModal visible={showPlayerDetailModal} onClose={() => { setShowPlayerDetailModal(false); setIsEditing(false); }} height="80%">
+            <View style={{ flex: 1, position: 'relative' }}>
+              <Image source={require('../../../assets/scouting-header-bg.jpg')} style={[StyleSheet.absoluteFillObject, { opacity: 0.85, ...({ objectFit: 'cover', objectPosition: 'center' } as any) }]} resizeMode="cover" />
+              <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />
+
+              {/* Toolbar oben: FIXED — bleibt beim Scrollen sichtbar */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.3)', gap: 10, zIndex: 10 }}>
+                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                  {isEditing ? (
+                    <TouchableOpacity style={[styles.detailToolbarBtn, styles.detailToolbarBtnDanger]} onPress={() => setShowDeleteConfirm(true)}>
+                      <Text style={[styles.detailToolbarBtnText, { color: '#fff' }]}>Löschen</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity style={styles.detailToolbarBtn} onPress={() => { setShowPlayerDetailModal(false); setShowDecisionModal(true); }}>
+                      <Text style={[styles.detailToolbarBtnText, { color: '#fbbf24' }]}>Entscheidung</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                  {isEditing ? (
+                    <>
+                      <TouchableOpacity style={styles.detailToolbarBtn} onPress={() => setIsEditing(false)}>
+                        <Text style={styles.detailToolbarBtnText}>Abbrechen</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={[styles.detailToolbarBtn, styles.detailToolbarBtnPrimary]} onPress={updateScoutedPlayer}>
+                        <Text style={[styles.detailToolbarBtnText, { color: '#fff' }]}>Speichern</Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <TouchableOpacity style={styles.detailToolbarBtn} onPress={() => setIsEditing(true)}>
+                      <Text style={styles.detailToolbarBtnText}>Bearbeiten</Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity onPress={() => { setShowPlayerDetailModal(false); setIsEditing(false); }} style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center', marginLeft: 4 }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 20 }}>✕</Text>
                   </TouchableOpacity>
                 </View>
-                <ScrollView style={styles.mobileModalScroll}>
-                  {isEditing ? (
-                    renderPlayerForm(editData, setEditData, editClubSearchText, setEditClubSearchText, showEditClubDropdown, setShowEditClubDropdown)
-                  ) : (
-                    <View style={{ padding: 16 }}>
-                      {/* Status-Auswahl */}
-                      <View style={[styles.mobileDetailBox, { backgroundColor: colors.surfaceSecondary }]}>
-                        <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Status</Text>
-                        <View style={styles.statusSelector}>
-                          {SCOUTING_STATUS.map(status => (
-                            <TouchableOpacity
-                              key={status.id}
-                              style={[
-                                styles.statusOption,
-                                { backgroundColor: isDark ? colors.surface : '#f1f5f9', borderColor: colors.border },
-                                selectedPlayer.status === status.id && { backgroundColor: status.color, borderColor: status.color }
-                              ]}
-                              onPress={() => {
-                                const updated = { ...selectedPlayer, status: status.id, archived: false };
-                                setSelectedPlayer(updated);
-                                setScoutedPlayers(prev => prev.map(p => p.id === selectedPlayer.id ? updated : p));
-                                supabase.from('scouted_players').update({ status: status.id, archived: false }).eq('id', selectedPlayer.id);
-                              }}
-                            >
-                              <Text style={[
-                                styles.statusOptionText,
-                                { color: colors.textSecondary },
-                                selectedPlayer.status === status.id && { color: '#fff' }
-                              ]}>{status.label}</Text>
-                            </TouchableOpacity>
+              </View>
+
+              {/* Scroll-Bereich: Header-Card + Content */}
+              <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16 }} showsVerticalScrollIndicator={true}>
+              {/* Header-Card: Name + Club + Divider + Stats-Row */}
+              <View style={{ backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 16, paddingVertical: 14, marginTop: 12, marginBottom: 12, zIndex: headerOpenDropdown ? 100 : 1, position: 'relative' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.detailName} numberOfLines={1}>{selectedPlayer.last_name}</Text>
+                    <Text style={styles.detailName} numberOfLines={1}>{selectedPlayer.first_name}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                      {getClubLogo(selectedPlayer.club) ? (
+                        <Image source={{ uri: getClubLogo(selectedPlayer.club)! }} style={{ width: 24, height: 24 }} resizeMode="contain" />
+                      ) : null}
+                      <Text style={styles.detailClubLabel} numberOfLines={1}>{selectedPlayer.club || '-'}</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Divider */}
+                <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.3)', marginTop: 14 }} />
+
+                {/* Stats-Row: 2×2 Grid (zwei Reihen mit je 2 Spalten) */}
+                <View style={{ paddingTop: 12, gap: 14 }}>
+                  {/* Reihe 1: Transfermarkt | Geburtsdatum */}
+                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                    <View style={{ flex: 1, alignItems: 'center', gap: 4, zIndex: headerOpenDropdown?.startsWith('detail_birth_mobile_') ? 100 : 1 }}>
+                      <Text style={styles.detailStatLabel}>Transfermarkt</Text>
+                      {isEditing ? (
+                        <TextInput
+                          style={{ width: '100%', backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 24, paddingHorizontal: 12, paddingVertical: 4, fontSize: 12, color: '#fff', textAlign: 'center' }}
+                          value={editData?.transfermarkt_url || ''}
+                          onChangeText={(t) => setEditData({ ...editData, transfermarkt_url: t })}
+                          placeholder="https://..."
+                          placeholderTextColor="rgba(255,255,255,0.3)"
+                        />
+                      ) : selectedPlayer.transfermarkt_url ? (
+                        <TouchableOpacity onPress={() => openTransfermarkt(selectedPlayer.transfermarkt_url!)}>
+                          <Ionicons name="link" size={18} color="rgba(255,255,255,0.85)" />
+                        </TouchableOpacity>
+                      ) : (
+                        <Text style={styles.detailStatValue}>-</Text>
+                      )}
+                    </View>
+                    <View style={{ flex: 1, alignItems: 'center', gap: 4, zIndex: headerOpenDropdown?.startsWith('detail_birth_mobile_') ? 100 : 1 }}>
+                      <Text style={styles.detailStatLabel}>Geburtsdatum</Text>
+                      {isEditing ? (() => {
+                        const raw: string = editData?.birth_date || '';
+                        let day = '', month = '', year = '';
+                        if (/^\d{4}$/.test(raw)) year = raw;
+                        else {
+                          const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                          if (iso) { year = iso[1]; month = iso[2]; day = iso[3]; }
+                        }
+                        const setBirth = (newD: string, newM: string, newY: string) => {
+                          if (!newY) { setEditData({ ...editData, birth_date: '' }); return; }
+                          if (!newD || !newM) { setEditData({ ...editData, birth_date: newY }); return; }
+                          setEditData({ ...editData, birth_date: `${newY}-${newM.padStart(2,'0')}-${newD.padStart(2,'0')}` });
+                        };
+                        const DAYS_STR = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'));
+                        const MONTHS_STR = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
+                        const currentYear = new Date().getFullYear();
+                        const YEARS_STR = Array.from({ length: 30 }, (_, i) => String(currentYear - i));
+                        return (
+                          <View style={{ flexDirection: 'row', gap: 4 }}>
+                            <HeaderDateDropdown value={day} options={DAYS_STR} onChange={(v) => setBirth(v, month, year || String(currentYear))} dropdownKey="detail_birth_mobile_day" placeholder="TT" width={42} minListWidth={64} />
+                            <HeaderDateDropdown value={month} options={MONTHS_STR} onChange={(v) => setBirth(day, v, year || String(currentYear))} dropdownKey="detail_birth_mobile_month" placeholder="MM" width={42} minListWidth={64} />
+                            <HeaderDateDropdown value={year} options={YEARS_STR} onChange={(v) => setBirth(day, month, v)} dropdownKey="detail_birth_mobile_year" placeholder="JJJJ" width={56} minListWidth={80} />
+                          </View>
+                        );
+                      })() : (
+                        <Text style={styles.detailStatValue}>{formatBirthDisplay(selectedPlayer.birth_date)}</Text>
+                      )}
+                    </View>
+                  </View>
+
+                  {/* Reihe 2: Position | Einschätzung */}
+                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                    <View style={{ flex: 1, alignItems: 'center', gap: 4, zIndex: headerOpenDropdown === 'detail_position_mobile' ? 100 : 1 }}>
+                      <Text style={styles.detailStatLabel}>Position</Text>
+                      {isEditing ? (
+                        <View style={{ width: '100%' }}>
+                          <HeaderMultiSelectDropdown
+                            values={parsePositions(editData?.position || '')}
+                            options={POSITIONS}
+                            onChange={(next) => setEditData({ ...editData, position: formatPositions(next) })}
+                            dropdownKey="detail_position_mobile"
+                            placeholder="Auswählen"
+                            width="100%"
+                            minListWidth={160}
+                          />
+                        </View>
+                      ) : parsePositions(selectedPlayer.position).length > 0 ? (
+                        <View style={{ flexDirection: 'row', gap: 4, flexWrap: 'wrap', justifyContent: 'center' }}>
+                          {parsePositions(selectedPlayer.position).map((pos, idx) => (
+                            <View key={idx} style={[styles.positionBadgeLarge, { alignSelf: 'auto' }]}><Text style={styles.positionTextLarge}>{pos}</Text></View>
                           ))}
+                        </View>
+                      ) : (
+                        <Text style={styles.detailStatValue}>-</Text>
+                      )}
+                    </View>
+                    <View style={{ flex: 1, alignItems: 'center', gap: 4, zIndex: headerOpenDropdown === 'detail_rating_mobile' ? 100 : 1 }}>
+                      <Text style={styles.detailStatLabel}>Einschätzung</Text>
+                      {isEditing ? (
+                        <View style={{ width: '100%' }}>
+                          <HeaderDateDropdown
+                            value={editData?.rating ? `${editData.rating} / 10` : ''}
+                            options={['1','2','3','4','5','6','7','8','9','10']}
+                            onChange={(v) => setEditData({ ...editData, rating: v ? parseInt(v) : 0 })}
+                            dropdownKey="detail_rating_mobile"
+                            placeholder="—"
+                            width="100%"
+                            minListWidth={110}
+                          />
+                        </View>
+                      ) : selectedPlayer.rating ? (
+                        <View style={[styles.ratingBadgeLarge, { alignSelf: 'auto' }]}><Text style={styles.ratingTextLarge}>⭐ {selectedPlayer.rating}/10</Text></View>
+                      ) : (
+                        <Text style={styles.detailStatValue}>-</Text>
+                      )}
+                    </View>
+                  </View>
+                </View>
+              </View>
+
+              {/* Content unter dem Header — KEINE eigene ScrollView, alles im äußeren Scroll */}
+              <View>
+                {isEditing ? (
+                  renderPlayerForm(editData, setEditData, editClubSearchText, setEditClubSearchText, showEditClubDropdown, setShowEditClubDropdown)
+                ) : (
+                  <>
+                    {/* Status */}
+                    <View style={styles.detailInfo}>
+                      <Text style={styles.detailLabelSmall}>Status</Text>
+                      <View style={styles.statusSelector}>
+                        {SCOUTING_STATUS.map(status => (
                           <TouchableOpacity
-                            style={[
-                              styles.statusOption,
-                              { backgroundColor: isDark ? colors.surface : '#f1f5f9', borderColor: colors.border },
-                              selectedPlayer.archived && { backgroundColor: '#64748b', borderColor: '#64748b' }
-                            ]}
+                            key={status.id}
+                            style={[styles.statusOption, selectedPlayer.status === status.id && { backgroundColor: status.color, borderColor: status.color }]}
                             onPress={() => {
-                              const newArchived = !selectedPlayer.archived;
-                              const updated = { ...selectedPlayer, archived: newArchived };
+                              const updated = { ...selectedPlayer, status: status.id, archived: false };
                               setSelectedPlayer(updated);
                               setScoutedPlayers(prev => prev.map(p => p.id === selectedPlayer.id ? updated : p));
-                              supabase.from('scouted_players').update({ archived: newArchived }).eq('id', selectedPlayer.id);
+                              supabase.from('scouted_players').update({ status: status.id, archived: false }).eq('id', selectedPlayer.id);
                             }}
                           >
-                            <Text style={[
-                              styles.statusOptionText,
-                              { color: colors.textSecondary },
-                              selectedPlayer.archived && { color: '#fff' }
-                            ]}>Archiv</Text>
+                            <Text style={[styles.statusOptionText, selectedPlayer.status === status.id && { color: '#fff' }]}>{status.label}</Text>
                           </TouchableOpacity>
-                        </View>
-                      </View>
-
-                      {/* Position | Einschätzung */}
-                      <View style={[styles.mobileDetailBox, { backgroundColor: colors.surfaceSecondary }]}>
-                        <View style={{ flexDirection: 'row', gap: 16 }}>
-                          <View style={{ flex: 1 }}>
-                            <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Position</Text>
-                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
-                              {parsePositions(selectedPlayer.position).map((pos, idx) => (
-                                <View key={idx} style={styles.positionBadge}><Text style={styles.positionText}>{pos}</Text></View>
-                              ))}
-                            </View>
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Einschätzung</Text>
-                            {selectedPlayer.rating ? (
-                              <View style={[styles.ratingBadge, { alignSelf: 'flex-start' }]}><Text style={styles.ratingText}>⭐ {selectedPlayer.rating}/10</Text></View>
-                            ) : (
-                              <Text style={[styles.mobileDetailValue, { color: colors.text }]}>-</Text>
-                            )}
-                          </View>
-                        </View>
-                      </View>
-
-                      {/* Kontakt | Scout */}
-                      <View style={[styles.mobileDetailBox, { backgroundColor: colors.surfaceSecondary }]}>
-                        <View style={{ flexDirection: 'row', gap: 16 }}>
-                          <View style={{ flex: 1 }}>
-                            <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Kontakt</Text>
-                            <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{selectedPlayer.phone || '-'}</Text>
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Scout</Text>
-                            <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{selectedPlayer.scout_name || '-'}</Text>
-                          </View>
-                        </View>
-                      </View>
-
-                      {/* Weitere Infos + IST-Stand */}
-                      <View style={[styles.mobileDetailBox, { backgroundColor: colors.surfaceSecondary }]}>
-                        {selectedPlayer.transfermarkt_url && (
-                          <TouchableOpacity onPress={() => openTransfermarkt(selectedPlayer.transfermarkt_url!)} style={{ marginBottom: 12 }}>
-                            <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Transfermarkt</Text>
-                            <Image source={TransfermarktLogo} style={{ width: 100, height: 20, resizeMode: 'contain' }} />
-                          </TouchableOpacity>
-                        )}
-                        <View style={{ marginBottom: 12 }}>
-                          <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Weitere Infos</Text>
-                          <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{selectedPlayer.additional_info || '-'}</Text>
-                        </View>
-                        <View>
-                          <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>IST-Stand</Text>
-                          <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{selectedPlayer.current_status || '-'}</Text>
-                        </View>
-                      </View>
-
-                      {/* Fußballerische Einschätzung */}
-                      <View style={[styles.mobileDetailBox, { marginBottom: 0, backgroundColor: colors.surfaceSecondary }]}>
-                        <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Fußballerische Einschätzung</Text>
-                        <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{selectedPlayer.notes || '-'}</Text>
+                        ))}
+                        <TouchableOpacity
+                          style={[styles.statusOption, selectedPlayer.archived && { backgroundColor: '#64748b', borderColor: '#64748b' }]}
+                          onPress={() => {
+                            const newArchived = !selectedPlayer.archived;
+                            const updated = { ...selectedPlayer, archived: newArchived };
+                            setSelectedPlayer(updated);
+                            setScoutedPlayers(prev => prev.map(p => p.id === selectedPlayer.id ? updated : p));
+                            supabase.from('scouted_players').update({ archived: newArchived }).eq('id', selectedPlayer.id);
+                          }}
+                        >
+                          <Text style={[styles.statusOptionText, selectedPlayer.archived && { color: '#fff' }]}>Archiv</Text>
+                        </TouchableOpacity>
                       </View>
                     </View>
-                  )}
-                </ScrollView>
-                <View style={[styles.mobileModalButtons, { borderTopColor: colors.border }]}>
-                  {isEditing ? (
-                    <>
-                      <TouchableOpacity style={[styles.mobileModalCancelBtn, { backgroundColor: '#fee2e2' }]} onPress={() => setShowDeleteConfirm(true)}>
-                        <Text style={[styles.mobileModalCancelText, { color: '#dc2626' }]}>Löschen</Text>
-                      </TouchableOpacity>
-                      <View style={{ flexDirection: 'row', gap: 10 }}>
-                        <TouchableOpacity style={styles.mobileModalCancelBtn} onPress={() => setIsEditing(false)}>
-                          <Text style={styles.mobileModalCancelText}>Abbrechen</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.mobileModalSaveBtn} onPress={updateScoutedPlayer}>
-                          <Text style={styles.mobileModalSaveText}>Speichern</Text>
-                        </TouchableOpacity>
+
+                    {/* Kontaktperson + Scout */}
+                    <View style={styles.detailInfo}>
+                      <View style={{ flexDirection: 'row', gap: 16 }}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.detailLabelSmall}>Kontaktperson</Text>
+                          <Text style={styles.detailValueLarge}>{selectedPlayer.phone || '-'}</Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.detailLabelSmall}>Scout</Text>
+                          {selectedPlayer.scout_name ? (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <Ionicons name="chevron-forward-outline" size={10} color="rgba(255,255,255,0.5)" />
+                              <Text style={{ fontSize: 13, fontWeight: '500', lineHeight: 18, color: '#fff' }}>{selectedPlayer.scout_name}</Text>
+                            </View>
+                          ) : (
+                            <Text style={styles.detailValueLarge}>-</Text>
+                          )}
+                        </View>
                       </View>
-                    </>
-                  ) : (
-                    <>
-                      <TouchableOpacity style={styles.mobileModalCancelBtn} onPress={() => { setShowPlayerDetailModal(false); setShowDecisionModal(true); }}>
-                        <Text style={styles.mobileModalCancelText}>Entscheidung</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.mobileModalSaveBtn} onPress={() => setIsEditing(true)}>
-                        <Text style={styles.mobileModalSaveText}>Bearbeiten</Text>
-                      </TouchableOpacity>
-                    </>
-                  )}
-                </View>
+                    </View>
+
+                    {/* Zuständigkeit */}
+                    <View style={styles.detailInfo}>
+                      <Text style={styles.detailLabelSmall}>Zuständigkeit</Text>
+                      {(() => {
+                        const list = (selectedPlayer.responsibility || '').split(',').map(s => s.trim()).filter(Boolean);
+                        if (list.length === 0) return <Text style={styles.detailValueLarge}>-</Text>;
+                        return (
+                          <View style={{ gap: 4 }}>
+                            {list.map((name, i) => (
+                              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                <Ionicons name="chevron-forward-outline" size={10} color="rgba(255,255,255,0.5)" />
+                                <Text style={{ fontSize: 13, fontWeight: '500', lineHeight: 18, color: '#fff' }}>{name}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        );
+                      })()}
+                    </View>
+
+                    {/* Weitere Infos + IST-Stand */}
+                    <View style={styles.detailInfo}>
+                      <View style={{ marginBottom: 12 }}>
+                        <Text style={styles.detailLabelSmall}>Weitere Infos</Text>
+                        <Text style={styles.detailValueLarge}>{selectedPlayer.additional_info || '-'}</Text>
+                      </View>
+                      <View>
+                        <Text style={styles.detailLabelSmall}>IST-Stand</Text>
+                        <Text style={styles.detailValueLarge}>{selectedPlayer.current_status || '-'}</Text>
+                      </View>
+                    </View>
+
+                    {/* Fußballerische Einschätzung */}
+                    <View style={[styles.detailInfo, { marginBottom: 16 }]}>
+                      <Text style={styles.detailLabelSmall}>Fußballerische Einschätzung</Text>
+                      <Text style={styles.detailValueLarge}>{selectedPlayer.notes || '-'}</Text>
+                    </View>
+                  </>
+                )}
+              </View>
+              </ScrollView>
+            </View>
           </SlideUpModal>
         )}
 
         {/* Game Detail Modal */}
         {selectedGame && (
-          <SlideUpModal visible={showGameDetailModal} onClose={() => setShowGameDetailModal(false)}>
+          <SlideUpModal visible={showGameDetailModal} onClose={() => setShowGameDetailModal(false)} height="80%">
             <View style={[styles.mobileModalHeader, { borderBottomColor: colors.border }]}>
               <Text style={[styles.mobileModalTitle, { color: colors.text }]}>{selectedGame.home_team} vs {selectedGame.away_team}</Text>
               <TouchableOpacity onPress={() => setShowGameDetailModal(false)}>
@@ -2932,7 +3253,7 @@ export function ScoutingScreen({ navigation }: any) {
                   </TouchableOpacity>
                 </View>
 
-                <TouchableOpacity style={[styles.decisionCancelButton, { marginTop: 12, paddingVertical: 10, paddingHorizontal: 20, backgroundColor: colors.surfaceSecondary, borderRadius: 8 }]} onPress={() => setShowDecisionModal(false)}>
+                <TouchableOpacity style={[styles.decisionCancelButton, { marginTop: 12, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8 }]} onPress={() => setShowDecisionModal(false)}>
                   <Text style={[styles.decisionCancelButtonText, { fontSize: 13, color: colors.textSecondary }]}>Abbrechen</Text>
                 </TouchableOpacity>
               </View>
@@ -3052,7 +3373,8 @@ export function ScoutingScreen({ navigation }: any) {
 
   // Desktop View
   return (
-    <Pressable style={[styles.container, isMobile && styles.containerMobile, { backgroundColor: colors.background }]} onPress={closeAllDropdowns}>
+    <Pressable style={[styles.container, isMobile && styles.containerMobile, { backgroundColor: 'transparent' }]} onPress={closeAllDropdowns}>
+      <AdvisorBackground />
       {/* Mobile Sidebar Overlay */}
       {isMobile && (
         <MobileSidebar
@@ -3067,54 +3389,25 @@ export function ScoutingScreen({ navigation }: any) {
       {/* Desktop Sidebar */}
       {!isMobile && <Sidebar navigation={navigation} activeScreen="scouting" profile={authProfile} />}
 
-      <View style={[styles.mainContent, { backgroundColor: colors.background }]}>
+      <View style={[styles.mainContent, { backgroundColor: 'transparent' }]}>
         {/* Mobile Header */}
         {isMobile && (
           <MobileHeader
             title="Scouting"
+            backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
             onMenuPress={() => setShowMobileSidebar(true)}
-            onProfilePress={() => navigation.navigate('MyProfile')}
-            profileInitials={profileInitials}
           />
         )}
 
-        {/* Header Banner - nur auf Desktop */}
-        {!isMobile && (
-          <View style={[styles.headerBanner, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-            <View style={{ width: 40 }} />
-            <View style={styles.headerBannerCenter}>
-              <Text style={[styles.title, { color: colors.text }]}>Scouting Area</Text>
-              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Manage Talente, Berichte und Spieltermine.</Text>
-            </View>
-            <View style={styles.headerTabs}>
-              <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, activeTab === 'spieler' && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]} onPress={() => setActiveTab('spieler')}>
-                <Text style={[styles.filterButtonText, { color: colors.textSecondary }, activeTab === 'spieler' && { color: isDark ? '#93c5fd' : '#0369a1' }]}>Spieler-Datenbank</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, activeTab === 'spiele' && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]} onPress={() => setActiveTab('spiele')}>
-                <Text style={[styles.filterButtonText, { color: colors.textSecondary }, activeTab === 'spiele' && { color: isDark ? '#93c5fd' : '#0369a1' }]}>Scouting-Termine</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-
-        {/* Mobile Tabs */}
-        {isMobile && (
-          <View style={[styles.mobileTabs, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-            <TouchableOpacity style={[styles.mobileTab, activeTab === 'spieler' && [styles.mobileTabActive, { borderBottomColor: colors.text }]]} onPress={() => setActiveTab('spieler')}>
-              <Text style={[styles.mobileTabText, { color: colors.textSecondary }, activeTab === 'spieler' && [styles.mobileTabTextActive, { color: colors.text }]]}>Spieler</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.mobileTab, activeTab === 'spiele' && [styles.mobileTabActive, { borderBottomColor: colors.text }]]} onPress={() => setActiveTab('spiele')}>
-              <Text style={[styles.mobileTabText, { color: colors.textSecondary }, activeTab === 'spiele' && [styles.mobileTabTextActive, { color: colors.text }]]}>Termine</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        <View style={[styles.toolbar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-          <TouchableOpacity style={{ paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }} onPress={() => navigation.navigate('AdvisorDashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
-          <View style={[styles.searchContainer, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
+        {/* Header Banner - Desktop: Filter als children im AdvisorHeroHeader (durchgehender BG, nur heroDivider sichtbar). Mobile: flache Toolbar */}
+        {(() => {
+          const filterToolbarContent = (
+            <>
+          <TouchableOpacity style={{ height: 28, paddingVertical: 0, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center' }} onPress={() => navigation.navigate('AdvisorDashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
+          <View style={[styles.searchContainer, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)', height: 28, borderRadius: 6, paddingVertical: 0 }]}>
             <Text style={styles.searchIcon}>🔍</Text>
             <TextInput
-              style={[styles.searchInput, { color: colors.text }]}
+              style={[styles.searchInput, { color: colors.text, paddingVertical: 0 }]}
               placeholder={activeTab === 'spieler' ? "Spieler, Verein suchen..." : "Spieler, Verein, Event suchen..."}
               placeholderTextColor={colors.textMuted} 
               value={activeTab === 'spieler' ? searchText : gamesSearchQuery} 
@@ -3141,14 +3434,14 @@ export function ScoutingScreen({ navigation }: any) {
           {activeTab === 'spieler' && (
             <View style={styles.filterContainer}>
               <View style={[styles.dropdownContainer, { zIndex: 30 }]}>
-                <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedPositions.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
+                <TouchableOpacity style={[styles.filterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }, selectedPositions.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
                   onPress={(e) => { e.stopPropagation(); setShowPositionDropdown(!showPositionDropdown); setShowYearDropdown(false); setShowRatingDropdown(false); }}>
                   <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedPositions.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>{getPositionFilterLabel()} ▼</Text>
                 </TouchableOpacity>
                 {showPositionDropdown && (
-                  <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
-                    <View style={[styles.filterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
-                      <Text style={[styles.filterDropdownTitle, { color: colors.text }]}>Positionen wählen</Text>
+                  <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
+                    <View style={styles.filterDropdownHeader}>
+                      <Text style={styles.filterDropdownTitle}>Positionen wählen</Text>
                       {selectedPositions.length > 0 && <TouchableOpacity onPress={clearPositions}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
                     </View>
                     <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
@@ -3156,28 +3449,28 @@ export function ScoutingScreen({ navigation }: any) {
                         const isSelected = selectedPositions.includes(pos);
                         const count = scoutedPlayers.filter(p => p.position === pos).length;
                         return (
-                          <TouchableOpacity key={pos} style={[styles.filterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => togglePosition(pos)}>
-                            <View style={[styles.checkbox, { borderColor: colors.border }, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                            <Text style={[styles.filterCheckboxText, { color: colors.text }]}>{pos}</Text>
-                            <Text style={[styles.filterCountBadge, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
+                          <TouchableOpacity key={pos} style={styles.filterCheckboxItem} onPress={() => togglePosition(pos)}>
+                            <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                            <Text style={styles.filterCheckboxText}>{pos}</Text>
+                            <Text style={styles.filterCountBadge}>{count}</Text>
                           </TouchableOpacity>
                         );
                       })}
                     </ScrollView>
-                    <TouchableOpacity style={[styles.filterDoneButton, { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border }]} onPress={() => setShowPositionDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                    <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowPositionDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
                   </Pressable>
                 )}
               </View>
 
               <View style={[styles.dropdownContainer, { zIndex: 20 }]}>
-                <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedYears.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
+                <TouchableOpacity style={[styles.filterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }, selectedYears.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
                   onPress={(e) => { e.stopPropagation(); setShowYearDropdown(!showYearDropdown); setShowPositionDropdown(false); setShowRatingDropdown(false); }}>
                   <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedYears.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>{getYearFilterLabel()} ▼</Text>
                 </TouchableOpacity>
                 {showYearDropdown && (
-                  <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
-                    <View style={[styles.filterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
-                      <Text style={[styles.filterDropdownTitle, { color: colors.text }]}>Jahrgänge wählen</Text>
+                  <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
+                    <View style={styles.filterDropdownHeader}>
+                      <Text style={styles.filterDropdownTitle}>Jahrgänge wählen</Text>
                       {selectedYears.length > 0 && <TouchableOpacity onPress={clearYears}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
                     </View>
                     <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
@@ -3185,28 +3478,28 @@ export function ScoutingScreen({ navigation }: any) {
                         const isSelected = selectedYears.includes(year);
                         const count = scoutedPlayers.filter(p => getYearFromDate(p.birth_date) === year).length;
                         return (
-                          <TouchableOpacity key={year} style={[styles.filterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => toggleYear(year)}>
-                            <View style={[styles.checkbox, { borderColor: colors.border }, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                            <Text style={[styles.filterCheckboxText, { color: colors.text }]}>{year}</Text>
-                            <Text style={[styles.filterCountBadge, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
+                          <TouchableOpacity key={year} style={styles.filterCheckboxItem} onPress={() => toggleYear(year)}>
+                            <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                            <Text style={styles.filterCheckboxText}>{year}</Text>
+                            <Text style={styles.filterCountBadge}>{count}</Text>
                           </TouchableOpacity>
                         );
                       })}
                     </ScrollView>
-                    <TouchableOpacity style={[styles.filterDoneButton, { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border }]} onPress={() => setShowYearDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                    <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowYearDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
                   </Pressable>
                 )}
               </View>
 
               <View style={[styles.dropdownContainer, { zIndex: 10 }]}>
-                <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedRatings.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
+                <TouchableOpacity style={[styles.filterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }, selectedRatings.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
                   onPress={(e) => { e.stopPropagation(); setShowRatingDropdown(!showRatingDropdown); setShowPositionDropdown(false); setShowYearDropdown(false); }}>
                   <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedRatings.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>{getRatingFilterLabel()} ▼</Text>
                 </TouchableOpacity>
                 {showRatingDropdown && (
-                  <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
-                    <View style={[styles.filterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
-                      <Text style={[styles.filterDropdownTitle, { color: colors.text }]}>Einschätzung wählen</Text>
+                  <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
+                    <View style={styles.filterDropdownHeader}>
+                      <Text style={styles.filterDropdownTitle}>Einschätzung wählen</Text>
                       {selectedRatings.length > 0 && <TouchableOpacity onPress={clearRatings}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
                     </View>
                     <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
@@ -3214,15 +3507,15 @@ export function ScoutingScreen({ navigation }: any) {
                         const isSelected = selectedRatings.includes(rating);
                         const count = activePlayers.filter(p => p.rating === rating).length;
                         return (
-                          <TouchableOpacity key={rating} style={[styles.filterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => toggleRating(rating)}>
-                            <View style={[styles.checkbox, { borderColor: colors.border }, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                            <Text style={[styles.filterCheckboxText, { color: colors.text }]}>⭐ {rating}/10</Text>
-                            <Text style={[styles.filterCountBadge, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
+                          <TouchableOpacity key={rating} style={styles.filterCheckboxItem} onPress={() => toggleRating(rating)}>
+                            <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                            <Text style={styles.filterCheckboxText}>⭐ {rating}/10</Text>
+                            <Text style={styles.filterCountBadge}>{count}</Text>
                           </TouchableOpacity>
                         );
                       })}
                     </ScrollView>
-                    <TouchableOpacity style={[styles.filterDoneButton, { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border }]} onPress={() => setShowRatingDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                    <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowRatingDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
                   </Pressable>
                 )}
               </View>
@@ -3232,16 +3525,16 @@ export function ScoutingScreen({ navigation }: any) {
           {activeTab === 'spiele' && (
             <View style={styles.filterContainer}>
               <View style={[styles.dropdownContainer, { zIndex: 20 }]}>
-                <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedGamesYears.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
+                <TouchableOpacity style={[styles.filterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }, selectedGamesYears.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
                   onPress={(e) => { e.stopPropagation(); setShowGamesYearDropdown(!showGamesYearDropdown); setShowGamesRatingDropdown(false); }}>
                   <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedGamesYears.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>
                     {selectedGamesYears.length === 0 ? 'Jahrgang' : selectedGamesYears.length === 1 ? selectedGamesYears[0] : `${selectedGamesYears.length} Jahrgänge`} ▼
                   </Text>
                 </TouchableOpacity>
                 {showGamesYearDropdown && (
-                  <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
-                    <View style={[styles.filterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
-                      <Text style={[styles.filterDropdownTitle, { color: colors.text }]}>Jahrgänge wählen</Text>
+                  <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
+                    <View style={styles.filterDropdownHeader}>
+                      <Text style={styles.filterDropdownTitle}>Jahrgänge wählen</Text>
                       {selectedGamesYears.length > 0 && <TouchableOpacity onPress={() => setSelectedGamesYears([])}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
                     </View>
                     <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
@@ -3249,33 +3542,33 @@ export function ScoutingScreen({ navigation }: any) {
                         const isSelected = selectedGamesYears.includes(year);
                         const count = allGamePlayers.filter(p => p.birth_year === year).length;
                         return (
-                          <TouchableOpacity key={year} style={[styles.filterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => {
+                          <TouchableOpacity key={year} style={styles.filterCheckboxItem} onPress={() => {
                             setSelectedGamesYears(prev => prev.includes(year) ? prev.filter(y => y !== year) : [...prev, year]);
                             setGamesViewMode('search');
                           }}>
-                            <View style={[styles.checkbox, { borderColor: colors.border }, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                            <Text style={[styles.filterCheckboxText, { color: colors.text }]}>{year}</Text>
-                            <Text style={[styles.filterCountBadge, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
+                            <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                            <Text style={styles.filterCheckboxText}>{year}</Text>
+                            <Text style={styles.filterCountBadge}>{count}</Text>
                           </TouchableOpacity>
                         );
                       })}
                     </ScrollView>
-                    <TouchableOpacity style={[styles.filterDoneButton, { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border }]} onPress={() => setShowGamesYearDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                    <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowGamesYearDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
                   </Pressable>
                 )}
               </View>
 
               <View style={[styles.dropdownContainer, { zIndex: 10 }]}>
-                <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedGamesRatings.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
+                <TouchableOpacity style={[styles.filterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }, selectedGamesRatings.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
                   onPress={(e) => { e.stopPropagation(); setShowGamesRatingDropdown(!showGamesRatingDropdown); setShowGamesYearDropdown(false); }}>
                   <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedGamesRatings.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>
                     {selectedGamesRatings.length === 0 ? 'Einschätzung' : selectedGamesRatings.length === 1 ? `⭐ ${selectedGamesRatings[0]}/10` : `${selectedGamesRatings.length} Einsch.`} ▼
                   </Text>
                 </TouchableOpacity>
                 {showGamesRatingDropdown && (
-                  <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
-                    <View style={[styles.filterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
-                      <Text style={[styles.filterDropdownTitle, { color: colors.text }]}>Einschätzung wählen</Text>
+                  <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
+                    <View style={styles.filterDropdownHeader}>
+                      <Text style={styles.filterDropdownTitle}>Einschätzung wählen</Text>
                       {selectedGamesRatings.length > 0 && <TouchableOpacity onPress={() => setSelectedGamesRatings([])}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
                     </View>
                     <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
@@ -3283,51 +3576,57 @@ export function ScoutingScreen({ navigation }: any) {
                         const isSelected = selectedGamesRatings.includes(rating);
                         const count = allGamePlayers.filter(p => p.rating === rating).length;
                         return (
-                          <TouchableOpacity key={rating} style={[styles.filterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => {
+                          <TouchableOpacity key={rating} style={styles.filterCheckboxItem} onPress={() => {
                             setSelectedGamesRatings(prev => prev.includes(rating) ? prev.filter(r => r !== rating) : [...prev, rating]);
                             setGamesViewMode('search');
                           }}>
-                            <View style={[styles.checkbox, { borderColor: colors.border }, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                            <Text style={[styles.filterCheckboxText, { color: colors.text }]}>⭐ {rating}/10</Text>
-                            <Text style={[styles.filterCountBadge, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
+                            <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                            <Text style={styles.filterCheckboxText}>⭐ {rating}/10</Text>
+                            <Text style={styles.filterCountBadge}>{count}</Text>
                           </TouchableOpacity>
                         );
                       })}
                     </ScrollView>
-                    <TouchableOpacity style={[styles.filterDoneButton, { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border }]} onPress={() => setShowGamesRatingDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                    <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowGamesRatingDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
                   </Pressable>
                 )}
               </View>
             </View>
           )}
 
-          <View style={[styles.viewToggle, { backgroundColor: colors.surfaceSecondary }]}>
-            {activeTab === 'spieler' ? (
-              <>
-                <TouchableOpacity style={[styles.viewButton, viewMode === 'kanban' && [styles.viewButtonActive, { backgroundColor: colors.surface }]]} onPress={() => setViewMode('kanban')}>
-                  <Text style={[styles.viewButtonText, { color: colors.textSecondary }, viewMode === 'kanban' && [styles.viewButtonTextActive, { color: colors.text }]]}>▦</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.viewButton, viewMode === 'liste' && [styles.viewButtonActive, { backgroundColor: colors.surface }]]} onPress={() => setViewMode('liste')}>
-                  <Text style={[styles.viewButtonText, { color: colors.textSecondary }, viewMode === 'liste' && [styles.viewButtonTextActive, { color: colors.text }]]}>☰</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.viewButton, viewMode === 'archiv' && [styles.viewButtonActive, { backgroundColor: colors.surface }]]} onPress={() => setViewMode('archiv')}>
-                  <Text style={[styles.viewButtonText, { color: colors.textSecondary }, viewMode === 'archiv' && [styles.viewButtonTextActive, { color: colors.text }]]}>Archiv ({archivedPlayersCount})</Text>
-                </TouchableOpacity>
-              </>
-            ) : (
-              <>
-                <TouchableOpacity style={[styles.viewButton, gamesViewMode === 'upcoming' && [styles.viewButtonActive, { backgroundColor: colors.surface }]]} onPress={() => { setGamesViewMode('upcoming'); setGamesSearchQuery(''); setSelectedGamesRatings([]); setSelectedGamesYears([]); }}>
-                  <Text style={[styles.viewButtonText, { color: colors.textSecondary }, gamesViewMode === 'upcoming' && [styles.viewButtonTextActive, { color: colors.text }]]}>Anstehend ({upcomingGames.length})</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.viewButton, gamesViewMode === 'archive' && [styles.viewButtonActive, { backgroundColor: colors.surface }]]} onPress={() => { setGamesViewMode('archive'); setGamesSearchQuery(''); setSelectedGamesRatings([]); setSelectedGamesYears([]); }}>
-                  <Text style={[styles.viewButtonText, { color: colors.textSecondary }, gamesViewMode === 'archive' && [styles.viewButtonTextActive, { color: colors.text }]]}>Archiv ({archivedGames.length})</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
+          {activeTab === 'spieler' ? (
+            <TouchableOpacity style={[styles.filterButton, viewMode === 'archiv' && styles.viewButtonActive]} onPress={() => setViewMode(viewMode === 'archiv' ? 'kanban' : 'archiv')}>
+              <Text style={styles.filterButtonText}>Archiv ({archivedPlayersCount})</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.viewToggle}>
+              <TouchableOpacity style={[styles.viewButton, gamesViewMode === 'upcoming' && styles.viewButtonActive]} onPress={() => { setGamesViewMode('upcoming'); setGamesSearchQuery(''); setSelectedGamesRatings([]); setSelectedGamesYears([]); }}>
+                <Text style={styles.viewButtonText}>Anstehend ({upcomingGames.length})</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.viewButton, gamesViewMode === 'archive' && styles.viewButtonActive]} onPress={() => { setGamesViewMode('archive'); setGamesSearchQuery(''); setSelectedGamesRatings([]); setSelectedGamesYears([]); }}>
+                <Text style={styles.viewButtonText}>Archiv ({archivedGames.length})</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
-          <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => activeTab === 'spieler' ? setShowAddPlayerModal(true) : setShowAddGameModal(true)}><Ionicons name="person-add-outline" size={12} color={colors.textSecondary} /></TouchableOpacity>
-        </View>
+          <TouchableOpacity style={styles.filterButton} onPress={() => activeTab === 'spieler' ? openEmptyAddPlayerModal() : setShowAddGameModal(true)}><Ionicons name="person-add-outline" size={14} color="rgba(255,255,255,0.85)" /></TouchableOpacity>
+            </>
+          );
+          return !isMobile ? (
+            <AdvisorHeroHeader
+              title="SCOUTING AREA"
+              subtitle="TALENTE IM BLICKPUNKT"
+              backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
+              backgroundImageOpacity={0.45}
+            >
+              {filterToolbarContent}
+            </AdvisorHeroHeader>
+          ) : (
+            <View style={[styles.toolbar, { backgroundColor: 'transparent', borderBottomWidth: 0, paddingHorizontal: 24 }] as any}>
+              {filterToolbarContent}
+            </View>
+          );
+        })()}
 
         <ScrollView
           style={styles.content}
@@ -3336,10 +3635,8 @@ export function ScoutingScreen({ navigation }: any) {
           {activeTab === 'spieler' ? (
             viewMode === 'kanban' ? (
               <View style={styles.kanbanContainer}>
-                {SCOUTING_STATUS.map(status => renderKanbanColumn(status))}
+                {SCOUTING_STATUS.map((status, idx) => renderKanbanColumn(status, idx))}
               </View>
-            ) : viewMode === 'liste' ? (
-              renderListView()
             ) : (
               renderArchivView()
             )
@@ -3350,88 +3647,245 @@ export function ScoutingScreen({ navigation }: any) {
       {/* Add Player Modal (Desktop) */}
       <Modal visible={showAddPlayerModal} transparent animationType="fade">
         <View style={styles.modalOverlayTop}>
-          <View style={[styles.modalContent, { overflow: 'visible', backgroundColor: colors.surface, maxHeight: '90%', maxWidth: 540 }]}>
+          <View style={[styles.modalContent, { overflow: 'visible', backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', maxHeight: '100%', width: '100%', maxWidth: 900, padding: 0, shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.7, shadowRadius: 30, elevation: 24 }]}>
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 16, overflow: 'hidden' }} pointerEvents="none">
+              <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%', opacity: 0.85, ...({ objectFit: 'cover', objectPosition: 'center', backgroundSize: 'cover', backgroundPosition: 'center' } as any) }} resizeMode="cover" />
+              <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.35)' }} />
+            </View>
+            <View style={{ padding: 24, zIndex: 1 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 20, position: 'relative' }}>
-              <Text style={[styles.modalTitle, { color: colors.text, marginBottom: 0, textAlign: 'center' }]}>Neuen Spieler anlegen</Text>
-              <TouchableOpacity onPress={closeAddPlayerModal} style={{ position: 'absolute', right: 0, width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: colors.textSecondary, fontSize: 14, lineHeight: 16 }}>✕</Text>
+              <Text style={{ fontFamily: 'Josefin Sans', fontSize: 16, fontWeight: '300', letterSpacing: 4, textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>Neuen Spieler anlegen</Text>
+              <TouchableOpacity onPress={closeAddPlayerModal} style={{ position: 'absolute', right: 0, width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 20 }}>✕</Text>
               </TouchableOpacity>
             </View>
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 2 }}>
-              <TextInput style={[styles.formInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Nachname" placeholderTextColor={colors.textMuted} value={newPlayer.last_name} onChangeText={handleScoutingLastNameChange} autoFocus />
-              <TextInput style={[styles.formInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="Vorname" placeholderTextColor={colors.textMuted} value={newPlayer.first_name} onChangeText={handleScoutingFirstNameChange} />
-            </View>
-            {tmSearching && <Text style={{ color: colors.textMuted, fontSize: 11, marginBottom: 4 }}>Suche auf Transfermarkt...</Text>}
-            {tmSuggestions.length > 0 && (
-              <ScrollView style={{ maxHeight: 280, borderWidth: 1, borderColor: colors.border, borderRadius: 6, marginBottom: 8 }} keyboardShouldPersistTaps="handled">
-                {tmSuggestions.map((s, i) => (
-                  <TouchableOpacity key={i} style={{ flexDirection: 'row', alignItems: 'baseline', paddingVertical: 5, paddingHorizontal: 8, borderBottomWidth: i < tmSuggestions.length - 1 ? StyleSheet.hairlineWidth : 0, borderBottomColor: colors.border }} onPress={() => selectTmScoutingPlayer(s)}>
-                    <Text style={{ color: colors.text, fontSize: 12, fontWeight: '600' }}>{s.name}</Text>
-                    <Text style={{ color: colors.textMuted, fontSize: 11, marginLeft: 6 }}>{[s.verein, s.position, s.age ? s.age + 'J' : ''].filter(Boolean).join(' · ')}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            )}
-            {tmLoading && <Text style={{ color: colors.primary, fontSize: 11, marginBottom: 6 }}>Lade Spielerdaten von Transfermarkt...</Text>}
-            {tmSelected && (
-              <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: 6, padding: 8, marginBottom: 6, borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.3)' }}>
-                <Text style={{ color: '#10b981', fontSize: 11, fontWeight: '600', marginBottom: 3 }}>Transfermarkt-Daten übernommen</Text>
-                <Text style={{ fontSize: 12 }} numberOfLines={1}><Text style={{ color: colors.text, fontWeight: '600' }}>{newPlayer.first_name} {newPlayer.last_name}</Text>{'  '}<Text style={{ color: colors.textMuted, fontSize: 11 }}>{[tmSelected.verein, tmSelected.tmPosition, tmSelected.tmAge ? tmSelected.tmAge + 'J' : ''].filter(Boolean).join(' · ')}</Text></Text>
-              </View>
-            )}
-            {!tmSelected && (
-              <View style={{ marginTop: 8 }}>
-                {/* Club field with autocomplete */}
-                <View style={[styles.formField, { zIndex: 9999, marginBottom: 8 }]}>
-                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Verein</Text>
-                  {renderClubSelector(newPlayerClubSearch, setNewPlayerClubSearch, showNewPlayerClubDropdown, setShowNewPlayerClubDropdown, (c) => setNewPlayer(prev => ({ ...prev, club: c })))}
+            <View>
+            {/* Card 1: Vorname | Nachname | Verein */}
+            <View style={[styles.detailInfo, { zIndex: 9999, position: 'relative' }]}>
+              <View style={{ position: 'relative', zIndex: 9999 }}>
+                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start', zIndex: 9999 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Vorname *</Text>
+                    <TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="z.B. Maximilian" placeholderTextColor={colors.textMuted} value={newPlayer.first_name} onChangeText={handleScoutingFirstNameChange} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Nachname *</Text>
+                    <TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} placeholder="z.B. Mustermann" placeholderTextColor={colors.textMuted} value={newPlayer.last_name} onChangeText={handleScoutingLastNameChange} autoFocus />
+                  </View>
+                  <View style={{ flex: 1.4, zIndex: 9999 }}>
+                    <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Verein</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, zIndex: 9999 }}>
+                      {getClubLogo(newPlayer.club || '') ? (
+                        <Image source={{ uri: getClubLogo(newPlayer.club || '')! }} style={{ width: 28, height: 28 }} resizeMode="contain" />
+                      ) : null}
+                      <View style={{ flex: 1, zIndex: 9999 }}>
+                        {renderClubSelector(newPlayerClubSearch, setNewPlayerClubSearch, showNewPlayerClubDropdown, setShowNewPlayerClubDropdown, (c) => {
+                          // Wenn Verein geleert wird UND ein TM-Spieler ausgewählt war → alle TM-Auto-Felder leeren
+                          if (!c.trim() && newPlayer.transfermarkt_url) {
+                            clearTmAutoFields();
+                          } else {
+                            setNewPlayer(prev => ({ ...prev, club: c }));
+                          }
+                        })}
+                      </View>
+                    </View>
+                  </View>
                 </View>
-                {/* Position */}
-                <View style={[styles.formField, { marginBottom: 8 }]}>
-                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Position</Text>
-                  <View style={styles.positionPickerSmall}>
-                    {POSITIONS.map(pos => {
-                      const currentPositions = parsePositions(newPlayer.position || '');
-                      const isSelected = currentPositions.includes(pos);
-                      return (
-                        <TouchableOpacity key={pos} style={[styles.positionOptionSmall, { backgroundColor: isDark ? colors.surface : '#f1f5f9' }, isSelected && styles.positionOptionSelected]} onPress={() => {
-                          const newPositions = isSelected ? currentPositions.filter(p => p !== pos) : [...currentPositions, pos];
-                          setNewPlayer(prev => ({ ...prev, position: formatPositions(newPositions) }));
-                        }}>
-                          <Text style={[styles.positionOptionTextSmall, { color: colors.textSecondary }, isSelected && styles.positionOptionTextSelected]}>{pos}</Text>
+                {/* TM-Suggestions als absoluter Overlay — Modal-Höhe bleibt konstant */}
+                {tmSuggestions.length > 0 && (
+                  <View style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 6, maxHeight: 240, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 8, backgroundColor: '#000', zIndex: 10000, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.6, shadowRadius: 16, elevation: 16, overflow: 'hidden' }}>
+                    <ScrollView style={{ maxHeight: 238 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+                      {tmSuggestions.map((s, i) => (
+                        <TouchableOpacity key={i} style={{ flexDirection: 'row', alignItems: 'baseline', paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: i < tmSuggestions.length - 1 ? StyleSheet.hairlineWidth : 0, borderBottomColor: 'rgba(255,255,255,0.1)' }} onPress={() => selectTmScoutingPlayer(s)}>
+                          <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>{s.name}</Text>
+                          <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginLeft: 6 }}>{[s.verein, s.position, s.age ? s.age + 'J' : ''].filter(Boolean).join(' · ')}</Text>
                         </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+              {tmSearching && <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 6 }}>Suche auf Transfermarkt...</Text>}
+              {tmLoading && <Text style={{ color: '#22c55e', fontSize: 11, marginTop: 6 }}>Lade Spielerdaten von Transfermarkt...</Text>}
+              {tmSelected && (
+                <View style={{ backgroundColor: 'rgba(34,197,94,0.1)', borderRadius: 6, padding: 8, marginTop: 8, borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)' }}>
+                  <Text style={{ color: '#22c55e', fontSize: 11, fontWeight: '600', marginBottom: 3 }}>Transfermarkt-Daten übernommen</Text>
+                  <Text style={{ fontSize: 12 }} numberOfLines={1}><Text style={{ color: '#fff', fontWeight: '600' }}>{newPlayer.first_name} {newPlayer.last_name}</Text>{'  '}<Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>{[tmSelected.verein, tmSelected.tmPosition, tmSelected.tmAge ? tmSelected.tmAge + 'J' : ''].filter(Boolean).join(' · ')}</Text></Text>
+                </View>
+              )}
+              <>
+                {/* Trennstrich + 2. Reihe (Transfermarkt | Geburtsdatum | Position | Einschätzung) — im gleichen Rahmen */}
+                <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.15)', marginTop: 14, marginBottom: 14, marginHorizontal: 40 }} />
+                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start', zIndex: 8000 }}>
+                  <View style={{ flex: 1.4 }}>
+                    <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Transfermarkt</Text>
+                    <TextInput
+                      style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+                      value={newPlayer.transfermarkt_url}
+                      onChangeText={(t) => setNewPlayer(prev => ({ ...prev, transfermarkt_url: t }))}
+                      placeholder="z.B. https://www.transfermarkt.de/..."
+                      placeholderTextColor="rgba(255,255,255,0.3)"
+                    />
+                  </View>
+                  <View style={{ flex: 1.2, zIndex: headerOpenDropdown?.startsWith('newPlayerBirth_') ? 100 : 1 }}>
+                    <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Geburtsdatum</Text>
+                    {(() => {
+                      const raw: string = newPlayer.birth_date || '';
+                      let day = '', month = '', year = '';
+                      if (/^\d{4}$/.test(raw)) {
+                        year = raw;
+                      } else {
+                        const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                        const ger = raw.match(/^(\d{2})\.(\d{2})\.(\d{4})/);
+                        if (iso) { year = iso[1]; month = iso[2]; day = iso[3]; }
+                        else if (ger) { day = ger[1]; month = ger[2]; year = ger[3]; }
+                      }
+                      const setBirth = (newD: string, newM: string, newY: string) => {
+                        if (!newY) { setNewPlayer(prev => ({ ...prev, birth_date: '' })); return; }
+                        if (!newD || !newM) { setNewPlayer(prev => ({ ...prev, birth_date: newY })); return; }
+                        setNewPlayer(prev => ({ ...prev, birth_date: `${newY}-${newM.padStart(2,'0')}-${newD.padStart(2,'0')}` }));
+                      };
+                      const DAYS_STR = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'));
+                      const MONTHS_STR = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
+                      const currentYear = new Date().getFullYear();
+                      const YEARS_STR = Array.from({ length: 30 }, (_, i) => String(currentYear - i));
+                      return (
+                        <View style={{ flexDirection: 'row', gap: 4 }}>
+                          <HeaderDateDropdown value={day} options={DAYS_STR} onChange={(v) => setBirth(v, month, year || String(currentYear))} dropdownKey="newPlayerBirth_day" placeholder="Tag" width={50} minListWidth={70} />
+                          <HeaderDateDropdown value={month} options={MONTHS_STR} onChange={(v) => setBirth(day, v, year || String(currentYear))} dropdownKey="newPlayerBirth_month" placeholder="Monat" width={56} minListWidth={70} />
+                          <HeaderDateDropdown value={year} options={YEARS_STR} onChange={(v) => setBirth(day, month, v)} dropdownKey="newPlayerBirth_year" placeholder="Jahr" width={68} minListWidth={86} />
+                        </View>
                       );
-                    })}
+                    })()}
+                  </View>
+                  <View style={{ flex: 1, zIndex: headerOpenDropdown === 'newPlayerPosition' ? 100 : 1 }}>
+                    <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Position</Text>
+                    <HeaderMultiSelectDropdown
+                      values={parsePositions(newPlayer.position || '')}
+                      options={POSITIONS}
+                      onChange={(next) => setNewPlayer(prev => ({ ...prev, position: formatPositions(next) }))}
+                      dropdownKey="newPlayerPosition"
+                      placeholder="Auswählen"
+                      width="100%"
+                      minListWidth={160}
+                    />
+                  </View>
+                  <View style={{ flex: 1, zIndex: headerOpenDropdown === 'newPlayerRating' ? 100 : 1 }}>
+                    <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Einschätzung</Text>
+                    <HeaderDateDropdown
+                      value={newPlayer.rating ? `${newPlayer.rating} / 10` : ''}
+                      options={['1','2','3','4','5','6','7','8','9','10']}
+                      onChange={(v) => setNewPlayer(prev => ({ ...prev, rating: v ? parseInt(v) : 0 }))}
+                      dropdownKey="newPlayerRating"
+                      placeholder="—"
+                      width="100%"
+                      minListWidth={110}
+                    />
                   </View>
                 </View>
-                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
-                  {/* Birth year */}
-                  <View style={[styles.formField, { flex: 1 }]}>
-                    <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Geburtsdatum / Jahrgang</Text>
-                    <TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newPlayer.birth_date || ''} onChangeText={(t) => setNewPlayer(prev => ({ ...prev, birth_date: t }))} placeholder="YYYY-MM-DD oder YYYY" placeholderTextColor={colors.textMuted} />
+              </>
+            </View>
+              {/* Card 3: Zuständigkeit | Scout */}
+              <View style={[styles.detailInfo, { zIndex: 7000 }]}>
+                <View style={{ flexDirection: 'row', gap: 12, marginBottom: 0, zIndex: (showNewPlayerScoutDropdown || showNewPlayerResponsibilityDropdown) ? 200 : 1 }}>
+                  <View {...({ dataSet: { kmhdropdown: 'true' } } as any)} style={{ flex: 1, zIndex: showNewPlayerResponsibilityDropdown ? 200 : 1 }}>
+                    <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Zuständigkeit</Text>
+                    {(() => {
+                      const respList = (newPlayer.responsibility || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+                      const display = respList.length === 0 ? 'Berater auswählen...' : respList.join(', ');
+                      return (
+                        <>
+                          <TouchableOpacity
+                            style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
+                            onPress={() => { setShowNewPlayerResponsibilityDropdown(!showNewPlayerResponsibilityDropdown); setShowNewPlayerScoutDropdown(false); setHeaderOpenDropdown(null); }}
+                          >
+                            <Text style={{ color: respList.length > 0 ? colors.text : 'rgba(255,255,255,0.3)', fontSize: 13, fontWeight: '500', flex: 1 }} numberOfLines={1}>
+                              {display}
+                            </Text>
+                            <Ionicons name={showNewPlayerResponsibilityDropdown ? 'chevron-up' : 'chevron-down'} size={14} color="rgba(255,255,255,0.5)" />
+                          </TouchableOpacity>
+                          {showNewPlayerResponsibilityDropdown && (
+                            <View style={[styles.headerDateList, { left: 0, right: 0, minWidth: undefined }]}>
+                              <ScrollView style={{ maxHeight: 240 }} nestedScrollEnabled>
+                                <TouchableOpacity style={styles.headerDateItem} onPress={() => setNewPlayer(prev => ({ ...prev, responsibility: '' }))}>
+                                  <Text style={[styles.headerDateItemText, { color: 'rgba(255,255,255,0.5)' }]}>Leeren</Text>
+                                </TouchableOpacity>
+                                {advisors.map(adv => {
+                                  const advName = `${adv.first_name} ${adv.last_name}`;
+                                  const checked = respList.includes(advName);
+                                  return (
+                                    <TouchableOpacity
+                                      key={adv.id}
+                                      style={[styles.headerDateItem, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}
+                                      onPress={() => {
+                                        const next = checked ? respList.filter((n: string) => n !== advName) : [...respList, advName];
+                                        setNewPlayer(prev => ({ ...prev, responsibility: next.join(', ') }));
+                                      }}
+                                    >
+                                      <Ionicons name={checked ? 'checkbox' : 'square-outline'} size={14} color={checked ? '#22c55e' : 'rgba(255,255,255,0.5)'} />
+                                      <Text style={[styles.headerDateItemText, { flex: 1 }]}>{advName}</Text>
+                                    </TouchableOpacity>
+                                  );
+                                })}
+                              </ScrollView>
+                            </View>
+                          )}
+                        </>
+                      );
+                    })()}
                   </View>
-                </View>
-                {/* Rating */}
-                <View style={styles.formField}>
-                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Einschätzung</Text>
-                  <View style={styles.ratingPickerSmall}>
-                    <TouchableOpacity style={[styles.ratingOptionSmall, { backgroundColor: isDark ? colors.surface : '#f1f5f9' }, !newPlayer.rating && styles.ratingOptionSelected]} onPress={() => setNewPlayer(prev => ({ ...prev, rating: 0 }))}>
-                      <Text style={[styles.ratingOptionTextSmall, { color: colors.textSecondary }, !newPlayer.rating && styles.ratingOptionTextSelected]}>-</Text>
+                  <View {...({ dataSet: { kmhdropdown: 'true' } } as any)} style={{ flex: 1, zIndex: showNewPlayerScoutDropdown ? 200 : 1 }}>
+                    <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Scout</Text>
+                    <TouchableOpacity
+                      style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
+                      onPress={() => { setShowNewPlayerScoutDropdown(!showNewPlayerScoutDropdown); setShowNewPlayerResponsibilityDropdown(false); setHeaderOpenDropdown(null); }}
+                    >
+                      <Text style={{ color: (newPlayer.scout_id || newPlayer.scout_manual) ? colors.text : 'rgba(255,255,255,0.3)', fontSize: 13, fontWeight: '500', flex: 1 }} numberOfLines={1}>
+                        {(() => {
+                          if (newPlayer.scout_manual) return newPlayer.scout_manual;
+                          const a = advisors.find(adv => adv.id === newPlayer.scout_id);
+                          return a ? `${a.first_name} ${a.last_name}` : 'Scout auswählen...';
+                        })()}
+                      </Text>
+                      <Ionicons name={showNewPlayerScoutDropdown ? 'chevron-up' : 'chevron-down'} size={14} color="rgba(255,255,255,0.5)" />
                     </TouchableOpacity>
-                    {[1,2,3,4,5,6,7,8,9,10].map(r => (
-                      <TouchableOpacity key={r} style={[styles.ratingOptionSmall, { backgroundColor: isDark ? colors.surface : '#f1f5f9' }, newPlayer.rating === r && styles.ratingOptionSelected]} onPress={() => setNewPlayer(prev => ({ ...prev, rating: r }))}>
-                        <Text style={[styles.ratingOptionTextSmall, { color: colors.textSecondary }, newPlayer.rating === r && styles.ratingOptionTextSelected]}>{r}</Text>
-                      </TouchableOpacity>
-                    ))}
+                    {showNewPlayerScoutDropdown && (
+                      <View style={[styles.headerDateList, { left: 0, right: 0, minWidth: undefined }]}>
+                        <ScrollView style={{ maxHeight: 280 }} nestedScrollEnabled>
+                          <TouchableOpacity style={styles.headerDateItem} onPress={() => { setNewPlayer(prev => ({ ...prev, scout_id: '', scout_manual: '' })); setShowNewPlayerScoutDropdown(false); }}>
+                            <Text style={[styles.headerDateItemText, { color: 'rgba(255,255,255,0.5)' }]}>Leeren</Text>
+                          </TouchableOpacity>
+                          {advisors.map(adv => (
+                            <TouchableOpacity
+                              key={adv.id}
+                              style={[styles.headerDateItem, { backgroundColor: newPlayer.scout_id === adv.id ? 'rgba(255,255,255,0.08)' : 'transparent' }]}
+                              onPress={() => { setNewPlayer(prev => ({ ...prev, scout_id: adv.id, scout_manual: '' })); setShowNewPlayerScoutDropdown(false); }}
+                            >
+                              <Text style={[styles.headerDateItemText, { color: newPlayer.scout_id === adv.id ? '#22c55e' : '#fff' }]}>{adv.first_name} {adv.last_name}</Text>
+                            </TouchableOpacity>
+                          ))}
+                          <View style={{ padding: 8, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' }}>
+                            <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 6 }}>Externer Scout</Text>
+                            <TextInput
+                              style={[styles.formInput, { backgroundColor: '#000', borderColor: colors.inputBorder, color: colors.text }]}
+                              value={newPlayer.scout_manual || ''}
+                              onChangeText={(t) => setNewPlayer(prev => ({ ...prev, scout_manual: t, scout_id: '' }))}
+                              placeholder="z.B. Hans Müller"
+                              placeholderTextColor="rgba(255,255,255,0.3)"
+                            />
+                          </View>
+                        </ScrollView>
+                      </View>
+                    )}
                   </View>
                 </View>
               </View>
-            )}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 28 }}>
-              <Text style={{ color: colors.textSecondary, fontSize: 12 }}>Zuständigkeit: {currentUserName || 'Sie'}</Text>
-              <TouchableOpacity style={{ paddingVertical: 8, paddingHorizontal: 16, borderRadius: 6, borderWidth: 1, borderColor: '#10b981', opacity: tmLoading ? 0.5 : 1 }} onPress={addScoutedPlayer} disabled={tmLoading}>
-                <Text style={{ color: '#10b981', fontSize: 13, fontWeight: '600' }}>{tmLoading ? 'Laden...' : 'Spieler anlegen'}</Text>
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'flex-end', marginTop: 20 }}>
+              <TouchableOpacity style={{ paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#22c55e', borderWidth: 1, borderColor: '#22c55e', opacity: tmLoading ? 0.5 : 1 }} onPress={addScoutedPlayer} disabled={tmLoading}>
+                <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>{tmLoading ? 'Laden...' : 'Spieler anlegen'}</Text>
               </TouchableOpacity>
+            </View>
             </View>
           </View>
         </View>
@@ -3696,7 +4150,7 @@ export function ScoutingScreen({ navigation }: any) {
                       style={[styles.gameDetailTitleInput, { color: colors.text }]}
                       value={editGameData.description || ''}
                       onChangeText={(t) => setEditGameData({...editGameData, description: t})}
-                      placeholder="Beschreibung" placeholderTextColor={colors.textMuted}
+                      placeholder="z.B. Probetraining für 3 Tage" placeholderTextColor={colors.textMuted}
                     />
                   ) : (
                     <Text style={[styles.gameDetailTitle, { color: colors.text }]}>{selectedGame.description || 'Scouting-Termin'}</Text>
@@ -3880,7 +4334,7 @@ export function ScoutingScreen({ navigation }: any) {
                       style={[styles.addTeamInputNew, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
                       value={newTeamName}
                       onChangeText={setNewTeamName}
-                      placeholder="Neue Mannschaft..."
+                      placeholder="z.B. Borussia Dortmund U19"
                       placeholderTextColor={colors.textMuted}
                       onSubmitEditing={addTeam}
                     />
@@ -3926,14 +4380,14 @@ export function ScoutingScreen({ navigation }: any) {
                           style={[styles.addPlayerInputNew, { width: 40, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
                           value={newGamePlayer.number}
                           onChangeText={(t) => setNewGamePlayer({...newGamePlayer, number: t})}
-                          placeholder="Nr."
+                          placeholder="z.B. 7"
                           placeholderTextColor={colors.textMuted}
                           onSubmitEditing={addGamePlayer}
                         />
                         {/* Position Dropdown */}
                         <View style={{ position: 'relative', zIndex: 40 }}>
                           <TouchableOpacity
-                            style={[styles.addPlayerDropdownBtn, { width: 50, backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
+                            style={[styles.addPlayerDropdownBtn, { width: 50, borderColor: colors.border }]}
                             onPress={(e) => { e.stopPropagation(); setShowNewPlayerPositionPicker(!showNewPlayerPositionPicker); setShowNewPlayerRatingPicker(false); }}
                           >
                             <Text style={[styles.addPlayerDropdownBtnText, { color: colors.text }]}>{newGamePlayer.position || 'Pos.'}</Text>
@@ -3958,7 +4412,7 @@ export function ScoutingScreen({ navigation }: any) {
                           style={[styles.addPlayerInputNew, { width: 100, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
                           value={newGamePlayer.last_name}
                           onChangeText={(t) => setNewGamePlayer({...newGamePlayer, last_name: t})}
-                          placeholder="Nachname"
+                          placeholder="z.B. Mustermann"
                           placeholderTextColor={colors.textMuted}
                           onSubmitEditing={addGamePlayer}
                         />
@@ -3981,7 +4435,7 @@ export function ScoutingScreen({ navigation }: any) {
                         {/* Einschätzung Dropdown */}
                         <View style={{ position: 'relative', zIndex: 30 }}>
                           <TouchableOpacity
-                            style={[styles.addPlayerDropdownBtn, { width: 70, backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, newGamePlayer.rating !== null && styles.addPlayerDropdownBtnRating]}
+                            style={[styles.addPlayerDropdownBtn, { width: 70, borderColor: colors.border }, newGamePlayer.rating !== null && styles.addPlayerDropdownBtnRating]}
                             onPress={(e) => { e.stopPropagation(); setShowNewPlayerRatingPicker(!showNewPlayerRatingPicker); setShowNewPlayerPositionPicker(false); }}
                           >
                             <Text style={[styles.addPlayerDropdownBtnText, { color: colors.text }, newGamePlayer.rating !== null && styles.addPlayerDropdownBtnTextRating]}>
@@ -4236,38 +4690,218 @@ export function ScoutingScreen({ navigation }: any) {
       {selectedPlayer && (
         <Modal visible={showPlayerDetailModal} transparent animationType="fade">
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalContentLarge, { overflow: 'visible', backgroundColor: colors.surface }]}>
-              <View style={[styles.detailHeader, { position: 'relative', paddingRight: 40 }]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                  {getClubLogo(selectedPlayer.club) && (
-                    <Image source={{ uri: getClubLogo(selectedPlayer.club)! }} style={{ width: 48, height: 48, borderRadius: 8, marginRight: 14 }} />
+            <View style={styles.modalContentLarge}>
+              <Image source={require('../../../assets/scouting-header-bg.jpg')} style={[styles.modalBgImage, ({ objectPosition: 'center top' } as any)]} resizeMode="cover" />
+              <View style={styles.modalBgOverlay} />
+
+              {/* Toolbar mit Aktionen + Close-Button + Strich darunter (wie Spielerprofil) */}
+              <View style={styles.detailToolbarRow}>
+                <View style={styles.detailToolbarLeft}>
+                  {isEditing ? (
+                    <TouchableOpacity style={[styles.detailToolbarBtn, styles.detailToolbarBtnDanger]} onPress={() => setShowDeleteConfirm(true)}>
+                      <Text style={[styles.detailToolbarBtnText, { color: '#fff' }]}>Löschen</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity style={styles.detailToolbarBtn} onPress={() => { setShowPlayerDetailModal(false); setShowDecisionModal(true); }}>
+                      <Text style={styles.detailToolbarBtnText}>Entscheidung</Text>
+                    </TouchableOpacity>
                   )}
-                  <View>
-                    <Text style={[styles.detailName, { color: colors.text }]}>
-                      {selectedPlayer.last_name}, {selectedPlayer.first_name}
-                      {selectedPlayer.birth_date && (
-                        <Text style={{ fontSize: 10, fontWeight: '400', color: colors.textMuted }}> ({new Date(selectedPlayer.birth_date).getFullYear()})</Text>
-                      )}
-                    </Text>
-                    <Text style={{ fontSize: 10, color: colors.textMuted, marginTop: 2 }}>{selectedPlayer.club || '-'}</Text>
+                </View>
+                <View style={styles.detailToolbarRight}>
+                  {isEditing ? (
+                    <>
+                      <TouchableOpacity style={styles.detailToolbarBtn} onPress={() => setIsEditing(false)}>
+                        <Text style={styles.detailToolbarBtnText}>Abbrechen</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={[styles.detailToolbarBtn, styles.detailToolbarBtnPrimary]} onPress={updateScoutedPlayer}>
+                        <Text style={[styles.detailToolbarBtnText, { color: '#fff' }]}>Speichern</Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <TouchableOpacity style={styles.detailToolbarBtn} onPress={() => setIsEditing(true)}>
+                      <Text style={styles.detailToolbarBtnText}>Bearbeiten</Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity onPress={() => { setShowPlayerDetailModal(false); setIsEditing(false); setShowEditClubDropdown(false); }} style={styles.detailHeaderClose}>
+                    <Text style={styles.detailHeaderCloseText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Header-Card */}
+              <View style={styles.detailHeader}>
+                <View style={styles.detailHeaderTop}>
+                  <View style={{ flex: 1 }}>
+                    {isEditing ? (
+                      <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start', zIndex: 9999 }}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Vorname *</Text>
+                          <TextInput
+                            style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+                            value={editData?.first_name || ''}
+                            onChangeText={(t) => setEditData({ ...editData, first_name: t })}
+                            placeholder="z.B. Maximilian"
+                            placeholderTextColor="rgba(255,255,255,0.3)"
+                          />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Nachname *</Text>
+                          <TextInput
+                            style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+                            value={editData?.last_name || ''}
+                            onChangeText={(t) => setEditData({ ...editData, last_name: t })}
+                            placeholder="z.B. Mustermann"
+                            placeholderTextColor="rgba(255,255,255,0.3)"
+                          />
+                        </View>
+                        <View style={{ flex: 1.4, zIndex: 9999 }}>
+                          <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Verein</Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, zIndex: 9999 }}>
+                            {getClubLogo(editData?.club || '') ? (
+                              <Image source={{ uri: getClubLogo(editData?.club || '')! }} style={{ width: 28, height: 28 }} resizeMode="contain" />
+                            ) : null}
+                            <View style={{ flex: 1, zIndex: 9999 }}>
+                              {renderClubSelector(editClubSearchText, setEditClubSearchText, showEditClubDropdown, setShowEditClubDropdown, (c) => setEditData({ ...editData, club: c }))}
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+                    ) : (
+                      <>
+                        <Text style={styles.detailName} numberOfLines={1}>{selectedPlayer.last_name}</Text>
+                        <Text style={styles.detailName} numberOfLines={1}>{selectedPlayer.first_name}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                          {getClubLogo(selectedPlayer.club) ? (
+                            <Image source={{ uri: getClubLogo(selectedPlayer.club)! }} style={{ width: 28, height: 28 }} resizeMode="contain" />
+                          ) : null}
+                          <Text style={styles.detailClubLabel} numberOfLines={1}>{selectedPlayer.club || '-'}</Text>
+                        </View>
+                      </>
+                    )}
                   </View>
                 </View>
-                <TouchableOpacity onPress={() => { setShowPlayerDetailModal(false); setIsEditing(false); setShowEditClubDropdown(false); }} style={{ position: 'absolute', top: 0, right: 0, width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ color: colors.textSecondary, fontSize: 13, lineHeight: 14 }}>✕</Text>
-                </TouchableOpacity>
+
+                {/* Strich (Divider) wie Spielerprofil */}
+                <View style={styles.detailHeaderDivider} />
+
+                {/* Stats-Row: Transfermarkt | Geburtsdatum | Position | Einschätzung */}
+                <View style={styles.detailStatsRow}>
+                  {/* Transfermarkt */}
+                  <View style={styles.detailStatCol}>
+                    <Text style={styles.detailStatLabel}>Transfermarkt</Text>
+                    {isEditing ? (
+                      <TextInput
+                        style={styles.headerStatInput}
+                        value={editData?.transfermarkt_url || ''}
+                        onChangeText={(t) => setEditData({ ...editData, transfermarkt_url: t })}
+                        placeholder="https://..."
+                        placeholderTextColor="rgba(255,255,255,0.3)"
+                      />
+                    ) : selectedPlayer.transfermarkt_url ? (
+                      <TouchableOpacity onPress={() => openTransfermarkt(selectedPlayer.transfermarkt_url!)} style={{ alignItems: 'center' }}>
+                        <Ionicons name="link" size={20} color="rgba(255,255,255,0.85)" />
+                      </TouchableOpacity>
+                    ) : (
+                      <Text style={styles.detailStatValue}>-</Text>
+                    )}
+                  </View>
+
+                  {/* Geburtsdatum */}
+                  <View style={[styles.detailStatCol, { zIndex: headerOpenDropdown?.startsWith('birth_') ? 100 : 1 }]}>
+                    <Text style={styles.detailStatLabel}>Geburtsdatum</Text>
+                    {isEditing ? (() => {
+                      const raw: string = editData?.birth_date || '';
+                      let day = '', month = '', year = '';
+                      if (/^\d{4}$/.test(raw)) {
+                        year = raw;
+                      } else {
+                        const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                        const ger = raw.match(/^(\d{2})\.(\d{2})\.(\d{4})/);
+                        if (iso) { year = iso[1]; month = iso[2]; day = iso[3]; }
+                        else if (ger) { day = ger[1]; month = ger[2]; year = ger[3]; }
+                      }
+                      const setBirth = (newD: string, newM: string, newY: string) => {
+                        if (!newY) { setEditData({ ...editData, birth_date: '' }); return; }
+                        if (!newD || !newM) { setEditData({ ...editData, birth_date: newY }); return; }
+                        setEditData({ ...editData, birth_date: `${newY}-${newM.padStart(2,'0')}-${newD.padStart(2,'0')}` });
+                      };
+                      const DAYS_STR = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'));
+                      const MONTHS_STR = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
+                      const currentYear = new Date().getFullYear();
+                      const YEARS_STR = Array.from({ length: 30 }, (_, i) => String(currentYear - i));
+                      return (
+                        <View style={{ flexDirection: 'row', gap: 4, justifyContent: 'center' }}>
+                          <HeaderDateDropdown value={day} options={DAYS_STR} onChange={(v) => setBirth(v, month, year || String(currentYear))} dropdownKey="birth_day" placeholder="Tag" width={50} minListWidth={70} />
+                          <HeaderDateDropdown value={month} options={MONTHS_STR} onChange={(v) => setBirth(day, v, year || String(currentYear))} dropdownKey="birth_month" placeholder="Monat" width={56} minListWidth={70} />
+                          <HeaderDateDropdown value={year} options={YEARS_STR} onChange={(v) => setBirth(day, month, v)} dropdownKey="birth_year" placeholder="Jahr" width={68} minListWidth={86} />
+                        </View>
+                      );
+                    })() : (
+                      <Text style={styles.detailStatValue}>{formatBirthDisplay(selectedPlayer.birth_date)}</Text>
+                    )}
+                  </View>
+
+                  {/* Position */}
+                  <View style={[styles.detailStatCol, { zIndex: headerOpenDropdown === 'position' ? 100 : 1 }]}>
+                    <Text style={styles.detailStatLabel}>Position</Text>
+                    {isEditing ? (
+                      <View style={{ alignItems: 'center' }}>
+                        <HeaderMultiSelectDropdown
+                          values={parsePositions(editData?.position || '')}
+                          options={POSITIONS}
+                          onChange={(next) => setEditData({ ...editData, position: formatPositions(next) })}
+                          dropdownKey="position"
+                          placeholder="Auswählen"
+                          width={140}
+                          minListWidth={160}
+                        />
+                      </View>
+                    ) : parsePositions(selectedPlayer.position).length > 0 ? (
+                      <View style={[styles.positionBadgesRowDetail, { justifyContent: 'center' }]}>
+                        {parsePositions(selectedPlayer.position).map((pos, idx) => (
+                          <View key={idx} style={styles.positionBadgeLarge}><Text style={styles.positionTextLarge}>{pos}</Text></View>
+                        ))}
+                      </View>
+                    ) : (
+                      <Text style={styles.detailStatValue}>-</Text>
+                    )}
+                  </View>
+
+                  {/* Einschätzung */}
+                  <View style={[styles.detailStatCol, { zIndex: headerOpenDropdown === 'rating' ? 100 : 1 }]}>
+                    <Text style={styles.detailStatLabel}>Einschätzung</Text>
+                    {isEditing ? (
+                      <HeaderDateDropdown
+                        value={editData?.rating ? `${editData.rating} / 10` : ''}
+                        options={['1','2','3','4','5','6','7','8','9','10']}
+                        onChange={(v) => setEditData({ ...editData, rating: v ? parseInt(v) : 0 })}
+                        dropdownKey="rating"
+                        placeholder="—"
+                        width={100}
+                        minListWidth={110}
+                      />
+                    ) : selectedPlayer.rating ? (
+                      <View style={[styles.ratingBadgeLarge, { alignSelf: 'center' }]}><Text style={styles.ratingTextLarge}>⭐ {selectedPlayer.rating}/10</Text></View>
+                    ) : (
+                      <Text style={styles.detailStatValue}>-</Text>
+                    )}
+                  </View>
+                </View>
               </View>
 
               {isEditing ? (
-                renderPlayerForm(editData, setEditData, editClubSearchText, setEditClubSearchText, showEditClubDropdown, setShowEditClubDropdown)
+                <View style={{ zIndex: 2 }}>
+                  {renderPlayerForm(editData, setEditData, editClubSearchText, setEditClubSearchText, showEditClubDropdown, setShowEditClubDropdown)}
+                </View>
               ) : (
-                <ScrollView style={{ maxHeight: 500 }} showsVerticalScrollIndicator={false}>
+                <ScrollView style={{ maxHeight: 500, zIndex: 2 }} showsVerticalScrollIndicator={false}>
                   {/* Two Column Layout */}
                   <View style={styles.detailTwoColumn}>
                     {/* Left Column: Status + Grunddaten */}
                     <View style={styles.detailColumnLeft}>
                       {/* Status-Auswahl */}
-                      <View style={[styles.detailInfo, { marginBottom: 12, backgroundColor: colors.surfaceSecondary }]}>
-                        <Text style={[styles.detailLabelSmall, { marginBottom: 6, color: colors.textSecondary }]}>Status</Text>
+                      <View style={[styles.detailInfo, { marginBottom: 12 }]}>
+                        <Text style={styles.detailLabelSmall}>Status</Text>
                         <View style={styles.statusSelector}>
                           {SCOUTING_STATUS.map(status => (
                             <TouchableOpacity
@@ -4310,85 +4944,72 @@ export function ScoutingScreen({ navigation }: any) {
                         </View>
                       </View>
 
-                      <View style={[styles.detailInfo, { marginBottom: 0, flex: 1, backgroundColor: colors.surfaceSecondary }]}>
-                        <View style={styles.detailRowVertical}>
-                          <Text style={[styles.detailLabelSmall, { color: colors.textSecondary }]}>Position</Text>
-                          <View style={styles.positionBadgesRowDetail}>
-                            {parsePositions(selectedPlayer.position).map((pos, idx) => (
-                              <View key={idx} style={styles.positionBadgeLarge}><Text style={styles.positionTextLarge}>{pos}</Text></View>
-                            ))}
-                          </View>
-                        </View>
-                        <View style={styles.detailRowVertical}>
-                          <Text style={[styles.detailLabelSmall, { color: colors.textSecondary }]}>Einschätzung</Text>
-                          {selectedPlayer.rating ? (
-                            <View style={styles.ratingBadgeLarge}><Text style={styles.ratingTextLarge}>⭐ {selectedPlayer.rating}/10</Text></View>
-                          ) : (
-                            <Text style={[styles.detailValueLarge, { color: colors.text }]}>-</Text>
-                          )}
-                        </View>
+                      <View style={[styles.detailInfo, { marginBottom: 0, flex: 1 }]}>
                         <View style={[styles.detailRowVertical, { marginBottom: 0 }]}>
-                          <Text style={[styles.detailLabelSmall, { color: colors.textSecondary }]}>Kontakt</Text>
-                          <Text style={[styles.detailValueLarge, { color: colors.text }]}>{selectedPlayer.phone || '-'}</Text>
+                          <Text style={styles.detailLabelSmall}>Kontaktperson</Text>
+                          <Text style={styles.detailValueLarge}>{selectedPlayer.phone || '-'}</Text>
                         </View>
                       </View>
                     </View>
 
-                    {/* Right Column: Transfermarkt + Scout */}
+                    {/* Right Column: Scout + Zuständigkeit */}
                     <View style={styles.detailColumnRight}>
-                      <View style={[styles.detailInfo, { backgroundColor: colors.surfaceSecondary }]}>
-                        <View style={styles.detailRowVertical}>
-                          <Text style={[styles.detailLabelSmall, { color: colors.textSecondary }]}>Transfermarkt</Text>
-                          {selectedPlayer.transfermarkt_url ? (
-                            <TouchableOpacity onPress={() => openTransfermarkt(selectedPlayer.transfermarkt_url!)} style={styles.tmLinkRowDetail}>
-                              <Image source={TransfermarktLogo} style={styles.tmLogoDetail} />
-                            </TouchableOpacity>
-                          ) : (
-                            <Text style={[styles.detailValueLarge, { color: colors.text }]}>-</Text>
-                          )}
-                        </View>
-                        <View style={styles.detailRowVertical}>
-                          <Text style={[styles.detailLabelSmall, { color: colors.textSecondary }]}>Scout</Text>
-                          <Text style={[styles.detailValueLarge, { color: colors.text }]}>{selectedPlayer.scout_name || '-'}</Text>
+                      <View style={styles.detailInfo}>
+                        <View style={{ flexDirection: 'row', gap: 16 }}>
+                          <View style={[styles.detailRowVertical, { flex: 1, marginBottom: 0 }]}>
+                            <Text style={styles.detailLabelSmall}>Scout</Text>
+                            {selectedPlayer.scout_name ? (
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                <Ionicons name="chevron-forward-outline" size={10} color="rgba(255,255,255,0.5)" />
+                                <Text style={{ fontSize: 13, fontWeight: '500', lineHeight: 18, color: '#fff' }}>{selectedPlayer.scout_name}</Text>
+                              </View>
+                            ) : (
+                              <Text style={styles.detailValueLarge}>-</Text>
+                            )}
+                          </View>
+                          <View style={[styles.detailRowVertical, { flex: 1, marginBottom: 0 }]}>
+                            <Text style={styles.detailLabelSmall}>Zuständigkeit</Text>
+                            {(() => {
+                              const list = (selectedPlayer.responsibility || '').split(',').map(s => s.trim()).filter(Boolean);
+                              if (list.length === 0) return <Text style={styles.detailValueLarge}>-</Text>;
+                              return (
+                                <View style={{ gap: 4 }}>
+                                  {list.map((name, i) => (
+                                    <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                      <Ionicons name="chevron-forward-outline" size={10} color="rgba(255,255,255,0.5)" />
+                                      <Text style={{ fontSize: 13, fontWeight: '500', lineHeight: 18, color: '#fff' }}>{name}</Text>
+                                    </View>
+                                  ))}
+                                </View>
+                              );
+                            })()}
+                          </View>
                         </View>
                       </View>
                       {/* Weitere Infos */}
-                      <View style={[styles.detailInfoScout, { backgroundColor: colors.surfaceSecondary }]}>
+                      <View style={styles.detailInfoScout}>
                         <View style={styles.detailRowVertical}>
-                          <Text style={[styles.detailLabelSmall, { color: colors.textSecondary }]}>Weitere Infos</Text>
-                          <Text style={[styles.detailValueLarge, { color: colors.text }]}>{selectedPlayer.additional_info || '-'}</Text>
+                          <Text style={styles.detailLabelSmall}>Weitere Infos</Text>
+                          <Text style={styles.detailValueLarge}>{selectedPlayer.additional_info || '-'}</Text>
                         </View>
                         <View style={[styles.detailRowVertical, { marginBottom: 0 }]}>
-                          <Text style={[styles.detailLabelSmall, { color: colors.textSecondary }]}>IST-Stand</Text>
-                          <Text style={[styles.detailValueLarge, { color: colors.text }]}>{selectedPlayer.current_status || '-'}</Text>
+                          <Text style={styles.detailLabelSmall}>IST-Stand</Text>
+                          <Text style={styles.detailValueLarge}>{selectedPlayer.current_status || '-'}</Text>
                         </View>
                       </View>
                     </View>
                   </View>
 
                   {/* Fußballerische Einschätzung in eigener Säule */}
-                  <View style={[styles.detailInfo, { marginTop: 12, marginBottom: 0, backgroundColor: colors.surfaceSecondary }]}>
+                  <View style={[styles.detailInfo, { marginTop: 12, marginBottom: 0 }]}>
                     <View style={[styles.detailRowVertical, { marginBottom: 0 }]}>
-                      <Text style={[styles.detailLabelSmall, { color: colors.textSecondary }]}>Fußballerische Einschätzung</Text>
-                      <Text style={[styles.detailValueLarge, { color: colors.text }]}>{selectedPlayer.notes || '-'}</Text>
+                      <Text style={styles.detailLabelSmall}>Fußballerische Einschätzung</Text>
+                      <Text style={styles.detailValueLarge}>{selectedPlayer.notes || '-'}</Text>
                     </View>
                   </View>
                 </ScrollView>
               )}
 
-              <View style={[styles.modalButtons, { borderTopColor: colors.border }]}>
-                {isEditing ? (
-                  <>
-                    <TouchableOpacity style={styles.deleteButton} onPress={() => setShowDeleteConfirm(true)}><Text style={styles.deleteButtonText}>Löschen</Text></TouchableOpacity>
-                    <TouchableOpacity style={styles.saveButton} onPress={updateScoutedPlayer}><Text style={styles.saveButtonText}>Speichern</Text></TouchableOpacity>
-                  </>
-                ) : (
-                  <>
-                    <TouchableOpacity style={styles.decisionButton} onPress={() => { setShowPlayerDetailModal(false); setShowDecisionModal(true); }}><Text style={styles.decisionButtonText}>Entscheidung</Text></TouchableOpacity>
-                    <TouchableOpacity style={styles.editButton} onPress={() => setIsEditing(true)}><Text style={styles.editButtonText}>Bearbeiten</Text></TouchableOpacity>
-                  </>
-                )}
-              </View>
             </View>
           </View>
         </Modal>
@@ -4528,66 +5149,77 @@ export function ScoutingScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, flexDirection: 'row', backgroundColor: '#f8fafc' },
+  container: { flex: 1, flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.45)' },
   containerMobile: { flexDirection: 'column' },
   mainContent: { flex: 1 },
 
   // Sidebar Overlay (Mobile)
   sidebarOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 100, flexDirection: 'row' },
-  sidebarMobile: { width: 280, height: '100%', backgroundColor: '#fff' },
+  sidebarMobile: { width: 280, height: '100%', backgroundColor: 'rgba(255,255,255,0.08)' },
 
   // Mobile Tabs
-  mobileTabs: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0', paddingHorizontal: 12 },
+  mobileTabs: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.08)', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 12 },
   mobileTab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
   mobileTabActive: { borderBottomWidth: 2, borderBottomColor: '#1a1a1a' },
   mobileTabText: { fontSize: 11, color: '#64748b', fontWeight: '500' },
   mobileTabTextActive: { color: '#1a1a1a', fontWeight: '600' },
   
   // Header Banner - weiß mit Titel mittig
-  headerBanner: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 24, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  headerBanner: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 24, backgroundColor: 'rgba(255,255,255,0.08)', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)' },
   headerBannerCenter: { flex: 1, alignItems: 'center' },
   title: { fontSize: 18, fontWeight: '700', color: '#1a1a1a' },
   subtitle: { fontSize: 11, color: '#64748b', marginTop: 4 },
   headerTabs: { flexDirection: 'row', gap: 8 },
-  headerTab: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0' },
+  headerTab: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   headerTabActive: { backgroundColor: '#1a1a1a', borderColor: '#1a1a1a' },
   headerTabIcon: { fontSize: 16, marginRight: 8 },
   headerTabText: { fontSize: 11, color: '#64748b', fontWeight: '500' },
   headerTabTextActive: { color: '#fff' },
   
   // Toolbar - weiß umrandet
-  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0', zIndex: 100 },
-  searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', paddingHorizontal: 12 },
+  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 16, backgroundColor: 'rgba(255,255,255,0.08)', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', zIndex: 100 },
+  searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 12 },
   searchIcon: { fontSize: 16, marginRight: 8 },
   searchInput: { flex: 1, paddingVertical: 6, fontSize: 11 },
   filterContainer: { flexDirection: 'row', gap: 8 },
   dropdownContainer: { position: 'relative' },
-  filterButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1 },
-  filterButtonText: { fontSize: 11 },
-  filterDropdownMulti: { position: 'absolute', top: '100%', left: 0, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', marginTop: 4, minWidth: 220, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, zIndex: 1000, overflow: 'hidden' },
-  filterDropdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#e2e8f0', backgroundColor: '#f8fafc' },
-  filterDropdownTitle: { fontSize: 11, fontWeight: '600', color: '#1a1a1a' },
-  filterClearText: { fontSize: 11, color: '#ef4444' },
-  filterCheckboxItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  checkbox: { width: 20, height: 20, borderRadius: 4, borderWidth: 2, borderColor: '#cbd5e1', marginRight: 10, justifyContent: 'center', alignItems: 'center' },
-  checkboxSelected: { backgroundColor: '#3b82f6', borderColor: '#3b82f6' },
+  filterButton: { height: 28, paddingVertical: 0, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
+  filterButtonText: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.85)' },
+  filterDropdownMulti: { position: 'absolute', top: '100%', right: 0, backgroundColor: '#000', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', marginTop: 4, minWidth: 260, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12, zIndex: 1000, overflow: 'hidden' },
+  filterDropdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', backgroundColor: '#000' },
+  filterDropdownTitle: { fontFamily: 'Josefin Sans', fontSize: 11, fontWeight: '300', letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)' },
+  filterClearText: { fontSize: 11, color: '#ef4444', fontWeight: '500' },
+  filterCheckboxItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)', backgroundColor: '#000' },
+  checkbox: { width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.3)', marginRight: 12, justifyContent: 'center', alignItems: 'center' },
+  checkboxSelected: { backgroundColor: '#22c55e', borderColor: '#22c55e' },
   checkmark: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
-  filterCheckboxText: { flex: 1, fontSize: 11, color: '#333' },
-  filterCountBadge: { backgroundColor: '#f1f5f9', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, fontSize: 11, color: '#64748b' },
-  filterDoneButton: { padding: 12, backgroundColor: '#f8fafc', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#e2e8f0' },
-  filterDoneText: { fontSize: 11, fontWeight: '600', color: '#3b82f6' },
+  filterCheckboxText: { flex: 1, fontSize: 13, color: '#fff', fontWeight: '500' },
+  filterCountBadge: { backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, fontSize: 11, color: 'rgba(255,255,255,0.6)' },
+  filterDoneButton: { padding: 12, backgroundColor: '#000', alignItems: 'center', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)' },
+  filterDoneText: { fontSize: 12, fontWeight: '600', color: '#22c55e', letterSpacing: 0.5 },
   noDataText: { padding: 16, textAlign: 'center', color: '#94a3b8', fontSize: 11 },
-  viewToggle: { flexDirection: 'row', backgroundColor: '#f8fafc', borderRadius: 6, padding: 2 },
-  viewButton: { paddingVertical: 4, paddingHorizontal: 8, borderRadius: 5 },
-  viewButtonActive: { backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4 },
-  viewButtonText: { fontSize: 11, color: '#64748b' },
+  viewToggle: { flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', height: 28, alignItems: 'center', overflow: 'hidden' },
+  viewButton: { height: '100%', paddingHorizontal: 10, justifyContent: 'center', alignItems: 'center' },
+  viewButtonActive: { backgroundColor: 'rgba(255,255,255,0.12)' },
+  viewButtonText: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.85)' },
   addButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1 },
   addButtonText: { fontSize: 11, fontWeight: '600' },
-  content: { flex: 1, padding: 16 },
+  content: { flex: 1, paddingVertical: 16, paddingHorizontal: 24 },
   kanbanContainer: { flex: 1, flexDirection: 'row', gap: 12 },
-  kanbanColumn: { flex: 1, backgroundColor: '#f1f5f9', borderRadius: 12, padding: 12, minHeight: 400, minWidth: 200 },
-  kanbanColumnDropTarget: { backgroundColor: '#dbeafe', borderWidth: 2, borderColor: '#3b82f6', borderStyle: 'dashed' },
-  kanbanHeader: { marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  kanbanColumn: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    borderRadius: 12,
+    padding: 12,
+    minHeight: 400,
+    minWidth: 200,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.5)',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  kanbanColumnDropTarget: { backgroundColor: 'rgba(34,197,94,0.18)', borderWidth: 2, borderColor: '#22c55e', borderStyle: 'dashed' },
+  kanbanHeader: { marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.3)' },
   kanbanHeaderTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   statusDot: { width: 10, height: 10, borderRadius: 5, marginRight: 8 },
   kanbanTitle: { fontSize: 11, fontWeight: '700', color: '#475569', flex: 1 },
@@ -4595,7 +5227,18 @@ const styles = StyleSheet.create({
   countBadge: { backgroundColor: '#e2e8f0', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
   countText: { fontSize: 12, color: '#64748b', fontWeight: '600' },
   kanbanContent: { flex: 1 },
-  playerCard: { backgroundColor: '#fff', borderRadius: 10, marginBottom: 10, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
+  playerCard: {
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    borderRadius: 10,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.55,
+    shadowRadius: 12,
+    elevation: 8,
+  },
   cardContent: { padding: 12 },
   cardHeader: { flexDirection: 'row', alignItems: 'center' },
   clubLogoCard: { width: 32, height: 32, resizeMode: 'contain', marginRight: 10 },
@@ -4606,17 +5249,17 @@ const styles = StyleSheet.create({
   playerClub: { fontSize: 12, color: '#64748b', marginTop: 2 },
   cardRight: { alignItems: 'flex-end', gap: 4 },
   positionBadgesRow: { flexDirection: 'row', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' },
-  ratingBadgeCard: { backgroundColor: '#dcfce7', paddingVertical: 1, paddingHorizontal: 4, borderRadius: 3 },
-  ratingTextCard: { fontSize: 9, fontWeight: '600', color: '#166534' },
+  ratingBadgeCard: { backgroundColor: 'rgba(34,197,94,0.18)', paddingVertical: 0, paddingHorizontal: 6, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(34,197,94,0.5)', height: 18, justifyContent: 'center', alignItems: 'center' },
+  ratingTextCard: { fontSize: 9, fontWeight: '600', color: '#22c55e', letterSpacing: 0.3, lineHeight: 11, includeFontPadding: false },
   birthYear: { fontSize: 11, color: '#64748b' },
   clubLogoSmall: { width: 28, height: 28, resizeMode: 'contain', marginTop: 4 },
   cardFooter: { flexDirection: 'row', alignItems: 'center', marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#f1f5f9' },
-  positionBadge: { backgroundColor: '#e0f2fe', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 3, borderWidth: 1, borderColor: '#bae6fd' },
-  positionText: { fontSize: 9, fontWeight: '500', color: '#0369a1' },
+  positionBadge: { backgroundColor: 'rgba(59,130,246,0.18)', paddingVertical: 0, paddingHorizontal: 6, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(59,130,246,0.5)', height: 18, justifyContent: 'center', alignItems: 'center' },
+  positionText: { fontSize: 9, fontWeight: '600', color: '#60a5fa', letterSpacing: 0.3, lineHeight: 11, includeFontPadding: false },
   ratingBadge: { backgroundColor: '#dcfce7', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 3, borderWidth: 1, borderColor: '#bbf7d0' },
   ratingText: { fontSize: 9, fontWeight: '600', color: '#166534' },
-  ratingBadgeSmall: { backgroundColor: '#dcfce7', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 3, borderWidth: 1, borderColor: '#bbf7d0' },
-  ratingTextSmall: { fontSize: 9, fontWeight: '500', color: '#166534' },
+  ratingBadgeSmall: { backgroundColor: 'rgba(34,197,94,0.18)', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(34,197,94,0.5)' },
+  ratingTextSmall: { fontSize: 9, fontWeight: '600', color: '#22c55e', letterSpacing: 0.3 },
   ratingBadgeList: { backgroundColor: '#dcfce7', paddingVertical: 1, paddingHorizontal: 4, borderRadius: 3 },
   ratingTextList: { fontSize: 9, fontWeight: '600', color: '#166534' },
   tmIconSmall: { padding: 2 },
@@ -4624,44 +5267,46 @@ const styles = StyleSheet.create({
   tmLogoMedium: { width: 50, height: 20, resizeMode: 'contain' },
   tmLogoLarge: { width: 65, height: 26, resizeMode: 'contain' },
   tmLogoInline: { width: 45, height: 18, resizeMode: 'contain' },
-  tmButton: { backgroundColor: '#fff', paddingVertical: 8, paddingHorizontal: 8, borderRadius: 8, marginLeft: 8, borderWidth: 1, borderColor: '#e2e8f0' },
-  tmButtonLarge: { backgroundColor: '#fff', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, marginRight: 12, borderWidth: 1, borderColor: '#e2e8f0' },
+  tmButton: { backgroundColor: 'rgba(255,255,255,0.08)', paddingVertical: 8, paddingHorizontal: 8, borderRadius: 8, marginLeft: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
+  tmButtonLarge: { backgroundColor: 'rgba(255,255,255,0.08)', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, marginRight: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   tmLinkRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   tmLinkText: { fontSize: 11, color: '#0369a1', fontWeight: '500' },
   tmInputRow: { flexDirection: 'row', alignItems: 'center' },
-  tableContainer: { flex: 1, backgroundColor: '#fff', borderRadius: 12, overflow: 'hidden' },
-  tableHeader: { flexDirection: 'row', backgroundColor: '#f8fafc', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  tableHeaderCell: { fontSize: 11, fontWeight: '600', color: '#64748b', textTransform: 'uppercase' },
+  tableContainer: { flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, overflow: 'hidden' },
+  tableHeader: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.45)', paddingVertical: 6, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)' },
+  tableHeaderCell: { fontSize: 11, fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.3 },
   tableRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', alignItems: 'center' },
   tableCell: { fontSize: 11, color: '#1a1a1a' },
   tableCellText: { fontSize: 11, color: '#1a1a1a', fontWeight: '500' },
   clubLogoTable: { width: 24, height: 24, resizeMode: 'contain' },
-  positionBadgeSmall: { backgroundColor: '#e0f2fe', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 3, borderWidth: 1, borderColor: '#bae6fd' },
-  positionTextSmall: { fontSize: 9, fontWeight: '500', color: '#0369a1' },
+  positionBadgeSmall: { backgroundColor: 'rgba(59,130,246,0.18)', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(59,130,246,0.5)' },
+  positionTextSmall: { fontSize: 9, fontWeight: '600', color: '#60a5fa', letterSpacing: 0.3 },
   statusBadge: { paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4 },
   statusBadgeText: { fontSize: 11, fontWeight: '600' },
-  gamesContainer: { flex: 1, backgroundColor: '#fff', borderRadius: 12, overflow: 'hidden' },
-  gamesSearchRow: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#e2e8f0', backgroundColor: '#f8fafc' },
-  gamesSearchInput: { flex: 1, backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', paddingVertical: 6, paddingHorizontal: 12, fontSize: 11 },
+  gamesContainer: { flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, overflow: 'hidden' },
+  gamesSearchRow: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', backgroundColor: 'rgba(0,0,0,0.45)' },
+  gamesSearchInput: { flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', paddingVertical: 6, paddingHorizontal: 12, fontSize: 11 },
   gamesSearchClear: { marginLeft: 8, padding: 8 },
   gamesSearchClearText: { fontSize: 16, color: '#9ca3af' },
-  gamesViewToggle: { flexDirection: 'row', padding: 12, gap: 8, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  gamesViewBtn: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#f1f5f9' },
+  gamesViewToggle: { flexDirection: 'row', padding: 12, gap: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)' },
+  gamesViewBtn: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8, backgroundColor: 'rgba(0,0,0,0.45)' },
   gamesViewBtnActive: { backgroundColor: '#1a1a1a' },
   gamesViewBtnText: { fontSize: 11, color: '#64748b', fontWeight: '500' },
   gamesViewBtnTextActive: { color: '#fff' },
-  searchResultsHeader: { padding: 12, backgroundColor: '#f8fafc', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  searchResultsHeader: { padding: 12, backgroundColor: 'rgba(0,0,0,0.45)', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)' },
   searchResultsTitle: { fontSize: 11, fontWeight: '600', color: '#1a1a1a' },
   clubSelectorContainer: { position: 'relative', zIndex: 9999 },
-  clubDropdown: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', marginTop: 4, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 10, zIndex: 9999, elevation: 9999 },
+  clubDropdown: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', marginTop: 4, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 10, zIndex: 9999, elevation: 9999 },
   clubDropdownScroll: { maxHeight: 300 },
-  clubDropdownItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', backgroundColor: '#fff' },
+  clubDropdownItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', backgroundColor: 'rgba(255,255,255,0.08)' },
   clubDropdownLogo: { width: 24, height: 24, resizeMode: 'contain', marginRight: 10 },
   clubDropdownText: { fontSize: 11, color: '#333' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32, paddingVertical: 40 },
   modalOverlayTop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', zIndex: 9999 },
-  modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 600, maxHeight: '90%', zIndex: 1 },
-  modalContentLarge: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 800, maxHeight: '90%', zIndex: 1 },
+  modalContent: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 16, padding: 24, width: '90%', maxWidth: 600, maxHeight: '90%', zIndex: 1 },
+  modalContentLarge: { backgroundColor: '#000', borderRadius: 16, paddingTop: 0, paddingBottom: 16, paddingHorizontal: 16, width: '100%', maxWidth: 900, maxHeight: '100%', zIndex: 1, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', overflow: 'hidden' },
+  modalBgImage: { position: 'absolute', top: 0, left: 0, right: 0, height: '200%', opacity: 0.6 },
+  modalBgOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)' },
   modalTitle: { fontSize: 20, fontWeight: '700', color: '#1a1a1a' },
   detailHeaderLeft: { flex: 1 },
   detailClubRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
@@ -4670,56 +5315,203 @@ const styles = StyleSheet.create({
   detailColumnLeft: { flex: 1 },
   detailColumnRight: { flex: 1 },
   detailRowVertical: { marginBottom: 10 },
-  detailLabelSmall: { fontSize: 10, color: '#94a3b8', marginBottom: 4, fontWeight: '500', textTransform: 'uppercase' },
-  detailValueLarge: { fontSize: 11, color: '#1a1a1a', fontWeight: '500' },
+  detailLabelSmall: { fontSize: 10, color: 'rgba(255,255,255,0.5)', marginBottom: 6, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8 },
+  detailValueLarge: { fontSize: 13, color: '#fff', fontWeight: '500' },
   positionBadgesRowDetail: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  positionBadgeLarge: { backgroundColor: '#e0f2fe', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 4, borderWidth: 1, borderColor: '#bae6fd', alignSelf: 'flex-start' },
-  positionTextLarge: { fontSize: 10, fontWeight: '500', color: '#0369a1' },
-  ratingBadgeLarge: { backgroundColor: '#dcfce7', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4, alignSelf: 'flex-start' },
-  ratingTextLarge: { fontSize: 10, fontWeight: '600', color: '#166534' },
+  positionBadgeLarge: { backgroundColor: 'rgba(59,130,246,0.18)', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(59,130,246,0.5)', alignSelf: 'flex-start' },
+  positionTextLarge: { fontSize: 10, fontWeight: '600', color: '#60a5fa', letterSpacing: 0.5, lineHeight: 13 },
+  ratingBadgeLarge: { backgroundColor: 'rgba(34,197,94,0.18)', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(34,197,94,0.5)', alignSelf: 'flex-start' },
+  ratingTextLarge: { fontSize: 10, fontWeight: '600', color: '#22c55e', letterSpacing: 0.5, lineHeight: 13 },
   tmLinkRowDetail: { flexDirection: 'row', alignItems: 'center' },
   tmLogoDetail: { width: 80, height: 24, resizeMode: 'contain' },
-  detailInfoScout: { backgroundColor: '#f8fafc', borderRadius: 12, padding: 16, flex: 1 },
+  detailInfoScout: { backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: 12, padding: 16, flex: 1, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   formRow: { flexDirection: 'row', gap: 16, marginBottom: 16 },
   formField: { flex: 1, marginBottom: 8 },
   formLabel: { fontSize: 10, color: '#94a3b8', marginBottom: 4, fontWeight: '500', textTransform: 'uppercase' },
-  formInput: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, padding: 6, fontSize: 11, backgroundColor: '#fff' },
-  inputDisabled: { backgroundColor: '#f8fafc', color: '#64748b' },
+  formInput: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 4, fontSize: 13, backgroundColor: '#000', color: '#fff' },
+  inputDisabled: { backgroundColor: 'rgba(0,0,0,0.45)', color: '#64748b' },
   textArea: { minHeight: 80, textAlignVertical: 'top' },
   positionPickerSmall: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, flex: 1 },
-  positionOptionSmall: { paddingVertical: 4, paddingHorizontal: 8, borderRadius: 4, backgroundColor: '#f1f5f9' },
+  positionOptionSmall: { paddingVertical: 4, paddingHorizontal: 8, borderRadius: 4, backgroundColor: 'rgba(0,0,0,0.45)' },
   positionOptionSelected: { backgroundColor: '#1a1a1a' },
   positionOptionTextSmall: { fontSize: 11, color: '#64748b', fontWeight: '500' },
   positionOptionTextSelected: { color: '#fff' },
   ratingPickerSmall: { flexDirection: 'row', gap: 4, flex: 1 },
-  ratingOptionSmall: { width: 26, height: 26, borderRadius: 4, backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center' },
+  ratingOptionSmall: { width: 26, height: 26, borderRadius: 4, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center' },
   ratingOptionSelected: { backgroundColor: '#1a1a1a' },
   ratingOptionTextSmall: { fontSize: 11, color: '#64748b', fontWeight: '600' },
   ratingOptionTextSelected: { color: '#fff' },
   modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
-  cancelButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0' },
+  cancelButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   cancelButtonText: { fontSize: 11, color: '#64748b' },
-  saveButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#10b981' },
+  saveButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: '#10b981' },
   saveButtonText: { fontSize: 11, color: '#10b981', fontWeight: '500' },
-  editButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#3b82f6' },
+  editButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: '#3b82f6' },
   editButtonText: { fontSize: 11, color: '#3b82f6', fontWeight: '600' },
-  deleteButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#ef4444', marginRight: 'auto' },
+  deleteButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: '#ef4444', marginRight: 'auto' },
   deleteButtonText: { fontSize: 11, color: '#ef4444', fontWeight: '500' },
-  decisionButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#fef3c7', borderWidth: 1, borderColor: '#f59e0b', marginRight: 'auto' },
+  decisionButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: 'rgba(234,179,8,0.2)', borderWidth: 1, borderColor: '#f59e0b', marginRight: 'auto' },
   decisionButtonText: { fontSize: 11, color: '#b45309', fontWeight: '600' },
-  closeButton: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: '#e2e8f0', backgroundColor: 'transparent', justifyContent: 'center', alignItems: 'center' },
+  closeButton: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', backgroundColor: 'transparent', justifyContent: 'center', alignItems: 'center' },
   closeButtonText: { fontSize: 13, color: '#64748b', lineHeight: 14 },
-  detailHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, zIndex: 1000 },
-  detailName: { fontSize: 15, fontWeight: '700', color: '#1a1a1a' },
+  detailToolbarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.3)',
+    marginHorizontal: -16,
+    paddingLeft: 16,
+    paddingRight: 16,
+    gap: 10,
+    zIndex: 2,
+  },
+  detailToolbarLeft: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  detailToolbarRight: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  detailHeader: {
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    marginTop: 14,
+    marginBottom: 14,
+    zIndex: 10,
+    position: 'relative',
+  },
+  detailHeaderTop: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  detailHeaderDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.3)', marginTop: 16 },
+  detailStatsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, paddingTop: 14 },
+  detailStatCol: { minWidth: 100, gap: 4, flex: 1, alignItems: 'center' },
+  detailStatLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 0.8,
+    color: 'rgba(255,255,255,0.5)',
+    textTransform: 'uppercase',
+    textAlign: 'center',
+  },
+  detailStatValue: { fontSize: 13, fontWeight: '500', color: '#fff', textAlign: 'center' },
+  headerStatInput: {
+    backgroundColor: '#000',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    fontSize: 12,
+    color: '#fff',
+    width: '100%',
+    textAlign: 'center',
+  },
+  headerChip: {
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  headerChipText: { fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.85)' },
+  headerChipSelectedPos: { backgroundColor: 'rgba(59,130,246,0.5)', borderColor: '#3b82f6' },
+  headerChipSelectedRating: { backgroundColor: '#22c55e', borderColor: '#22c55e' },
+  headerDateBtn: {
+    backgroundColor: '#000',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 2,
+  },
+  headerDateBtnText: { fontSize: 12, fontWeight: '500', color: '#fff', flex: 1 },
+  headerDateList: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    minWidth: 70,
+    marginTop: 4,
+    backgroundColor: '#000',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 8,
+    zIndex: 1000,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.6,
+    shadowRadius: 16,
+    elevation: 16,
+    overflow: 'hidden',
+  },
+  headerDateItem: { paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
+  headerDateItemText: { fontSize: 13, color: '#fff', fontWeight: '500' },
+  detailName: {
+    fontFamily: 'Josefin Sans',
+    fontSize: 22,
+    fontWeight: '400',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    color: '#fff',
+    lineHeight: 28,
+  },
+  detailNameYear: {
+    fontFamily: 'Josefin Sans',
+    fontSize: 14,
+    fontWeight: '300',
+    letterSpacing: 1,
+    color: 'rgba(255,255,255,0.5)',
+  },
+  detailClubLabel: {
+    fontFamily: 'Josefin Sans',
+    fontSize: 13,
+    fontWeight: '300',
+    letterSpacing: 2.5,
+    textTransform: 'uppercase',
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: 4,
+  },
+  detailHeaderClose: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 4,
+  },
+  detailHeaderCloseText: { fontSize: 20, color: 'rgba(255,255,255,0.7)' },
   detailClub: { fontSize: 11, color: '#64748b' },
-  detailInfo: { backgroundColor: '#f8fafc', borderRadius: 10, padding: 12, marginBottom: 10 },
+  detailModalButtons: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.3)',
+    zIndex: 2,
+  },
+  detailToolbarBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  detailToolbarBtnText: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.85)' },
+  detailToolbarBtnPrimary: { backgroundColor: '#22c55e', borderColor: '#22c55e' },
+  detailToolbarBtnDanger: { backgroundColor: '#dc3545', borderColor: '#dc3545' },
+  detailInfo: { backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   detailRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   detailLabel: { fontSize: 10, color: '#94a3b8', fontWeight: '500', textTransform: 'uppercase', marginBottom: 4 },
   detailValue: { fontSize: 11, color: '#1a1a1a', fontWeight: '500', flex: 1 },
   detailSection: { marginBottom: 12 },
   detailSectionTitle: { fontSize: 10, fontWeight: '600', color: '#94a3b8', marginBottom: 8, textTransform: 'uppercase' },
-  notesText: { fontSize: 11, color: '#475569', lineHeight: 16, backgroundColor: '#f8fafc', padding: 8, borderRadius: 6 },
-  editInput: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, padding: 6, fontSize: 11, backgroundColor: '#fff' },
+  notesText: { fontSize: 11, color: '#475569', lineHeight: 16, backgroundColor: 'rgba(0,0,0,0.45)', padding: 8, borderRadius: 6 },
+  editInput: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 4, fontSize: 13, backgroundColor: '#000', color: '#fff' },
   // IST-Stand auf Kanban-Karte
   currentStatusRow: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#f1f5f9' },
   currentStatusText: { fontSize: 9, color: '#94a3b8', fontStyle: 'italic' },
@@ -4729,7 +5521,7 @@ const styles = StyleSheet.create({
   restoreButton: { backgroundColor: '#10b981', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6 },
   restoreButtonText: { fontSize: 12, color: '#fff', fontWeight: '600' },
   // Entscheidungs-Modal
-  decisionModalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 32, width: '90%', maxWidth: 450, alignItems: 'center' },
+  decisionModalContent: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 16, padding: 32, width: '90%', maxWidth: 450, alignItems: 'center' },
   decisionModalTitle: { fontSize: 22, fontWeight: '700', color: '#1a1a1a', marginBottom: 8 },
   decisionModalSubtitle: { fontSize: 16, color: '#64748b', marginBottom: 24 },
   decisionButtonsContainer: { flexDirection: 'row', gap: 16, marginBottom: 24 },
@@ -4737,28 +5529,28 @@ const styles = StyleSheet.create({
   transferButtonIcon: { fontSize: 32, color: '#10b981', marginBottom: 8 },
   transferButtonText: { fontSize: 16, fontWeight: '600', color: '#166534' },
   transferButtonSubtext: { fontSize: 12, color: '#166534', marginTop: 4 },
-  archiveButton: { backgroundColor: '#fef2f2', padding: 24, borderRadius: 12, alignItems: 'center', flex: 1, borderWidth: 2, borderColor: '#ef4444' },
+  archiveButton: { backgroundColor: 'rgba(239,68,68,0.15)', padding: 24, borderRadius: 12, alignItems: 'center', flex: 1, borderWidth: 2, borderColor: '#ef4444' },
   archiveButtonIcon: { fontSize: 32, color: '#ef4444', marginBottom: 8 },
   archiveButtonText: { fontSize: 16, fontWeight: '600', color: '#991b1b' },
   archiveButtonSubtext: { fontSize: 12, color: '#991b1b', marginTop: 4 },
   decisionCancelButton: { paddingVertical: 12, paddingHorizontal: 24 },
   decisionCancelButtonText: { fontSize: 11, color: '#64748b' },
   // Status Selector (global style)
-  statusSelector: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
-  statusOption: { paddingVertical: 3, paddingHorizontal: 8, borderRadius: 4, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
-  statusOptionText: { fontSize: 10, fontWeight: '500', color: '#64748b' },
+  statusSelector: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  statusOption: { paddingVertical: 5, paddingHorizontal: 10, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+  statusOptionText: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.85)' },
   statusOptionActive: { backgroundColor: '#10b981', borderColor: '#10b981' },
   statusOptionActiveText: { color: '#fff' },
   // Mobile Detail Box (global style)
-  mobileDetailBox: { backgroundColor: '#f8fafc', borderRadius: 12, padding: 14, marginBottom: 12 },
-  mobileDetailLabel: { fontSize: 11, color: '#94a3b8', marginBottom: 4 },
-  mobileDetailValue: { fontSize: 13, color: '#1a1a1a' },
+  mobileDetailBox: { backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
+  mobileDetailLabel: { fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 },
+  mobileDetailValue: { fontSize: 13, fontWeight: '500', color: '#fff' },
   // Delete Confirmation Modal (global style)
-  deleteConfirmModal: { backgroundColor: '#fff', borderRadius: 12, padding: 20, width: '85%', maxWidth: 280, alignItems: 'center' },
+  deleteConfirmModal: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: 20, width: '85%', maxWidth: 280, alignItems: 'center' },
   deleteConfirmTitle: { fontSize: 15, fontWeight: '600', color: '#1a1a1a', marginBottom: 8 },
   deleteConfirmText: { fontSize: 13, color: '#ef4444', textAlign: 'center', marginBottom: 16 },
   deleteConfirmButtons: { flexDirection: 'row', gap: 10, width: '100%' },
-  deleteConfirmCancelBtn: { flex: 1, paddingVertical: 10, backgroundColor: '#f1f5f9', borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0' },
+  deleteConfirmCancelBtn: { flex: 1, paddingVertical: 10, backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   deleteConfirmCancelText: { fontSize: 13, fontWeight: '500', color: '#64748b' },
   deleteConfirmDeleteBtn: { flex: 1, paddingVertical: 10, backgroundColor: '#ef4444', borderRadius: 8, alignItems: 'center' },
   deleteConfirmDeleteText: { fontSize: 13, fontWeight: '500', color: '#fff' },
@@ -4768,27 +5560,27 @@ const styles = StyleSheet.create({
   transferConfirmButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#10b981' },
   transferConfirmButtonText: { fontSize: 11, color: '#fff', fontWeight: '600' },
   listingSelector: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  listingOption: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
+  listingOption: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   listingOptionSelected: { backgroundColor: '#1a1a1a', borderColor: '#1a1a1a' },
   listingOptionText: { fontSize: 13, color: '#64748b' },
   listingOptionTextSelected: { color: '#fff' },
   advisorSelector: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  advisorOption: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 8, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
+  advisorOption: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 8, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   advisorOptionSelected: { backgroundColor: '#3b82f6', borderColor: '#3b82f6' },
   advisorOptionText: { fontSize: 13, color: '#64748b' },
   advisorOptionTextSelected: { color: '#fff' },
   viewButtonTextActive: { color: '#1a1a1a', fontWeight: '600' },
   // Date Picker Styles
   datePickerRow: { flexDirection: 'row', gap: 8 },
-  dateDropdownButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 12, backgroundColor: '#fff' },
+  dateDropdownButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 8, padding: 12, backgroundColor: 'rgba(255,255,255,0.08)' },
   dateDropdownText: { fontSize: 11, color: '#1a1a1a' },
   dateDropdownPlaceholder: { fontSize: 11, color: '#999' },
-  datePickerList: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, marginTop: 4, zIndex: 1000, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 5 },
+  datePickerList: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 8, marginTop: 4, zIndex: 1000, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 5 },
   datePickerItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   datePickerItemText: { fontSize: 11, color: '#1a1a1a' },
   // Chip Styles
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
+  chip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   chipSelected: { backgroundColor: '#1a1a1a', borderColor: '#1a1a1a' },
   chipText: { fontSize: 13, color: '#64748b' },
   chipTextSelected: { color: '#fff' },
@@ -4798,15 +5590,15 @@ const styles = StyleSheet.create({
   gameDetailRow: { flexDirection: 'row', marginBottom: 12 },
   gameDetailLabel: { fontSize: 14, color: '#64748b', width: 100 },
   gameDetailValue: { fontSize: 14, color: '#1a1a1a', flex: 1 },
-  deleteButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#ef4444' },
+  deleteButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: 'rgba(239,68,68,0.15)', borderWidth: 1, borderColor: '#ef4444' },
   deleteButtonText: { fontSize: 11, color: '#ef4444', fontWeight: '600' },
-  editButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
+  editButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   editButtonText: { fontSize: 11, color: '#1a1a1a', fontWeight: '600' },
   // Today's game highlighting
   tableRowToday: { backgroundColor: '#dcfce7' },
   tableCellToday: { color: '#166534' },
   // Game Detail Modal - Two Column Layout
-  gameDetailHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0', marginBottom: 16 },
+  gameDetailHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', marginBottom: 16 },
   gameDetailHeaderLeft: { flex: 1 },
   gameDetailHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   gameDetailTitle: { fontSize: 24, fontWeight: '700', color: '#1a1a1a', marginBottom: 8 },
@@ -4815,16 +5607,16 @@ const styles = StyleSheet.create({
   gameDetailMetaText: { fontSize: 14, color: '#64748b' },
   gameDetailMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   gameDetailMetaLabel: { fontSize: 12, color: '#64748b' },
-  gameDetailMetaInput: { fontSize: 14, color: '#1a1a1a', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 4, padding: 4, minWidth: 80 },
-  headerBtn: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, backgroundColor: '#f1f5f9' },
+  gameDetailMetaInput: { fontSize: 14, color: '#1a1a1a', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 4, padding: 4, minWidth: 80 },
+  headerBtn: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, backgroundColor: 'rgba(0,0,0,0.45)' },
   headerBtnPrimary: { backgroundColor: '#3b82f6' },
   headerBtnText: { fontSize: 13, color: '#64748b' },
   headerBtnTextPrimary: { fontSize: 13, color: '#fff' },
   // Edit Dropdowns
   editDateRow: { flexDirection: 'row', gap: 4 },
-  editDateBtn: { backgroundColor: '#f1f5f9', borderRadius: 4, paddingVertical: 4, paddingHorizontal: 8, minWidth: 50 },
+  editDateBtn: { backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 4, paddingVertical: 4, paddingHorizontal: 8, minWidth: 50 },
   editDateBtnText: { fontSize: 12, color: '#1a1a1a' },
-  editDropdownList: { position: 'absolute', top: '100%', left: 0, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, marginTop: 2, zIndex: 1000, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 5, minWidth: 100 },
+  editDropdownList: { position: 'absolute', top: '100%', left: 0, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 6, marginTop: 2, zIndex: 1000, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 5, minWidth: 100 },
   editDropdownItem: { padding: 8, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   editDropdownItemText: { fontSize: 12, color: '#1a1a1a' },
   // Two Column Body
@@ -4835,7 +5627,7 @@ const styles = StyleSheet.create({
   playersHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   // Teams List
   teamsList: { flex: 1, marginBottom: 12 },
-  teamItem: { flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#f8fafc', borderRadius: 8, marginBottom: 6 },
+  teamItem: { flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 8, marginBottom: 6 },
   teamItemSelected: { backgroundColor: '#1a1a1a' },
   teamItemText: { flex: 1, fontSize: 11, color: '#1a1a1a', fontWeight: '500' },
   teamItemTextSelected: { color: '#fff' },
@@ -4843,12 +5635,12 @@ const styles = StyleSheet.create({
   teamDeleteBtn: { padding: 4 },
   teamDeleteBtnText: { fontSize: 12, color: '#9ca3af' },
   addTeamContainer: { flexDirection: 'row', gap: 6, marginBottom: 12 },
-  addTeamInputNew: { flex: 1, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, padding: 8, fontSize: 13 },
+  addTeamInputNew: { flex: 1, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 6, padding: 8, fontSize: 13 },
   addTeamBtnNew: { backgroundColor: '#1a1a1a', width: 32, height: 32, borderRadius: 6, justifyContent: 'center', alignItems: 'center' },
   addTeamBtnTextNew: { color: '#fff', fontSize: 18, fontWeight: '600' },
   // Players Table
-  addPlayerRowTop: { flexDirection: 'row', gap: 6, alignItems: 'center', marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  playersTableHeaderNew: { flexDirection: 'row', backgroundColor: '#f1f5f9', paddingVertical: 8, paddingHorizontal: 4, borderRadius: 4, marginBottom: 4 },
+  addPlayerRowTop: { flexDirection: 'row', gap: 6, alignItems: 'center', marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)' },
+  playersTableHeaderNew: { flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.45)', paddingVertical: 8, paddingHorizontal: 4, borderRadius: 4, marginBottom: 4 },
   playersHeaderCellNew: { fontSize: 11, fontWeight: '600', color: '#64748b', paddingHorizontal: 4 },
   playersListScroll: { flex: 1 },
   playersTableRowNew: { flexDirection: 'row', paddingVertical: 10, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', alignItems: 'center' },
@@ -4864,7 +5656,7 @@ const styles = StyleSheet.create({
   ratingTextTight: { fontSize: 10, fontWeight: '600', color: '#166534' },
   // Add Player Row
   addPlayerRowNew: { flexDirection: 'row', gap: 6, alignItems: 'center', paddingTop: 12, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
-  addPlayerInputNew: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, padding: 8, fontSize: 13 },
+  addPlayerInputNew: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 6, padding: 8, fontSize: 13 },
   addPlayerBtnNew: { backgroundColor: '#1a1a1a', width: 32, height: 32, borderRadius: 6, justifyContent: 'center', alignItems: 'center' },
   addPlayerBtnTextNew: { color: '#fff', fontSize: 18, fontWeight: '600' },
   // No Team Selected
@@ -4877,37 +5669,37 @@ const styles = StyleSheet.create({
   playerEditRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
   playerEditField: { marginBottom: 12 },
   playerEditLabel: { fontSize: 12, color: '#64748b', marginBottom: 4 },
-  playerEditInput: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 10, fontSize: 11, color: '#1a1a1a' },
+  playerEditInput: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 8, padding: 10, fontSize: 11, color: '#1a1a1a' },
   positionChipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  positionChipSmall: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
+  positionChipSmall: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   positionChipSmallSelected: { backgroundColor: '#1a1a1a', borderColor: '#1a1a1a' },
   positionChipSmallText: { fontSize: 12, color: '#64748b', fontWeight: '500' },
   positionChipSmallTextSelected: { color: '#fff' },
   ratingChipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  ratingChipSmall: { width: 32, height: 32, borderRadius: 6, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0', justifyContent: 'center', alignItems: 'center' },
+  ratingChipSmall: { width: 32, height: 32, borderRadius: 6, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' },
   ratingChipSmallSelected: { backgroundColor: '#10b981', borderColor: '#10b981' },
   ratingChipSmallText: { fontSize: 12, color: '#64748b', fontWeight: '600' },
   ratingChipSmallTextSelected: { color: '#fff' },
   // Add Player Dropdowns
-  addPlayerDropdownBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f1f5f9', borderRadius: 6, paddingVertical: 8, paddingHorizontal: 8, borderWidth: 1, borderColor: '#e2e8f0' },
+  addPlayerDropdownBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 6, paddingVertical: 8, paddingHorizontal: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   addPlayerDropdownBtnRating: { backgroundColor: '#dcfce7', borderColor: '#10b981' },
   addPlayerDropdownBtnText: { fontSize: 12, color: '#1a1a1a' },
   addPlayerDropdownBtnTextRating: { color: '#166534', fontWeight: '600' },
   addPlayerDropdownArrow: { fontSize: 8, color: '#9ca3af', marginLeft: 2 },
   addPlayerDropdownArrowRating: { color: '#166534' },
-  addPlayerDropdownList: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, marginTop: 2, zIndex: 1000, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 5, minWidth: 80 },
+  addPlayerDropdownList: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 6, marginTop: 2, zIndex: 1000, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 5, minWidth: 80 },
   addPlayerDropdownItem: { padding: 8, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   addPlayerDropdownItemActive: { backgroundColor: '#dcfce7' },
   addPlayerDropdownItemText: { fontSize: 12, color: '#1a1a1a' },
   addPlayerDropdownItemTextActive: { color: '#166534', fontWeight: '600' },
   // Edit Player Dropdowns
-  playerEditDropdownBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f1f5f9', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 10, borderWidth: 1, borderColor: '#e2e8f0' },
+  playerEditDropdownBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   playerEditDropdownBtnRating: { backgroundColor: '#dcfce7', borderColor: '#10b981' },
   playerEditDropdownBtnText: { fontSize: 11, color: '#1a1a1a' },
   playerEditDropdownBtnTextRating: { color: '#166534', fontWeight: '600' },
   playerEditDropdownArrow: { fontSize: 10, color: '#9ca3af', marginLeft: 4 },
   playerEditDropdownArrowRating: { color: '#166534' },
-  playerEditDropdownList: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, marginTop: 2, zIndex: 1000, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 5 },
+  playerEditDropdownList: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 6, marginTop: 2, zIndex: 1000, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 5 },
   playerEditDropdownItem: { padding: 10, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   playerEditDropdownItemActive: { backgroundColor: '#dcfce7' },
   playerEditDropdownItemText: { fontSize: 11, color: '#1a1a1a' },
@@ -4916,15 +5708,15 @@ const styles = StyleSheet.create({
   // ==================== MOBILE STYLES ====================
   mobileContainer: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
 
   // Mobile Status Tabs
   mobileStatusTabs: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: 'rgba(255,255,255,0.15)',
     paddingHorizontal: 4,
   },
   mobileStatusTab: {
@@ -4958,14 +5750,14 @@ const styles = StyleSheet.create({
   mobileSearchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     marginHorizontal: 12,
     marginVertical: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: 'rgba(255,255,255,0.15)',
   },
   mobileSearchIcon: {
     fontSize: 16,
@@ -5005,12 +5797,13 @@ const styles = StyleSheet.create({
 
   // Mobile Player Card
   mobilePlayerCard: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 16,
     padding: 12,
-    marginBottom: 8,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: 'rgba(255,255,255,0.15)',
+    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' } as any : {}),
   },
   mobilePlayerCardRow: {
     flexDirection: 'row',
@@ -5045,7 +5838,7 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   mobilePlayerCardStatus: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748b',
     fontStyle: 'italic',
     marginTop: 8,
@@ -5056,12 +5849,12 @@ const styles = StyleSheet.create({
 
   // Mobile Game Card - New KMH-style design
   mobileGameCard: {
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 12,
     padding: 14,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: 'rgba(255,255,255,0.15)',
     minHeight: 80,
     justifyContent: 'space-between',
   },
@@ -5080,7 +5873,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 4,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
   mobileGameCardBadgeText: {
     fontSize: 11,
@@ -5137,7 +5930,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     borderWidth: 1.5,
     borderColor: '#cbd5e1',
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -5159,7 +5952,7 @@ const styles = StyleSheet.create({
   mobileGameCardJahrgang: {
     fontSize: 11,
     color: '#64748b',
-    backgroundColor: '#f1f5f9',
+    backgroundColor: 'rgba(0,0,0,0.45)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -5202,18 +5995,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: 'rgba(255,255,255,0.15)',
     gap: 8,
   },
   mobileGamesToolbarBtn: {
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: '#f8fafc',
+    backgroundColor: 'rgba(0,0,0,0.45)',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: 'rgba(255,255,255,0.15)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -5233,7 +6026,7 @@ const styles = StyleSheet.create({
     margin: 12,
     borderRadius: 8,
     padding: 4,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
   mobileGamesToggleBtn: {
     flex: 1,
@@ -5243,7 +6036,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   mobileGamesToggleBtnActive: {
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -5305,8 +6098,8 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#f8fafc',
+    borderColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(0,0,0,0.45)',
     maxWidth: 200,
   },
   mobileSearchInputCompact: {
@@ -5319,24 +6112,23 @@ const styles = StyleSheet.create({
   // Mobile FAB
   mobileFab: {
     position: 'absolute',
-    bottom: 20,
-    right: 20,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#1a1a1a',
+    bottom: 16,
+    right: 16,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.2,
     shadowRadius: 8,
-    elevation: 8,
   },
   mobileFabIcon: {
-    fontSize: 22,
+    fontSize: 18,
     color: '#fff',
     fontWeight: '300',
+    lineHeight: 20,
   },
 
   // Mobile Modal
@@ -5346,7 +6138,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   mobileModalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '90%',
@@ -5358,7 +6150,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: 'rgba(255,255,255,0.15)',
   },
   mobileModalTitle: {
     fontSize: 17,
@@ -5386,7 +6178,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,
-    backgroundColor: '#fef3c7',
+    backgroundColor: 'rgba(234,179,8,0.2)',
     borderWidth: 1,
     borderColor: '#f59e0b',
     alignItems: 'center',
@@ -5400,7 +6192,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 10,
-    backgroundColor: '#f8fafc',
+    backgroundColor: 'rgba(0,0,0,0.45)',
     borderWidth: 1,
     borderColor: '#64748b',
     alignItems: 'center',

@@ -23,6 +23,8 @@ function getGermanDateString(offsetDays: number = 0): string {
 
 // Supabase Edge Function Proxy URL (ersetzt localhost Proxy)
 const SUPABASE_PROXY_URL = 'https://ozggtruvnwozhwjbznsm.supabase.co/functions/v1/proxy';
+// iCal-Edge-Function für Spielplan-Daten (Ersatz für api-fussball.de)
+const SUPABASE_ICAL_URL = 'https://ozggtruvnwozhwjbznsm.supabase.co/functions/v1/scrape-fussball-ical';
 
 // Typen
 export interface ApiGame {
@@ -56,7 +58,9 @@ export interface SyncResult {
   success: boolean;
   added: number;
   updated: number;
-  deleted: number;
+  changed: number;     // Anzahl der erkannten Verschiebungen/Änderungen
+  cancelled: number;   // Anzahl der als 'cancelled' markierten Spiele
+  deleted: number;     // legacy — wird nicht mehr gefüllt, bleibt für UI-Compat
   errors: string[];
 }
 
@@ -156,22 +160,13 @@ export async function saveApiToken(supabase: SupabaseClient, token: string): Pro
   }
 }
 
-// Nächste Spiele eines Teams von der API holen (über Supabase Edge Function Proxy)
-export async function fetchTeamNextGames(teamId: string, token: string, supabaseClient?: SupabaseClient): Promise<ApiGame[]> {
+// Nächste Spiele eines Teams holen — via Browserless-Scrape-Edge-Function der fussball.de-Team-Seite.
+// Token-Parameter wird ignoriert (kein API-Token mehr nötig). Behalten für Backwards-Compat.
+export async function fetchTeamNextGames(teamId: string, _token?: string, supabaseClient?: SupabaseClient, teamUrl?: string): Promise<ApiGame[]> {
   try {
-    // API URL die wir aufrufen wollen
-    const apiUrl = `https://api-fussball.de/api/team/next_games/${teamId}`;
+    console.log('[scrape] fetching games for teamId:', teamId);
 
-    // Über Supabase Edge Function Proxy aufrufen
-    const proxyUrl = `${SUPABASE_PROXY_URL}?type=fussball&url=${encodeURIComponent(apiUrl)}`;
-
-    console.log('Calling proxy:', proxyUrl);
-
-    // Supabase Auth-Token für JWT-Verifizierung
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'x-auth-token': token
-    };
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (supabaseClient) {
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (session?.access_token) {
@@ -179,66 +174,53 @@ export async function fetchTeamNextGames(teamId: string, token: string, supabase
       }
     }
 
-    const response = await fetch(proxyUrl, {
-      method: 'GET',
+    const response = await fetch(SUPABASE_ICAL_URL, {
+      method: 'POST',
       headers,
+      body: JSON.stringify({ teamId, teamUrl }),
     });
-    
+
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`API Fehler: ${response.status} ${response.statusText}`, errorText);
+      console.error(`[ical] Fehler: ${response.status} ${response.statusText}`, errorText);
       return [];
     }
-    
-    const result = await response.json();
-    console.log('API Response für Team', teamId, ':', result);
-    
-    if (!result.success || !result.data) {
-      console.error('API Response nicht erfolgreich:', result);
-      return [];
-    }
-    
-    // API Response in unser Format umwandeln
-    const games: ApiGame[] = result.data
-      .filter((game: any) => {
-        // Abgesetzte/abgesagte Spiele ausfiltern - prüfe mehrere Felder
-        const status = (game.status || '').toLowerCase();
-        const info = (game.info || '').toLowerCase();
-        const result = (game.result || game.ergebnis || '').toLowerCase();
-        const combined = status + ' ' + info + ' ' + result;
 
-        if (combined.includes('absetzung') || combined.includes('abgesetzt') || combined.includes('abgesagt') ||
-            combined.includes('cancelled') || combined.includes('postponed') || combined.includes('verlegt')) {
-          console.log('Spiel gefiltert (abgesetzt):', game.homeTeam || game.home, 'vs', game.awayTeam || game.away, '| Status:', status, '| Info:', info);
+    const result = await response.json();
+    if (result.error) {
+      console.warn(`[ical] Team ${teamId}: ${result.error}`);
+    }
+
+    const rawGames = Array.isArray(result.games) ? result.games : [];
+    // Cancelled/postponed gibt's bei iCal nicht — fussball.de gibt verschobene Spiele direkt mit neuem Termin raus.
+    // Aber für defensive: wenn SUMMARY "abgesetzt"/"abgesagt" enthält, filtern wir trotzdem.
+    const games: ApiGame[] = rawGames
+      .filter((g: any) => {
+        if (!g.date) return false;
+        const summary = `${g.homeTeam || ''} ${g.awayTeam || ''}`.toLowerCase();
+        if (summary.includes('absetzung') || summary.includes('abgesetzt') || summary.includes('abgesagt')) {
           return false;
         }
         return true;
       })
-      .map((game: any) => {
-        // Datum konvertieren
-        const rawDate = game.date || game.datum || '';
-        const isoDate = convertGermanDateToISO(rawDate);
+      .map((g: any): ApiGame => ({
+        id: g.id || `${g.date}_${g.homeTeam}_${g.awayTeam}`.replace(/\s+/g, '_'),
+        date: g.date,
+        time: g.time || '',
+        homeTeam: g.homeTeam || '',
+        awayTeam: g.awayTeam || '',
+        homeTeamLogo: g.homeTeamLogo || null,
+        awayTeamLogo: g.awayTeamLogo || null,
+        location: g.location || '',
+        league: g.league || '',
+        matchday: g.matchday || '',
+        result: g.result || null,
+      }));
 
-        console.log('Datum Konvertierung:', rawDate, '->', isoDate);
-
-        return {
-          id: game.id || `${isoDate}_${game.homeTeam || game.home}_${game.awayTeam || game.away}`.replace(/\s/g, '_'),
-          date: isoDate,
-          time: game.time || game.uhrzeit || '',
-          homeTeam: game.homeTeam || game.heimmannschaft || game.home || '',
-          awayTeam: game.awayTeam || game.gastmannschaft || game.away || '',
-          homeTeamLogo: game.homeLogo || game.homeTeamLogo || game.heimLogo || null,
-          awayTeamLogo: game.awayLogo || game.awayTeamLogo || game.gastLogo || null,
-          location: game.location || game.ort || game.spielort || '',
-          league: game.competition || game.league || game.liga || game.wettbewerb || '',
-          matchday: game.matchday || game.spieltag || '',
-          result: game.result || game.ergebnis || null
-        };
-      }).filter((game: ApiGame) => game.date); // Nur Spiele mit gültigem Datum
-    
+    console.log(`[ical] Team ${teamId}: ${games.length} Spiele`);
     return games;
   } catch (err) {
-    console.error('Fehler beim Abrufen der Spiele:', err);
+    console.error('[ical] Fehler beim Abrufen der Spiele:', err);
     return [];
   }
 }
@@ -343,47 +325,59 @@ export async function deletePlayerFutureGames(
   return data?.length || 0;
 }
 
-// Veraltete Spiele löschen (nur die, die NICHT mehr in der API-Antwort sind)
-export async function deleteStaleGames(
+// Veraltete Spiele als 'cancelled' markieren (statt löschen)
+// Dadurch bleibt die Information erhalten + UI kann "ABGESAGT"-Badge zeigen.
+// Erst nach 7 Tagen werden cancelled-Spiele endgültig gelöscht (cleanupOldGames).
+export async function markStaleGamesCancelled(
   supabase: SupabaseClient,
   playerId: string,
   currentGames: ApiGame[]
 ): Promise<number> {
   const today = getGermanDateString(0);
 
-  // Alle zukünftigen Spiele des Spielers laden
   const { data: futureGames } = await supabase
     .from('player_games')
-    .select('id, date, home_team, away_team')
+    .select('id, date, home_team, away_team, status, sequence')
     .eq('player_id', playerId)
-    .gte('date', today);
+    .gte('date', today)
+    .neq('status', 'cancelled'); // bereits cancelled-Spiele nicht erneut markieren
 
   if (!futureGames || futureGames.length === 0) return 0;
 
-  // Welche Spiele sind in der API-Response?
-  const apiGameKeys = new Set(
-    currentGames.map(g => `${g.date}|${g.homeTeam}|${g.awayTeam}`)
-  );
+  // Match-Key auf home+away — Datums-Verschiebungen werden so nicht als cancel-erkannt,
+  // weil saveGamesToDatabase sie über den gleichen Key bereits als CHANGE erfasst hat.
+  const apiGameKeys = new Set(currentGames.map(g => `${g.homeTeam}|${g.awayTeam}`));
 
-  // Spiele löschen die NICHT mehr in der API sind (abgesagt, verschoben etc.)
   const staleIds = futureGames
-    .filter(fg => !apiGameKeys.has(`${fg.date}|${fg.home_team}|${fg.away_team}`))
+    .filter(fg => !apiGameKeys.has(`${fg.home_team}|${fg.away_team}`))
     .map(fg => fg.id);
 
   if (staleIds.length === 0) return 0;
 
+  console.log('[SYNC] Cancelled markieren:', staleIds);
+
   const { error } = await supabase
     .from('player_games')
-    .delete()
+    .update({
+      status: 'cancelled',
+      last_changed_at: new Date().toISOString(),
+      change_summary: { cancelled: true },
+      sequence: (futureGames[0].sequence || 0) + 1,
+      user_seen_at: null,
+      updated_at: new Date().toISOString(),
+    })
     .in('id', staleIds);
 
   if (error) {
-    console.error('Fehler beim Löschen veralteter Spiele:', error);
+    console.error('Fehler beim Markieren als cancelled:', error);
     return 0;
   }
 
   return staleIds.length;
 }
+
+// Backwards-Compat-Wrapper — alte Caller verwenden weiterhin den Funktionsnamen
+export const deleteStaleGames = markStaleGamesCancelled;
 
 // Alle Spieler mit fussball_de_url laden
 export async function getPlayersWithFussballDeUrl(supabase: SupabaseClient): Promise<any[]> {
@@ -401,74 +395,106 @@ export async function getPlayersWithFussballDeUrl(supabase: SupabaseClient): Pro
   return data || [];
 }
 
-// Spiele in die Datenbank speichern/aktualisieren
+// Spiele in die Datenbank speichern/aktualisieren mit Change-Detection
+// Erkennt Verschiebungen (Datum, Zeit, Ort, Liga), schreibt change_summary + erhöht sequence
 export async function saveGamesToDatabase(
-  supabase: SupabaseClient, 
-  playerId: string, 
+  supabase: SupabaseClient,
+  playerId: string,
   playerName: string,
   games: ApiGame[]
-): Promise<{ added: number; updated: number }> {
+): Promise<{ added: number; updated: number; changed: number }> {
   let added = 0;
   let updated = 0;
-  
+  let changed = 0;
+
+  // Lade alle existierenden zukünftigen Spiele dieses Spielers — Match per UID-Stub (date+home+away)
+  // ODER per externer ID falls vorhanden. Damit erkennen wir Verschiebungen, bei denen sich nur das Datum ändert.
+  const today = getGermanDateString(0);
+  const { data: existingGames } = await supabase
+    .from('player_games')
+    .select('id, date, time, home_team, away_team, location, league, sequence, status')
+    .eq('player_id', playerId)
+    .gte('date', today);
+
+  const existingByMatchKey = new Map<string, any>();
+  // Match-Key: home+away (Datum kann sich ändern!) — fängt typische Verschiebungen
+  for (const g of existingGames || []) {
+    const key = `${g.home_team}|${g.away_team}`;
+    // Bei Duplikaten nehmen wir das mit dem nächsten Datum
+    const prev = existingByMatchKey.get(key);
+    if (!prev || g.date < prev.date) existingByMatchKey.set(key, g);
+  }
+
   for (const game of games) {
-    // Überspringe Spiele ohne gültiges Datum
-    if (!game.date || game.date.length !== 10) {
-      console.warn('Überspringe Spiel ohne gültiges Datum:', game);
-      continue;
-    }
-    
+    if (!game.date || game.date.length !== 10) continue;
+
     try {
-      // Prüfen ob Spiel bereits existiert (basierend auf Datum + Teams)
-      const { data: existing } = await supabase
-        .from('player_games')
-        .select('id')
-        .eq('player_id', playerId)
-        .eq('date', game.date)
-        .eq('home_team', game.homeTeam)
-        .eq('away_team', game.awayTeam)
-        .maybeSingle();
-      
-      const gameData = {
+      const matchKey = `${game.homeTeam}|${game.awayTeam}`;
+      const existing = existingByMatchKey.get(matchKey);
+
+      // Diff-Erkennung gegenüber existierendem Spiel
+      const newTime = game.time || null;
+      const newLocation = game.location || null;
+      const newLeague = game.league || null;
+      const changes: Record<string, { old: any; new: any }> = {};
+      if (existing) {
+        if (existing.date !== game.date) changes.date = { old: existing.date, new: game.date };
+        if ((existing.time || null) !== newTime) changes.time = { old: existing.time, new: newTime };
+        if ((existing.location || null) !== newLocation) changes.location = { old: existing.location, new: newLocation };
+        if ((existing.league || null) !== newLeague) changes.league = { old: existing.league, new: newLeague };
+      }
+      const hasChanges = Object.keys(changes).length > 0;
+
+      const gameData: any = {
         player_id: playerId,
         player_name: playerName,
         date: game.date,
-        time: game.time || null,
+        time: newTime,
         home_team: game.homeTeam,
         away_team: game.awayTeam,
         home_team_logo: game.homeTeamLogo || null,
         away_team_logo: game.awayTeamLogo || null,
-        location: game.location || null,
-        league: game.league || null,
+        location: newLocation,
+        league: newLeague,
         matchday: game.matchday || null,
         result: game.result || null,
         game_url: game.gameUrl || null,
-        source: 'api-fussball.de',
-        updated_at: new Date().toISOString()
+        source: 'fussball.de-ical',
+        status: 'scheduled',
+        updated_at: new Date().toISOString(),
       };
-      
+
       if (existing) {
-        // Update
-        const { error } = await supabase
-          .from('player_games')
-          .update(gameData)
-          .eq('id', existing.id);
-        
+        if (hasChanges) {
+          gameData.change_summary = changes;
+          gameData.last_changed_at = new Date().toISOString();
+          gameData.sequence = (existing.sequence || 0) + 1;
+          gameData.user_seen_at = null; // bei Änderung wieder ungelesen
+        }
+        // Falls Spiel zuvor cancelled war und jetzt wieder da ist → reaktivieren
+        if (existing.status === 'cancelled') {
+          gameData.last_changed_at = new Date().toISOString();
+          gameData.change_summary = { ...(gameData.change_summary || {}), reinstated: true };
+          gameData.sequence = (existing.sequence || 0) + 1;
+        }
+        const { error } = await supabase.from('player_games').update(gameData).eq('id', existing.id);
         if (error) {
           console.error('Update Fehler:', error);
         } else {
           updated++;
+          if (hasChanges) {
+            changed++;
+            console.log(`[SYNC] ${playerName} → CHANGE`, matchKey, changes);
+          }
         }
       } else {
-        // Insert
+        // Neues Spiel — Badge "NEU" markieren, damit der User es nicht übersieht
+        gameData.change_summary = { new: true };
+        gameData.last_changed_at = new Date().toISOString();
+        gameData.sequence = 1;
         const { error } = await supabase
           .from('player_games')
-          .insert([{ 
-            ...gameData, 
-            selected: false,
-            created_at: new Date().toISOString() 
-          }]);
-        
+          .insert([{ ...gameData, selected: false, created_at: new Date().toISOString() }]);
         if (error) {
           console.error('Insert Fehler:', error, 'Daten:', gameData);
         } else {
@@ -479,8 +505,8 @@ export async function saveGamesToDatabase(
       console.error('Fehler beim Speichern:', err);
     }
   }
-  
-  return { added, updated };
+
+  return { added, updated, changed };
 }
 
 // Hauptfunktion: Spieler-Spiele synchronisieren (optional gefiltert)
@@ -493,16 +519,11 @@ export async function syncAllPlayerGames(
     success: false,
     added: 0,
     updated: 0,
+    changed: 0,
+    cancelled: 0,
     deleted: 0,
     errors: []
   };
-
-  // API Token laden
-  const token = await getApiToken(supabase);
-  if (!token) {
-    result.errors.push('Kein API Token konfiguriert. Bitte Token in Einstellungen hinterlegen.');
-    return result;
-  }
 
   // Spieler laden (optional gefiltert)
   let players = await getPlayersWithFussballDeUrl(supabase);
@@ -534,9 +555,9 @@ export async function syncAllPlayerGames(
     }
     
     console.log(`Lade Spiele für ${playerName} (Team: ${teamId})...`);
-    
-    // Spiele von API holen
-    const games = await fetchTeamNextGames(teamId, token, supabase);
+
+    // Spiele via Browserless-Edge-Function holen (mit teamUrl für robustere URL-Auflösung)
+    const games = await fetchTeamNextGames(teamId, undefined, supabase, player.fussball_de_url);
     console.log(`${games.length} Spiele für ${playerName} gefunden`);
 
     if (games.length === 0) {
@@ -552,16 +573,17 @@ export async function syncAllPlayerGames(
       console.warn(`Game-URLs scrapen fehlgeschlagen für ${playerName}:`, err);
     }
 
-    // Spiele speichern (Insert oder Update)
+    // Spiele speichern (Insert/Update mit Change-Detection)
     const saveResult = await saveGamesToDatabase(supabase, player.id, playerName, games);
     result.added += saveResult.added;
     result.updated += saveResult.updated;
+    result.changed += saveResult.changed;
 
-    // Veraltete Spiele entfernen (nicht mehr in API = abgesagt/verschoben)
-    const staleDeleted = await deleteStaleGames(supabase, player.id, games);
-    result.deleted += staleDeleted;
+    // Spiele die nicht mehr im Scrape sind → als 'cancelled' markieren
+    const cancelledCount = await markStaleGamesCancelled(supabase, player.id, games);
+    result.cancelled += cancelledCount;
 
-    console.log(`${playerName}: ${saveResult.added} neu, ${saveResult.updated} aktualisiert, ${staleDeleted} entfernt`);
+    console.log(`${playerName}: +${saveResult.added} neu, ${saveResult.updated} update, ${saveResult.changed} geändert, ${cancelledCount} cancelled`);
     
     // Kurze Pause um API nicht zu überlasten
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -578,17 +600,12 @@ export async function syncPlayerGames(
   fussballDeUrl: string,
   playerName: string
 ): Promise<{ success: boolean; games: ApiGame[]; error?: string }> {
-  const token = await getApiToken(supabase);
-  if (!token) {
-    return { success: false, games: [], error: 'Kein API Token' };
-  }
-  
   const teamId = extractTeamId(fussballDeUrl);
   if (!teamId) {
     return { success: false, games: [], error: 'Keine Team-ID in URL' };
   }
-  
-  const games = await fetchTeamNextGames(teamId, token);
+
+  const games = await fetchTeamNextGames(teamId, undefined, supabase, fussballDeUrl);
 
   if (games.length > 0) {
     // Game-URLs von fussball.de Teamseite scrapen und per Teamnamen-Slug matchen
@@ -600,17 +617,41 @@ export async function syncPlayerGames(
     }
 
     await saveGamesToDatabase(supabase, playerId, playerName, games);
-    await deleteStaleGames(supabase, playerId, games);
+    await markStaleGamesCancelled(supabase, playerId, games);
   }
 
   return { success: true, games };
 }
 
-// Alle gespeicherten Spiele laden (für die nächsten 5 Wochen)
+// "Bestätigen" — User hat Änderungen zur Kenntnis genommen, Badge ausblenden
+export async function acknowledgeGameChange(supabase: SupabaseClient, gameId: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('player_games')
+    .update({ user_seen_at: new Date().toISOString() })
+    .eq('id', gameId);
+  return !error;
+}
+
+// Alle Änderungs-Badges für einen Spieler bestätigen
+export async function acknowledgeAllChanges(supabase: SupabaseClient): Promise<number> {
+  const { data, error } = await supabase
+    .from('player_games')
+    .update({ user_seen_at: new Date().toISOString() })
+    .not('last_changed_at', 'is', null)
+    .is('user_seen_at', null)
+    .select('id');
+  if (error) {
+    console.error('acknowledgeAllChanges error:', error);
+    return 0;
+  }
+  return data?.length || 0;
+}
+
+// Alle gespeicherten Spiele laden (für die nächsten 4 Wochen — engeres Fenster für höhere Verlässlichkeit)
 export async function loadUpcomingGames(supabase: SupabaseClient): Promise<any[]> {
   // Mitteleuropäische Zeit (Europe/Berlin) verwenden
   const todayStr = getGermanDateString(0);
-  const in5WeeksStr = getGermanDateString(35);
+  const in4WeeksStr = getGermanDateString(28);
 
   const { data, error } = await supabase
     .from('player_games')
@@ -619,7 +660,7 @@ export async function loadUpcomingGames(supabase: SupabaseClient): Promise<any[]
       player:player_details(id, first_name, last_name, club, responsibility, league, fussball_de_url)
     `)
     .gte('date', todayStr)
-    .lte('date', in5WeeksStr)
+    .lte('date', in4WeeksStr)
     .order('date', { ascending: true });
   
   if (error) {
@@ -630,21 +671,27 @@ export async function loadUpcomingGames(supabase: SupabaseClient): Promise<any[]
   return data || [];
 }
 
-// Lösche alte Spiele (älter als 1 Tag)
+// Lösche alte Spiele:
+//   - Spiele älter als 1 Tag (vergangene Spiele) → endgültig löschen
+//   - Spiele mit status='cancelled' UND last_changed_at älter als 7 Tage → endgültig löschen
 export async function cleanupOldGames(supabase: SupabaseClient): Promise<number> {
-  // Mitteleuropäische Zeit (Europe/Berlin) verwenden
   const yesterdayStr = getGermanDateString(-1);
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  const { data, error } = await supabase
+  // Vergangene Spiele
+  const { data: oldGames } = await supabase
     .from('player_games')
     .delete()
     .lt('date', yesterdayStr)
     .select('id');
-  
-  if (error) {
-    console.error('Fehler beim Löschen alter Spiele:', error);
-    return 0;
-  }
-  
-  return data?.length || 0;
+
+  // Cancelled-Spiele älter als 7 Tage
+  const { data: oldCancelled } = await supabase
+    .from('player_games')
+    .delete()
+    .eq('status', 'cancelled')
+    .lt('last_changed_at', sevenDaysAgo)
+    .select('id');
+
+  return (oldGames?.length || 0) + (oldCancelled?.length || 0);
 }

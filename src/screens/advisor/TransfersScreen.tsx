@@ -6,6 +6,8 @@ import { MobileHeader } from '../../components/MobileHeader';
 import { MobileSidebar } from '../../components/MobileSidebar';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
+import { AdvisorBackground } from '../../components/AdvisorBackground';
+import { AdvisorHeroHeader, heroCardAttachedToolbar } from '../../components/AdvisorHeroHeader';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -21,6 +23,7 @@ const POSITION_SHORT: Record<string, string> = {
   'Linker Verteidiger': 'LV',
   'Rechter Verteidiger': 'RV',
   'Defensives Mittelfeld': 'DM',
+  'Zentrales Mittelfeld': 'ZM',
   'Offensives Mittelfeld': 'OM',
   'Linke Außenbahn': 'LA',
   'Rechte Außenbahn': 'RA',
@@ -149,6 +152,10 @@ export function TransfersScreen({ navigation }: any) {
   
   // Form Position Picker (für neuen Verein)
   const [formPositions, setFormPositions] = useState<string[]>([]);
+  const [showFormPositionDropdown, setShowFormPositionDropdown] = useState(false);
+  // Football-Network-Kontakte des aktuell ausgewählten Vereins für den Ansprechpartner-Picker
+  const [formClubContacts, setFormClubContacts] = useState<Array<{ id: string; vorname: string; nachname: string; position: string; bereich: string; mannschaft: string }>>([]);
+  const [showFormAdvisorSuggestions, setShowFormAdvisorSuggestions] = useState(false);
   
   // Club Form Dropdown
   const [formClubSearch, setFormClubSearch] = useState('');
@@ -171,6 +178,19 @@ export function TransfersScreen({ navigation }: any) {
 
   const [searchText, setSearchText] = useState('');
   const [selectedYears, setSelectedYears] = useState<string[]>([]);
+  const [openFilterDropdown, setOpenFilterDropdown] = useState<string | null>(null);
+
+  // Click-outside-Handler für Mobile-Filter-Dropdowns (Skill-Pattern)
+  useEffect(() => {
+    if (!openFilterDropdown || typeof document === 'undefined') return;
+    const handler = (e: any) => {
+      const target = e.target;
+      if (target && target.closest && target.closest('[data-kmh-dropdown]')) return;
+      setOpenFilterDropdown(null);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [openFilterDropdown]);
   const [selectedPositions, setSelectedPositions] = useState<string[]>([]);
   const [selectedListings, setSelectedListings] = useState<string[]>([]);
   const [selectedResponsibilities, setSelectedResponsibilities] = useState<string[]>([]);
@@ -289,6 +309,23 @@ export function TransfersScreen({ navigation }: any) {
   useEffect(() => {
     applyClubFilters();
   }, [clubSearchText, searchingClubs, selectedClubPositions, selectedClubYears]);
+
+  // Football-Network-Kontakte des im Formular gewählten Vereins laden,
+  // damit sie als Ansprechpartner-Vorschläge angezeigt werden.
+  useEffect(() => {
+    const club = (newClub.club_name || formClubSearch || '').trim();
+    if (!club) { setFormClubContacts([]); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('football_network_contacts')
+        .select('id, vorname, nachname, position, bereich, mannschaft')
+        .eq('verein', club)
+        .order('nachname', { ascending: true });
+      if (!cancelled) setFormClubContacts(data || []);
+    })();
+    return () => { cancelled = true; };
+  }, [newClub.club_name, formClubSearch]);
 
   const fetchSearchingClubs = async () => {
     const { data } = await supabase
@@ -837,24 +874,10 @@ export function TransfersScreen({ navigation }: any) {
 
   const renderContractCell = (player: Player) => {
     const expired = isContractExpired(player.contract_end);
-    
     if (expired) {
-      return (
-        <View style={styles.colContract}>
-          <View style={styles.contractBadgeExpired}>
-            <Text style={styles.contractBadgeTextExpired}>Vereinslos</Text>
-          </View>
-        </View>
-      );
+      return <Text style={[styles.tableCell, styles.colContract, { color: '#ef4444' }]}>Vereinslos</Text>;
     }
-    
-    return (
-      <View style={styles.colContract}>
-        <View style={styles.contractBadge}>
-          <Text style={styles.contractBadgeText}>{formatDate(player.contract_end)}</Text>
-        </View>
-      </View>
-    );
+    return <Text style={[styles.tableCell, styles.colContract, { color: '#ef4444' }]}>{formatDate(player.contract_end)}</Text>;
   };
 
   const renderPlayerRow = (player: Player) => {
@@ -890,9 +913,9 @@ export function TransfersScreen({ navigation }: any) {
   // Mobile Player Card - identisch zu PlayerOverviewScreen
   const renderMobilePlayerCard = (player: Player) => {
     const hasAccess = userRole === 'admin' || myPlayerIds.includes(player.id);
-    const positionDisplay = player.position
-      ? player.position.split(', ').map(p => POSITION_SHORT[p.trim()] || p).join(', ')
-      : '-';
+    const positionsList = player.position
+      ? player.position.split(',').map(p => POSITION_SHORT[p.trim()] || p.trim()).filter(Boolean)
+      : [];
     const expired = isContractExpired(player.contract_end);
     const displayClub = getDisplayClub(player);
     const logoUrl = expired ? null : getClubLogo(player.club);
@@ -903,58 +926,50 @@ export function TransfersScreen({ navigation }: any) {
     return (
       <TouchableOpacity
         key={player.id}
-        style={[styles.playerCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }, !hasAccess && { backgroundColor: colors.surfaceSecondary }, birthday && styles.birthdayCard]}
+        style={[styles.playerCard, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }, !hasAccess && { backgroundColor: colors.surfaceSecondary }, birthday && styles.birthdayCard]}
         onPress={() => handlePlayerClick(player)}
       >
-        <View style={styles.playerCardHeader}>
-          <View style={styles.playerCardNameRow}>
-            {!hasAccess && <Text style={styles.lockIconMobile}>🔒</Text>}
-            <Text style={[styles.playerCardName, { color: colors.text }]} numberOfLines={1}>
-              {player.last_name}, {player.first_name}{birthday && ' 🎉'}
-            </Text>
-          </View>
-          <View style={styles.playerCardBadges}>
-            {player.listing && (
-              <View style={[styles.listingBadgeMobile, player.listing === 'Karl Herzog Sportmanagement' ? styles.listingKMH : styles.listingPM]}>
-                <Text style={styles.listingBadgeTextMobile}>{player.listing === 'Karl Herzog Sportmanagement' ? 'KMH' : 'PM'}</Text>
-              </View>
-            )}
-          </View>
-        </View>
-
-        <View style={styles.playerCardBody}>
-          <View style={styles.playerCardRow}>
-            <View style={styles.playerCardClub}>
-              {expired ? (
-                <Image source={ArbeitsamtIcon} style={styles.clubLogoMobile} />
-              ) : logoUrl ? (
-                <Image source={{ uri: logoUrl }} style={styles.clubLogoMobile} />
-              ) : null}
-              <Text style={[styles.playerCardClubText, { color: colors.textSecondary }, expired && styles.clubTextRed]} numberOfLines={1}>
-                {displayClub}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {expired ? (
+            <Image source={ArbeitsamtIcon} style={styles.clubLogoMobile} />
+          ) : logoUrl ? (
+            <Image source={{ uri: logoUrl }} style={styles.clubLogoMobile} />
+          ) : <View style={styles.clubLogoMobile} />}
+          <View style={{ flex: 1 }}>
+            {/* Reihe 1: Name + Position-Badge | Vertragslaufzeit rechtsbündig */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              {!hasAccess && <Text style={styles.lockIconMobile}>🔒</Text>}
+              <Text style={[styles.playerCardName, { color: colors.text }]} numberOfLines={1}>
+                {player.last_name}, {player.first_name}{birthday && ' 🎉'}
               </Text>
-            </View>
-            <Text style={[styles.playerCardPosition, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{positionDisplay}</Text>
-          </View>
-
-          <View style={styles.playerCardRow}>
-            <Text style={[styles.playerCardLeague, { color: colors.textMuted }]} numberOfLines={1}>{player.league || '-'}</Text>
-            {player.contract_end && (
-              <View style={[
-                styles.contractBadgeMobile,
-                hasSecuredFuture ? styles.contractBadgeMobileGreen :
-                inCurrentSeason ? styles.contractBadgeMobileRed : null
-              ]}>
+              {positionsList.length > 0 ? (
+                <View style={{ flexDirection: 'row', gap: 4, flexWrap: 'wrap' }}>
+                  {positionsList.map((pos, idx) => (
+                    <Text key={idx} style={styles.playerCardPosition}>{pos}</Text>
+                  ))}
+                </View>
+              ) : null}
+              {player.contract_end ? (
                 <Text style={[
                   styles.contractTextMobile,
-                  { color: colors.textMuted },
-                  hasSecuredFuture ? styles.contractTextMobileGreen :
-                  inCurrentSeason ? styles.contractTextMobileRed : null
-                ]}>
+                  { color: hasSecuredFuture ? '#22c55e' : (inCurrentSeason ? '#ef4444' : colors.textMuted), marginLeft: 'auto' }
+                ]} numberOfLines={1}>
                   Vertrag bis {formatDate(player.contract_end)}
                 </Text>
-              </View>
-            )}
+              ) : null}
+            </View>
+            {/* Reihe 2: Club · Liga | Agentur-Badge rechtsbündig */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+              <Text numberOfLines={1} style={{ flex: 1 }}>
+                <Text style={[styles.playerCardClubText, { color: colors.textSecondary }, expired && styles.clubTextRed]}>{displayClub}</Text>
+                {player.league ? <Text style={[styles.playerCardLeague, { color: colors.textMuted }]}>{'  ·  '}{player.league}</Text> : null}
+              </Text>
+              {player.listing ? (
+                <View style={[styles.listingBadgeMobile, player.listing === 'Karl Herzog Sportmanagement' ? styles.listingKMH : styles.listingPM]}>
+                  <Text style={styles.listingBadgeTextMobile}>{player.listing === 'Karl Herzog Sportmanagement' ? 'KMH' : 'PM'}</Text>
+                </View>
+              ) : null}
+            </View>
           </View>
         </View>
       </TouchableOpacity>
@@ -970,7 +985,8 @@ export function TransfersScreen({ navigation }: any) {
   // Mobile View
   if (isMobile) {
     return (
-      <View style={[styles.containerMobile, { backgroundColor: colors.background }]}>
+      <View style={[styles.containerMobile, { backgroundColor: 'transparent' }]}>
+        <AdvisorBackground />
         <MobileSidebar
           visible={showMobileSidebar}
           onClose={() => setShowMobileSidebar(false)}
@@ -979,81 +995,65 @@ export function TransfersScreen({ navigation }: any) {
           profile={profile}
         />
 
-        <View style={[styles.mainContentMobile, { backgroundColor: colors.background }]}>
-          {/* Mobile Header */}
+        <View style={[styles.mainContentMobile, { backgroundColor: 'transparent' }]}>
+          {/* Mobile Header — Skill-Pattern: Tabs + Search + Filter alle als children */}
           <MobileHeader
             title="Transfers"
+            subtitle={activeTab === 'spieler' ? `${filteredPlayers.length} aktive Spieler` : `${filteredSearchingClubs.length} Vereine`}
+            backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
             onMenuPress={() => setShowMobileSidebar(true)}
-            onProfilePress={() => navigation.navigate('MyProfile')}
-            profileInitials={profileInitials}
-          />
+          >
+            <View style={{ flex: 1, flexDirection: 'column', alignItems: 'stretch' }}>
+              {/* Main Tabs: Spieler / Vereine */}
+              <View style={{ flexDirection: 'row' }}>
+                <TouchableOpacity
+                  style={{ flex: 1, paddingVertical: 10, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: activeTab === 'spieler' ? '#22c55e' : 'transparent' }}
+                  onPress={() => setActiveTab('spieler')}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: activeTab === 'spieler' ? '#fff' : 'rgba(255,255,255,0.5)' }}>
+                    Spieler ({transferPlayers.length})
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={{ flex: 1, paddingVertical: 10, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: activeTab === 'vereine' ? '#22c55e' : 'transparent' }}
+                  onPress={() => setActiveTab('vereine')}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: activeTab === 'vereine' ? '#fff' : 'rgba(255,255,255,0.5)' }}>
+                    Vereine ({searchingClubs.length})
+                  </Text>
+                </TouchableOpacity>
+              </View>
 
-          {/* Mobile Tabs */}
-          <View style={[styles.mobileTabs, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-            <TouchableOpacity
-              style={[styles.mobileTab, activeTab === 'spieler' && [styles.mobileTabActive, { borderBottomColor: colors.primary }]]}
-              onPress={() => setActiveTab('spieler')}
-            >
-              <Text style={[styles.mobileTabText, { color: colors.textSecondary }, activeTab === 'spieler' && [styles.mobileTabTextActive, { color: colors.text }]]}>
-                Spieler ({transferPlayers.length})
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.mobileTab, activeTab === 'vereine' && [styles.mobileTabActive, { borderBottomColor: colors.primary }]]}
-              onPress={() => setActiveTab('vereine')}
-            >
-              <Text style={[styles.mobileTabText, { color: colors.textSecondary }, activeTab === 'vereine' && [styles.mobileTabTextActive, { color: colors.text }]]}>
-                Vereine
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Mobile Toolbar */}
-          <View style={[styles.mobileToolbar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-            <View style={[styles.mobileSearchContainer, { backgroundColor: colors.inputBackground }]}>
-              <Text style={styles.searchIcon}>🔍</Text>
-              <TextInput
-                style={[styles.mobileSearchInput, { color: colors.text }]}
-                placeholder={activeTab === 'spieler' ? "Spieler suchen..." : "Verein suchen..."}
-                placeholderTextColor={colors.textMuted}
-                value={activeTab === 'spieler' ? searchText : clubSearchText}
-                onChangeText={activeTab === 'spieler' ? setSearchText : setClubSearchText}
-              />
+              {/* Search + Filter — direkt unter Tabs */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 }}>
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.7)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 6, paddingHorizontal: 10, height: 28 }}>
+                  <Ionicons name="search" size={12} color="rgba(255,255,255,0.5)" />
+                  <TextInput
+                    style={{ flex: 1, paddingVertical: 0, fontSize: 12, color: '#fff', marginLeft: 6 }}
+                    placeholder={activeTab === 'spieler' ? "Spieler suchen..." : "Verein suchen..."}
+                    placeholderTextColor="rgba(255,255,255,0.4)"
+                    value={activeTab === 'spieler' ? searchText : clubSearchText}
+                    onChangeText={activeTab === 'spieler' ? setSearchText : setClubSearchText}
+                  />
+                </View>
+                <TouchableOpacity
+                  style={[
+                    { width: 28, height: 28, borderRadius: 6, backgroundColor: 'rgba(0,0,0,0.7)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center', position: 'relative' },
+                    ((activeTab === 'spieler' && activeFilterCount > 0) || (activeTab === 'vereine' && (selectedClubPositions.length > 0 || selectedClubYears.length > 0))) && { backgroundColor: colors.primary, borderColor: colors.primary },
+                  ]}
+                  onPress={() => activeTab === 'spieler' ? setShowMobileFilters(true) : setShowMobileClubFilters(true)}
+                >
+                  <Ionicons name="filter" size={14} color={((activeTab === 'spieler' && activeFilterCount > 0) || (activeTab === 'vereine' && (selectedClubPositions.length > 0 || selectedClubYears.length > 0))) ? colors.primaryText : 'rgba(255,255,255,0.85)'} />
+                  {activeTab === 'spieler' && activeFilterCount > 0 && (
+                    <View style={styles.filterCountBubble}><Text style={styles.filterCountText}>{activeFilterCount}</Text></View>
+                  )}
+                  {activeTab === 'vereine' && (selectedClubPositions.length + selectedClubYears.length) > 0 && (
+                    <View style={styles.filterCountBubble}><Text style={styles.filterCountText}>{selectedClubPositions.length + selectedClubYears.length}</Text></View>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
-            {activeTab === 'spieler' && (
-              <TouchableOpacity
-                style={[styles.mobileFilterButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }, activeFilterCount > 0 && { backgroundColor: colors.primary, borderColor: colors.primary }]}
-                onPress={() => setShowMobileFilters(true)}
-              >
-                <Ionicons name="filter" size={20} color={activeFilterCount > 0 ? colors.primaryText : colors.textSecondary} />
-                {activeFilterCount > 0 && (
-                  <View style={styles.filterCountBubble}>
-                    <Text style={styles.filterCountText}>{activeFilterCount}</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            )}
-            {activeTab === 'vereine' && (
-              <TouchableOpacity
-                style={[styles.mobileFilterButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }, (selectedClubPositions.length > 0 || selectedClubYears.length > 0) && { backgroundColor: colors.primary, borderColor: colors.primary }]}
-                onPress={() => setShowMobileClubFilters(true)}
-              >
-                <Ionicons name="filter" size={20} color={(selectedClubPositions.length > 0 || selectedClubYears.length > 0) ? colors.primaryText : colors.textSecondary} />
-                {(selectedClubPositions.length + selectedClubYears.length) > 0 && (
-                  <View style={styles.filterCountBubble}>
-                    <Text style={styles.filterCountText}>{selectedClubPositions.length + selectedClubYears.length}</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Player Count */}
-          <View style={[styles.mobileSubheader, { backgroundColor: colors.surfaceSecondary }]}>
-            <Text style={[styles.mobileSubheaderText, { color: colors.textSecondary }]}>
-              {activeTab === 'spieler' ? `${filteredPlayers.length} Spieler` : `${filteredSearchingClubs.length} Vereine`}
-            </Text>
-          </View>
+          </MobileHeader>
 
           {/* Content */}
           <ScrollView style={styles.mobileCardList} contentContainerStyle={styles.mobileCardListContent}>
@@ -1072,36 +1072,51 @@ export function TransfersScreen({ navigation }: any) {
                 filteredSearchingClubs.map(club => (
                   <TouchableOpacity
                     key={club.id}
-                    style={[styles.mobileCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
+                    style={[styles.mobileCard, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}
                     onPress={() => { setSelectedClub(club); setShowClubDetailModal(true); }}
                   >
-                    <View style={styles.mobileCardHeader}>
-                      <View style={styles.mobileCardNameRow}>
-                        {clubLogos[club.club_name] && (
-                          <Image source={{ uri: clubLogos[club.club_name] }} style={styles.mobileCardClubLogo} />
-                        )}
-                        <View style={styles.mobileCardNameContainer}>
-                          <Text style={[styles.mobileCardName, { color: colors.text }]}>{club.club_name}</Text>
-                          <Text style={[styles.mobileCardClub, { color: colors.textSecondary }]}>{club.league || '-'}</Text>
-                        </View>
-                      </View>
-                    </View>
-                    <View style={styles.mobileCardDetails}>
-                      <View style={styles.mobileCardRow}>
-                        <Text style={[styles.mobileCardLabel, { color: colors.textMuted }]}>Position</Text>
-                        <Text style={[styles.mobileCardValue, { color: colors.text }]}>{club.position_needed || '-'}</Text>
-                      </View>
-                      <View style={styles.mobileCardRow}>
-                        <Text style={[styles.mobileCardLabel, { color: colors.textMuted }]}>Jahrgang</Text>
-                        <Text style={[styles.mobileCardValue, { color: colors.text }]}>{club.year_range || '-'}</Text>
-                      </View>
-                      {club.contact_person && (
-                        <View style={styles.mobileCardRow}>
-                          <Text style={[styles.mobileCardLabel, { color: colors.textMuted }]}>Kontakt</Text>
-                          <Text style={[styles.mobileCardValue, { color: colors.text }]}>{club.contact_person}</Text>
-                        </View>
+                    {/* Header-Row: Logo + [Vereinsname · Liga / Ansprechpartner darunter] | Position-Badges */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      {clubLogos[club.club_name] && (
+                        <Image source={{ uri: clubLogos[club.club_name] }} style={styles.mobileCardClubLogo} />
                       )}
+                      <View style={{ flex: 1 }}>
+                        <Text numberOfLines={1}>
+                          <Text style={[styles.mobileCardName, { color: colors.text }]}>{club.club_name}</Text>
+                          {club.league ? <Text style={{ fontSize: 11, fontWeight: '400', color: 'rgba(255,255,255,0.5)' }}>  ·  {club.league}</Text> : null}
+                        </Text>
+                        {club.contact_person ? (
+                          <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 2 }} numberOfLines={1}>
+                            👤 {club.contact_person}{club.year_range ? ` · ${club.year_range}` : ''}
+                          </Text>
+                        ) : club.year_range ? (
+                          <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>Jahrgang: {club.year_range}</Text>
+                        ) : null}
+                      </View>
+                      {(() => {
+                        const positions = (club.position_needed || '').split(',').map(p => p.trim()).filter(Boolean);
+                        if (positions.length === 0) return null;
+                        return (
+                          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, justifyContent: 'flex-end', maxWidth: 120 }}>
+                            {positions.map((pos, idx) => (
+                              <View key={idx} style={{ backgroundColor: 'rgba(59,130,246,0.18)', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(59,130,246,0.5)' }}>
+                                <Text style={{ fontSize: 9, fontWeight: '600', color: '#60a5fa', letterSpacing: 0.3 }}>{POSITION_SHORT[pos] || pos}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        );
+                      })()}
                     </View>
+
+                    {/* Trennstrich + Notiz mit Sprechblase darunter */}
+                    {club.notes ? (
+                      <>
+                        <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.15)', marginTop: 10, marginBottom: 8 }} />
+                        <Text style={{ fontSize: 11, fontStyle: 'italic', color: 'rgba(255,255,255,0.5)' }} numberOfLines={1}>
+                          💬 "{club.notes}"
+                        </Text>
+                      </>
+                    ) : null}
                   </TouchableOpacity>
                 ))
               )
@@ -1115,111 +1130,76 @@ export function TransfersScreen({ navigation }: any) {
             </TouchableOpacity>
           )}
 
-          {/* Mobile Filter Modal */}
+          {/* Mobile Filter Modal — Skill-Pattern */}
           <Modal visible={showMobileFilters} transparent animationType="slide">
-            <View style={[styles.mobileFilterModal, { backgroundColor: colors.surface }]}>
-              <View style={[styles.mobileFilterHeader, { borderBottomColor: colors.border }]}>
-                <Text style={[styles.mobileFilterTitle, { color: colors.text }]}>Filter</Text>
-                <TouchableOpacity onPress={() => setShowMobileFilters(false)}>
-                  <Text style={[styles.mobileFilterClose, { color: colors.textSecondary }]}>✕</Text>
+            <View style={{ flex: 1, marginTop: 60, backgroundColor: '#000', borderTopLeftRadius: 16, borderTopRightRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', overflow: 'hidden' }}>
+              <Image source={require('../../../assets/scouting-header-bg.jpg')} style={[StyleSheet.absoluteFillObject, { width: '100%', height: '100%', opacity: 0.85, ...({ objectFit: 'cover', objectPosition: 'center', backgroundSize: 'cover', backgroundPosition: 'center' } as any) }]} resizeMode="cover" />
+              <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />
+
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', zIndex: 1 }}>
+                <Text style={{ fontFamily: 'Josefin Sans', fontSize: 20, lineHeight: 26, fontWeight: '300', letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)' }}>Filter</Text>
+                <TouchableOpacity onPress={() => setShowMobileFilters(false)} style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 20 }}>✕</Text>
                 </TouchableOpacity>
               </View>
-              <ScrollView style={styles.mobileFilterContent}>
-                {/* Position Filter */}
-                <Text style={[styles.mobileFilterSectionTitle, { color: colors.text }]}>Position</Text>
-                <View style={styles.mobileChipContainer}>
-                  {POSITIONS.map(pos => {
-                    const isSelected = selectedPositions.includes(pos);
-                    return (
-                      <TouchableOpacity
-                        key={pos}
-                        style={[styles.mobileChip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, isSelected && { backgroundColor: colors.primary, borderColor: colors.primary }]}
-                        onPress={() => togglePosition(pos)}
-                      >
-                        <Text style={[styles.mobileChipText, { color: colors.textSecondary }, isSelected && { color: colors.primaryText }]}>
-                          {POSITION_SHORT[pos]}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
 
-                {/* Year Filter */}
-                <Text style={[styles.mobileFilterSectionTitle, { color: colors.text }]}>Jahrgang</Text>
-                <View style={styles.mobileChipContainer}>
-                  {availableYears.map(year => {
-                    const isSelected = selectedYears.includes(year);
-                    return (
+              <ScrollView style={{ flex: 1, zIndex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24 }}>
+                {[
+                  { key: 'position', label: 'Position', values: selectedPositions.map(p => POSITION_SHORT[p] || p), options: POSITIONS.map(p => POSITION_SHORT[p] || p), onChange: (arr: string[]) => setSelectedPositions(arr.map(s => POSITIONS.find(p => POSITION_SHORT[p] === s) || s)), placeholder: 'Position auswählen', zi: 60 },
+                  { key: 'year', label: 'Jahrgang', values: selectedYears, options: availableYears.map(String), onChange: (arr: string[]) => setSelectedYears(arr), placeholder: 'Jahrgang auswählen', zi: 50 },
+                  { key: 'listing', label: 'Listung', values: selectedListings.map(l => l === 'Karl Herzog Sportmanagement' ? 'KMH' : 'PM'), options: LISTINGS.map(l => l === 'Karl Herzog Sportmanagement' ? 'KMH' : 'PM'), onChange: (arr: string[]) => setSelectedListings(arr.map(s => s === 'KMH' ? 'Karl Herzog Sportmanagement' : 'PM Sportmanagement')), placeholder: 'Listung auswählen', zi: 40 },
+                  { key: 'responsibility', label: 'Zuständigkeit', values: selectedResponsibilities, options: advisors.map(a => `${a.first_name} ${a.last_name}`.trim()).filter(Boolean), onChange: (arr: string[]) => setSelectedResponsibilities(arr), placeholder: 'Berater auswählen', zi: 30 },
+                ].map((cfg) => {
+                  const open = openFilterDropdown === cfg.key;
+                  return (
+                    <View key={cfg.key} {...({ 'data-kmh-dropdown': 'true' } as any)} style={{ marginBottom: 14, maxWidth: 280, zIndex: cfg.zi, position: 'relative' }}>
+                      <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>{cfg.label}</Text>
                       <TouchableOpacity
-                        key={year}
-                        style={[styles.mobileChip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, isSelected && { backgroundColor: colors.primary, borderColor: colors.primary }]}
-                        onPress={() => toggleYear(year)}
+                        style={{ backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 4, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                        onPress={() => setOpenFilterDropdown(open ? null : cfg.key)}
                       >
-                        <Text style={[styles.mobileChipText, { color: colors.textSecondary }, isSelected && { color: colors.primaryText }]}>
-                          {year}
-                        </Text>
+                        <Text numberOfLines={1} style={{ fontSize: 13, color: cfg.values.length ? '#fff' : 'rgba(255,255,255,0.3)', flex: 1 }}>{cfg.values.length === 0 ? cfg.placeholder : cfg.values.join(', ')}</Text>
+                        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={14} color="rgba(255,255,255,0.5)" />
                       </TouchableOpacity>
-                    );
-                  })}
-                </View>
-
-                {/* Listing Filter */}
-                <Text style={[styles.mobileFilterSectionTitle, { color: colors.text }]}>Listung</Text>
-                <View style={styles.mobileChipContainer}>
-                  {LISTINGS.map(listing => {
-                    const isSelected = selectedListings.includes(listing);
-                    const label = listing === 'Karl Herzog Sportmanagement' ? 'KMH' : 'PM';
-                    return (
-                      <TouchableOpacity
-                        key={listing}
-                        style={[styles.mobileChip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, isSelected && { backgroundColor: colors.primary, borderColor: colors.primary }]}
-                        onPress={() => toggleListing(listing)}
-                      >
-                        <Text style={[styles.mobileChipText, { color: colors.textSecondary }, isSelected && { color: colors.primaryText }]}>
-                          {label}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-
-                {/* Responsibility Filter */}
-                <Text style={[styles.mobileFilterSectionTitle, { color: colors.text }]}>Zuständigkeit</Text>
-                <View style={styles.mobileChipContainer}>
-                  {advisors.map(advisor => {
-                    const fullName = `${advisor.first_name} ${advisor.last_name}`;
-                    const isSelected = selectedResponsibilities.includes(fullName);
-                    return (
-                      <TouchableOpacity
-                        key={advisor.id}
-                        style={[styles.mobileChip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, isSelected && { backgroundColor: colors.primary, borderColor: colors.primary }]}
-                        onPress={() => toggleResponsibility(fullName)}
-                      >
-                        <Text style={[styles.mobileChipText, { color: colors.textSecondary }, isSelected && { color: colors.primaryText }]}>
-                          {advisor.first_name}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
+                      {open ? (
+                        <View style={{ position: 'absolute', top: '100%', left: 0, minWidth: 220, marginTop: 2, backgroundColor: '#1e293b', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12 }}>
+                          <ScrollView style={{ maxHeight: 260 }} nestedScrollEnabled>
+                            <TouchableOpacity style={{ paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }} onPress={() => cfg.onChange([])}>
+                              <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>Leeren</Text>
+                            </TouchableOpacity>
+                            {cfg.options.map((opt) => {
+                              const checked = cfg.values.includes(opt);
+                              return (
+                                <TouchableOpacity
+                                  key={opt}
+                                  style={{ paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)', flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                                  onPress={() => cfg.onChange(checked ? cfg.values.filter(v => v !== opt) : [...cfg.values, opt])}
+                                >
+                                  <Ionicons name={checked ? 'checkbox' : 'square-outline'} size={16} color={checked ? '#22c55e' : 'rgba(255,255,255,0.5)'} />
+                                  <Text numberOfLines={1} style={{ fontSize: 13, color: '#fff', flex: 1 }}>{opt}</Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </ScrollView>
+                        </View>
+                      ) : null}
+                    </View>
+                  );
+                })}
               </ScrollView>
-              <View style={[styles.mobileFilterFooter, { borderTopColor: colors.border }]}>
+
+              <View style={{ flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingVertical: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)', backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1 }}>
                 <TouchableOpacity
-                  style={[styles.mobileFilterClearButton, { borderColor: colors.border }]}
-                  onPress={() => {
-                    clearPositions();
-                    clearYears();
-                    clearListings();
-                    clearResponsibilities();
-                  }}
+                  style={{ flex: 1, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' }}
+                  onPress={() => { clearPositions(); clearYears(); clearListings(); clearResponsibilities(); }}
                 >
-                  <Text style={[styles.mobileFilterClearText, { color: colors.textSecondary }]}>Alle löschen</Text>
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.85)' }}>Alle löschen</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.mobileFilterApplyButton, { backgroundColor: colors.primary }]}
+                  style={{ flex: 1, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: '#22c55e', backgroundColor: '#22c55e', alignItems: 'center', justifyContent: 'center' }}
                   onPress={() => setShowMobileFilters(false)}
                 >
-                  <Text style={[styles.mobileFilterApplyText, { color: colors.primaryText }]}>Anwenden</Text>
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: '#fff' }}>Anwenden ({filteredPlayers.length})</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1293,127 +1273,158 @@ export function TransfersScreen({ navigation }: any) {
             </View>
           </Modal>
 
-          {/* Add Club Modal (shared) */}
-          <Modal visible={showAddClubModal} transparent animationType="fade">
-            <Pressable style={styles.modalOverlay} onPress={() => setShowFormClubDropdown(false)}>
-              <Pressable style={styles.modalContent} onPress={() => setShowFormClubDropdown(false)}>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>{editingClub ? 'Verein bearbeiten' : 'Neuen suchenden Verein anlegen'}</Text>
-                  <TouchableOpacity onPress={() => { setShowAddClubModal(false); resetClubForm(); }} style={styles.closeButton}>
-                    <Text style={styles.closeButtonText}>✕</Text>
+          {/* Add Club Modal — Skill-Pattern */}
+          <Modal visible={showAddClubModal} transparent animationType="slide">
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
+              <Pressable style={StyleSheet.absoluteFillObject} onPress={() => { setShowAddClubModal(false); resetClubForm(); }} />
+              <View style={{ height: '80%', backgroundColor: '#000', borderTopLeftRadius: 16, borderTopRightRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderBottomWidth: 0, overflow: 'hidden' }}>
+                <Image source={require('../../../assets/scouting-header-bg.jpg')} style={[StyleSheet.absoluteFillObject, { width: '100%', height: '100%', opacity: 0.85, ...({ objectFit: 'cover', objectPosition: 'center', backgroundSize: 'cover', backgroundPosition: 'center' } as any) }]} resizeMode="cover" />
+                <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />
+
+                <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', position: 'relative', zIndex: 1 }}>
+                  <Text style={{ fontFamily: 'Josefin Sans', fontSize: 16, fontWeight: '300', letterSpacing: 4, textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)', textAlign: 'center' }} numberOfLines={1}>{editingClub ? 'Verein bearbeiten' : 'Neuen Verein anlegen'}</Text>
+                  <TouchableOpacity onPress={() => { setShowAddClubModal(false); resetClubForm(); }} style={{ position: 'absolute', right: 16, width: 22, height: 22, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 20, lineHeight: 22 }}>✕</Text>
                   </TouchableOpacity>
                 </View>
-                <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                  <View style={styles.formField}>
-                    <Text style={styles.formLabel}>Verein *</Text>
-                    <TextInput style={styles.formInput} value={formClubSearch} onChangeText={(t) => { setFormClubSearch(t); setNewClub({...newClub, club_name: t}); }} placeholder="Vereinsname" placeholderTextColor="#9ca3af" />
+
+                <ScrollView style={{ flex: 1, zIndex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                  <View style={{ marginBottom: 12 }}>
+                    <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Verein *</Text>
+                    <TextInput style={{ backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 4, fontSize: 13, color: '#fff' }} value={formClubSearch} onChangeText={(t) => { setFormClubSearch(t); setNewClub({...newClub, club_name: t}); }} placeholder="Vereinsname" placeholderTextColor="rgba(255,255,255,0.3)" />
                   </View>
-                  <View style={styles.formField}>
-                    <Text style={styles.formLabel}>Liga</Text>
-                    <TextInput style={styles.formInput} value={newClub.league || ''} onChangeText={(t) => setNewClub({...newClub, league: t})} placeholder="z.B. Bundesliga" placeholderTextColor="#9ca3af" />
+                  <View style={{ marginBottom: 12 }}>
+                    <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Liga</Text>
+                    <TextInput style={{ backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 4, fontSize: 13, color: '#fff' }} value={newClub.league || ''} onChangeText={(t) => setNewClub({...newClub, league: t})} placeholder="z.B. Bundesliga" placeholderTextColor="rgba(255,255,255,0.3)" />
                   </View>
-                  <View style={styles.formField}>
-                    <Text style={styles.formLabel}>Position</Text>
-                    <TextInput style={styles.formInput} value={newClub.position_needed || ''} onChangeText={(t) => setNewClub({...newClub, position_needed: t})} placeholder="z.B. IV, ST" placeholderTextColor="#9ca3af" />
+                  <View style={{ marginBottom: 12 }}>
+                    <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Position</Text>
+                    <TextInput style={{ backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 4, fontSize: 13, color: '#fff' }} value={newClub.position_needed || ''} onChangeText={(t) => setNewClub({...newClub, position_needed: t})} placeholder="z.B. IV, ST" placeholderTextColor="rgba(255,255,255,0.3)" />
                   </View>
-                  <View style={styles.formField}>
-                    <Text style={styles.formLabel}>Jahrgang</Text>
-                    <TextInput style={styles.formInput} value={newClub.year_range || ''} onChangeText={(t) => setNewClub({...newClub, year_range: t})} placeholder="z.B. 2005-2007" placeholderTextColor="#9ca3af" />
+                  <View style={{ marginBottom: 12 }}>
+                    <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Jahrgang</Text>
+                    <TextInput style={{ backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 4, fontSize: 13, color: '#fff' }} value={newClub.year_range || ''} onChangeText={(t) => setNewClub({...newClub, year_range: t})} placeholder="z.B. 2005-2007" placeholderTextColor="rgba(255,255,255,0.3)" />
                   </View>
-                  <View style={styles.formField}>
-                    <Text style={styles.formLabel}>Ansprechpartner</Text>
-                    <TextInput style={styles.formInput} value={newClub.contact_person || ''} onChangeText={(t) => setNewClub({...newClub, contact_person: t})} placeholder="Name" placeholderTextColor="#9ca3af" />
+                  <View style={{ marginBottom: 12 }}>
+                    <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Ansprechpartner</Text>
+                    <TextInput style={{ backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 4, fontSize: 13, color: '#fff' }} value={newClub.contact_person || ''} onChangeText={(t) => setNewClub({...newClub, contact_person: t})} placeholder="Name" placeholderTextColor="rgba(255,255,255,0.3)" />
                   </View>
-                  <View style={styles.formField}>
-                    <Text style={styles.formLabel}>Notizen</Text>
-                    <TextInput style={[styles.formInput, { minHeight: 60 }]} value={newClub.notes || ''} onChangeText={(t) => setNewClub({...newClub, notes: t})} placeholder="Weitere Infos..." placeholderTextColor="#9ca3af" multiline />
+                  <View style={{ marginBottom: 12 }}>
+                    <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Notizen</Text>
+                    <TextInput style={{ backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 8, fontSize: 13, color: '#fff', minHeight: 60, textAlignVertical: 'top' }} value={newClub.notes || ''} onChangeText={(t) => setNewClub({...newClub, notes: t})} placeholder="Weitere Infos..." placeholderTextColor="rgba(255,255,255,0.3)" multiline />
                   </View>
-                  <View style={styles.formField}>
-                    <Text style={styles.formLabel}>Angebote / Dokumente</Text>
+                  <View style={{ marginBottom: 12 }}>
+                    <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Angebote / Dokumente</Text>
                     <TouchableOpacity
-                      style={[styles.uploadOfferButton, uploadingOffer && { opacity: 0.5 }]}
+                      style={{ height: 28, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.05)', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, alignSelf: 'flex-start', opacity: uploadingOffer ? 0.5 : 1 }}
                       onPress={uploadOfferDocument}
                       disabled={uploadingOffer}
                     >
-                      <Ionicons name="cloud-upload-outline" size={16} color="#fff" />
-                      <Text style={styles.uploadOfferButtonText}>{uploadingOffer ? 'Lädt hoch...' : 'PDF hochladen'}</Text>
+                      <Ionicons name="cloud-upload-outline" size={12} color="rgba(255,255,255,0.85)" />
+                      <Text style={{ fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.85)' }}>{uploadingOffer ? 'Lädt hoch...' : 'PDF hochladen'}</Text>
                     </TouchableOpacity>
                     {clubOfferDocuments.map((doc, index) => (
-                      <View key={index} style={styles.offerDocItem}>
-                        <TouchableOpacity onPress={() => openOfferDocument(doc.url)} style={styles.offerDocLink}>
-                          <Text style={styles.offerDocIcon}>📄</Text>
-                          <Text style={styles.offerDocName} numberOfLines={1}>{doc.name}</Text>
+                      <View key={index} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
+                        <TouchableOpacity onPress={() => openOfferDocument(doc.url)} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={{ fontSize: 14 }}>📄</Text>
+                          <Text style={{ fontSize: 12, color: '#22c55e', textDecorationLine: 'underline' }} numberOfLines={1}>{doc.name}</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity onPress={() => deleteOfferDocument(doc.path)} style={styles.offerDocDelete}>
-                          <Text style={styles.offerDocDeleteText}>✕</Text>
+                        <TouchableOpacity onPress={() => deleteOfferDocument(doc.path)} style={{ width: 22, height: 22, alignItems: 'center', justifyContent: 'center' }}>
+                          <Ionicons name="trash-outline" size={14} color="#ef4444" />
                         </TouchableOpacity>
                       </View>
                     ))}
                   </View>
                 </ScrollView>
-                <View style={styles.modalButtons}>
-                  <TouchableOpacity style={styles.cancelButton} onPress={() => { setShowAddClubModal(false); resetClubForm(); }}>
-                    <Text style={styles.cancelButtonText}>Abbrechen</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, paddingHorizontal: 20, paddingVertical: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)', zIndex: 1 }}>
+                  <TouchableOpacity style={{ height: 28, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' }} onPress={() => { setShowAddClubModal(false); resetClubForm(); }}>
+                    <Text style={{ fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.85)' }}>Abbrechen</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.saveButton} onPress={saveSearchingClub}>
-                    <Text style={styles.saveButtonText}>Speichern</Text>
+                  <TouchableOpacity style={{ height: 28, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: '#22c55e', backgroundColor: '#22c55e', alignItems: 'center', justifyContent: 'center' }} onPress={saveSearchingClub}>
+                    <Text style={{ fontSize: 11, fontWeight: '600', color: '#fff' }}>Speichern</Text>
                   </TouchableOpacity>
                 </View>
-              </Pressable>
-            </Pressable>
+              </View>
+            </View>
           </Modal>
 
-          {/* Club Detail Modal (shared) */}
-          <Modal visible={showClubDetailModal} transparent animationType="fade">
-            <View style={styles.modalOverlay}>
-              <View style={styles.modalContent}>
-                <View style={styles.modalHeader}>
-                  <View>
-                    <Text style={styles.modalTitle}>{selectedClub?.club_name}</Text>
-                    {selectedClub?.league && <Text style={styles.detailSubtitle}>{selectedClub.league}</Text>}
+          {/* Club Detail Modal — Skill-Pattern */}
+          <Modal visible={showClubDetailModal} transparent animationType="slide">
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
+              <Pressable style={StyleSheet.absoluteFillObject} onPress={() => { setShowClubDetailModal(false); setSelectedClub(null); }} />
+              <View style={{ height: '80%', backgroundColor: '#000', borderTopLeftRadius: 16, borderTopRightRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderBottomWidth: 0, overflow: 'hidden' }}>
+                <Image source={require('../../../assets/scouting-header-bg.jpg')} style={[StyleSheet.absoluteFillObject, { width: '100%', height: '100%', opacity: 0.85, ...({ objectFit: 'cover', objectPosition: 'center', backgroundSize: 'cover', backgroundPosition: 'center' } as any) }]} resizeMode="cover" />
+                <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />
+
+                <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', zIndex: 1, gap: 8 }}>
+                  {selectedClub && clubLogos[selectedClub.club_name] ? (
+                    <Image source={{ uri: clubLogos[selectedClub.club_name] }} style={{ width: 32, height: 32 }} resizeMode="contain" />
+                  ) : null}
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 17, fontWeight: '600', color: '#fff' }} numberOfLines={1}>{selectedClub?.club_name}</Text>
+                    {selectedClub?.league ? (
+                      <Text style={{ fontFamily: 'Josefin Sans', fontSize: 12, fontWeight: '300', letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)', marginTop: 4 }} numberOfLines={1}>{selectedClub.league}</Text>
+                    ) : null}
                   </View>
-                  <TouchableOpacity onPress={() => { setShowClubDetailModal(false); setSelectedClub(null); }} style={styles.closeButton}>
-                    <Text style={styles.closeButtonText}>✕</Text>
+                  <TouchableOpacity style={{ height: 28, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' }} onPress={() => selectedClub && openEditClubModal(selectedClub)}>
+                    <Text style={{ fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.85)' }}>Bearbeiten</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => { setShowClubDetailModal(false); setSelectedClub(null); }} style={{ width: 22, height: 22, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 20, lineHeight: 22 }}>✕</Text>
                   </TouchableOpacity>
                 </View>
-                {selectedClub && (
-                  <View>
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Position</Text>
-                      <Text style={styles.detailValue}>{selectedClub.position_needed || '-'}</Text>
-                    </View>
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Jahrgang</Text>
-                      <Text style={styles.detailValue}>{selectedClub.year_range || '-'}</Text>
-                    </View>
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Ansprechpartner</Text>
-                      <Text style={styles.detailValue}>{selectedClub.contact_person || '-'}</Text>
-                    </View>
-                    {selectedClub.notes && (
-                      <View style={styles.detailRowNotes}>
-                        <Text style={styles.detailLabel}>Notizen</Text>
-                        <Text style={styles.detailNotesText}>{selectedClub.notes}</Text>
+
+                <ScrollView style={{ flex: 1, zIndex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24 }}>
+                  {selectedClub && (
+                    <>
+                      <View style={{ backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}>
+                        <View style={{ marginBottom: 12 }}>
+                          <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Position</Text>
+                          {(() => {
+                            const positions = (selectedClub.position_needed || '').split(',').map(p => p.trim()).filter(Boolean);
+                            if (positions.length === 0) return <Text style={{ fontSize: 13, fontWeight: '500', color: '#fff' }}>-</Text>;
+                            return (
+                              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
+                                {positions.map((pos, idx) => (
+                                  <View key={idx} style={{ backgroundColor: 'rgba(59,130,246,0.18)', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(59,130,246,0.5)' }}>
+                                    <Text style={{ fontSize: 9, fontWeight: '600', color: '#60a5fa', letterSpacing: 0.3 }}>{POSITION_SHORT[pos] || pos}</Text>
+                                  </View>
+                                ))}
+                              </View>
+                            );
+                          })()}
+                        </View>
+                        <View style={{ marginBottom: 12 }}>
+                          <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Jahrgang</Text>
+                          <Text style={{ fontSize: 13, fontWeight: '500', color: '#fff' }}>{selectedClub.year_range || '-'}</Text>
+                        </View>
+                        <View>
+                          <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Ansprechpartner</Text>
+                          <Text style={{ fontSize: 13, fontWeight: '500', color: '#fff' }}>{selectedClub.contact_person || '-'}</Text>
+                        </View>
                       </View>
-                    )}
-                    {(selectedClub.offer_documents || []).length > 0 && (
-                      <View style={styles.detailRowNotes}>
-                        <Text style={styles.detailLabel}>Angebote</Text>
-                        {(selectedClub.offer_documents || []).map((doc, index) => (
-                          <TouchableOpacity key={index} onPress={() => openOfferDocument(doc.url)} style={styles.offerDocDetailLink}>
-                            <Text style={styles.offerDocIcon}>📄</Text>
-                            <Text style={styles.offerDocDetailName}>{doc.name}</Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    )}
-                    <View style={styles.detailActions}>
-                      <TouchableOpacity style={styles.editButton} onPress={() => openEditClubModal(selectedClub)}>
-                        <Text style={styles.editButtonText}>Bearbeiten</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                )}
+
+                      {selectedClub.notes ? (
+                        <View style={{ backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}>
+                          <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Notizen</Text>
+                          <Text style={{ fontSize: 13, fontWeight: '500', color: '#fff', lineHeight: 18 }}>{selectedClub.notes}</Text>
+                        </View>
+                      ) : null}
+
+                      {(selectedClub.offer_documents || []).length > 0 ? (
+                        <View style={{ backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}>
+                          <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Angebote</Text>
+                          {(selectedClub.offer_documents || []).map((doc, index) => (
+                            <TouchableOpacity key={index} onPress={() => openOfferDocument(doc.url)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 }}>
+                              <Text style={{ fontSize: 14 }}>📄</Text>
+                              <Text style={{ fontSize: 13, color: '#22c55e', textDecorationLine: 'underline' }}>{doc.name}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      ) : null}
+                    </>
+                  )}
+                </ScrollView>
               </View>
             </View>
           </Modal>
@@ -1424,53 +1435,112 @@ export function TransfersScreen({ navigation }: any) {
 
   // Desktop View
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: 'transparent' }]}>
       {/* Sidebar */}
+      <AdvisorBackground />
       <Sidebar navigation={navigation} activeScreen="transfers" profile={profile} />
 
       {/* Main Content */}
-      <View style={[styles.mainContent, { backgroundColor: colors.background }]}>
+      <View style={[styles.mainContent, { backgroundColor: 'transparent' }]}>
         {/* Header Banner */}
-        <Pressable style={[styles.headerBanner, { backgroundColor: colors.surface, borderBottomColor: colors.border }]} onPress={closeAllDropdowns}>
-          <View style={{ width: 40 }} />
-          <View style={styles.headerBannerCenter}>
-            <Text style={[styles.headerTitle, { color: colors.text }]}>Transfers</Text>
-            <Text style={[styles.headerSubtitle, { color: colors.textMuted }]}>
-              Spieler mit auslaufendem Vertrag und Vereine auf der Suche
-            </Text>
-          </View>
-          <View style={styles.headerTabs}>
-            <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, activeTab === 'spieler' && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]} onPress={() => { closeAllDropdowns(); setActiveTab('spieler'); }}>
-              <Text style={[styles.filterButtonText, { color: colors.textSecondary }, activeTab === 'spieler' && { color: isDark ? '#93c5fd' : '#0369a1' }]}>Spieler ({transferPlayers.length})</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, activeTab === 'vereine' && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]} onPress={() => { closeAllDropdowns(); setActiveTab('vereine'); }}>
-              <Text style={[styles.filterButtonText, { color: colors.textSecondary }, activeTab === 'vereine' && { color: isDark ? '#93c5fd' : '#0369a1' }]}>Vereine auf der Suche...</Text>
-            </TouchableOpacity>
-          </View>
-        </Pressable>
+        {/* Header mit Filter als children im AdvisorHeroHeader (durchgehender BG) */}
+        {(() => {
+          const filterToolbarContent = (
+            <>
+          <TouchableOpacity style={{ height: 28, paddingVertical: 0, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center' }} onPress={() => navigation.navigate('AdvisorDashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
 
-        {activeTab === 'spieler' && (
-        /* Toolbar wie Scouting */
-        <Pressable style={[styles.toolbar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]} onPress={closeAllDropdowns}>
-          <TouchableOpacity style={{ paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }} onPress={() => navigation.navigate('AdvisorDashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
-          <View style={[styles.searchContainer, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
+          {activeTab === 'vereine' && (<>
+            <View style={[styles.searchContainer, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)', height: 28, borderRadius: 6, paddingVertical: 0, flex: 1 }]}>
+              <Text style={styles.searchIcon}>🔍</Text>
+              <TextInput style={[styles.searchInput, { color: colors.text, paddingVertical: 0 }]} placeholder="Verein, Liga suchen..." placeholderTextColor={colors.textMuted} value={clubSearchText} onChangeText={setClubSearchText} />
+            </View>
+            <View style={styles.filterContainer}>
+              <View style={[styles.dropdownContainer, { zIndex: 40 }]} {...({ dataSet: { 'filter-dropdown': 'true' } } as any)}>
+                <TouchableOpacity
+                  style={[styles.filterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }, selectedClubPositions.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
+                  onPress={(e) => { e.stopPropagation(); closeAllDropdowns(); setShowClubPositionDropdown(!showClubPositionDropdown); }}
+                >
+                  <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedClubPositions.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>{getClubPositionFilterLabel()} ▼</Text>
+                </TouchableOpacity>
+                {showClubPositionDropdown && (
+                  <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
+                    <View style={styles.filterDropdownHeader}>
+                      <Text style={styles.filterDropdownTitle}>Position wählen</Text>
+                      {selectedClubPositions.length > 0 && <TouchableOpacity onPress={clearClubPositions}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
+                    </View>
+                    <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
+                      {POSITIONS.map(pos => {
+                        const isSelected = selectedClubPositions.includes(pos);
+                        const count = searchingClubs.filter(c => c.position_needed?.includes(pos)).length;
+                        return (
+                          <TouchableOpacity key={pos} style={styles.filterCheckboxItem} onPress={() => toggleClubPosition(pos)}>
+                            <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                            <Text style={styles.filterCheckboxText}>{POSITION_SHORT[pos]}</Text>
+                            <Text style={styles.filterCountBadge}>{count}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                    <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowClubPositionDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                  </Pressable>
+                )}
+              </View>
+              <View style={[styles.dropdownContainer, { zIndex: 30 }]} {...({ dataSet: { 'filter-dropdown': 'true' } } as any)}>
+                <TouchableOpacity
+                  style={[styles.filterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }, selectedClubYears.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
+                  onPress={(e) => { e.stopPropagation(); closeAllDropdowns(); setShowClubYearDropdown(!showClubYearDropdown); }}
+                >
+                  <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedClubYears.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>{getClubYearFilterLabel()} ▼</Text>
+                </TouchableOpacity>
+                {showClubYearDropdown && (
+                  <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
+                    <View style={styles.filterDropdownHeader}>
+                      <Text style={styles.filterDropdownTitle}>Jahrgang wählen</Text>
+                      {selectedClubYears.length > 0 && <TouchableOpacity onPress={clearClubYears}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
+                    </View>
+                    <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
+                      {availableClubYears.map(year => {
+                        const isSelected = selectedClubYears.includes(year);
+                        const count = searchingClubs.filter(c => c.year_range?.includes(year)).length;
+                        return (
+                          <TouchableOpacity key={year} style={styles.filterCheckboxItem} onPress={() => toggleClubYear(year)}>
+                            <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                            <Text style={styles.filterCheckboxText}>Jg. {year}</Text>
+                            <Text style={styles.filterCountBadge}>{count}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                    <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowClubYearDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                  </Pressable>
+                )}
+              </View>
+            </View>
+            <TouchableOpacity style={[styles.filterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)', flexDirection: 'row', gap: 4, paddingHorizontal: 8 }]} onPress={() => setShowAddClubModal(true)}>
+              <Ionicons name="add" size={12} color={colors.textSecondary} />
+              <Ionicons name="shield-outline" size={14} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </>)}
+
+          {activeTab === 'spieler' && (<>
+          <View style={[styles.searchContainer, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)', height: 28, borderRadius: 6, paddingVertical: 0, flex: 1 }]}>
             <Text style={styles.searchIcon}>🔍</Text>
-            <TextInput style={[styles.searchInput, { color: colors.text }]} placeholder="Spieler, Verein suchen..." placeholderTextColor={colors.textMuted} value={searchText} onChangeText={setSearchText} onFocus={closeAllDropdowns} />
+            <TextInput style={[styles.searchInput, { color: colors.text, paddingVertical: 0 }]} placeholder="Spieler, Verein suchen..." placeholderTextColor={colors.textMuted} value={searchText} onChangeText={setSearchText} onFocus={closeAllDropdowns} />
           </View>
           
           <View style={styles.filterContainer}>
             {/* Position Filter */}
             <View style={[styles.dropdownContainer, { zIndex: 40 }]}>
               <TouchableOpacity
-                style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedPositions.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
+                style={[styles.filterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }, selectedPositions.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
                 onPress={(e) => { e.stopPropagation(); closeAllDropdowns(); setShowPositionDropdown(!showPositionDropdown); }}
               >
                 <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedPositions.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>{getPositionFilterLabel()} ▼</Text>
               </TouchableOpacity>
               {showPositionDropdown && (
-                <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
-                  <View style={[styles.filterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
-                    <Text style={[styles.filterDropdownTitle, { color: colors.text }]}>Positionen wählen</Text>
+                <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
+                  <View style={styles.filterDropdownHeader}>
+                    <Text style={styles.filterDropdownTitle}>Positionen wählen</Text>
                     {selectedPositions.length > 0 && <TouchableOpacity onPress={clearPositions}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
                   </View>
                   <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
@@ -1478,15 +1548,15 @@ export function TransfersScreen({ navigation }: any) {
                       const isSelected = selectedPositions.includes(pos);
                       const count = transferPlayers.filter(p => p.position?.includes(pos)).length;
                       return (
-                        <TouchableOpacity key={pos} style={[styles.filterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => togglePosition(pos)}>
-                          <View style={[styles.checkbox, { borderColor: colors.border }, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                          <Text style={[styles.filterCheckboxText, { color: colors.text }]}>{POSITION_SHORT[pos]}</Text>
-                          <Text style={[styles.filterCountBadge, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
+                        <TouchableOpacity key={pos} style={styles.filterCheckboxItem} onPress={() => togglePosition(pos)}>
+                          <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                          <Text style={styles.filterCheckboxText}>{POSITION_SHORT[pos]}</Text>
+                          <Text style={styles.filterCountBadge}>{count}</Text>
                         </TouchableOpacity>
                       );
                     })}
                   </ScrollView>
-                  <TouchableOpacity style={[styles.filterDoneButton, { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border }]} onPress={() => setShowPositionDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                  <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowPositionDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
                 </Pressable>
               )}
             </View>
@@ -1494,15 +1564,15 @@ export function TransfersScreen({ navigation }: any) {
             {/* Jahrgang Filter */}
             <View style={[styles.dropdownContainer, { zIndex: 30 }]}>
               <TouchableOpacity
-                style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedYears.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
+                style={[styles.filterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }, selectedYears.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
                 onPress={(e) => { e.stopPropagation(); closeAllDropdowns(); setShowYearDropdown(!showYearDropdown); }}
               >
                 <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedYears.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>{getYearFilterLabel()} ▼</Text>
               </TouchableOpacity>
               {showYearDropdown && (
-                <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
-                  <View style={[styles.filterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
-                    <Text style={[styles.filterDropdownTitle, { color: colors.text }]}>Jahrgänge wählen</Text>
+                <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
+                  <View style={styles.filterDropdownHeader}>
+                    <Text style={styles.filterDropdownTitle}>Jahrgänge wählen</Text>
                     {selectedYears.length > 0 && <TouchableOpacity onPress={clearYears}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
                   </View>
                   <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
@@ -1510,15 +1580,15 @@ export function TransfersScreen({ navigation }: any) {
                       const isSelected = selectedYears.includes(year);
                       const count = transferPlayers.filter(p => getYearFromDate(p.birth_date) === year).length;
                       return (
-                        <TouchableOpacity key={year} style={[styles.filterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => toggleYear(year)}>
-                          <View style={[styles.checkbox, { borderColor: colors.border }, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                          <Text style={[styles.filterCheckboxText, { color: colors.text }]}>Jg. {year}</Text>
-                          <Text style={[styles.filterCountBadge, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
+                        <TouchableOpacity key={year} style={styles.filterCheckboxItem} onPress={() => toggleYear(year)}>
+                          <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                          <Text style={styles.filterCheckboxText}>Jg. {year}</Text>
+                          <Text style={styles.filterCountBadge}>{count}</Text>
                         </TouchableOpacity>
                       );
                     })}
                   </ScrollView>
-                  <TouchableOpacity style={[styles.filterDoneButton, { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border }]} onPress={() => setShowYearDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                  <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowYearDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
                 </Pressable>
               )}
             </View>
@@ -1526,15 +1596,15 @@ export function TransfersScreen({ navigation }: any) {
             {/* Listung Filter */}
             <View style={[styles.dropdownContainer, { zIndex: 20 }]}>
               <TouchableOpacity
-                style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedListings.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
+                style={[styles.filterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }, selectedListings.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
                 onPress={(e) => { e.stopPropagation(); closeAllDropdowns(); setShowListingDropdown(!showListingDropdown); }}
               >
                 <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedListings.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>{getListingFilterLabel()} ▼</Text>
               </TouchableOpacity>
               {showListingDropdown && (
-                <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
-                  <View style={[styles.filterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
-                    <Text style={[styles.filterDropdownTitle, { color: colors.text }]}>Listung wählen</Text>
+                <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
+                  <View style={styles.filterDropdownHeader}>
+                    <Text style={styles.filterDropdownTitle}>Listung wählen</Text>
                     {selectedListings.length > 0 && <TouchableOpacity onPress={clearListings}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
                   </View>
                   <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
@@ -1542,15 +1612,15 @@ export function TransfersScreen({ navigation }: any) {
                       const isSelected = selectedListings.includes(listing);
                       const count = transferPlayers.filter(p => p.listing === listing).length;
                       return (
-                        <TouchableOpacity key={listing} style={[styles.filterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => toggleListing(listing)}>
-                          <View style={[styles.checkbox, { borderColor: colors.border }, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                          <Text style={[styles.filterCheckboxText, { color: colors.text }]}>{listing === 'Karl Herzog Sportmanagement' ? 'KMH' : 'PM'}</Text>
-                          <Text style={[styles.filterCountBadge, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
+                        <TouchableOpacity key={listing} style={styles.filterCheckboxItem} onPress={() => toggleListing(listing)}>
+                          <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                          <Text style={styles.filterCheckboxText}>{listing === 'Karl Herzog Sportmanagement' ? 'KMH' : 'PM'}</Text>
+                          <Text style={styles.filterCountBadge}>{count}</Text>
                         </TouchableOpacity>
                       );
                     })}
                   </ScrollView>
-                  <TouchableOpacity style={[styles.filterDoneButton, { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border }]} onPress={() => setShowListingDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                  <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowListingDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
                 </Pressable>
               )}
             </View>
@@ -1558,15 +1628,15 @@ export function TransfersScreen({ navigation }: any) {
             {/* Zuständigkeit Filter */}
             <View style={[styles.dropdownContainer, { zIndex: 10 }]}>
               <TouchableOpacity
-                style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedResponsibilities.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
+                style={[styles.filterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }, selectedResponsibilities.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
                 onPress={(e) => { e.stopPropagation(); closeAllDropdowns(); setShowResponsibilityDropdown(!showResponsibilityDropdown); }}
               >
                 <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedResponsibilities.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>{getResponsibilityFilterLabel()} ▼</Text>
               </TouchableOpacity>
               {showResponsibilityDropdown && (
-                <Pressable style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
-                  <View style={[styles.filterDropdownHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
-                    <Text style={[styles.filterDropdownTitle, { color: colors.text }]}>Zuständigkeit wählen</Text>
+                <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
+                  <View style={styles.filterDropdownHeader}>
+                    <Text style={styles.filterDropdownTitle}>Zuständigkeit wählen</Text>
                     {selectedResponsibilities.length > 0 && <TouchableOpacity onPress={clearResponsibilities}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
                   </View>
                   <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
@@ -1575,21 +1645,63 @@ export function TransfersScreen({ navigation }: any) {
                       const isSelected = selectedResponsibilities.includes(name);
                       const count = transferPlayers.filter(p => p.responsibility?.includes(name)).length;
                       return (
-                        <TouchableOpacity key={advisor.id} style={[styles.filterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => toggleResponsibility(name)}>
-                          <View style={[styles.checkbox, { borderColor: colors.border }, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                          <Text style={[styles.filterCheckboxText, { color: colors.text }]}>{name}</Text>
-                          <Text style={[styles.filterCountBadge, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
+                        <TouchableOpacity key={advisor.id} style={styles.filterCheckboxItem} onPress={() => toggleResponsibility(name)}>
+                          <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
+                          <Text style={styles.filterCheckboxText}>{name}</Text>
+                          <Text style={styles.filterCountBadge}>{count}</Text>
                         </TouchableOpacity>
                       );
                     })}
                   </ScrollView>
-                  <TouchableOpacity style={[styles.filterDoneButton, { backgroundColor: colors.surfaceSecondary, borderTopColor: colors.border }]} onPress={() => setShowResponsibilityDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
+                  <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowResponsibilityDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
                 </Pressable>
               )}
             </View>
           </View>
-        </Pressable>
-        )}
+          </>)}
+
+          {/* Segmented Control: Spieler / Vereine — ganz rechts in der Toolbar */}
+          <View style={{ height: 28, flexDirection: 'row', borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', overflow: 'hidden' }}>
+            {([
+              { key: 'spieler' as ActiveTab, icon: 'person' as const, count: transferPlayers.length },
+              { key: 'vereine' as ActiveTab, icon: 'shield' as const, count: searchingClubs.length },
+            ]).map((tab, idx) => {
+              const active = activeTab === tab.key;
+              return (
+                <TouchableOpacity
+                  key={tab.key}
+                  style={{
+                    paddingHorizontal: 12,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                    backgroundColor: active ? 'rgba(59, 130, 246, 0.25)' : 'rgba(0,0,0,0.7)',
+                    borderLeftWidth: idx > 0 ? 1 : 0,
+                    borderLeftColor: 'rgba(255,255,255,0.25)',
+                  }}
+                  onPress={() => { closeAllDropdowns(); setActiveTab(tab.key); }}
+                >
+                  <Ionicons name={tab.icon} size={13} color={active ? '#93c5fd' : colors.textSecondary} />
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: active ? '#93c5fd' : colors.textSecondary }}>{tab.count}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+            </>
+          );
+          return (
+            <Pressable onPress={closeAllDropdowns} style={{ zIndex: 1000, position: 'relative' }}>
+              <AdvisorHeroHeader
+                title="TRANSFERS"
+                subtitle={activeTab === 'vereine' ? 'VEREINE AUF DER SUCHE' : 'SPIELER MIT AUSLAUFENDEM VERTRAG'}
+                backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
+                backgroundImageOpacity={0.45}
+              >
+                {filterToolbarContent}
+              </AdvisorHeroHeader>
+            </Pressable>
+          );
+        })()}
 
         {/* Dropdown Overlay - schließt alle Dropdowns beim Klicken */}
         {isAnyDropdownOpen && activeTab === 'spieler' && (
@@ -1598,10 +1710,11 @@ export function TransfersScreen({ navigation }: any) {
 
         {activeTab === 'spieler' ? (
           <View style={styles.content}>
-            <View style={[styles.tableWrapper, { backgroundColor: colors.cardBackground, borderColor: colors.border }]} onLayout={(e) => setPlayerTableWidth(e.nativeEvent.layout.width - 32)}>
+            <View style={[styles.tableWrapper, { backgroundColor: 'rgba(0,0,0,0.55)', borderColor: 'rgba(255,255,255,0.15)' }]} onLayout={(e) => setPlayerTableWidth(e.nativeEvent.layout.width - 32)}>
               {playerTableWidth > 0 && (
                 <TableHeader
                   columnDefs={PLAYER_COLUMNS}
+                  backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
                   columnOrder={playerTable.columnOrder}
                   getColumnWidth={playerTable.getColumnWidth}
                   onResizeStart={playerTable.onResizeStart}
@@ -1614,7 +1727,7 @@ export function TransfersScreen({ navigation }: any) {
                   sortAsc={sortDirection === 'asc'}
                   colors={colors}
                   setHeaderRef={playerTable.setHeaderRef}
-                  style={{ paddingHorizontal: 16 }}
+                  style={{ backgroundColor: 'rgba(0,0,0,0.45)', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 16 }}
                 />
               )}
 
@@ -1669,9 +1782,9 @@ export function TransfersScreen({ navigation }: any) {
                               return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{player.league || '-'}</Text>;
                             case 'contract_end':
                               if (expired) {
-                                return <View style={styles.contractBadgeExpired}><Text style={styles.contractBadgeTextExpired}>Vereinslos</Text></View>;
+                                return <Text style={[styles.tableCell, { color: '#ef4444' }]}>Vereinslos</Text>;
                               }
-                              return <View style={styles.contractBadge}><Text style={styles.contractBadgeText}>{formatDate(player.contract_end)}</Text></View>;
+                              return <Text style={[styles.tableCell, { color: '#ef4444' }]}>{formatDate(player.contract_end)}</Text>;
                             case 'listing':
                               return renderListingBadge(player.listing);
                             case 'responsibility':
@@ -1692,20 +1805,25 @@ export function TransfersScreen({ navigation }: any) {
         )}
       </View>
       
-      {/* Add Club Modal */}
+      {/* Add Club Modal — KMH-Skill Style */}
       <Modal visible={showAddClubModal} transparent animationType="fade">
         <Pressable style={styles.modalOverlay} onPress={() => setShowFormClubDropdown(false)}>
-          <Pressable style={[styles.modalContent, { backgroundColor: colors.surface }]} onPress={() => setShowFormClubDropdown(false)}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>{editingClub ? 'Verein bearbeiten' : 'Neuen suchenden Verein anlegen'}</Text>
-              <TouchableOpacity onPress={() => { setShowAddClubModal(false); resetClubForm(); }} style={[styles.closeButton, { backgroundColor: colors.surfaceSecondary }]}>
-                <Text style={[styles.closeButtonText, { color: colors.textSecondary }]}>✕</Text>
+          <Pressable style={[styles.modalContent, { overflow: 'visible', backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', padding: 0, shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.7, shadowRadius: 30, elevation: 24 }]} onPress={() => setShowFormClubDropdown(false)}>
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 16, overflow: 'hidden' }} pointerEvents="none">
+              <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%', opacity: 0.85, ...({ objectFit: 'cover', objectPosition: 'center', backgroundSize: 'cover', backgroundPosition: 'center' } as any) }} resizeMode="cover" />
+              <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.45)' }} />
+            </View>
+            <View style={{ padding: 24, zIndex: 1 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 20, position: 'relative' }}>
+              <Text style={{ fontFamily: 'Josefin Sans', fontSize: 16, fontWeight: '300', letterSpacing: 4, textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>{editingClub ? 'Verein bearbeiten' : 'Neuen suchenden Verein anlegen'}</Text>
+              <TouchableOpacity onPress={() => { setShowAddClubModal(false); resetClubForm(); }} style={{ position: 'absolute', right: 0, width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 20 }}>✕</Text>
               </TouchableOpacity>
             </View>
 
             <ScrollView style={{ maxHeight: 500 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <View style={[styles.formField, { zIndex: 1000 }]}>
-                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Verein *</Text>
+                <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Verein *</Text>
                 <View style={styles.clubSelectorContainer}>
                   <TextInput
                     style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
@@ -1769,74 +1887,125 @@ export function TransfersScreen({ navigation }: any) {
               </View>
 
               <View style={[styles.formField, { zIndex: 1 }]}>
-                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Liga</Text>
+                <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Liga</Text>
                 <TextInput
-                  style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+                  style={{ backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 8, fontSize: 13, color: '#fff' }}
                   value={newClub.league || ''}
                   onChangeText={(t) => setNewClub({...newClub, league: t})}
                   placeholder="z.B. Bundesliga, 2. Liga"
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor="rgba(255,255,255,0.3)"
                   onFocus={() => setShowFormClubDropdown(false)}
                 />
               </View>
 
-              <View style={[styles.formField, { zIndex: 1 }]}>
-                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Gesuchte Position</Text>
-                <Pressable style={styles.positionPickerRow} onPress={() => setShowFormClubDropdown(false)}>
-                  {POSITIONS.map(pos => {
-                    const isSelected = formPositions.includes(pos);
-                    return (
-                      <TouchableOpacity
-                        key={pos}
-                        style={[styles.positionOption, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, isSelected && styles.positionOptionSelected]}
-                        onPress={() => { setShowFormClubDropdown(false); toggleFormPosition(pos); }}
-                      >
-                        <Text style={[styles.positionOptionText, { color: colors.textSecondary }, isSelected && styles.positionOptionTextSelected]}>{POSITION_SHORT[pos]}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </Pressable>
+              <View style={[styles.formField, { zIndex: 80, position: 'relative' }]}>
+                <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Gesuchte Position</Text>
+                <TouchableOpacity
+                  style={{ backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+                  onPress={() => { setShowFormClubDropdown(false); setShowFormPositionDropdown(!showFormPositionDropdown); }}
+                >
+                  <Text style={{ flex: 1, color: formPositions.length > 0 ? '#fff' : 'rgba(255,255,255,0.3)', fontSize: 13, fontWeight: '500' }} numberOfLines={1}>
+                    {formPositions.length > 0 ? formPositions.map(p => POSITION_SHORT[p] || p).join(', ') : 'Positionen wählen…'}
+                  </Text>
+                  <Ionicons name={showFormPositionDropdown ? 'chevron-up' : 'chevron-down'} size={14} color="rgba(255,255,255,0.5)" />
+                </TouchableOpacity>
+                {showFormPositionDropdown && (
+                  <Pressable style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, backgroundColor: '#1e293b', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12, zIndex: 1000 }} onPress={(e) => e.stopPropagation()}>
+                    <ScrollView style={{ maxHeight: 280 }} nestedScrollEnabled>
+                      {POSITIONS.map(pos => {
+                        const isSelected = formPositions.includes(pos);
+                        return (
+                          <TouchableOpacity
+                            key={pos}
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}
+                            onPress={() => toggleFormPosition(pos)}
+                          >
+                            <Ionicons name={isSelected ? 'checkbox' : 'square-outline'} size={16} color={isSelected ? '#22c55e' : 'rgba(255,255,255,0.5)'} />
+                            <Text style={{ flex: 1, color: '#fff', fontSize: 13, fontWeight: '500' }}>{POSITION_SHORT[pos]} <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>· {pos}</Text></Text>
+                            {isSelected ? <Ionicons name="checkmark" size={14} color="#22c55e" /> : null}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                    <TouchableOpacity style={{ padding: 12, alignItems: 'center', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)', backgroundColor: '#000' }} onPress={() => setShowFormPositionDropdown(false)}>
+                      <Text style={{ fontSize: 12, fontWeight: '600', color: '#22c55e', letterSpacing: 0.5 }}>Fertig</Text>
+                    </TouchableOpacity>
+                  </Pressable>
+                )}
               </View>
 
               <View style={[styles.formField, { zIndex: 1 }]}>
-                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Alter/Jahrgang</Text>
+                <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Alter/Jahrgang</Text>
                 <TextInput
-                  style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+                  style={{ backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 8, fontSize: 13, color: '#fff' }}
                   value={newClub.year_range || ''}
                   onChangeText={(t) => setNewClub({...newClub, year_range: t})}
                   placeholder="z.B. 2005-2007"
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor="rgba(255,255,255,0.3)"
                   onFocus={() => setShowFormClubDropdown(false)}
                 />
               </View>
 
-              <View style={[styles.formField, { zIndex: 1 }]}>
-                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Ansprechpartner</Text>
+              <View style={[styles.formField, { zIndex: 60, position: 'relative' }]}>
+                <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Ansprechpartner</Text>
                 <TextInput
-                  style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+                  style={{ backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 8, fontSize: 13, color: '#fff' }}
                   value={newClub.contact_person || ''}
-                  onChangeText={(t) => setNewClub({...newClub, contact_person: t})}
-                  placeholder="Name des Kontakts"
-                  placeholderTextColor={colors.textMuted}
-                  onFocus={() => setShowFormClubDropdown(false)}
+                  onChangeText={(t) => { setNewClub({...newClub, contact_person: t}); setShowFormAdvisorSuggestions(true); }}
+                  placeholder="z.B. Max Müller · Sportdirektor"
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  onFocus={() => { setShowFormClubDropdown(false); setShowFormPositionDropdown(false); if (formClubContacts.length > 0) setShowFormAdvisorSuggestions(true); }}
                 />
+                {showFormAdvisorSuggestions && formClubContacts.length > 0 ? (() => {
+                  const q = (newClub.contact_person || '').toLowerCase().trim();
+                  const matches = q
+                    ? formClubContacts.filter(c =>
+                        `${c.vorname} ${c.nachname}`.toLowerCase().includes(q) ||
+                        (c.position || '').toLowerCase().includes(q) ||
+                        (c.mannschaft || '').toLowerCase().includes(q)
+                      )
+                    : formClubContacts;
+                  if (matches.length === 0) return null;
+                  return (
+                    <Pressable style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, backgroundColor: '#1e293b', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12, zIndex: 1000 }} onPress={(e) => e.stopPropagation()}>
+                      <ScrollView style={{ maxHeight: 240 }} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                        {matches.map(c => {
+                          const fullName = [c.vorname, c.nachname].filter(Boolean).join(' ').trim();
+                          const display = c.position ? `${fullName} · ${c.position}` : fullName;
+                          return (
+                            <TouchableOpacity
+                              key={c.id}
+                              style={{ paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}
+                              onPress={() => { setNewClub({...newClub, contact_person: display}); setShowFormAdvisorSuggestions(false); }}
+                            >
+                              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '500' }} numberOfLines={1}>{display}</Text>
+                              {c.mannschaft || c.bereich ? (
+                                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }} numberOfLines={1}>{[c.mannschaft, c.bereich].filter(Boolean).join(' · ')}</Text>
+                              ) : null}
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </ScrollView>
+                    </Pressable>
+                  );
+                })() : null}
               </View>
 
               <View style={[styles.formField, { zIndex: 1 }]}>
-                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Notizen</Text>
+                <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Notizen</Text>
                 <TextInput
-                  style={[styles.formInput, { minHeight: 80, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+                  style={{ minHeight: 80, backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 13, color: '#fff', textAlignVertical: 'top' }}
                   value={newClub.notes || ''}
                   onChangeText={(t) => setNewClub({...newClub, notes: t})}
                   placeholder="Weitere Informationen..."
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor="rgba(255,255,255,0.3)"
                   multiline
                   onFocus={() => setShowFormClubDropdown(false)}
                 />
               </View>
 
               <View style={[styles.formField, { zIndex: 1 }]}>
-                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Angebote / Dokumente</Text>
+                <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Angebote / Dokumente</Text>
                 <TouchableOpacity
                   style={[styles.uploadOfferButton, { backgroundColor: colors.primary }, uploadingOffer && { opacity: 0.5 }]}
                   onPress={uploadOfferDocument}
@@ -1859,16 +2028,17 @@ export function TransfersScreen({ navigation }: any) {
               </View>
             </ScrollView>
 
-            <View style={[styles.modalButtonsSpaced, { borderTopColor: colors.border }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)' }}>
               {editingClub && (
-                <TouchableOpacity style={[styles.deleteButton, { backgroundColor: colors.surface }]} onPress={deleteSearchingClub}>
-                  <Text style={styles.deleteButtonText}>Löschen</Text>
+                <TouchableOpacity style={{ backgroundColor: 'rgba(239,68,68,0.15)', borderWidth: 1, borderColor: '#ef4444', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 6 }} onPress={deleteSearchingClub}>
+                  <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '600' }}>Löschen</Text>
                 </TouchableOpacity>
               )}
               <View style={{ flex: 1 }} />
-              <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.surface }]} onPress={saveSearchingClub}>
-                <Text style={styles.saveButtonText}>Speichern</Text>
+              <TouchableOpacity style={{ backgroundColor: '#22c55e', borderWidth: 1, borderColor: '#22c55e', paddingVertical: 8, paddingHorizontal: 20, borderRadius: 6 }} onPress={saveSearchingClub}>
+                <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>Speichern</Text>
               </TouchableOpacity>
+            </View>
             </View>
           </Pressable>
         </Pressable>
@@ -1877,89 +2047,87 @@ export function TransfersScreen({ navigation }: any) {
       {/* Club Detail Modal */}
       <Modal visible={showClubDetailModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={[styles.detailModalContent, { backgroundColor: colors.surface }]}>
-            {/* Header mit Name, Liga und Logo */}
-            <View style={styles.detailModalHeader}>
-              <View style={styles.detailHeaderInfo}>
-                <View style={styles.detailHeaderNameRow}>
-                  <Text style={[styles.detailModalTitle, { color: colors.text }]}>{selectedClub?.club_name}</Text>
-                  {selectedClub?.club_name && getClubLogo(selectedClub.club_name) && (
-                    <Image source={{ uri: getClubLogo(selectedClub.club_name)! }} style={styles.detailHeaderLogo} />
-                  )}
-                </View>
-                {selectedClub?.league && <Text style={[styles.detailModalSubtitle, { color: colors.textSecondary }]}>{selectedClub.league}</Text>}
-              </View>
-              <TouchableOpacity onPress={() => { setShowClubDetailModal(false); setSelectedClub(null); }} style={[styles.closeButton, { backgroundColor: colors.surfaceSecondary }]}>
-                <Text style={[styles.closeButtonText, { color: colors.textSecondary }]}>✕</Text>
-              </TouchableOpacity>
+          <View style={[styles.detailModalContent, { overflow: 'visible', backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', padding: 0, shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.7, shadowRadius: 30, elevation: 24 }]}>
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 16, overflow: 'hidden' }} pointerEvents="none">
+              <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%', opacity: 0.85, ...({ objectFit: 'cover', objectPosition: 'center', backgroundSize: 'cover', backgroundPosition: 'center' } as any) }} resizeMode="cover" />
+              <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.45)' }} />
             </View>
-            
-            {selectedClub && (
-              <ScrollView style={styles.detailModalBody} showsVerticalScrollIndicator={false}>
-                {/* Zwei-Spalten-Layout mit hellblauer Füllung */}
-                <View style={styles.detailCardsRow}>
-                  {/* Linke Spalte */}
-                  <View style={styles.detailCard}>
-                    <View style={styles.detailCardField}>
-                      <Text style={styles.detailCardLabel}>Gesuchte Position</Text>
-                      <View style={styles.detailPositions}>
+            <View style={{ padding: 24, zIndex: 1 }}>
+              {/* Header mit Name, Liga und Logo */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <Text style={{ fontFamily: 'Josefin Sans', fontSize: 22, fontWeight: '300', letterSpacing: 2, textTransform: 'uppercase', color: '#fff' }}>{selectedClub?.club_name}</Text>
+                    {selectedClub?.club_name && getClubLogo(selectedClub.club_name) && (
+                      <Image source={{ uri: getClubLogo(selectedClub.club_name)! }} style={{ width: 36, height: 36 }} resizeMode="contain" />
+                    )}
+                  </View>
+                  {selectedClub?.league && <Text style={{ fontSize: 13, fontWeight: '500', color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>{selectedClub.league}</Text>}
+                </View>
+                <TouchableOpacity onPress={() => { setShowClubDetailModal(false); setSelectedClub(null); }} style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 20 }}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              {selectedClub && (
+                <ScrollView style={{ maxHeight: 600 }} showsVerticalScrollIndicator={false}>
+                  {/* Card mit Stamm-Daten */}
+                  <View style={{ backgroundColor: 'rgba(0,0,0,0.5)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 12, padding: 16, marginBottom: 12 }}>
+                    <View style={{ marginBottom: 16 }}>
+                      <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Gesuchte Position</Text>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
                         {selectedClub.position_needed ? selectedClub.position_needed.split(', ').map((p, idx) => (
-                          <View key={idx} style={styles.positionBadgeDetail}>
-                            <Text style={styles.positionBadgeDetailText}>{POSITION_SHORT[p.trim()] || p}</Text>
+                          <View key={idx} style={{ backgroundColor: 'rgba(34,197,94,0.15)', borderWidth: 1, borderColor: '#22c55e', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 }}>
+                            <Text style={{ color: '#22c55e', fontSize: 12, fontWeight: '600' }}>{POSITION_SHORT[p.trim()] || p}</Text>
                           </View>
-                        )) : <Text style={styles.detailCardValue}>-</Text>}
+                        )) : <Text style={{ fontSize: 13, color: '#fff' }}>-</Text>}
                       </View>
                     </View>
-                    
-                    <View style={styles.detailCardField}>
-                      <Text style={styles.detailCardLabel}>Alter/Jahrgang</Text>
-                      <Text style={styles.detailCardValue}>{selectedClub.year_range || '-'}</Text>
-                    </View>
-                    
-                    <View style={styles.detailCardField}>
-                      <Text style={styles.detailCardLabel}>Ansprechpartner</Text>
-                      <Text style={styles.detailCardValue}>{selectedClub.contact_person || '-'}</Text>
-                    </View>
-                    
-                    <View style={styles.detailCardFieldLast}>
-                      <Text style={styles.detailCardLabel}>Aktualität</Text>
-                      <Text style={styles.detailCardValue}>{formatDate(selectedClub.created_at)}</Text>
-                    </View>
-                  </View>
-                  
-                </View>
-                
-                {/* Notizen Box - hellgelber Hintergrund */}
-                <View style={styles.detailNotesCard}>
-                  <Text style={styles.detailCardLabel}>Notizen</Text>
-                  <View style={styles.detailNotesBox}>
-                    <Text style={styles.detailNotesBoxText}>{selectedClub.notes || '-'}</Text>
-                  </View>
-                </View>
 
-                {/* Angebote / Dokumente */}
-                {(selectedClub.offer_documents || []).length > 0 && (
-                  <View style={styles.detailNotesCard}>
-                    <Text style={styles.detailCardLabel}>Angebote / Dokumente</Text>
-                    <View style={{ marginTop: 6 }}>
+                    <View style={{ marginBottom: 16 }}>
+                      <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Alter/Jahrgang</Text>
+                      <Text style={{ fontSize: 13, color: '#fff', fontWeight: '500' }}>{selectedClub.year_range || '-'}</Text>
+                    </View>
+
+                    <View style={{ marginBottom: 16 }}>
+                      <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Ansprechpartner</Text>
+                      <Text style={{ fontSize: 13, color: '#fff', fontWeight: '500' }}>{selectedClub.contact_person || '-'}</Text>
+                    </View>
+
+                    <View>
+                      <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Aktualität</Text>
+                      <Text style={{ fontSize: 13, color: '#fff', fontWeight: '500' }}>{formatDate(selectedClub.created_at)}</Text>
+                    </View>
+                  </View>
+
+                  {/* Notizen */}
+                  <View style={{ backgroundColor: 'rgba(0,0,0,0.5)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 12, padding: 16, marginBottom: 12 }}>
+                    <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Notizen</Text>
+                    <Text style={{ fontSize: 13, color: '#fff', lineHeight: 18 }}>{selectedClub.notes || '-'}</Text>
+                  </View>
+
+                  {/* Angebote / Dokumente */}
+                  {(selectedClub.offer_documents || []).length > 0 && (
+                    <View style={{ backgroundColor: 'rgba(0,0,0,0.5)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 12, padding: 16, marginBottom: 12 }}>
+                      <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>Angebote / Dokumente</Text>
                       {(selectedClub.offer_documents || []).map((doc, index) => (
-                        <TouchableOpacity key={index} onPress={() => openOfferDocument(doc.url)} style={styles.offerDocDetailItem}>
-                          <Text style={styles.offerDocIcon}>📄</Text>
-                          <Text style={styles.offerDocDetailName}>{doc.name}</Text>
+                        <TouchableOpacity key={index} onPress={() => openOfferDocument(doc.url)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 }}>
+                          <Text style={{ fontSize: 14 }}>📄</Text>
+                          <Text style={{ color: '#22c55e', fontSize: 13, textDecorationLine: 'underline' }}>{doc.name}</Text>
                         </TouchableOpacity>
                       ))}
                     </View>
-                  </View>
-                )}
+                  )}
 
-                {/* Action Buttons */}
-                <View style={styles.detailModalActions}>
-                  <TouchableOpacity style={styles.detailEditButton} onPress={() => openEditClubModal(selectedClub)}>
-                    <Text style={styles.detailEditButtonText}>Bearbeiten</Text>
-                  </TouchableOpacity>
-                </View>
-              </ScrollView>
-            )}
+                  {/* Action Buttons */}
+                  <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 }}>
+                    <TouchableOpacity style={{ backgroundColor: '#22c55e', borderWidth: 1, borderColor: '#22c55e', paddingVertical: 8, paddingHorizontal: 20, borderRadius: 6 }} onPress={() => openEditClubModal(selectedClub)}>
+                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>Bearbeiten</Text>
+                    </TouchableOpacity>
+                  </View>
+                </ScrollView>
+              )}
+            </View>
           </View>
         </View>
       </Modal>
@@ -1969,95 +2137,13 @@ export function TransfersScreen({ navigation }: any) {
   function renderVereineTab() {
     return (
       <Pressable style={{ flex: 1 }} onPress={closeAllDropdowns}>
-        {/* Vereine Toolbar */}
-        <View style={[styles.toolbar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-          <TouchableOpacity style={{ paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }} onPress={() => navigation.navigate('AdvisorDashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
-          <View style={[styles.searchContainer, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
-            <Text style={styles.searchIcon}>🔍</Text>
-            <TextInput
-              style={[styles.searchInput, { color: colors.text }]}
-              placeholder="Verein, Liga suchen..."
-              placeholderTextColor={colors.textMuted}
-              value={clubSearchText}
-              onChangeText={setClubSearchText}
-            />
-          </View>
-          
-          <View style={styles.filterContainer}>
-            {/* Position Filter */}
-            <View style={[styles.dropdownContainer, { zIndex: 40 }]}>
-              <TouchableOpacity
-                style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedClubPositions.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
-                onPress={(e) => { e.stopPropagation(); closeAllDropdowns(); setShowClubPositionDropdown(!showClubPositionDropdown); }}
-              >
-                <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedClubPositions.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>{getClubPositionFilterLabel()} ▼</Text>
-              </TouchableOpacity>
-              {showClubPositionDropdown && (
-                <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
-                  <View style={styles.filterDropdownHeader}>
-                    <Text style={styles.filterDropdownTitle}>Position wählen</Text>
-                    {selectedClubPositions.length > 0 && <TouchableOpacity onPress={clearClubPositions}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
-                  </View>
-                  <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
-                    {POSITIONS.map(pos => {
-                      const isSelected = selectedClubPositions.includes(pos);
-                      const count = searchingClubs.filter(c => c.position_needed?.includes(pos)).length;
-                      return (
-                        <TouchableOpacity key={pos} style={styles.filterCheckboxItem} onPress={() => toggleClubPosition(pos)}>
-                          <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                          <Text style={styles.filterCheckboxText}>{POSITION_SHORT[pos]}</Text>
-                          <Text style={styles.filterCountBadge}>{count}</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
-                  <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowClubPositionDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
-                </Pressable>
-              )}
-            </View>
-
-            {/* Jahrgang Filter */}
-            <View style={[styles.dropdownContainer, { zIndex: 30 }]}>
-              <TouchableOpacity
-                style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, selectedClubYears.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
-                onPress={(e) => { e.stopPropagation(); closeAllDropdowns(); setShowClubYearDropdown(!showClubYearDropdown); }}
-              >
-                <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedClubYears.length > 0 && { color: isDark ? '#93c5fd' : '#0369a1' }]}>{getClubYearFilterLabel()} ▼</Text>
-              </TouchableOpacity>
-              {showClubYearDropdown && (
-                <Pressable style={styles.filterDropdownMulti} onPress={(e) => e.stopPropagation()}>
-                  <View style={styles.filterDropdownHeader}>
-                    <Text style={styles.filterDropdownTitle}>Jahrgang wählen</Text>
-                    {selectedClubYears.length > 0 && <TouchableOpacity onPress={clearClubYears}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}
-                  </View>
-                  <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
-                    {availableClubYears.map(year => {
-                      const isSelected = selectedClubYears.includes(year);
-                      const count = searchingClubs.filter(c => c.year_range?.includes(year)).length;
-                      return (
-                        <TouchableOpacity key={year} style={styles.filterCheckboxItem} onPress={() => toggleClubYear(year)}>
-                          <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>{isSelected && <Text style={styles.checkmark}>✓</Text>}</View>
-                          <Text style={styles.filterCheckboxText}>Jg. {year}</Text>
-                          <Text style={styles.filterCountBadge}>{count}</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
-                  <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowClubYearDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
-                </Pressable>
-              )}
-            </View>
-          </View>
-          
-          <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setShowAddClubModal(true)}><Ionicons name="add-outline" size={12} color={colors.textSecondary} /></TouchableOpacity>
-        </View>
-        
-        {/* Vereine Tabelle */}
+        {/* Vereine Tabelle (Toolbar ist im Hero-Header integriert) */}
         <View style={styles.content}>
-          <View style={[styles.tableWrapper, { backgroundColor: colors.cardBackground, borderColor: colors.border }]} onLayout={(e) => setClubTableWidth(e.nativeEvent.layout.width - 32)}>
+          <View style={[styles.tableWrapper, { backgroundColor: 'rgba(0,0,0,0.55)', borderColor: 'rgba(255,255,255,0.15)' }]} onLayout={(e) => setClubTableWidth(e.nativeEvent.layout.width - 32)}>
             {clubTableWidth > 0 && (
               <TableHeader
                 columnDefs={CLUB_COLUMNS}
+                backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
                 columnOrder={clubTable.columnOrder}
                 getColumnWidth={clubTable.getColumnWidth}
                 onResizeStart={clubTable.onResizeStart}
@@ -2067,7 +2153,7 @@ export function TransfersScreen({ navigation }: any) {
                 dragOverKey={clubTable.dragOverKey}
                 colors={colors}
                 setHeaderRef={clubTable.setHeaderRef}
-                style={{ paddingHorizontal: 16 }}
+                style={{ backgroundColor: 'rgba(0,0,0,0.45)', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 16 }}
               />
             )}
 
@@ -2125,9 +2211,9 @@ export function TransfersScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, flexDirection: 'row', backgroundColor: '#f8fafc' },
+  container: { flex: 1, flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.45)' },
   containerMobile: { flexDirection: 'column' },
-  mainContent: { flex: 1, backgroundColor: '#f8fafc' },
+  mainContent: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
   
   // Header Banner
   headerBanner: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 24, borderBottomWidth: 1 },
@@ -2137,29 +2223,29 @@ const styles = StyleSheet.create({
   
   // Toolbar - wie Scouting
   toolbar: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, zIndex: 100 },
-  searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', paddingHorizontal: 12 },
+  searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 12 },
   searchIcon: { fontSize: 16, marginRight: 8 },
   searchInput: { flex: 1, paddingVertical: 6, fontSize: 11 },
   filterContainer: { flexDirection: 'row', gap: 8 },
   dropdownContainer: { position: 'relative' },
   
   // Filter Buttons - wie Scouting
-  filterButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1 },
+  filterButton: { height: 28, paddingVertical: 0, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
   filterButtonText: { fontSize: 11 },
   
   // Filter Dropdown - wie Scouting
-  filterDropdownMulti: { position: 'absolute', top: '100%', left: 0, borderRadius: 12, borderWidth: 1, marginTop: 4, minWidth: 220, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, zIndex: 1000, overflow: 'hidden' },
-  filterDropdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#e2e8f0', backgroundColor: '#f8fafc' },
-  filterDropdownTitle: { fontSize: 11, fontWeight: '600', color: '#1a1a1a' },
-  filterClearText: { fontSize: 11, color: '#ef4444' },
-  filterCheckboxItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  checkbox: { width: 20, height: 20, borderRadius: 4, borderWidth: 2, borderColor: '#cbd5e1', marginRight: 10, justifyContent: 'center', alignItems: 'center' },
-  checkboxSelected: { backgroundColor: '#3b82f6', borderColor: '#3b82f6' },
+  filterDropdownMulti: { position: 'absolute', top: '100%', right: 0, backgroundColor: '#000', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', marginTop: 4, minWidth: 260, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12, zIndex: 1000, overflow: 'hidden' },
+  filterDropdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', backgroundColor: '#000' },
+  filterDropdownTitle: { fontFamily: 'Josefin Sans', fontSize: 11, fontWeight: '300', letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)' },
+  filterClearText: { fontSize: 11, color: '#ef4444', fontWeight: '500' },
+  filterCheckboxItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)', backgroundColor: '#000' },
+  checkbox: { width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.3)', marginRight: 12, justifyContent: 'center', alignItems: 'center' },
+  checkboxSelected: { backgroundColor: '#22c55e', borderColor: '#22c55e' },
   checkmark: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
-  filterCheckboxText: { flex: 1, fontSize: 11, color: '#333' },
-  filterCountBadge: { backgroundColor: '#f1f5f9', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, fontSize: 11, color: '#64748b', overflow: 'hidden' },
-  filterDoneButton: { padding: 12, backgroundColor: '#f8fafc', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#e2e8f0' },
-  filterDoneText: { fontSize: 11, fontWeight: '600', color: '#3b82f6' },
+  filterCheckboxText: { flex: 1, fontSize: 13, color: '#fff', fontWeight: '500' },
+  filterCountBadge: { backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, fontSize: 11, color: 'rgba(255,255,255,0.6)', overflow: 'hidden' },
+  filterDoneButton: { padding: 12, backgroundColor: '#000', alignItems: 'center', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)' },
+  filterDoneText: { fontSize: 12, fontWeight: '600', color: '#22c55e', letterSpacing: 0.5 },
   
   // Dropdown Overlay
   dropdownOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, backgroundColor: 'transparent' },
@@ -2168,7 +2254,7 @@ const styles = StyleSheet.create({
   content: { flex: 1, padding: 24 },
 
   // Table Wrapper with rounded borders
-  tableWrapper: { flex: 1, borderRadius: 12, borderWidth: 1, overflow: 'hidden' },
+  tableWrapper: { flex: 1, borderRadius: 12, borderWidth: 1, overflow: 'hidden', zIndex: 1, position: 'relative' },
 
   // Table Container - scrollbar
   tableContainer: { flex: 1 },
@@ -2201,9 +2287,9 @@ const styles = StyleSheet.create({
   colResponsibility: { flex: 1, minWidth: 85 },
   
   // Contract Badges
-  contractBadge: { backgroundColor: '#fef2f2', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4, alignSelf: 'flex-start' },
+  contractBadge: { backgroundColor: 'rgba(239,68,68,0.15)', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4, alignSelf: 'flex-start' },
   contractBadgeText: { color: '#dc2626', fontSize: 11, fontWeight: '600' },
-  contractBadgeExpired: { backgroundColor: '#fef2f2', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4, alignSelf: 'flex-start' },
+  contractBadgeExpired: { backgroundColor: 'rgba(239,68,68,0.15)', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4, alignSelf: 'flex-start' },
   contractBadgeTextExpired: { color: '#dc2626', fontSize: 11, fontWeight: '600' },
 
   // Listing Badges
@@ -2231,7 +2317,7 @@ const styles = StyleSheet.create({
   colContactPerson: { flex: 1.2, minWidth: 100 },
   
   // Position Badge (Liste)
-  positionBadge: { backgroundColor: '#e0f2fe', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4 },
+  positionBadge: { backgroundColor: 'rgba(59,130,246,0.2)', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4 },
   positionBadgeText: { fontSize: 11, fontWeight: '600', color: '#0369a1' },
   
   // Modal
@@ -2239,7 +2325,7 @@ const styles = StyleSheet.create({
   modalContent: { borderRadius: 12, padding: 20, width: '90%', maxWidth: 500, maxHeight: '90%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
   modalTitle: { fontSize: 15, fontWeight: '700', color: '#1a1a1a' },
-  closeButton: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center' },
+  closeButton: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center' },
   closeButtonText: { fontSize: 16, color: '#64748b' },
   formField: { marginBottom: 12 },
   formLabel: { fontSize: 10, color: '#64748b', marginBottom: 4, fontWeight: '500' },
@@ -2247,16 +2333,16 @@ const styles = StyleSheet.create({
   modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 16 },
   modalButtonsRight: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 16 },
   modalButtonsSpaced: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
-  cancelButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#f1f5f9' },
+  cancelButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: 'rgba(0,0,0,0.45)' },
   cancelButtonText: { color: '#64748b', fontWeight: '600', fontSize: 11 },
-  saveButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#10b981' },
+  saveButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: '#10b981' },
   saveButtonText: { color: '#10b981', fontWeight: '600', fontSize: 11 },
   deleteButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: '#ef4444' },
   deleteButtonText: { color: '#ef4444', fontWeight: '600', fontSize: 11 },
   
   // Position Picker (Form)
   positionPickerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
-  positionOption: { paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
+  positionOption: { paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   positionOptionSelected: { backgroundColor: '#1a1a1a', borderColor: '#1a1a1a' },
   positionOptionText: { fontSize: 11, fontWeight: '600', color: '#64748b' },
   positionOptionTextSelected: { color: '#fff' },
@@ -2270,9 +2356,9 @@ const styles = StyleSheet.create({
   detailLabel: { fontSize: 11, color: '#64748b', marginBottom: 6, fontWeight: '500' },
   detailValue: { fontSize: 11, color: '#1a1a1a', fontWeight: '500' },
   detailPositions: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  detailNotesText: { fontSize: 11, color: '#334155', lineHeight: 18, backgroundColor: '#f8fafc', padding: 12, borderRadius: 8 },
+  detailNotesText: { fontSize: 11, color: '#334155', lineHeight: 18, backgroundColor: 'rgba(0,0,0,0.45)', padding: 12, borderRadius: 8 },
   detailActions: { marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e2e8f0', flexDirection: 'row', justifyContent: 'flex-end' },
-  editButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0' },
+  editButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   editButtonText: { color: '#64748b', fontWeight: '600' },
   
   // Detail Modal - Neues Karten-Layout
@@ -2294,7 +2380,7 @@ const styles = StyleSheet.create({
   detailCardValue: { fontSize: 11, color: '#1a1a1a', fontWeight: '600' },
   
   // Position Badge im Detail Modal - hellblau ohne Rahmen wie in Liste
-  positionBadgeDetail: { backgroundColor: '#e0f2fe', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6 },
+  positionBadgeDetail: { backgroundColor: 'rgba(59,130,246,0.2)', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6 },
   positionBadgeDetailText: { fontSize: 11, fontWeight: '600', color: '#0369a1' },
   
   // Notizen Card - hellblau wie die anderen Karten
@@ -2316,25 +2402,25 @@ const styles = StyleSheet.create({
   clubDropdownItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 10, borderBottomWidth: 1 },
   clubDropdownLogo: { width: 20, height: 20, resizeMode: 'contain', marginRight: 8 },
   clubDropdownText: { fontSize: 11, color: '#333' },
-  clubDropdownCustom: { backgroundColor: '#f0fdf4' },
+  clubDropdownCustom: { backgroundColor: 'rgba(34,197,94,0.15)' },
   clubDropdownCustomText: { fontSize: 11, color: '#16a34a', fontWeight: '500' },
 
   // ==================== MOBILE STYLES ====================
-  containerMobile: { flex: 1, flexDirection: 'row', backgroundColor: '#f8fafc' },
-  mainContentMobile: { flex: 1, backgroundColor: '#f8fafc' },
+  containerMobile: { flex: 1, flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.45)' },
+  mainContentMobile: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
 
   // Mobile Tabs
-  mobileTabs: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0', paddingHorizontal: 12 },
+  mobileTabs: { flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.55)', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 12 },
   mobileTab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
   mobileTabActive: { borderBottomWidth: 2, borderBottomColor: '#1a1a1a' },
   mobileTabText: { fontSize: 11, color: '#64748b', fontWeight: '500' },
   mobileTabTextActive: { color: '#1a1a1a', fontWeight: '600' },
 
   // Mobile Toolbar
-  mobileToolbar: { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 8, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  mobileSearchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 8, paddingHorizontal: 10, height: 40 },
+  mobileToolbar: { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 8, backgroundColor: 'rgba(0,0,0,0.55)', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)' },
+  mobileSearchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 8, paddingHorizontal: 10, height: 40 },
   mobileSearchInput: { flex: 1, fontSize: 11, color: '#1a1a1a', marginLeft: 8 },
-  mobileFilterButton: { width: 44, height: 44, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', justifyContent: 'center', alignItems: 'center' },
+  mobileFilterButton: { width: 44, height: 44, borderRadius: 8, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' },
   mobileFilterButtonActive: { backgroundColor: '#1a1a1a' },
   mobileAddButton: { width: 40, height: 40, borderRadius: 8, backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center' },
   mobileAddButtonText: { color: '#fff', fontSize: 24, fontWeight: '300' },
@@ -2344,7 +2430,7 @@ const styles = StyleSheet.create({
   filterCountText: { color: '#fff', fontSize: 11, fontWeight: '600' },
 
   // Mobile Subheader
-  mobileSubheader: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#f8fafc' },
+  mobileSubheader: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: 'rgba(0,0,0,0.45)' },
   mobileSubheaderText: { fontSize: 11, color: '#64748b' },
 
   // Mobile Card List
@@ -2352,7 +2438,7 @@ const styles = StyleSheet.create({
   mobileCardListContent: { paddingHorizontal: 12, paddingVertical: 8 },
 
   // Mobile Player Card
-  mobileCard: { backgroundColor: '#fff', borderRadius: 12, padding: 14, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
+  mobileCard: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 16, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', ...(Platform.OS === 'web' ? { backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' } as any : {}) },
   mobileCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
   mobileCardNameRow: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   mobileCardClubLogo: { width: 32, height: 32, resizeMode: 'contain', marginRight: 10 },
@@ -2367,41 +2453,42 @@ const styles = StyleSheet.create({
   mobileCardLabel: { fontSize: 11, color: '#64748b' },
   mobileCardValue: { fontSize: 11, color: '#1a1a1a', fontWeight: '500' },
   mobileCardPositions: { flexDirection: 'row', gap: 4 },
-  mobilePositionBadge: { backgroundColor: '#e0f2fe', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4 },
+  mobilePositionBadge: { backgroundColor: 'rgba(59,130,246,0.2)', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4 },
   mobilePositionText: { fontSize: 11, fontWeight: '600', color: '#0369a1' },
-  mobileContractBadge: { backgroundColor: '#fef2f2', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4 },
+  mobileContractBadge: { backgroundColor: 'rgba(239,68,68,0.15)', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4 },
   mobileContractText: { fontSize: 11, fontWeight: '600', color: '#dc2626' },
 
   // Mobile Filter Modal
-  mobileFilterModal: { flex: 1, backgroundColor: '#fff', marginTop: 50, borderTopLeftRadius: 20, borderTopRightRadius: 20, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 10, elevation: 10 },
-  mobileFilterHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  mobileFilterModal: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', marginTop: 50, borderTopLeftRadius: 20, borderTopRightRadius: 20, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 10, elevation: 10 },
+  mobileFilterHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)' },
   mobileFilterTitle: { fontSize: 18, fontWeight: '600', color: '#1a1a1a' },
   mobileFilterClose: { fontSize: 24, color: '#64748b' },
   mobileFilterContent: { flex: 1, padding: 16 },
   mobileFilterSectionTitle: { fontSize: 11, fontWeight: '600', color: '#1a1a1a', marginBottom: 10, marginTop: 16 },
   mobileChipContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  mobileChip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
+  mobileChip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   mobileChipSelected: { backgroundColor: '#1a1a1a', borderColor: '#1a1a1a' },
   mobileChipText: { fontSize: 11, color: '#64748b', fontWeight: '500' },
   mobileChipTextSelected: { color: '#fff' },
   mobileFilterFooter: { flexDirection: 'row', padding: 16, gap: 12, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
-  mobileFilterClearButton: { flex: 1, paddingVertical: 12, borderRadius: 8, backgroundColor: '#f1f5f9', alignItems: 'center' },
+  mobileFilterClearButton: { flex: 1, paddingVertical: 12, borderRadius: 8, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center' },
   mobileFilterClearText: { fontSize: 11, color: '#64748b', fontWeight: '600' },
   mobileFilterApplyButton: { flex: 1, paddingVertical: 12, borderRadius: 8, backgroundColor: '#1a1a1a', alignItems: 'center' },
   mobileFilterApplyText: { fontSize: 11, color: '#fff', fontWeight: '600' },
 
   // Sidebar Overlay
   sidebarOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 100, flexDirection: 'row' },
-  sidebarMobile: { width: 280, height: '100%', backgroundColor: '#fff' },
+  sidebarMobile: { width: 280, height: '100%', backgroundColor: 'rgba(0,0,0,0.55)' },
 
   // Player Card (identisch zu PlayerOverviewScreen)
   playerCard: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 16,
     padding: 12,
-    marginBottom: 8,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: 'rgba(255,255,255,0.15)',
+    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' } as any : {}),
   },
   playerCardLocked: {
     backgroundColor: '#fafafa',
@@ -2425,7 +2512,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#1a1a1a',
-    flex: 1,
+    flexShrink: 1,
   },
   lockIconMobile: {
     fontSize: 14,
@@ -2461,10 +2548,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   clubLogoMobile: {
-    width: 18,
-    height: 18,
+    width: 32,
+    height: 32,
     resizeMode: 'contain',
-    marginRight: 6,
+    marginRight: 8,
   },
   playerCardClubText: {
     fontSize: 11,
@@ -2472,10 +2559,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   playerCardPosition: {
-    fontSize: 11,
-    color: '#64748b',
-    fontWeight: '500',
-    backgroundColor: '#f1f5f9',
+    fontSize: 9,
+    color: '#60a5fa',
+    fontWeight: '600',
+    letterSpacing: 0.3,
+    backgroundColor: 'rgba(59,130,246,0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(59,130,246,0.5)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -2491,10 +2581,10 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   contractBadgeMobileRed: {
-    backgroundColor: '#fef2f2',
+    backgroundColor: 'rgba(239,68,68,0.15)',
   },
   contractBadgeMobileGreen: {
-    backgroundColor: '#f0fdf4',
+    backgroundColor: 'rgba(34,197,94,0.15)',
   },
   contractTextMobile: {
     fontSize: 11,
@@ -2529,7 +2619,7 @@ const styles = StyleSheet.create({
   offerDocItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: 'rgba(0,0,0,0.45)',
     padding: 10,
     borderRadius: 8,
     marginBottom: 6,

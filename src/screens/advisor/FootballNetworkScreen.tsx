@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Pressable, Linking, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Pressable, Linking, Alert, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
+import { AdvisorBackground } from '../../components/AdvisorBackground';
+import { AdvisorHeroHeader, heroCardAttachedToolbar } from '../../components/AdvisorHeroHeader';
 import { MobileHeader } from '../../components/MobileHeader';
 import { MobileSidebar } from '../../components/MobileSidebar';
 import { SlideUpModal } from '../../components/SlideUpModal';
@@ -109,6 +111,19 @@ export function FootballNetworkScreen({ navigation }: any) {
 
   // Mobile States
   const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [openFilterDropdown, setOpenFilterDropdown] = useState<string | null>(null);
+
+  // Click-outside-Handler für Mobile-Filter-Dropdowns (Skill-Pattern)
+  useEffect(() => {
+    if (!openFilterDropdown || typeof document === 'undefined') return;
+    const handler = (e: any) => {
+      const target = e.target;
+      if (target && target.closest && target.closest('[data-kmh-dropdown]')) return;
+      setOpenFilterDropdown(null);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [openFilterDropdown]);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [showContactDetailModal, setShowContactDetailModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -753,7 +768,7 @@ export function FootballNetworkScreen({ navigation }: any) {
     return (
       <TouchableOpacity
         key={contact.id}
-        style={[styles.mobileCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
+        style={[styles.mobileCard, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}
         onPress={() => handleContactClick(contact)}
       >
         {/* Row 1: Checkbox + Name (left) | Position badges (right) */}
@@ -804,7 +819,8 @@ export function FootballNetworkScreen({ navigation }: any) {
   // Mobile View
   if (isMobile) {
     return (
-      <View style={[styles.containerMobile, { backgroundColor: colors.background }]}>
+      <View style={[styles.containerMobile, { backgroundColor: 'transparent' }]}>
+        <AdvisorBackground />
         <MobileSidebar
           visible={showMobileSidebar}
           onClose={() => setShowMobileSidebar(false)}
@@ -813,48 +829,48 @@ export function FootballNetworkScreen({ navigation }: any) {
           profile={authProfile}
         />
 
-        <View style={[styles.mainContentMobile, { backgroundColor: colors.background }]}>
+        <View style={[styles.mainContentMobile, { backgroundColor: 'transparent' }]}>
           <MobileHeader
             title="Football Network"
+            subtitle={`${filteredContacts.length} Kontakte`}
+            backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
             onMenuPress={() => setShowMobileSidebar(true)}
-            onProfilePress={() => navigation.navigate('MyProfile')}
-            profileInitials={profileInitials}
-          />
-
-          {/* Mobile Toolbar */}
-          <View style={[styles.mobileToolbar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-            <View style={[styles.mobileSearchContainer, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
-              <Text style={styles.mobileSearchIcon}>🔍</Text>
+          >
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.7)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 6, paddingHorizontal: 10, height: 28 }}>
+              <Ionicons name="search" size={12} color="rgba(255,255,255,0.5)" />
               <TextInput
-                style={[styles.mobileSearchInput, { color: colors.text }]}
+                style={{ flex: 1, paddingVertical: 0, fontSize: 12, color: '#fff', marginLeft: 6 }}
                 placeholder="Name, Verein suchen..."
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor="rgba(255,255,255,0.4)"
                 value={searchText}
                 onChangeText={setSearchText}
               />
             </View>
+            {/* "Alle auswählen"-Toggle als 28×28 Checkbox-Button (skill-konform, analog Spieltage) */}
             <TouchableOpacity
-              style={[styles.mobileFilterButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }, activeFilterCount > 0 && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+              style={[
+                { width: 28, height: 28, borderRadius: 6, borderWidth: 1, backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center' },
+                (selectedExportIds.length === filteredContacts.length && filteredContacts.length > 0) && { backgroundColor: '#22c55e', borderColor: '#22c55e' },
+              ]}
+              onPress={toggleAllExport}
+            >
+              <Ionicons name={(selectedExportIds.length === filteredContacts.length && filteredContacts.length > 0) ? 'checkbox' : 'checkbox-outline'} size={14} color={(selectedExportIds.length === filteredContacts.length && filteredContacts.length > 0) ? '#fff' : 'rgba(255,255,255,0.85)'} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                { width: 28, height: 28, borderRadius: 6, backgroundColor: 'rgba(0,0,0,0.7)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center', position: 'relative' },
+                activeFilterCount > 0 && { backgroundColor: '#22c55e', borderColor: '#22c55e' },
+              ]}
               onPress={() => setShowMobileFilters(true)}
             >
-              <Ionicons name="filter" size={20} color={activeFilterCount > 0 ? colors.primaryText : colors.textSecondary} />
+              <Ionicons name="filter" size={14} color={activeFilterCount > 0 ? '#fff' : 'rgba(255,255,255,0.85)'} />
               {activeFilterCount > 0 && (
                 <View style={styles.filterCountBubble}>
                   <Text style={styles.filterCountText}>{activeFilterCount}</Text>
                 </View>
               )}
             </TouchableOpacity>
-          </View>
-
-          {/* Contact Count + Export */}
-          <View style={[styles.mobileSubheader, { backgroundColor: colors.surfaceSecondary, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
-            <Text style={[styles.mobileSubheaderText, { color: colors.textSecondary }]}>{filteredContacts.length} Kontakte</Text>
-            <TouchableOpacity onPress={toggleAllExport}>
-              <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '500' }}>
-                {selectedExportIds.length === filteredContacts.length && filteredContacts.length > 0 ? 'Keine auswählen' : 'Alle auswählen'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          </MobileHeader>
 
           {/* Export Toolbar */}
           {selectedExportIds.length > 0 && (
@@ -902,216 +918,195 @@ export function FootballNetworkScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
 
-        {/* Mobile Filter Modal */}
+        {/* Mobile Filter Modal — Skill-Pattern */}
         <Modal visible={showMobileFilters} transparent animationType="slide">
-          <View style={[styles.mobileFilterModal, { backgroundColor: colors.surface }]}>
-            <View style={[styles.mobileFilterHeader, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.mobileFilterTitle, { color: colors.text }]}>Filter</Text>
-              <TouchableOpacity onPress={() => setShowMobileFilters(false)}>
-                <Text style={[styles.mobileFilterClose, { color: colors.textSecondary }]}>✕</Text>
+          <View style={{ flex: 1, marginTop: 60, backgroundColor: '#000', borderTopLeftRadius: 16, borderTopRightRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', overflow: 'hidden' }}>
+            <Image source={require('../../../assets/scouting-header-bg.jpg')} style={[StyleSheet.absoluteFillObject, { width: '100%', height: '100%', opacity: 0.85, ...({ objectFit: 'cover', objectPosition: 'center', backgroundSize: 'cover', backgroundPosition: 'center' } as any) }]} resizeMode="cover" />
+            <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', zIndex: 1 }}>
+              <Text style={{ fontFamily: 'Josefin Sans', fontSize: 20, lineHeight: 26, fontWeight: '300', letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)' }}>Filter</Text>
+              <TouchableOpacity onPress={() => setShowMobileFilters(false)} style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 20 }}>✕</Text>
               </TouchableOpacity>
             </View>
-            <ScrollView style={styles.mobileFilterContent}>
-              {/* Bereich Filter */}
-              <Text style={[styles.mobileFilterSectionTitle, { color: colors.text }]}>Bereich</Text>
-              <View style={styles.mobileChipContainer}>
-                {BEREICHE.map(bereich => {
-                  const isSelected = selectedBereiche.includes(bereich);
-                  return (
-                    <TouchableOpacity
-                      key={bereich}
-                      style={[styles.mobileChip, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }, isSelected && { backgroundColor: colors.primary, borderColor: colors.primary }]}
-                      onPress={() => toggleBereich(bereich)}
-                    >
-                      <Text style={[styles.mobileChipText, { color: colors.textSecondary }, isSelected && { color: colors.primaryText }]}>
-                        {bereich}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
 
-              {/* Position Filter */}
-              <Text style={[styles.mobileFilterSectionTitle, { color: colors.text }]}>Position</Text>
-              <View style={styles.mobileChipContainer}>
-                {allPositions.map(position => {
-                  const isSelected = selectedPositions.includes(position);
-                  return (
+            <ScrollView style={{ flex: 1, zIndex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24 }}>
+              {[
+                { key: 'bereich', label: 'Bereich', values: selectedBereiche, options: BEREICHE, onChange: (arr: string[]) => setSelectedBereiche(arr), placeholder: 'Bereich auswählen', zi: 60 },
+                { key: 'position', label: 'Position', values: selectedPositions, options: allPositions, onChange: (arr: string[]) => setSelectedPositions(arr), placeholder: 'Position auswählen', zi: 50 },
+                { key: 'liga', label: 'Liga', values: selectedLeagues, options: LEAGUES, onChange: (arr: string[]) => setSelectedLeagues(arr), placeholder: 'Liga auswählen', zi: 40 },
+              ].map((cfg) => {
+                const open = openFilterDropdown === cfg.key;
+                return (
+                  <View key={cfg.key} {...({ 'data-kmh-dropdown': 'true' } as any)} style={{ marginBottom: 14, maxWidth: 280, zIndex: cfg.zi, position: 'relative' }}>
+                    <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>{cfg.label}</Text>
                     <TouchableOpacity
-                      key={position}
-                      style={[styles.mobileChip, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }, isSelected && { backgroundColor: colors.primary, borderColor: colors.primary }]}
-                      onPress={() => togglePosition(position)}
+                      style={{ backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 4, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                      onPress={() => setOpenFilterDropdown(open ? null : cfg.key)}
                     >
-                      <Text style={[styles.mobileChipText, { color: colors.textSecondary }, isSelected && { color: colors.primaryText }]}>
-                        {position}
-                      </Text>
+                      <Text numberOfLines={1} style={{ fontSize: 13, color: cfg.values.length ? '#fff' : 'rgba(255,255,255,0.3)', flex: 1 }}>{cfg.values.length === 0 ? cfg.placeholder : cfg.values.join(', ')}</Text>
+                      <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={14} color="rgba(255,255,255,0.5)" />
                     </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              {/* Liga Filter */}
-              <Text style={[styles.mobileFilterSectionTitle, { color: colors.text }]}>Liga</Text>
-              <View style={styles.mobileChipContainer}>
-                {LEAGUES.map(league => {
-                  const isSelected = selectedLeagues.includes(league);
-                  return (
-                    <TouchableOpacity
-                      key={league}
-                      style={[styles.mobileChip, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }, isSelected && { backgroundColor: colors.primary, borderColor: colors.primary }]}
-                      onPress={() => toggleLeague(league)}
-                    >
-                      <Text style={[styles.mobileChipText, { color: colors.textSecondary }, isSelected && { color: colors.primaryText }]}>
-                        {league}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+                    {open ? (
+                      <View style={{ position: 'absolute', top: '100%', left: 0, minWidth: 220, marginTop: 2, backgroundColor: '#1e293b', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12 }}>
+                        <ScrollView style={{ maxHeight: 260 }} nestedScrollEnabled>
+                          <TouchableOpacity style={{ paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }} onPress={() => cfg.onChange([])}>
+                            <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>Leeren</Text>
+                          </TouchableOpacity>
+                          {cfg.options.map((opt) => {
+                            const checked = cfg.values.includes(opt);
+                            return (
+                              <TouchableOpacity
+                                key={opt}
+                                style={{ paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)', flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                                onPress={() => cfg.onChange(checked ? cfg.values.filter(v => v !== opt) : [...cfg.values, opt])}
+                              >
+                                <Ionicons name={checked ? 'checkbox' : 'square-outline'} size={16} color={checked ? '#22c55e' : 'rgba(255,255,255,0.5)'} />
+                                <Text numberOfLines={1} style={{ fontSize: 13, color: '#fff', flex: 1 }}>{opt}</Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </ScrollView>
+                      </View>
+                    ) : null}
+                  </View>
+                );
+              })}
             </ScrollView>
 
-            {/* Filter Actions */}
-            <View style={[styles.mobileFilterActions, { borderTopColor: colors.border }]}>
+            <View style={{ flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingVertical: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)', backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1 }}>
               <TouchableOpacity
-                style={[styles.mobileFilterClearButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
+                style={{ flex: 1, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' }}
                 onPress={() => { setSelectedBereiche([]); setSelectedPositions([]); setSelectedLeagues([]); }}
               >
-                <Text style={[styles.mobileFilterClearText, { color: colors.textSecondary }]}>Zurücksetzen</Text>
+                <Text style={{ fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.85)' }}>Alle löschen</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.mobileFilterApplyButton, { backgroundColor: colors.primary }]} onPress={() => setShowMobileFilters(false)}>
-                <Text style={[styles.mobileFilterApplyText, { color: colors.primaryText }]}>Anwenden</Text>
+              <TouchableOpacity
+                style={{ flex: 1, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: '#22c55e', backgroundColor: '#22c55e', alignItems: 'center', justifyContent: 'center' }}
+                onPress={() => setShowMobileFilters(false)}
+              >
+                <Text style={{ fontSize: 11, fontWeight: '600', color: '#fff' }}>Anwenden ({filteredContacts.length})</Text>
               </TouchableOpacity>
             </View>
           </View>
         </Modal>
 
         {/* Mobile Contact Detail Modal */}
-        <SlideUpModal visible={showContactDetailModal} onClose={() => setShowContactDetailModal(false)}>
+        <SlideUpModal visible={showContactDetailModal} onClose={() => setShowContactDetailModal(false)} height="80%">
           {selectedContact && (
-            <>
-              <View style={[styles.mobileDetailHeader, { borderBottomColor: colors.border }]}>
+            <View style={{ flex: 1, position: 'relative' }}>
+              <Image source={require('../../../assets/scouting-header-bg.jpg')} style={[StyleSheet.absoluteFillObject, { width: '100%', height: '100%', opacity: 0.85, ...({ objectFit: 'cover', objectPosition: 'center', backgroundSize: 'cover', backgroundPosition: 'center' } as any) }]} resizeMode="cover" />
+              <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.55)' }]} />
+
+              {/* Header — Name + Bearbeiten + Close */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', zIndex: 1, gap: 8 }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.mobileDetailName, { color: colors.text }]}>{formatName(selectedContact)}</Text>
-                  {selectedContact.position && (
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3, marginTop: 4 }}>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#fff' }} numberOfLines={1}>{formatName(selectedContact)}</Text>
+                  {selectedContact.position ? (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
                       {selectedContact.position.split(',').map((p: string, idx: number) => (
-                        <View key={idx} style={[styles.mobilePositionBadge, { backgroundColor: isDark ? 'rgba(14, 165, 233, 0.2)' : '#e0f2fe', borderColor: isDark ? 'rgba(14, 165, 233, 0.4)' : '#bae6fd' }]}>
-                          <Text style={[styles.mobilePositionText, { color: isDark ? '#38bdf8' : '#0369a1' }]}>{p.trim()}</Text>
+                        <View key={idx} style={{ backgroundColor: 'rgba(59,130,246,0.18)', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(59,130,246,0.5)' }}>
+                          <Text style={{ fontSize: 9, fontWeight: '600', color: '#60a5fa', letterSpacing: 0.3 }}>{p.trim()}</Text>
                         </View>
                       ))}
                     </View>
-                  )}
+                  ) : null}
                 </View>
-                <TouchableOpacity onPress={() => setShowContactDetailModal(false)} style={{ position: 'absolute', top: 8, right: 12, width: 24, height: 24, borderRadius: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ color: colors.textSecondary, fontSize: 12, lineHeight: 13 }}>✕</Text>
+                <TouchableOpacity style={{ height: 28, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' }} onPress={openEditFromDetail}>
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.85)' }}>Bearbeiten</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setShowContactDetailModal(false)} style={{ width: 22, height: 22, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 20, lineHeight: 22 }}>✕</Text>
                 </TouchableOpacity>
               </View>
 
-                  <ScrollView style={styles.mobileDetailContent}>
-                    {/* Bereich | Position | Mannschaft */}
-                    <View style={[styles.mobileDetailBox, { backgroundColor: colors.surfaceSecondary }]}>
-                      <View style={{ flexDirection: 'row', gap: 16 }}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Verein / Institution</Text>
-                          <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{selectedContact.verein || '-'}</Text>
-                          {selectedContact.liga && <Text style={{ fontSize: 9, color: colors.textMuted, marginTop: 2 }}>{selectedContact.liga}</Text>}
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Bereich</Text>
-                          {selectedContact.bereich ? (
-                            <View style={[
-                              styles.mobileBereichBadge,
-                              {
-                                alignSelf: 'flex-start',
-                                backgroundColor: selectedContact.bereich === 'Nachwuchs'
-                                  ? (isDark ? 'rgba(251, 191, 36, 0.2)' : '#fef3c7')
-                                  : (isDark ? 'rgba(34, 197, 94, 0.2)' : '#f0fdf4'),
-                                borderColor: selectedContact.bereich === 'Nachwuchs'
-                                  ? (isDark ? 'rgba(251, 191, 36, 0.4)' : '#fde68a')
-                                  : (isDark ? 'rgba(34, 197, 94, 0.4)' : '#bbf7d0')
-                              }
-                            ]}>
-                              <Text style={[
-                                styles.mobileBereichText,
-                                { color: selectedContact.bereich === 'Nachwuchs' ? (isDark ? '#fbbf24' : '#92400e') : (isDark ? '#4ade80' : '#166534') }
-                              ]}>{selectedContact.bereich}</Text>
-                            </View>
-                          ) : <Text style={[styles.mobileDetailValue, { color: colors.text }]}>-</Text>}
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Mannschaft</Text>
-                          <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{selectedContact.mannschaft || '-'}</Text>
-                        </View>
-                      </View>
+              <ScrollView style={{ flex: 1, zIndex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24 }}>
+                {/* Verein | Bereich | Mannschaft */}
+                <View style={{ backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}>
+                  <View style={{ flexDirection: 'row', gap: 16 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Verein / Institution</Text>
+                      <Text style={{ fontSize: 13, fontWeight: '500', color: '#fff' }}>{selectedContact.verein || '-'}</Text>
+                      {selectedContact.liga ? <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>{selectedContact.liga}</Text> : null}
                     </View>
-
-                    {/* Kontaktdaten: 3 Spalten — bündig mit Verein | Bereich | Mannschaft oben */}
-                    <View style={[styles.mobileDetailBox, { backgroundColor: colors.surfaceSecondary }]}>
-                      <View style={{ flexDirection: 'row', gap: 16 }}>
-                        <View style={{ flex: 1, gap: 10 }}>
-                          <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => selectedContact.email && Linking.openURL(`mailto:${selectedContact.email}`)} disabled={!selectedContact.email}>
-                            <Ionicons name="mail-outline" size={15} color={colors.textMuted} style={{ marginRight: 10, width: 18 }} />
-                            <Text style={[styles.mobileDetailValue, { color: selectedContact.email ? '#3b82f6' : colors.text }]} numberOfLines={1}>{selectedContact.email || '-'}</Text>
-                          </TouchableOpacity>
-                          {selectedContact.transfermarkt_url && (
-                            <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => Linking.openURL(selectedContact.transfermarkt_url!)}>
-                              <Ionicons name="link-outline" size={15} color={colors.textMuted} style={{ marginRight: 10, width: 18 }} />
-                              <Text style={[styles.mobileDetailValue, { color: '#3b82f6' }]} numberOfLines={1}>Transfermarkt</Text>
-                            </TouchableOpacity>
-                          )}
-                        </View>
-                        <View style={{ flex: 1, gap: 10 }}>
-                          <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => selectedContact.telefon && Linking.openURL(`tel:${selectedContact.telefon_code}${selectedContact.telefon}`)} disabled={!selectedContact.telefon}>
-                            <Ionicons name="call-outline" size={15} color={colors.textMuted} style={{ marginRight: 10, width: 18 }} />
-                            <Text style={[styles.mobileDetailValue, { color: selectedContact.telefon ? '#3b82f6' : colors.text }]} numberOfLines={1}>{formatPhone(selectedContact)}</Text>
-                          </TouchableOpacity>
-                          {selectedContact.linkedin_url && (
-                            <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => Linking.openURL(selectedContact.linkedin_url!)}>
-                              <Ionicons name="link-outline" size={15} color="#0a66c2" style={{ marginRight: 10, width: 18 }} />
-                              <Text style={[styles.mobileDetailValue, { color: '#0a66c2' }]} numberOfLines={1}>LinkedIn</Text>
-                            </TouchableOpacity>
-                          )}
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          {selectedContact.created_by_name && (
-                            <>
-                              <Text style={[styles.mobileDetailLabel, { color: colors.textMuted }]}>Hinzugefügt von</Text>
-                              <Text style={[styles.mobileDetailValue, { color: colors.text }]}>{selectedContact.created_by_name}</Text>
-                            </>
-                          )}
-                        </View>
-                      </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Bereich</Text>
+                      <Text style={{ fontSize: 13, fontWeight: '500', color: '#fff' }}>{selectedContact.bereich || '-'}</Text>
                     </View>
-
-                    {/* Weitere Informationen */}
-                    {selectedContact.notes && (
-                      <View style={[styles.mobileDetailBox, { marginBottom: 0, backgroundColor: colors.surfaceSecondary }]}>
-                        <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-                          <Ionicons name="document-text-outline" size={15} color={colors.textMuted} style={{ marginRight: 10, width: 18, marginTop: 2 }} />
-                          <Text style={[styles.mobileDetailValue, { color: colors.text, flex: 1 }]}>{selectedContact.notes}</Text>
-                        </View>
-                      </View>
-                    )}
-                  </ScrollView>
-
-                  <View style={[styles.mobileDetailFooter, { borderTopColor: colors.border }]}>
-                    <TouchableOpacity style={[styles.mobileEditButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={openEditFromDetail}>
-                      <Text style={[styles.mobileEditText, { color: colors.textSecondary }]}>Bearbeiten</Text>
-                    </TouchableOpacity>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Mannschaft</Text>
+                      <Text style={{ fontSize: 13, fontWeight: '500', color: '#fff' }}>{selectedContact.mannschaft || '-'}</Text>
+                    </View>
                   </View>
-                </>
-              )}
+                </View>
+
+                {/* Kontaktdaten */}
+                <View style={{ backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}>
+                  <View style={{ flexDirection: 'row', gap: 16 }}>
+                    <View style={{ flex: 1, gap: 10 }}>
+                      <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => selectedContact.email && Linking.openURL(`mailto:${selectedContact.email}`)} disabled={!selectedContact.email}>
+                        <Ionicons name="mail-outline" size={15} color="rgba(255,255,255,0.5)" style={{ marginRight: 10, width: 18 }} />
+                        <Text style={{ fontSize: 13, fontWeight: '500', color: selectedContact.email ? '#60a5fa' : '#fff' }} numberOfLines={1}>{selectedContact.email || '-'}</Text>
+                      </TouchableOpacity>
+                      {selectedContact.transfermarkt_url ? (
+                        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => Linking.openURL(selectedContact.transfermarkt_url!)}>
+                          <Ionicons name="link-outline" size={15} color="rgba(255,255,255,0.5)" style={{ marginRight: 10, width: 18 }} />
+                          <Text style={{ fontSize: 13, fontWeight: '500', color: '#60a5fa' }} numberOfLines={1}>Transfermarkt</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                    <View style={{ flex: 1, gap: 10 }}>
+                      <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => selectedContact.telefon && Linking.openURL(`tel:${selectedContact.telefon_code}${selectedContact.telefon}`)} disabled={!selectedContact.telefon}>
+                        <Ionicons name="call-outline" size={15} color="rgba(255,255,255,0.5)" style={{ marginRight: 10, width: 18 }} />
+                        <Text style={{ fontSize: 13, fontWeight: '500', color: selectedContact.telefon ? '#60a5fa' : '#fff' }} numberOfLines={1}>{formatPhone(selectedContact)}</Text>
+                      </TouchableOpacity>
+                      {selectedContact.linkedin_url ? (
+                        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => Linking.openURL(selectedContact.linkedin_url!)}>
+                          <Ionicons name="link-outline" size={15} color="#0a66c2" style={{ marginRight: 10, width: 18 }} />
+                          <Text style={{ fontSize: 13, fontWeight: '500', color: '#0a66c2' }} numberOfLines={1}>LinkedIn</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      {selectedContact.created_by_name ? (
+                        <>
+                          <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Hinzugefügt von</Text>
+                          <Text style={{ fontSize: 13, fontWeight: '500', color: '#fff' }}>{selectedContact.created_by_name}</Text>
+                        </>
+                      ) : null}
+                    </View>
+                  </View>
+                </View>
+
+                {/* Weitere Informationen */}
+                {selectedContact.notes ? (
+                  <View style={{ backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}>
+                    <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Weitere Informationen</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                      <Ionicons name="document-text-outline" size={15} color="rgba(255,255,255,0.5)" style={{ marginRight: 10, width: 18, marginTop: 2 }} />
+                      <Text style={{ fontSize: 13, fontWeight: '500', color: '#fff', flex: 1, lineHeight: 18 }}>{selectedContact.notes}</Text>
+                    </View>
+                  </View>
+                ) : null}
+              </ScrollView>
+            </View>
+          )}
         </SlideUpModal>
 
-        {/* Add/Edit Modal for Mobile */}
+        {/* Add/Edit Modal for Mobile — Skill-Pattern */}
         <Modal visible={showAddModal} transparent animationType="fade">
           <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={closeModal}>
-            <TouchableOpacity style={[styles.mobileFormModal, { backgroundColor: colors.surface }]} activeOpacity={1} onPress={() => setActiveDropdown(null)}>
-              <View style={styles.modalHeader}>
-                <Text style={[styles.modalTitle, { color: colors.text }]}>{editingContact ? 'Kontakt bearbeiten' : 'Neuer Kontakt'}</Text>
-                <TouchableOpacity onPress={closeModal} style={styles.closeButton}><Text style={[styles.closeButtonText, { color: colors.textSecondary }]}>✕</Text></TouchableOpacity>
+            <TouchableOpacity style={[styles.mobileFormModal, { backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', overflow: 'hidden' }]} activeOpacity={1} onPress={() => setActiveDropdown(null)}>
+              <Image source={require('../../../assets/scouting-header-bg.jpg')} style={[StyleSheet.absoluteFillObject, { width: '100%', height: '100%', opacity: 0.85, ...({ objectFit: 'cover', objectPosition: 'center', backgroundSize: 'cover', backgroundPosition: 'center' } as any) }]} resizeMode="cover" />
+              <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />
+              <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', position: 'relative', zIndex: 1 }}>
+                <Text style={{ fontFamily: 'Josefin Sans', fontSize: 16, fontWeight: '300', letterSpacing: 4, textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>{editingContact ? 'Kontakt bearbeiten' : 'Neuer Kontakt'}</Text>
+                <TouchableOpacity onPress={closeModal} style={{ position: 'absolute', right: 16, width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 20 }}>✕</Text>
+                </TouchableOpacity>
               </View>
-              <ScrollView style={styles.modalScroll}>
+              <ScrollView style={[styles.modalScroll, { zIndex: 1 }]}>
                 {!editingContact && (
                   <TouchableOpacity
                     style={[styles.importContactBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
@@ -1306,15 +1301,19 @@ export function FootballNetworkScreen({ navigation }: any) {
                 </View>
                 <View style={styles.formField}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>Weitere Informationen</Text><TextInput style={[styles.formInput, styles.textArea, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.notes} onChangeText={(t) => setNewContact({...newContact, notes: t})} placeholder="Zusätzliche Informationen..." placeholderTextColor={colors.textMuted} multiline numberOfLines={3} onFocus={() => setActiveDropdown(null)} /></View>
               </ScrollView>
-              <View style={[styles.modalButtonsSpaced, { borderTopColor: colors.border }]}>
-                {editingContact && (
-                  <TouchableOpacity style={styles.deleteButton} onPress={() => setShowDeleteConfirm(true)}>
-                    <Text style={styles.deleteButtonText}>Löschen</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingVertical: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)', zIndex: 1 }}>
+                {editingContact ? (
+                  <TouchableOpacity style={{ paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.15)' }} onPress={() => setShowDeleteConfirm(true)}>
+                    <Text style={{ fontSize: 11, fontWeight: '600', color: '#ef4444' }}>Löschen</Text>
                   </TouchableOpacity>
-                )}
-                <View style={styles.modalButtonsRight}>
-                  <TouchableOpacity style={[styles.cancelButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={closeModal}><Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text></TouchableOpacity>
-                  <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.primary }]} onPress={editingContact ? updateContact : addContact}><Text style={[styles.saveButtonText, { color: colors.primaryText }]}>{editingContact ? 'Speichern' : 'Hinzufügen'}</Text></TouchableOpacity>
+                ) : <View />}
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <TouchableOpacity style={{ paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.05)' }} onPress={closeModal}>
+                    <Text style={{ fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.85)' }}>Abbrechen</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: '#22c55e', backgroundColor: '#22c55e' }} onPress={editingContact ? updateContact : addContact}>
+                    <Text style={{ fontSize: 11, fontWeight: '600', color: '#fff' }}>{editingContact ? 'Speichern' : 'Hinzufügen'}</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             </TouchableOpacity>
@@ -1344,7 +1343,8 @@ export function FootballNetworkScreen({ navigation }: any) {
 
   // Desktop View
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }, isMobile && styles.containerMobile]}>
+    <View style={[styles.container, { backgroundColor: 'transparent' }, isMobile && styles.containerMobile]}>
+      <AdvisorBackground />
       {/* Mobile Sidebar Overlay */}
       {isMobile && (
         <MobileSidebar
@@ -1359,72 +1359,81 @@ export function FootballNetworkScreen({ navigation }: any) {
       {/* Desktop Sidebar */}
       {!isMobile && <Sidebar navigation={navigation} activeScreen="network" profile={authProfile} />}
 
-      <TouchableOpacity style={[styles.mainContent, { backgroundColor: colors.background }]} activeOpacity={1} onPress={closeAllDropdowns}>
+      <TouchableOpacity style={[styles.mainContent, { backgroundColor: 'transparent' }]} activeOpacity={1} onPress={closeAllDropdowns}>
         {/* Mobile Header */}
         {isMobile && (
           <MobileHeader
             title="Football Network"
+            backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
             onMenuPress={() => setShowMobileSidebar(true)}
-            onProfilePress={() => navigation.navigate('MyProfile')}
-            profileInitials={profileInitials}
           />
         )}
 
-        {/* Desktop Header */}
-        {!isMobile && (
-          <View style={[styles.headerBanner, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-            <View style={{ width: 100 }} />
-            <View style={styles.headerBannerCenter}><Text style={[styles.title, { color: colors.text }]}>Football Network</Text><Text style={[styles.subtitle, { color: colors.textSecondary }]}>Kontakte zu Vereinen und Entscheidern</Text></View>
-            <View style={{ width: 100 }} />
-          </View>
-        )}
-
-        <View style={[styles.toolbar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-          <TouchableOpacity style={{ paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }} onPress={() => navigation.navigate('AdvisorDashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
-          <View style={[styles.searchContainer, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
+        {/* Desktop Header - Filter als children im AdvisorHeroHeader (durchgehender BG). Mobile: flache Toolbar */}
+        {(() => {
+          const filterToolbarContent = (
+            <>
+          <TouchableOpacity style={{ height: 28, paddingVertical: 0, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center' }} onPress={() => navigation.navigate('AdvisorDashboard')}><Ionicons name="arrow-back" size={13} color={colors.textSecondary} /></TouchableOpacity>
+          <View style={[styles.searchContainer, { backgroundColor: 'rgba(0,0,0,0.85)', borderColor: 'rgba(255,255,255,0.25)', height: 28, borderRadius: 6, paddingVertical: 0 }]}>
             <Text style={styles.searchIcon}>🔍</Text>
-            <TextInput style={[styles.searchInput, { color: colors.text }]} placeholder="Verein, Namen suchen..." placeholderTextColor={colors.textMuted} value={searchText} onChangeText={setSearchText} />
+            <TextInput style={[styles.searchInput, { color: colors.text, paddingVertical: 0 }]} placeholder="Verein, Namen suchen..." placeholderTextColor={colors.textMuted} value={searchText} onChangeText={setSearchText} />
           </View>
           <View style={styles.filterContainer}>
             <View style={[styles.dropdownContainer, { zIndex: 40 }]}>
-              <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }, selectedBereiche.length > 0 && { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={(e) => { e.stopPropagation(); setShowBereichDropdown(!showBereichDropdown); setShowPositionDropdown(false); setShowLeagueDropdown(false); }}>
+              <TouchableOpacity style={[styles.filterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }, selectedBereiche.length > 0 && { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={(e) => { e.stopPropagation(); setShowBereichDropdown(!showBereichDropdown); setShowPositionDropdown(false); setShowLeagueDropdown(false); }}>
                 <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedBereiche.length > 0 && { color: colors.primaryText }]}>{selectedBereiche.length === 0 ? 'Bereich' : selectedBereiche.length === 1 ? selectedBereiche[0] : `${selectedBereiche.length} Bereiche`} ▼</Text>
               </TouchableOpacity>
               {showBereichDropdown && (
-                <View style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                  <View style={[styles.filterDropdownHeader, { borderBottomColor: colors.border }]}><Text style={[styles.filterDropdownTitle, { color: colors.text }]}>Bereich wählen</Text>{selectedBereiche.length > 0 && <TouchableOpacity onPress={() => setSelectedBereiche([])}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}</View>
-                  <ScrollView style={{ maxHeight: 200 }}>{BEREICHE.map(b => (<TouchableOpacity key={b} style={[styles.filterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => toggleBereich(b)}><View style={[styles.checkbox, { borderColor: colors.border }, selectedBereiche.includes(b) && { backgroundColor: colors.primary, borderColor: colors.primary }]}>{selectedBereiche.includes(b) && <Text style={[styles.checkmark, { color: colors.primaryText }]}>✓</Text>}</View><Text style={[styles.filterCheckboxText, { color: colors.text }]}>{b}</Text><Text style={[styles.filterCountBadge, { color: colors.textSecondary, backgroundColor: colors.surfaceSecondary }]}>{contacts.filter(c => c.bereich === b).length}</Text></TouchableOpacity>))}</ScrollView>
+                <View style={styles.filterDropdownMulti}>
+                  <View style={[styles.filterDropdownHeader, { borderBottomColor: colors.border }]}><Text style={styles.filterDropdownTitle}>Bereich wählen</Text>{selectedBereiche.length > 0 && <TouchableOpacity onPress={() => setSelectedBereiche([])}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}</View>
+                  <ScrollView style={{ maxHeight: 200 }}>{BEREICHE.map(b => (<TouchableOpacity key={b} style={styles.filterCheckboxItem} onPress={() => toggleBereich(b)}><View style={[styles.checkbox, { borderColor: colors.border }, selectedBereiche.includes(b) && { backgroundColor: colors.primary, borderColor: colors.primary }]}>{selectedBereiche.includes(b) && <Text style={[styles.checkmark, { color: colors.primaryText }]}>✓</Text>}</View><Text style={styles.filterCheckboxText}>{b}</Text><Text style={[styles.filterCountBadge, { color: colors.textSecondary, backgroundColor: colors.surfaceSecondary }]}>{contacts.filter(c => c.bereich === b).length}</Text></TouchableOpacity>))}</ScrollView>
                   <TouchableOpacity style={[styles.filterDoneButton, { borderTopColor: colors.border }]} onPress={() => setShowBereichDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
                 </View>
               )}
             </View>
             <View style={[styles.dropdownContainer, { zIndex: 30 }]}>
-              <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }, selectedPositions.length > 0 && { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={(e) => { e.stopPropagation(); setShowPositionDropdown(!showPositionDropdown); setShowLeagueDropdown(false); setShowBereichDropdown(false); }}>
+              <TouchableOpacity style={[styles.filterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }, selectedPositions.length > 0 && { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={(e) => { e.stopPropagation(); setShowPositionDropdown(!showPositionDropdown); setShowLeagueDropdown(false); setShowBereichDropdown(false); }}>
                 <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedPositions.length > 0 && { color: colors.primaryText }]}>{selectedPositions.length === 0 ? 'Position' : selectedPositions.length === 1 ? selectedPositions[0] : `${selectedPositions.length} Positionen`} ▼</Text>
               </TouchableOpacity>
               {showPositionDropdown && (
-                <View style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                  <View style={[styles.filterDropdownHeader, { borderBottomColor: colors.border }]}><Text style={[styles.filterDropdownTitle, { color: colors.text }]}>Position wählen</Text>{selectedPositions.length > 0 && <TouchableOpacity onPress={() => setSelectedPositions([])}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}</View>
-                  <ScrollView style={{ maxHeight: 250 }}>{ALL_POSITIONS.map(p => (<TouchableOpacity key={p} style={[styles.filterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => togglePosition(p)}><View style={[styles.checkbox, { borderColor: colors.border }, selectedPositions.includes(p) && { backgroundColor: colors.primary, borderColor: colors.primary }]}>{selectedPositions.includes(p) && <Text style={[styles.checkmark, { color: colors.primaryText }]}>✓</Text>}</View><Text style={[styles.filterCheckboxText, { color: colors.text }]}>{p}</Text><Text style={[styles.filterCountBadge, { color: colors.textSecondary, backgroundColor: colors.surfaceSecondary }]}>{contacts.filter(c => c.position === p).length}</Text></TouchableOpacity>))}</ScrollView>
+                <View style={styles.filterDropdownMulti}>
+                  <View style={[styles.filterDropdownHeader, { borderBottomColor: colors.border }]}><Text style={styles.filterDropdownTitle}>Position wählen</Text>{selectedPositions.length > 0 && <TouchableOpacity onPress={() => setSelectedPositions([])}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}</View>
+                  <ScrollView style={{ maxHeight: 250 }}>{ALL_POSITIONS.map(p => (<TouchableOpacity key={p} style={styles.filterCheckboxItem} onPress={() => togglePosition(p)}><View style={[styles.checkbox, { borderColor: colors.border }, selectedPositions.includes(p) && { backgroundColor: colors.primary, borderColor: colors.primary }]}>{selectedPositions.includes(p) && <Text style={[styles.checkmark, { color: colors.primaryText }]}>✓</Text>}</View><Text style={styles.filterCheckboxText}>{p}</Text><Text style={[styles.filterCountBadge, { color: colors.textSecondary, backgroundColor: colors.surfaceSecondary }]}>{contacts.filter(c => c.position === p).length}</Text></TouchableOpacity>))}</ScrollView>
                   <TouchableOpacity style={[styles.filterDoneButton, { borderTopColor: colors.border }]} onPress={() => setShowPositionDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
                 </View>
               )}
             </View>
             <View style={[styles.dropdownContainer, { zIndex: 20 }]}>
-              <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }, selectedLeagues.length > 0 && { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={(e) => { e.stopPropagation(); setShowLeagueDropdown(!showLeagueDropdown); setShowPositionDropdown(false); setShowBereichDropdown(false); }}>
+              <TouchableOpacity style={[styles.filterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }, selectedLeagues.length > 0 && { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={(e) => { e.stopPropagation(); setShowLeagueDropdown(!showLeagueDropdown); setShowPositionDropdown(false); setShowBereichDropdown(false); }}>
                 <Text style={[styles.filterButtonText, { color: colors.textSecondary }, selectedLeagues.length > 0 && { color: colors.primaryText }]}>{selectedLeagues.length === 0 ? 'Liga' : selectedLeagues.length === 1 ? selectedLeagues[0] : `${selectedLeagues.length} Ligen`} ▼</Text>
               </TouchableOpacity>
               {showLeagueDropdown && (
-                <View style={[styles.filterDropdownMulti, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                  <View style={[styles.filterDropdownHeader, { borderBottomColor: colors.border }]}><Text style={[styles.filterDropdownTitle, { color: colors.text }]}>Liga wählen</Text>{selectedLeagues.length > 0 && <TouchableOpacity onPress={() => setSelectedLeagues([])}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}</View>
-                  <ScrollView style={{ maxHeight: 250 }}>{LEAGUES.map(l => (<TouchableOpacity key={l} style={[styles.filterCheckboxItem, { borderBottomColor: colors.border }]} onPress={() => toggleLeague(l)}><View style={[styles.checkbox, { borderColor: colors.border }, selectedLeagues.includes(l) && { backgroundColor: colors.primary, borderColor: colors.primary }]}>{selectedLeagues.includes(l) && <Text style={[styles.checkmark, { color: colors.primaryText }]}>✓</Text>}</View><Text style={[styles.filterCheckboxText, { color: colors.text }]}>{l}</Text><Text style={[styles.filterCountBadge, { color: colors.textSecondary, backgroundColor: colors.surfaceSecondary }]}>{contacts.filter(c => c.liga === l).length}</Text></TouchableOpacity>))}</ScrollView>
+                <View style={styles.filterDropdownMulti}>
+                  <View style={[styles.filterDropdownHeader, { borderBottomColor: colors.border }]}><Text style={styles.filterDropdownTitle}>Liga wählen</Text>{selectedLeagues.length > 0 && <TouchableOpacity onPress={() => setSelectedLeagues([])}><Text style={styles.filterClearText}>Alle löschen</Text></TouchableOpacity>}</View>
+                  <ScrollView style={{ maxHeight: 250 }}>{LEAGUES.map(l => (<TouchableOpacity key={l} style={styles.filterCheckboxItem} onPress={() => toggleLeague(l)}><View style={[styles.checkbox, { borderColor: colors.border }, selectedLeagues.includes(l) && { backgroundColor: colors.primary, borderColor: colors.primary }]}>{selectedLeagues.includes(l) && <Text style={[styles.checkmark, { color: colors.primaryText }]}>✓</Text>}</View><Text style={styles.filterCheckboxText}>{l}</Text><Text style={[styles.filterCountBadge, { color: colors.textSecondary, backgroundColor: colors.surfaceSecondary }]}>{contacts.filter(c => c.liga === l).length}</Text></TouchableOpacity>))}</ScrollView>
                   <TouchableOpacity style={[styles.filterDoneButton, { borderTopColor: colors.border }]} onPress={() => setShowLeagueDropdown(false)}><Text style={styles.filterDoneText}>Fertig</Text></TouchableOpacity>
                 </View>
               )}
             </View>
           </View>
-          <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => setShowAddModal(true)}><Ionicons name="person-add-outline" size={12} color={colors.textSecondary} /></TouchableOpacity>
-        </View>
+          <TouchableOpacity style={[styles.filterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }]} onPress={() => setShowAddModal(true)}><Ionicons name="person-add-outline" size={12} color={colors.textSecondary} /></TouchableOpacity>
+            </>
+          );
+          return !isMobile ? (
+            <AdvisorHeroHeader
+              title="FOOTBALL NETWORK"
+              subtitle="KONTAKTE ZU VEREINEN UND ENTSCHEIDERN"
+              backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
+              backgroundImageOpacity={0.45}
+            >
+              {filterToolbarContent}
+            </AdvisorHeroHeader>
+          ) : (
+            <View style={[styles.toolbar, { backgroundColor: 'transparent', borderBottomWidth: 0, paddingHorizontal: 24 }] as any}>
+              {filterToolbarContent}
+            </View>
+          );
+        })()}
 
         <View style={styles.content}>
           {selectedExportIds.length > 0 && (
@@ -1439,10 +1448,11 @@ export function FootballNetworkScreen({ navigation }: any) {
               </TouchableOpacity>
             </View>
           )}
-          <View style={[styles.tableContainer, { backgroundColor: colors.cardBackground }]} onLayout={(e) => setTableWidth(e.nativeEvent.layout.width - 36 - 32)}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceSecondary, borderBottomWidth: 1, borderBottomColor: colors.border, paddingHorizontal: 16 }}>
+          <View style={[styles.tableContainer, { backgroundColor: 'rgba(0,0,0,0.55)', borderColor: 'rgba(255,255,255,0.15)', borderWidth: 1 }]} onLayout={(e) => setTableWidth(e.nativeEvent.layout.width - 36 - 32)}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.45)', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 16, overflow: 'hidden' }}>
+              <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.45 }} resizeMode="cover" />
               <TouchableOpacity onPress={toggleAllExport} style={{ width: 36, alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}>
-                <Ionicons name={selectedExportIds.length === filteredContacts.length && filteredContacts.length > 0 ? "checkbox" : "square-outline"} size={18} color={selectedExportIds.length > 0 ? colors.primary : colors.textMuted} />
+                <Ionicons name={selectedExportIds.length === filteredContacts.length && filteredContacts.length > 0 ? "checkbox" : "square-outline"} size={14} color={selectedExportIds.length > 0 ? colors.primary : colors.textMuted} />
               </TouchableOpacity>
               {tableWidth > 0 && (
                 <TableHeader
@@ -1459,7 +1469,7 @@ export function FootballNetworkScreen({ navigation }: any) {
                   sortAsc={sortDirection === 'asc'}
                   colors={colors}
                   setHeaderRef={table.setHeaderRef}
-                  style={{ flex: 1, borderBottomWidth: 0 }}
+                  style={{ flex: 1, borderBottomWidth: 0, backgroundColor: 'transparent' }}
                 />
               )}
             </View>
@@ -1992,80 +2002,80 @@ export function FootballNetworkScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, flexDirection: 'row', backgroundColor: '#f8fafc' },
+  container: { flex: 1, flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.45)' },
   containerMobile: { flexDirection: 'column' },
 
   // Sidebar Overlay (Mobile)
   sidebarOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 100, flexDirection: 'row' },
-  sidebarMobile: { width: 280, height: '100%', backgroundColor: '#fff' },
+  sidebarMobile: { width: 280, height: '100%', backgroundColor: 'rgba(0,0,0,0.55)' },
 
-  mainContent: { flex: 1, backgroundColor: '#f8fafc' },
-  headerBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16, paddingHorizontal: 24, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  mainContent: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
+  headerBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16, paddingHorizontal: 24, backgroundColor: 'rgba(0,0,0,0.55)', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)' },
   headerBannerCenter: { alignItems: 'center' },
   title: { fontSize: 18, fontWeight: '700', color: '#1a1a1a' },
   subtitle: { fontSize: 11, color: '#64748b', marginTop: 3 },
-  backButton: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0' },
+  backButton: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   backButtonText: { fontSize: 11, color: '#64748b', fontWeight: '500' },
-  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0', zIndex: 100 },
-  searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 6, paddingHorizontal: 10, borderWidth: 1, borderColor: '#e2e8f0' },
+  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: 'rgba(0,0,0,0.55)', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', zIndex: 100 },
+  searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 6, paddingHorizontal: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   searchIcon: { marginRight: 6 },
   searchInput: { flex: 1, paddingVertical: 6, fontSize: 11, color: '#1a1a1a' },
   filterContainer: { flexDirection: 'row', gap: 6 },
   dropdownContainer: { position: 'relative' },
-  filterButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1 },
+  filterButton: { height: 28, paddingVertical: 0, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
   filterButtonText: { fontSize: 11, fontWeight: '500' },
   addButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1 },
   addButtonText: { fontSize: 11, fontWeight: '500' },
-  filterDropdownMulti: { position: 'absolute', top: '100%', left: 0, minWidth: 200, backgroundColor: '#fff', borderRadius: 6, borderWidth: 1, borderColor: '#e2e8f0', marginTop: 4, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, zIndex: 1000 },
-  filterDropdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  filterDropdownTitle: { fontSize: 11, fontWeight: '600', color: '#1a1a1a' },
-  filterClearText: { fontSize: 10, color: '#3b82f6' },
-  filterCheckboxItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 10, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  checkbox: { width: 15, height: 15, borderRadius: 3, borderWidth: 2, borderColor: '#e2e8f0', marginRight: 8, justifyContent: 'center', alignItems: 'center' },
-  checkboxSelected: { backgroundColor: '#1a1a1a', borderColor: '#1a1a1a' },
-  checkmark: { color: '#fff', fontSize: 10, fontWeight: '700' },
-  filterCheckboxText: { flex: 1, fontSize: 11, color: '#1a1a1a' },
-  filterCountBadge: { fontSize: 10, color: '#64748b', backgroundColor: '#f1f5f9', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 8 },
-  filterDoneButton: { paddingVertical: 10, alignItems: 'center', borderTopWidth: 1, borderTopColor: '#e2e8f0' },
-  filterDoneText: { fontSize: 14, color: '#3b82f6', fontWeight: '600' },
+  filterDropdownMulti: { position: 'absolute', top: '100%', right: 0, minWidth: 260, backgroundColor: '#000', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', marginTop: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12, zIndex: 1000, overflow: 'hidden' },
+  filterDropdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', backgroundColor: '#000' },
+  filterDropdownTitle: { fontFamily: 'Josefin Sans', fontSize: 11, fontWeight: '300', letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)' },
+  filterClearText: { fontSize: 11, color: '#ef4444', fontWeight: '500' },
+  filterCheckboxItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)', backgroundColor: '#000' },
+  checkbox: { width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.3)', marginRight: 12, justifyContent: 'center', alignItems: 'center' },
+  checkboxSelected: { backgroundColor: '#22c55e', borderColor: '#22c55e' },
+  checkmark: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
+  filterCheckboxText: { flex: 1, fontSize: 13, color: '#fff', fontWeight: '500' },
+  filterCountBadge: { fontSize: 11, color: 'rgba(255,255,255,0.6)', backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+  filterDoneButton: { padding: 12, alignItems: 'center', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)', backgroundColor: '#000' },
+  filterDoneText: { fontSize: 12, color: '#22c55e', fontWeight: '600', letterSpacing: 0.5 },
   content: { flex: 1, padding: 24 },
-  tableContainer: { flex: 1, backgroundColor: '#fff', borderRadius: 12, overflow: 'hidden' },
-  tableHeader: { flexDirection: 'row', backgroundColor: '#f8fafc', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  tableContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 12, overflow: 'hidden' },
+  tableHeader: { flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.45)', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)' },
   tableHeaderCell: { fontSize: 11, fontWeight: '600', color: '#64748b', textTransform: 'uppercase' },
   sortableHeaderCell: { cursor: 'pointer' as any },
   tableRow: { flexDirection: 'row', paddingVertical: 10, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', alignItems: 'center' },
   tableCell: { fontSize: 11, color: '#1a1a1a' },
   tableCellBold: { fontWeight: '500' },
   tableCellView: { justifyContent: 'center' },
-  positionBadge: { backgroundColor: '#e0f2fe', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 4, alignSelf: 'flex-start' },
+  positionBadge: { backgroundColor: 'rgba(59,130,246,0.2)', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 4, alignSelf: 'flex-start' },
   positionText: { fontSize: 11, fontWeight: '600', color: '#0369a1' },
-  bereichBadge: { backgroundColor: '#f0fdf4', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 4, alignSelf: 'flex-start' },
-  bereichBadgeNachwuchs: { backgroundColor: '#fef3c7' },
+  bereichBadge: { backgroundColor: 'rgba(34,197,94,0.15)', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 4, alignSelf: 'flex-start' },
+  bereichBadgeNachwuchs: { backgroundColor: 'rgba(234,179,8,0.2)' },
   bereichText: { fontSize: 11, fontWeight: '600', color: '#166534' },
   bereichTextNachwuchs: { color: '#92400e' },
   emptyState: { padding: 40, alignItems: 'center' },
   emptyStateText: { fontSize: 11, color: '#64748b' },
   tableClubLogo: { width: 20, height: 20, borderRadius: 3, marginRight: 8, resizeMode: 'contain' as any },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 680, maxHeight: '90%' },
+  modalContent: { backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 16, padding: 24, width: '90%', maxWidth: 680, maxHeight: '90%' },
 
   // Desktop Detail Modal
-  detailModalContent: { backgroundColor: '#fff', borderRadius: 16, width: '90%', maxWidth: 550, maxHeight: '90%' },
-  detailModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  detailModalContent: { backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 16, width: '90%', maxWidth: 550, maxHeight: '90%' },
+  detailModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)' },
   detailModalNameRow: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   detailModalLogo: { width: 48, height: 48, borderRadius: 8, marginRight: 16, resizeMode: 'contain' as any },
   detailModalName: { fontSize: 13, fontWeight: '700', color: '#1a1a1a' },
   detailModalClub: { fontSize: 11, color: '#64748b', marginTop: 4 },
   detailModalClose: { fontSize: 14, color: '#64748b', padding: 4 },
   detailModalBody: { padding: 16 },
-  detailModalBox: { backgroundColor: '#f8fafc', borderRadius: 10, padding: 10, marginBottom: 8 },
+  detailModalBox: { backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 10, padding: 10, marginBottom: 8 },
   detailModalRow: { flexDirection: 'row', gap: 16 },
   detailModalField: { flex: 1 },
   detailModalFieldFull: { marginBottom: 16 },
   detailModalLabel: { fontSize: 10, color: '#94a3b8', marginBottom: 4, fontWeight: '500', textTransform: 'uppercase' },
   detailModalValue: { fontSize: 11, color: '#1a1a1a' },
   detailModalFooter: { flexDirection: 'row', justifyContent: 'flex-end', padding: 10, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
-  editButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
+  editButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   editButtonText: { fontSize: 11, fontWeight: '600', color: '#1a1a1a' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 16, fontWeight: '700', color: '#1a1a1a' },
@@ -2075,42 +2085,42 @@ const styles = StyleSheet.create({
   formField: { marginBottom: 10 },
   formRow: { flexDirection: 'row', gap: 12 },
   formLabel: { fontSize: 10, color: '#94a3b8', marginBottom: 4, fontWeight: '500' },
-  formInput: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, padding: 8, fontSize: 11, backgroundColor: '#fff' },
-  formSelect: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, padding: 8, backgroundColor: '#fff', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  formSelectDisabled: { backgroundColor: '#f8fafc' },
+  formInput: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 6, padding: 8, fontSize: 11, backgroundColor: 'rgba(0,0,0,0.55)' },
+  formSelect: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 6, padding: 8, backgroundColor: 'rgba(0,0,0,0.55)', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  formSelectDisabled: { backgroundColor: 'rgba(0,0,0,0.45)' },
   formSelectText: { fontSize: 11, color: '#1a1a1a' },
   formSelectPlaceholder: { fontSize: 11, color: '#9ca3af' },
   formSelectArrow: { fontSize: 10, color: '#64748b' },
-  dropdownList: { backgroundColor: '#fff', borderRadius: 6, borderWidth: 1, borderColor: '#e2e8f0', marginTop: 4, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
-  dropdownSearch: { borderBottomWidth: 1, borderBottomColor: '#e2e8f0', padding: 8, fontSize: 11 },
+  dropdownList: { backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', marginTop: 4, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
+  dropdownSearch: { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', padding: 8, fontSize: 11 },
   dropdownScroll: { maxHeight: 180 },
   dropdownItem: { paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  dropdownItemNew: { backgroundColor: '#f0fdf4' },
+  dropdownItemNew: { backgroundColor: 'rgba(34,197,94,0.15)' },
   dropdownItemText: { fontSize: 11, color: '#1a1a1a' },
   clubItemRow: { flexDirection: 'row', alignItems: 'center' },
   clubLogo: { width: 24, height: 24, borderRadius: 4, marginRight: 10 },
   textArea: { minHeight: 80, textAlignVertical: 'top' },
   phoneRow: { flexDirection: 'row', gap: 8 },
-  countryCodeButton: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 8, backgroundColor: '#fff', minWidth: 70 },
+  countryCodeButton: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 8, backgroundColor: 'rgba(0,0,0,0.55)', minWidth: 70 },
   countryCodeText: { fontSize: 11, color: '#1a1a1a', marginRight: 4 },
   countryCodeArrow: { fontSize: 10, color: '#64748b' },
   phoneInput: { flex: 1 },
   modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
   modalButtonsSpaced: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
   modalButtonsRight: { flexDirection: 'row', gap: 12 },
-  cancelButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0' },
+  cancelButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   cancelButtonText: { fontSize: 11, color: '#64748b' },
   saveButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#1a1a1a' },
   saveButtonText: { fontSize: 11, color: '#fff', fontWeight: '500' },
-  deleteButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca' },
+  deleteButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: 'rgba(239,68,68,0.15)', borderWidth: 1, borderColor: '#fecaca' },
   deleteButtonText: { fontSize: 11, color: '#ef4444', fontWeight: '500' },
 
   // Delete Confirmation Modal
-  deleteConfirmModal: { backgroundColor: '#fff', borderRadius: 12, padding: 20, width: '85%', maxWidth: 280, alignItems: 'center' },
+  deleteConfirmModal: { backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 12, padding: 20, width: '85%', maxWidth: 280, alignItems: 'center' },
   deleteConfirmTitle: { fontSize: 15, fontWeight: '600', color: '#1a1a1a', marginBottom: 8 },
   deleteConfirmText: { fontSize: 13, color: '#ef4444', textAlign: 'center', marginBottom: 16 },
   deleteConfirmButtons: { flexDirection: 'row', gap: 12, width: '100%' },
-  deleteConfirmCancelBtn: { flex: 1, paddingVertical: 12, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center' },
+  deleteConfirmCancelBtn: { flex: 1, paddingVertical: 12, borderRadius: 8, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', alignItems: 'center' },
   deleteConfirmCancelText: { fontSize: 14, color: '#64748b', fontWeight: '500' },
   deleteConfirmDeleteBtn: { flex: 1, paddingVertical: 12, borderRadius: 8, backgroundColor: '#ef4444', alignItems: 'center' },
   deleteConfirmDeleteText: { fontSize: 14, color: '#fff', fontWeight: '500' },
@@ -2122,15 +2132,15 @@ const styles = StyleSheet.create({
   phoneContactName: { fontSize: 15, fontWeight: '500' },
 
   // Mobile Styles
-  containerMobile: { flex: 1, backgroundColor: '#f8fafc' },
+  containerMobile: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
   mainContentMobile: { flex: 1 },
 
   // Mobile Toolbar
-  mobileToolbar: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  mobileSearchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: '#e2e8f0' },
+  mobileToolbar: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: 'rgba(0,0,0,0.55)', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)' },
+  mobileSearchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   mobileSearchIcon: { marginRight: 8, fontSize: 14 },
   mobileSearchInput: { flex: 1, paddingVertical: 10, fontSize: 14, color: '#1a1a1a' },
-  mobileFilterButton: { width: 44, height: 44, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', justifyContent: 'center', alignItems: 'center' },
+  mobileFilterButton: { width: 44, height: 44, borderRadius: 8, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' },
   mobileFilterButtonActive: { backgroundColor: '#1a1a1a', borderColor: '#1a1a1a' },
   mobileFilterIcon: { fontSize: 18, color: '#64748b' },
   mobileFilterIconActive: { color: '#fff' },
@@ -2138,7 +2148,7 @@ const styles = StyleSheet.create({
   filterCountText: { color: '#fff', fontSize: 10, fontWeight: '700' },
 
   // Mobile Subheader
-  mobileSubheader: { paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#f8fafc' },
+  mobileSubheader: { paddingHorizontal: 16, paddingVertical: 10, backgroundColor: 'rgba(0,0,0,0.45)' },
   mobileSubheaderText: { fontSize: 13, color: '#64748b', fontWeight: '500' },
 
   // Mobile Card List
@@ -2146,7 +2156,7 @@ const styles = StyleSheet.create({
   mobileCardListContent: { padding: 16 },
 
   // Mobile Card (matching Scouting style)
-  mobileCard: { backgroundColor: '#fff', borderRadius: 10, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: '#e2e8f0' },
+  mobileCard: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 16, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', ...(Platform.OS === 'web' ? { backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' } as any : {}) },
   mobileCardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   mobileCardName: { fontSize: 11, fontWeight: '600', color: '#1a1a1a', flex: 1 },
   mobileCardClubRow: { flexDirection: 'row', alignItems: 'center', flex: 1 },
@@ -2155,56 +2165,56 @@ const styles = StyleSheet.create({
   mobileCardBadgesRow: { flexDirection: 'row', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' },
 
   // Mobile Badges (matching Scouting style with borders)
-  mobileBereichBadge: { backgroundColor: '#f0fdf4', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 4, borderWidth: 1, borderColor: '#bbf7d0' },
-  mobileBereichBadgeNachwuchs: { backgroundColor: '#fef3c7', borderColor: '#fde68a' },
+  mobileBereichBadge: { backgroundColor: 'rgba(34,197,94,0.15)', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 4, borderWidth: 1, borderColor: '#bbf7d0' },
+  mobileBereichBadgeNachwuchs: { backgroundColor: 'rgba(234,179,8,0.2)', borderColor: '#fde68a' },
   mobileBereichText: { fontSize: 10, fontWeight: '500', color: '#166534' },
   mobileBereichTextNachwuchs: { color: '#92400e' },
-  mobilePositionBadge: { backgroundColor: '#e0f2fe', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 4, borderWidth: 1, borderColor: '#bae6fd' },
+  mobilePositionBadge: { backgroundColor: 'rgba(59,130,246,0.2)', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 4, borderWidth: 1, borderColor: '#bae6fd' },
   mobilePositionText: { fontSize: 10, fontWeight: '500', color: '#0369a1' },
 
   // FAB
-  fab: { position: 'absolute', bottom: 20, right: 20, width: 44, height: 44, borderRadius: 22, backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
-  fabText: { fontSize: 24, color: '#fff', fontWeight: '300', lineHeight: 26 },
+  fab: { position: 'absolute', bottom: 16, right: 16, width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
+  fabText: { fontSize: 18, color: '#fff', fontWeight: '300', lineHeight: 20 },
 
   // Mobile Filter Modal
-  mobileFilterModal: { flex: 1, backgroundColor: '#fff', marginTop: 60 },
-  mobileFilterHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  mobileFilterModal: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', marginTop: 60 },
+  mobileFilterHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)' },
   mobileFilterTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a1a' },
   mobileFilterClose: { fontSize: 24, color: '#64748b' },
   mobileFilterContent: { flex: 1, padding: 20 },
   mobileFilterSectionTitle: { fontSize: 14, fontWeight: '600', color: '#1a1a1a', marginBottom: 12, marginTop: 16 },
   mobileChipContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  mobileChip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0' },
+  mobileChip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   mobileChipSelected: { backgroundColor: '#1a1a1a', borderColor: '#1a1a1a' },
   mobileChipText: { fontSize: 13, color: '#64748b', fontWeight: '500' },
   mobileChipTextSelected: { color: '#fff' },
   mobileFilterActions: { flexDirection: 'row', gap: 12, padding: 20, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
-  mobileFilterClearButton: { flex: 1, paddingVertical: 14, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center' },
+  mobileFilterClearButton: { flex: 1, paddingVertical: 14, borderRadius: 8, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', alignItems: 'center' },
   mobileFilterClearText: { fontSize: 14, color: '#64748b', fontWeight: '600' },
   mobileFilterApplyButton: { flex: 1, paddingVertical: 14, borderRadius: 8, backgroundColor: '#1a1a1a', alignItems: 'center' },
   mobileFilterApplyText: { fontSize: 14, color: '#fff', fontWeight: '600' },
 
   // Mobile Detail Modal (matching Scouting sizes)
   mobileModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  mobileModalContent: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '90%' },
-  mobileDetailHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  mobileModalContent: { backgroundColor: 'rgba(0,0,0,0.55)', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '90%' },
+  mobileDetailHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)' },
   mobileDetailNameRow: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   mobileDetailLogo: { width: 40, height: 40, borderRadius: 8, marginRight: 12 },
   mobileDetailName: { fontSize: 13, fontWeight: '600', color: '#1a1a1a' },
   mobileDetailClub: { fontSize: 11, color: '#64748b', marginTop: 2 },
   mobileDetailClose: { fontSize: 18, color: '#64748b' },
   mobileDetailContent: { paddingHorizontal: 20, paddingVertical: 16 },
-  mobileDetailBox: { backgroundColor: '#f8fafc', borderRadius: 12, padding: 14, marginBottom: 12 },
+  mobileDetailBox: { backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 12, padding: 14, marginBottom: 12 },
   mobileDetailLabel: { fontSize: 11, color: '#94a3b8', marginBottom: 4 },
   mobileDetailValue: { fontSize: 11, color: '#1a1a1a' },
   mobileDetailFooter: { flexDirection: 'row', justifyContent: 'flex-end', padding: 16, gap: 10, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
   mobileDeleteButton: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, backgroundColor: '#fee2e2', borderWidth: 1, borderColor: '#fecaca', alignItems: 'center' },
   mobileDeleteText: { fontSize: 14, color: '#dc2626', fontWeight: '600' },
-  mobileEditButton: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 6, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#64748b', alignItems: 'center' },
+  mobileEditButton: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 6, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: '#64748b', alignItems: 'center' },
   mobileEditText: { fontSize: 16, color: '#64748b', fontWeight: '600' },
 
   // Mobile Form Modal
-  mobileFormModal: { backgroundColor: '#fff', borderRadius: 16, padding: 20, width: '95%', maxHeight: '95%' },
+  mobileFormModal: { backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 16, padding: 20, width: '95%', maxHeight: '95%' },
 
   // Empty State
   emptyText: { textAlign: 'center', color: '#64748b', fontSize: 14, paddingVertical: 40 },

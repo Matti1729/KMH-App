@@ -20,7 +20,9 @@ interface AuthContextType {
   profile: Profile | null;
   loading: boolean;
   viewAsPlayer: boolean;
+  viewAsPlayerId: string | null;
   setViewAsPlayer: (v: boolean) => void;
+  setViewAsPlayerId: (id: string | null) => void;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, firstName: string, lastName: string, role?: UserRole) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -37,6 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [viewAsPlayer, setViewAsPlayer] = useState(false);
+  const [viewAsPlayerId, setViewAsPlayerId] = useState<string | null>(null);
   const watchdogRef = useRef<NodeJS.Timeout | null>(null);
   const isInitializedRef = useRef(false);
 
@@ -310,7 +313,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, profile, loading, viewAsPlayer, setViewAsPlayer, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ session, user, profile, loading, viewAsPlayer, viewAsPlayerId, setViewAsPlayer, setViewAsPlayerId, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );

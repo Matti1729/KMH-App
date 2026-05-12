@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, TextInput, Modal, Image } from 'react-native';
 import { Sidebar } from '../../components/Sidebar';
+import { AdvisorBackground } from '../../components/AdvisorBackground';
+import { AdvisorHeroHeader } from '../../components/AdvisorHeroHeader';
 import { MobileHeader } from '../../components/MobileHeader';
 import { MobileSidebar } from '../../components/MobileSidebar';
 import { useIsMobile } from '../../hooks/useIsMobile';
@@ -455,7 +457,7 @@ export function AECalculatorScreen({ navigation }: { navigation: any }) {
               <Text style={[styles.inputLabel, { color: colors.text }]}>Spielername *</Text>
               <View style={styles.dropdownContainer}>
                 <TextInput
-                  style={[styles.formInput, { color: colors.text, borderColor: colors.cardBorder, backgroundColor: colors.cardBackground }]}
+                  style={[styles.formInput, { color: colors.text, borderColor: 'rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.08)' }]}
                   value={spielerName}
                   onChangeText={(t) => { setSpielerName(t); setShowPlayerDropdown(true); setShowClubDropdown(false); }}
                   onFocus={() => { setShowPlayerDropdown(true); setShowClubDropdown(false); }}
@@ -501,7 +503,7 @@ export function AECalculatorScreen({ navigation }: { navigation: any }) {
                 <View style={styles.clubInputRow}>
                   {clubLogoUrl && <Image source={{ uri: clubLogoUrl }} style={styles.clubLogoInput} />}
                   <TextInput
-                    style={[styles.formInput, { flex: 1, color: colors.text, borderColor: colors.cardBorder, backgroundColor: colors.cardBackground }]}
+                    style={[styles.formInput, { flex: 1, color: colors.text, borderColor: 'rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.08)' }]}
                     value={aktuellerVerein}
                     onChangeText={(t) => { setAktuellerVerein(t); setShowClubDropdown(true); setShowPlayerDropdown(false); }}
                     onFocus={() => { setShowClubDropdown(true); setShowPlayerDropdown(false); }}
@@ -585,7 +587,7 @@ export function AECalculatorScreen({ navigation }: { navigation: any }) {
             <View style={styles.inputGroup}>
               <Text style={[styles.inputLabel, { color: colors.text }]}>Aufnehmender Verein (km)</Text>
               <TextInput
-                style={[styles.formInput, { color: colors.text, borderColor: colors.cardBorder, backgroundColor: colors.cardBackground }]}
+                style={[styles.formInput, { color: colors.text, borderColor: 'rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.08)' }]}
                 value={entfernungAufnehmend}
                 onChangeText={setEntfernungAufnehmend}
                 keyboardType="numeric"
@@ -596,7 +598,7 @@ export function AECalculatorScreen({ navigation }: { navigation: any }) {
             <View style={styles.inputGroup}>
               <Text style={[styles.inputLabel, { color: colors.text }]}>Abgebender Verein (km)</Text>
               <TextInput
-                style={[styles.formInput, { color: colors.text, borderColor: colors.cardBorder, backgroundColor: colors.cardBackground }]}
+                style={[styles.formInput, { color: colors.text, borderColor: 'rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.08)' }]}
                 value={entfernungAbgebend}
                 onChangeText={setEntfernungAbgebend}
                 keyboardType="numeric"
@@ -666,7 +668,7 @@ export function AECalculatorScreen({ navigation }: { navigation: any }) {
                 ))}
               </View>
             ) : (
-              <View style={[styles.infoBox, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
+              <View style={[styles.infoBox, { backgroundColor: colors.surfaceSecondary, borderColor: 'rgba(255,255,255,0.15)' }]}>
                 <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
                   Für {altersklasse} entfällt die Unterbringungsentschädigung.
                 </Text>
@@ -697,7 +699,7 @@ export function AECalculatorScreen({ navigation }: { navigation: any }) {
             <Pressable
               key={r.liga}
               onPress={() => setExpandedLiga(isExpanded ? null : r.liga)}
-              style={[styles.resultCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
+              style={[styles.resultCard, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}
             >
               <View style={styles.resultHeader}>
                 <View style={{ flex: 1 }}>
@@ -876,7 +878,7 @@ export function AECalculatorScreen({ navigation }: { navigation: any }) {
     return (
       <View style={styles.quizNavButtons}>
         {getPrevStep(step) ? (
-          <TouchableOpacity onPress={goBack} style={[styles.quizNavBtn, styles.quizNavBtnBack, { borderColor: colors.cardBorder }]}>
+          <TouchableOpacity onPress={goBack} style={[styles.quizNavBtn, styles.quizNavBtnBack, { borderColor: 'rgba(255,255,255,0.15)' }]}>
             <Text style={[styles.quizNavBtnText, { color: colors.text }]}>Zurück</Text>
           </TouchableOpacity>
         ) : <View />}
@@ -959,8 +961,9 @@ export function AECalculatorScreen({ navigation }: { navigation: any }) {
 
   function renderDesktopTable() {
     return (
-      <View style={[styles.tableWrapper, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
-        <View style={[styles.tableHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border }]}>
+      <View style={[styles.tableWrapper, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: colors.border }]}>
+        <View style={[styles.tableHeader, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.border, overflow: 'hidden' }]}>
+          <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.45 }} resizeMode="cover" />
           <Pressable style={styles.colSpielerName} onPress={() => setSortBy(sortBy === 'name' ? 'date' : 'name')}>
             <Text style={[styles.tableHeaderText, { color: colors.textSecondary }]}>
               Spielername {sortBy === 'name' ? '▾' : ''}
@@ -1012,7 +1015,7 @@ export function AECalculatorScreen({ navigation }: { navigation: any }) {
     return (
       <TouchableOpacity
         key={b.id}
-        style={[styles.aeCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
+        style={[styles.aeCard, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}
         onPress={() => openDetailModal(b)}
       >
         <Text style={[styles.aeCardName, { color: colors.text }]} numberOfLines={1}>{b.spieler_name}</Text>
@@ -1038,8 +1041,9 @@ export function AECalculatorScreen({ navigation }: { navigation: any }) {
 
   if (isMobile) {
     return (
-      <View style={[styles.containerMobile, { backgroundColor: colors.background }]}>
-        <MobileHeader title="AE-Rechner" onMenuPress={() => setShowMobileSidebar(true)} navigation={navigation} />
+      <View style={[styles.containerMobile, { backgroundColor: 'transparent' }]}>
+        <MobileHeader title="AE-Rechner" backgroundImage={require('../../../assets/scouting-header-bg.jpg')} onMenuPress={() => setShowMobileSidebar(true)} />
+        <AdvisorBackground />
         <MobileSidebar visible={showMobileSidebar} onClose={() => setShowMobileSidebar(false)} navigation={navigation} activeScreen="wissenswertes" />
 
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 80 }}>
@@ -1067,22 +1071,20 @@ export function AECalculatorScreen({ navigation }: { navigation: any }) {
   // --- Desktop View ---
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: 'transparent' }]}>
+      <AdvisorBackground />
       <Sidebar navigation={navigation} activeScreen="wissenswertes" profile={profile} />
 
       <View style={styles.mainContent}>
-        <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 12 }}>
-            <Text style={{ color: colors.primary, fontSize: 16 }}>← Zurück</Text>
+        <AdvisorHeroHeader title="AE-RECHNER" subtitle="AUSBILDUNGSENTSCHÄDIGUNG · TRANSFER-VORBEREITUNG" backgroundImage={require('../../../assets/scouting-header-bg.jpg')} backgroundImageOpacity={0.45}>
+          <TouchableOpacity style={{ height: 28, paddingVertical: 0, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center' }} onPress={() => navigation.goBack()}>
+            <Text style={{ color: colors.textSecondary, fontSize: 11, fontWeight: '600' }}>← Zurück</Text>
           </TouchableOpacity>
-          <Text style={[styles.title, { color: colors.text, flex: 1 }]}>Ausbildungsentschädigungsrechner</Text>
-          <TouchableOpacity
-            style={[styles.addButton, { backgroundColor: colors.primary, borderColor: colors.primary }]}
-            onPress={openNewModal}
-          >
-            <Text style={[styles.addButtonText, { color: colors.primaryText }]}>+ Neuen Spieler anlegen</Text>
+          <View style={{ flex: 1 }} />
+          <TouchableOpacity style={{ height: 28, paddingVertical: 0, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center' }} onPress={openNewModal}>
+            <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>+ Neuen Spieler anlegen</Text>
           </TouchableOpacity>
-        </View>
+        </AdvisorHeroHeader>
 
         <View style={styles.content}>
           {renderDesktopTable()}
@@ -1112,7 +1114,7 @@ const styles = StyleSheet.create({
 
   // Table (Desktop)
   tableWrapper: { flex: 1, borderRadius: 12, borderWidth: 1, overflow: 'hidden' },
-  tableHeader: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1 },
+  tableHeader: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.45)', paddingVertical: 6, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)' },
   tableHeaderText: { fontWeight: '600', fontSize: 13 },
   tableBody: { flex: 1 },
   tableRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, alignItems: 'center' },
@@ -1171,7 +1173,7 @@ const styles = StyleSheet.create({
   dropdownText: { fontSize: 14, flex: 1 },
   dropdownSubtext: { fontSize: 12, marginLeft: 8 },
   dropdownLogo: { width: 24, height: 24, resizeMode: 'contain' as const, marginRight: 10 },
-  dropdownCustomItem: { backgroundColor: '#f0fdf4' },
+  dropdownCustomItem: { backgroundColor: 'rgba(34,197,94,0.15)' },
   dropdownCustomText: { fontSize: 14, color: '#16a34a', fontWeight: '500' as const },
   clubInputRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8 },
   clubLogoInput: { width: 28, height: 28, resizeMode: 'contain' as const },

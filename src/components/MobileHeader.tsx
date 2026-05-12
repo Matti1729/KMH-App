@@ -1,68 +1,123 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ImageSourcePropType } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 
 interface MobileHeaderProps {
   title: string;
+  subtitle?: string;
+  backgroundImage?: ImageSourcePropType;
+  backgroundImageOpacity?: number;
   onMenuPress: () => void;
   onProfilePress?: () => void;
   profileInitials?: string;
+  children?: React.ReactNode;
 }
 
-export function MobileHeader({ title, onMenuPress, onProfilePress, profileInitials }: MobileHeaderProps) {
+export function MobileHeader({ title, subtitle, backgroundImage, backgroundImageOpacity = 0.45, onMenuPress, onProfilePress, profileInitials, children }: MobileHeaderProps) {
   const { colors } = useTheme();
 
   return (
-    <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-      <TouchableOpacity style={[styles.menuButton, { backgroundColor: colors.surfaceSecondary }]} onPress={onMenuPress}>
-        <Ionicons name="menu" size={24} color={colors.text} />
-      </TouchableOpacity>
+    <View style={styles.header}>
+      {backgroundImage ? (
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          <Image source={backgroundImage} style={[StyleSheet.absoluteFill, { opacity: backgroundImageOpacity }]} resizeMode="cover" />
+        </View>
+      ) : null}
 
-      <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+      <View style={styles.topRow}>
+        <TouchableOpacity style={styles.menuButton} onPress={onMenuPress}>
+          <Ionicons name="menu" size={14} color="rgba(255,255,255,0.85)" />
+        </TouchableOpacity>
 
-      <TouchableOpacity style={[styles.profileButton, { backgroundColor: colors.primary }]} onPress={onProfilePress}>
-        <Text style={[styles.profileInitials, { color: colors.primaryText }]}>{profileInitials || '?'}</Text>
-      </TouchableOpacity>
+        <View style={{ flex: 1 }} />
+
+        <View style={{ alignItems: 'flex-end', flexShrink: 1 }}>
+          <Text style={styles.title} numberOfLines={1}>{title}</Text>
+          {subtitle ? <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text> : null}
+        </View>
+
+        {onProfilePress ? (
+          <TouchableOpacity style={[styles.profileButton, { backgroundColor: colors.primary }]} onPress={onProfilePress}>
+            <Text style={[styles.profileInitials, { color: colors.primaryText }]}>{profileInitials || '?'}</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
+      <View style={styles.divider} />
+
+      {children ? <View style={styles.toolbar}>{children}</View> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 0,
+    overflow: 'hidden',
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    minHeight: 44,
   },
   menuButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    backgroundColor: '#f1f5f9',
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   title: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#1a1a1a',
+    fontFamily: 'Josefin Sans',
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: '300',
+    letterSpacing: 3,
+    textTransform: 'uppercase',
+    color: 'rgba(255,255,255,0.7)',
+    textAlign: 'right',
+  },
+  subtitle: {
+    fontFamily: 'Josefin Sans',
+    fontSize: 10,
+    lineHeight: 14,
+    fontWeight: '300',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    color: 'rgba(255,255,255,0.45)',
+    marginTop: 2,
+    textAlign: 'right',
+  },
+  divider: {
+    height: 1,
+    marginTop: 12,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
+  toolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 12,
   },
   profileButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#1a1a1a',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
   },
   profileInitials: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: '600',
-    color: '#fff',
   },
 });

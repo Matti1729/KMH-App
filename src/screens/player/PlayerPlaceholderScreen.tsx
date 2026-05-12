@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Sidebar } from '../../components/Sidebar';
@@ -8,6 +8,8 @@ import { MobileHeader } from '../../components/MobileHeader';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useIsMobile } from '../../hooks/useIsMobile';
+
+const BACKGROUND_IMAGE = require('../../../assets/stadion-bg.jpeg');
 
 interface PlayerPlaceholderScreenProps {
   title: string;
@@ -47,7 +49,11 @@ export function PlayerPlaceholderScreen({ title, description, emoji, activeScree
           playerMode
         />
         <MobileHeader title={title} onMenuPress={() => setShowMobileSidebar(true)} />
-        {Content}
+        <View style={{ flex: 1, position: 'relative' }}>
+          <Image source={BACKGROUND_IMAGE} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectPosition: 'center 75%' } as any} resizeMode="cover" />
+          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.7)' }]} />
+          {Content}
+        </View>
       </SafeAreaView>
     );
   }
@@ -55,7 +61,11 @@ export function PlayerPlaceholderScreen({ title, description, emoji, activeScree
   return (
     <View style={[styles.containerDesktop, { backgroundColor: colors.background }]}>
       <Sidebar navigation={navigation} activeScreen={activeScreen} profile={profile as any} playerMode />
-      <View style={[styles.mainContent, { backgroundColor: colors.background }]}>{Content}</View>
+      <View style={[styles.mainContent, { position: 'relative' }]}>
+        <Image source={BACKGROUND_IMAGE} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectPosition: 'center 75%' } as any} resizeMode="cover" />
+        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.7)' }]} />
+        {Content}
+      </View>
     </View>
   );
 }

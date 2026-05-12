@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, Image, Linking, Modal, Pressable, Platform, useWindowDimensions, RefreshControl, Switch } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, Image, Linking, Modal, Pressable, Platform, useWindowDimensions, RefreshControl, Switch, ActivityIndicator } from 'react-native';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -8,6 +8,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
+import { Ionicons } from '@expo/vector-icons';
 import { ImageCropper } from '../../components/ImageCropper';
 
 // WebView nur für Mobile importieren
@@ -177,10 +178,22 @@ interface TransfermarktSeasonStats {
 
 // Cache für Vereinsnamen (Vereins-ID → Name)
 const clubNameCache = new Map<string, string>();
+// Cache für Wettbewerbsnamen (Competition-ID → Name)
+const competitionNameCache = new Map<string, string>();
 
 // Team-Suffixe entfernen: "Hertha BSC II" → "Hertha BSC", "FC Ingolstadt 04 U19" → "FC Ingolstadt 04"
 const normalizeClubName = (name: string): string => {
   return name.replace(/\s+(II|III|IV|V|U\d{2}|B)\s*$/i, '').trim();
+};
+
+// Phasen-Suffix einer Liga entfernen, damit Vorrunde + Hauptrunde der gleichen
+// Nachwuchsliga zu einem Eintrag zusammenfließen.
+// Beispiele:
+//   "U17 DFB-Nachwuchsliga - Vorrunde Gruppe C"  → "U17 DFB-Nachwuchsliga"
+//   "U17 DFB-Nachwuchsliga - Hauptrunde Liga A"  → "U17 DFB-Nachwuchsliga"
+//   "3. Liga", "Regionalliga West", "DFB-Pokal Junioren" bleiben unverändert.
+const normalizeLeagueName = (name: string): string => {
+  return name.replace(/\s+-\s+(Vorrunde|Hauptrunde)\b.*$/i, '').trim();
 };
 
 const fetchClubName = async (vereinId: string): Promise<string> => {
@@ -212,6 +225,32 @@ const fetchClubName = async (vereinId: string): Promise<string> => {
   }
 };
 
+// Wettbewerbsname per ID via Transfermarkt-Wettbewerbsseite (Title minus " 25/26 | Transfermarkt")
+const fetchCompetitionName = async (competitionId: string): Promise<string> => {
+  if (competitionNameCache.has(competitionId)) return competitionNameCache.get(competitionId)!;
+
+  try {
+    const compUrl = `https://www.transfermarkt.de/wettbewerb/startseite/wettbewerb/${competitionId}`;
+    const proxyUrl = `https://ozggtruvnwozhwjbznsm.supabase.co/functions/v1/proxy?type=transfermarkt&url=${encodeURIComponent(compUrl)}`;
+    const response = await fetch(proxyUrl);
+    const html = await response.text();
+
+    // Aus <title>"NAME SAISON | Transfermarkt"</title> extrahieren
+    const titleMatch = html.match(/<title>([^|<]+?)\s*\d{2}\/\d{2}\s*\|\s*Transfermarkt/i);
+    let name = titleMatch ? titleMatch[1].trim() : null;
+    if (!name) {
+      const fallback = html.match(/<title>([^|<]+)\s*\|/i);
+      name = fallback ? fallback[1].trim().replace(/\s+\d{2}\/\d{2}$/, '') : `Wettbewerb ${competitionId}`;
+    }
+
+    competitionNameCache.set(competitionId, name);
+    return name;
+  } catch (e) {
+    console.log(`Fehler beim Laden des Wettbewerbsnamens für ID ${competitionId}:`, e);
+    return `Wettbewerb ${competitionId}`;
+  }
+};
+
 // Liga-Priorität: niedrigere Zahl = höhere Liga
 const getLeaguePriority = (league: string): number => {
   const l = league.toLowerCase();
@@ -234,6 +273,7 @@ const getLeaguePriority = (league: string): number => {
 };
 
 // Funktion um Stats von Transfermarkt zu laden (letzte 3 Saisons, pro Wettbewerb)
+// Nutzt die offizielle JSON-API (/ceapi/performance-game/{playerId}), die Game-by-Game-Daten liefert.
 const fetchTransfermarktStats = async (transfermarktUrl: string): Promise<TransfermarktSeasonStats[]> => {
   if (!transfermarktUrl) return [];
 
@@ -246,128 +286,128 @@ const fetchTransfermarktStats = async (transfermarktUrl: string): Promise<Transf
     }
     const playerId = playerIdMatch[1];
 
-    // Spielername-Slug aus URL extrahieren
-    const nameMatch = transfermarktUrl.match(/transfermarkt\.[a-z]+\/([^/]+)\//);
-    const playerName = nameMatch ? nameMatch[1] : 'spieler';
-
     // Letzte 3 Saisons berechnen (Saison startet im Juli)
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth() + 1;
     const currentSeason = currentMonth >= 7 ? currentYear : currentYear - 1;
-    const seasonsToFetch = [currentSeason, currentSeason - 1, currentSeason - 2];
+    const seasonsToFetch = new Set([currentSeason, currentSeason - 1, currentSeason - 2]);
 
-    console.log('Fetching Transfermarkt stats for seasons:', seasonsToFetch);
+    // JSON-API aufrufen
+    const apiUrl = `https://www.transfermarkt.de/ceapi/performance-game/${playerId}`;
+    const proxyUrl = `https://ozggtruvnwozhwjbznsm.supabase.co/functions/v1/proxy?type=transfermarkt&url=${encodeURIComponent(apiUrl)}`;
 
-    // Phase 1: Alle Saisons parsen und Vereins-IDs sammeln
-    const rawStats: { season: string; vereinId: string; league: string; games: number; goals: number; assists: number }[] = [];
-    const uniqueClubIds = new Set<string>();
+    console.log(`Lade Performance-API für playerId=${playerId}, Saisons:`, Array.from(seasonsToFetch));
 
-    for (const seasonYear of seasonsToFetch) {
-      const statsUrl = `https://www.transfermarkt.de/${playerName}/leistungsdaten/spieler/${playerId}/plus/0?saison=${seasonYear}`;
-      const proxyUrl = `https://ozggtruvnwozhwjbznsm.supabase.co/functions/v1/proxy?type=transfermarkt&url=${encodeURIComponent(statsUrl)}`;
-
-      console.log(`Lade Saison ${seasonYear}/${seasonYear + 1}...`);
-
-      try {
-        const response = await fetch(proxyUrl);
-        if (!response.ok) {
-          console.log(`Saison ${seasonYear}: HTTP ${response.status}`);
-          continue;
-        }
-        const html = await response.text();
-        if (!html || html.length < 1000) {
-          console.log(`Saison ${seasonYear}: Leere Antwort`);
-          continue;
-        }
-
-        // Wettbewerb-Zeilen aus <tbody> parsen (class="odd" / class="even")
-        const rowRegex = /<tr[^>]*class="[^"]*(?:odd|even)[^"]*"[^>]*>([\s\S]*?)<\/tr>/gi;
-        let match;
-
-        while ((match = rowRegex.exec(html)) !== null) {
-          const row = match[0];
-
-          // Wettbewerbsname aus hauptlink-Zelle extrahieren
-          const compMatch = row.match(/<td[^>]*hauptlink[^>]*no-border-links[^>]*>[\s\S]*?<a[^>]*title="([^"]+)"/i);
-          if (!compMatch) continue;
-          const rawCompetition = compMatch[1].trim().replace(/\s+-\s+.*$/, '');
-          const competition = rawCompetition.toLowerCase().includes('regionalliga')
-            ? rawCompetition
-            : rawCompetition.replace(/\s+Gr\.\s*\S+$/i, '');
-
-          // Einsätze aus player-profile-performance-data Zelle
-          const appsMatch = row.match(/<td[^>]*player-profile-performance-data[^>]*>[\s\S]*?<a[^>]*>(\d+|-)<\/a>/i);
-          const apps = appsMatch ? (appsMatch[1] === '-' ? 0 : parseInt(appsMatch[1])) : 0;
-
-          // Überspringe Wettbewerbe ohne Einsätze
-          if (apps === 0) continue;
-
-          // Vereins-ID aus dem Einsätze-Link extrahieren (/verein/4795)
-          const vereinIdMatch = row.match(/\/verein\/(\d+)/);
-          const vereinId = vereinIdMatch ? vereinIdMatch[1] : '';
-
-          if (vereinId) {
-            uniqueClubIds.add(vereinId);
-          }
-
-          // Tore und Vorlagen: die nächsten <td class="zentriert"> nach der Einsätze-Zelle
-          const afterApps = row.substring(row.indexOf('player-profile-performance-data'));
-          const zentCells: number[] = [];
-          const zentRegex = /<td[^>]*class="zentriert"[^>]*>\s*(\d+|-)\s*<\/td>/gi;
-          let zentMatch;
-          while ((zentMatch = zentRegex.exec(afterApps)) !== null) {
-            zentCells.push(zentMatch[1] === '-' ? 0 : parseInt(zentMatch[1]));
-          }
-
-          const goals = zentCells[0] || 0;
-          const assists = zentCells[1] || 0;
-
-          rawStats.push({
-            season: `${seasonYear}/${seasonYear + 1}`,
-            vereinId,
-            league: competition,
-            games: apps,
-            goals,
-            assists,
-          });
-        }
-      } catch (e) {
-        console.log(`Saison ${seasonYear}: Fehler -`, e);
-      }
+    const response = await fetch(proxyUrl);
+    if (!response.ok) {
+      console.error(`Performance-API: HTTP ${response.status}`);
+      return [];
+    }
+    const json = await response.json();
+    if (!json?.success || !Array.isArray(json?.data?.performance)) {
+      console.error('Performance-API: unerwartete Struktur', json);
+      return [];
     }
 
-    // Phase 2: Alle eindeutigen Vereinsnamen parallel laden
-    console.log(`Lade Vereinsnamen für ${uniqueClubIds.size} Verein(e)...`);
-    const clubIdArray = Array.from(uniqueClubIds);
-    await Promise.all(clubIdArray.map(id => fetchClubName(id)));
+    const games = json.data.performance as any[];
+    console.log(`Performance-API: ${games.length} Spiele insgesamt im Datensatz`);
 
-    // Phase 3: Ergebnisse mit korrekten Vereinsnamen zusammenstellen + gleiche Ligen zusammenfassen
-    const mergedMap = new Map<string, TransfermarktSeasonStats>();
-    for (const entry of rawStats) {
-      const club = entry.vereinId ? (clubNameCache.get(entry.vereinId) || `Verein ${entry.vereinId}`) : 'Unbekannt';
-      const key = `${entry.season}_${club}_${entry.league}`;
-      const existing = mergedMap.get(key);
+    // Aggregation per (seasonId, clubId, competitionId)
+    type AggKey = string;
+    const aggMap = new Map<AggKey, {
+      seasonDisplay: string;
+      seasonId: number;
+      clubId: string;
+      competitionId: string;
+      games: number;
+      goals: number;
+      assists: number;
+    }>();
+
+    for (const g of games) {
+      const seasonId = g?.gameInformation?.season?.id;
+      if (typeof seasonId !== 'number' || !seasonsToFetch.has(seasonId)) continue;
+
+      const clubId = String(g?.clubsInformation?.club?.clubId || '');
+      const competitionId = String(g?.gameInformation?.competitionId || '');
+      const seasonDisplay = String(g?.gameInformation?.season?.display || `${seasonId}/${seasonId + 1}`);
+
+      const generalStats = g?.statistics?.generalStatistics || {};
+      const goalStats = g?.statistics?.goalStatistics || {};
+
+      // Nur tatsächlich gespielte Spiele zählen
+      const participation = String(generalStats.participationState || '');
+      const playedFlag = participation === 'played' || participation === 'substituted_in' || participation === 'substituted_out';
+      if (!playedFlag) continue;
+
+      const goals = Number(goalStats.goalsScoredTotal || 0);
+      const assists = Number(goalStats.assists || 0);
+
+      const key: AggKey = `${seasonId}_${clubId}_${competitionId}`;
+      const existing = aggMap.get(key);
       if (existing) {
-        existing.games += entry.games;
-        existing.goals += entry.goals;
-        existing.assists += entry.assists;
+        existing.games += 1;
+        existing.goals += goals;
+        existing.assists += assists;
       } else {
-        mergedMap.set(key, {
-          season: entry.season,
-          club,
-          league: entry.league,
-          games: entry.games,
-          goals: entry.goals,
-          assists: entry.assists,
-        });
+        aggMap.set(key, { seasonDisplay, seasonId, clubId, competitionId, games: 1, goals, assists });
       }
     }
 
-    const allStats = Array.from(mergedMap.values());
-    // Sortieren: pro Saison Herren vor Junioren, dann nach Liga-Hierarchie
+    if (aggMap.size === 0) {
+      console.log('Performance-API: Keine Spiele in den letzten 3 Saisons gefunden');
+      return [];
+    }
+
+    // Eindeutige Club-/Wettbewerbs-IDs sammeln und Namen parallel auflösen
+    const uniqueClubIds = new Set<string>();
+    const uniqueCompIds = new Set<string>();
+    aggMap.forEach(a => {
+      if (a.clubId) uniqueClubIds.add(a.clubId);
+      if (a.competitionId) uniqueCompIds.add(a.competitionId);
+    });
+    console.log(`Lade Namen: ${uniqueClubIds.size} Verein(e), ${uniqueCompIds.size} Wettbewerb(e)`);
+    await Promise.all([
+      ...Array.from(uniqueClubIds).map(id => fetchClubName(id)),
+      ...Array.from(uniqueCompIds).map(id => fetchCompetitionName(id)),
+    ]);
+
+    // DIAGNOSE: aggMap Pre-Merge-Inhalt loggen
+    console.log('[Transfermarkt] aggMap (vor Merge):');
+    aggMap.forEach((a, key) => {
+      const rawLeague = a.competitionId ? competitionNameCache.get(a.competitionId) : '(no comp)';
+      console.log(`  ${key} → ${a.games} Spiele, ${a.goals} Tore, ${a.assists} Assists | rawLeague="${rawLeague}"`);
+    });
+
+    // Zweiter Aggregations-Pass: Phasen einer Liga (Vorrunde + Hauptrunde) zusammenführen
+    // anhand des normalisierten Wettbewerbsnamens.
+    type MergedAgg = { season: string; club: string; league: string; games: number; goals: number; assists: number };
+    const mergedMap = new Map<string, MergedAgg>();
+    aggMap.forEach(a => {
+      const club = a.clubId ? (clubNameCache.get(a.clubId) || `Verein ${a.clubId}`) : 'Unbekannt';
+      const rawLeague = a.competitionId ? (competitionNameCache.get(a.competitionId) || `Wettbewerb ${a.competitionId}`) : 'Unbekannt';
+      const league = normalizeLeagueName(rawLeague);
+      const season = `${a.seasonId}/${a.seasonId + 1}`;
+      const mergeKey = `${a.seasonId}_${a.clubId}_${league}`;
+      console.log(`[Transfermarkt] Merge-Step: rawLeague="${rawLeague}" → normalized="${league}" | mergeKey="${mergeKey}"`);
+      const existing = mergedMap.get(mergeKey);
+      if (existing) {
+        existing.games += a.games;
+        existing.goals += a.goals;
+        existing.assists += a.assists;
+      } else {
+        mergedMap.set(mergeKey, { season, club, league, games: a.games, goals: a.goals, assists: a.assists });
+      }
+    });
+
+    console.log(`[Transfermarkt] mergedMap nach Merge: ${mergedMap.size} Einträge`);
+
+    const allStats: TransfermarktSeasonStats[] = Array.from(mergedMap.values());
+
+    // Sortieren: neueste Saison zuerst, dann Club, dann Liga-Hierarchie
     allStats.sort((a, b) => {
-      if (a.season !== b.season) return b.season.localeCompare(a.season); // neueste Saison zuerst
+      if (a.season !== b.season) return b.season.localeCompare(a.season);
       if (a.club !== b.club) return a.club.localeCompare(b.club);
       return getLeaguePriority(a.league) - getLeaguePriority(b.league);
     });
@@ -381,7 +421,7 @@ const fetchTransfermarktStats = async (transfermarktUrl: string): Promise<Transf
 };
 
 export function PlayerDetailScreen({ route, navigation }: any) {
-  const { playerId } = route.params;
+  const { playerId, openPdfEditor } = route.params;
   const { profile } = useAuth();
   const { colors, isDark } = useTheme();
   const { width } = useWindowDimensions();
@@ -434,12 +474,37 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     sort_order: number;
   }
   const [careerEntries, setCareerEntries] = useState<CareerEntry[]>([]);
+  // Rohtext beim Saison-Tippen pro Gruppe ("24/2", "24/", etc.) — wird auf
+  // from_date/to_date konvertiert sobald das Pattern "DD/DD" matched. Erlaubt
+  // dem User, halb-fertige Eingaben sichtbar zu lassen, ohne dass die DB-Felder
+  // sofort gewipt werden.
+  const [seasonInputs, setSeasonInputs] = useState<Record<string, string>>({});
   const [loadingCareer, setLoadingCareer] = useState(false);
   const [careerEntriesLoaded, setCareerEntriesLoaded] = useState(false);
   const [deletedCareerEntryIds, setDeletedCareerEntryIds] = useState<string[]>([]);
   const [careerEntriesBackup, setCareerEntriesBackup] = useState<CareerEntry[]>([]);
   const [loadingStats, setLoadingStats] = useState(false);
+  const [transfermarktStatus, setTransfermarktStatus] = useState<{ kind: 'idle' | 'loading' | 'error' | 'empty' | 'info' | 'success'; message?: string }>({ kind: 'idle' });
   const [playerDescription, setPlayerDescription] = useState('');
+  const [pdfAdditionalInfo, setPdfAdditionalInfo] = useState<string[]>([]);
+  const [pdfHighlightVideoId, setPdfHighlightVideoId] = useState<string | null>(null);
+  const [pdfHighlightVideoUrl, setPdfHighlightVideoUrl] = useState<string>('');
+  const [pdfLanguage, setPdfLanguage] = useState<'de' | 'en'>('de');
+  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+
+  // Click-outside-Handler für Sprach-Dropdown (Skill-Pattern)
+  useEffect(() => {
+    if (!showLanguageDropdown || typeof document === 'undefined') return;
+    const handler = (e: any) => {
+      const target = e.target;
+      if (target && target.closest && target.closest('[data-kmh-dropdown]')) return;
+      setShowLanguageDropdown(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showLanguageDropdown]);
+  const [availableVideos, setAvailableVideos] = useState<Array<{ id: string; label: string; description: string; video_url: string | null; video_path: string | null; phase: string | null }>>([]);
+  const [showVideoPicker, setShowVideoPicker] = useState(false);
   const [pdfOptionalFields, setPdfOptionalFields] = useState<{ contract_scope: boolean; contract_option: boolean }>({ contract_scope: false, contract_option: false });
 
   // PDF Ansprechpartner Reihenfolge
@@ -499,13 +564,28 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   };
 
   useEffect(() => { fetchPlayer(); fetchClubLogos(); fetchAdvisors(); }, []);
-  
+
   // Access Check separat - wartet auf profile
   useEffect(() => {
     if (profile?.id && playerId) {
       checkAccess();
     }
   }, [profile?.id, playerId]);
+
+  // Auto-Open PDF Editor wenn von PlayerOverview navigiert
+  useEffect(() => {
+    if (openPdfEditor && player && !showPDFProfileModal) {
+      setShowPDFProfileModal(true);
+    }
+  }, [openPdfEditor, player]);
+
+  // Auto-Edit-Mode aktivieren wenn Karriere-Daten geladen sind und Auto-Open Flag gesetzt
+  useEffect(() => {
+    if (openPdfEditor && showPDFProfileModal && careerEntriesLoaded && !pdfEditMode) {
+      setCareerEntriesBackup([...careerEntries]);
+      setPdfEditMode(true);
+    }
+  }, [openPdfEditor, showPDFProfileModal, careerEntriesLoaded]);
 
   // Karriere laden wenn PDF Modal geöffnet wird
   useEffect(() => {
@@ -621,11 +701,13 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const fetchCareerEntries = async () => {
     setLoadingCareer(true);
     try {
+      console.log('[PDF] fetchCareerEntries START — playerId:', playerId);
       const { data, error } = await supabase
         .from('player_career')
         .select('*')
         .eq('player_id', playerId);
 
+      console.log('[PDF] player_career rows:', data?.length || 0, 'error:', error);
       if (error) {
         console.error('Fehler beim Laden der Karriere-Einträge:', error);
       }
@@ -638,10 +720,11 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         entries = data.map(d => {
           let games = '', goals = '', assists = '';
           if (d.stats) {
-            // Versuche Format "X Sp | Y T | Z A" zu parsen
-            const spMatch = d.stats.match(/(\d+)\s*Sp/i);
-            const tMatch = d.stats.match(/(\d+)\s*T(?!\w)/i);
-            const aMatch = d.stats.match(/(\d+)\s*A/i);
+            // Unterstützt sowohl ausgeschriebenes Format "X Spiele | Y Tore | Z Assists"
+            // als auch Kurzform "X Sp | Y T | Z A" (Legacy für alte Einträge)
+            const spMatch = d.stats.match(/(\d+)\s*(?:Spiele|Spiel|Sp\b)/i);
+            const tMatch = d.stats.match(/(\d+)\s*(?:Tore|Tor\b|T(?!\w))/i);
+            const aMatch = d.stats.match(/(\d+)\s*(?:Assists|Assist|A(?!\w))/i);
             if (spMatch) games = spMatch[1];
             if (tMatch) goals = tMatch[1];
             if (aMatch) assists = aMatch[1];
@@ -695,15 +778,40 @@ export function PlayerDetailScreen({ route, navigation }: any) {
 
       setCareerEntries(entries);
 
-      // Lade Spieler-Beschreibung + optionale PDF-Felder
-      const { data: playerData } = await supabase
+      // Lade Spieler-Beschreibung + optionale PDF-Felder + Highlight-Video-Verweise + Sprache
+      const { data: playerData, error: playerErr } = await supabase
         .from('player_details')
-        .select('pdf_description, pdf_optional_fields')
+        .select('pdf_description, pdf_optional_fields, pdf_additional_info, pdf_highlight_video_id, pdf_highlight_video_url, pdf_language')
         .eq('id', playerId)
         .single();
 
+      console.log('[PDF] player_details fetch — pdf_description present:', !!playerData?.pdf_description, 'len:', playerData?.pdf_description?.length, 'error:', playerErr);
+
       if (playerData?.pdf_description) {
         setPlayerDescription(playerData.pdf_description);
+      }
+      const infoStr = playerData?.pdf_additional_info || '';
+      setPdfAdditionalInfo(infoStr ? infoStr.split(';').map((s: string) => s.trim()).filter(Boolean) : []);
+      setPdfHighlightVideoId(playerData?.pdf_highlight_video_id || null);
+      setPdfHighlightVideoUrl(playerData?.pdf_highlight_video_url || '');
+      // Beim Öffnen immer auf Deutsch starten — auch wenn beim letzten Save 'en' gewählt war.
+      // Berater kann manuell auf English wechseln; das wird dann beim Speichern wieder persistiert.
+      setPdfLanguage('de');
+
+      // Verfügbare Videos für diesen Spieler laden (M:N via player_video_assignments)
+      const { data: assignments } = await supabase
+        .from('player_video_assignments')
+        .select('video_id')
+        .eq('player_id', playerId);
+      const videoIds = (assignments || []).map((a: any) => a.video_id);
+      if (videoIds.length > 0) {
+        const { data: videos } = await supabase
+          .from('player_videos')
+          .select('id, label, description, video_url, video_path, phase')
+          .in('id', videoIds);
+        setAvailableVideos((videos || []) as any);
+      } else {
+        setAvailableVideos([]);
       }
       if (playerData?.pdf_optional_fields) {
         setPdfOptionalFields({
@@ -724,15 +832,14 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     let statsString = entry.stats || '';
     if (entry.games || entry.goals || entry.assists) {
       const parts = [];
-      if (entry.games) parts.push(`${entry.games} Sp`);
-      if (entry.goals) parts.push(`${entry.goals} T`);
-      if (entry.assists) parts.push(`${entry.assists} A`);
+      if (entry.games) parts.push(`${entry.games} Spiele`);
+      if (entry.goals) parts.push(`${entry.goals} Tore`);
+      if (entry.assists) parts.push(`${entry.assists} Assists`);
       statsString = parts.join(' | ');
     }
 
     if (entry.id) {
-      // Update
-      await supabase
+      const { data, error } = await supabase
         .from('player_career')
         .update({
           club: entry.club,
@@ -743,10 +850,15 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           is_current: entry.is_current,
           sort_order: entry.sort_order
         })
-        .eq('id', entry.id);
+        .eq('id', entry.id)
+        .select();
+      console.log('[PDF] UPDATE player_career id:', entry.id, '— rows:', data?.length || 0, 'error:', error);
+      if (error) {
+        console.error('saveCareerEntry UPDATE failed:', error, entry);
+        throw error;
+      }
     } else {
-      // Insert
-      await supabase
+      const { data, error } = await supabase
         .from('player_career')
         .insert({
           player_id: playerId,
@@ -757,7 +869,13 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           stats: statsString,
           is_current: entry.is_current,
           sort_order: entry.sort_order
-        });
+        })
+        .select();
+      console.log('[PDF] INSERT player_career — rows:', data?.length || 0, 'returned:', data, 'error:', error);
+      if (error) {
+        console.error('saveCareerEntry INSERT failed:', error, entry);
+        throw error;
+      }
     }
   };
 
@@ -787,14 +905,18 @@ export function PlayerDetailScreen({ route, navigation }: any) {
 
   // Transfermarkt Stats laden und in Karriere-Einträge einfügen
   const loadTransfermarktStats = async (silent = false) => {
+    console.log('[Transfermarkt] Button clicked. transfermarkt_url:', player?.transfermarkt_url, 'silent:', silent);
     if (!player?.transfermarkt_url) {
       if (!silent) Alert.alert('Fehler', 'Kein Transfermarkt-Link hinterlegt. Bitte füge zuerst einen Transfermarkt-Link zum Spieler hinzu.');
+      setTransfermarktStatus({ kind: 'error', message: 'Kein Transfermarkt-Link hinterlegt.' });
       return;
     }
 
     setLoadingStats(true);
+    setTransfermarktStatus({ kind: 'loading', message: 'Lade Statistiken von Transfermarkt…' });
     try {
       const stats = await fetchTransfermarktStats(player.transfermarkt_url);
+      console.log('[Transfermarkt] fetchTransfermarktStats returned', stats.length, 'entries');
 
       if (stats.length === 0) {
         if (!silent) {
@@ -809,6 +931,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
             [{ text: 'OK' }]
           );
         }
+        setTransfermarktStatus({ kind: 'empty', message: 'Keine Daten gefunden — Transfermarkt blockiert evtl. die Anfrage.' });
         setLoadingStats(false);
         return;
       }
@@ -841,45 +964,49 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         };
       });
 
-      // Bestehende Einträge aktualisieren + neue hinzufügen
-      const existingMap = new Map(
-        careerEntries.map((e, i) => [`${e.club}_${e.league}_${e.from_date}`, i])
+      // Nuke & Replace: Alle bestehenden Einträge mit (Verein + Saison-Start) aus den neuen
+      // Transfermarkt-Stationen werden entfernt — Transfermarkt-Daten sind authoritativ für
+      // diese Saison/Verein-Kombi. Manuell hinzugefügte Stationen für ANDERE Saisons/Vereine
+      // bleiben unangetastet.
+      const newClubSeasonKeys = new Set(
+        newEntries.map(e => `${(e.club || '').trim()}|${e.from_date}`)
       );
+      console.log('[Transfermarkt] Nuke-Keys (Verein|FromDate):', Array.from(newClubSeasonKeys));
 
-      const updatedEntries = [...careerEntries];
-      const entriesToAdd: CareerEntry[] = [];
-      let updatedCount = 0;
-
-      for (const newEntry of newEntries) {
-        const key = `${newEntry.club}_${newEntry.league}_${newEntry.from_date}`;
-        const existingIndex = existingMap.get(key);
-        if (existingIndex !== undefined) {
-          // Bestehenden Eintrag aktualisieren (nur Stats)
-          updatedEntries[existingIndex] = {
-            ...updatedEntries[existingIndex],
-            games: newEntry.games,
-            goals: newEntry.goals,
-            assists: newEntry.assists,
-          };
-          updatedCount++;
-        } else {
-          entriesToAdd.push(newEntry);
+      const beforeCount = careerEntries.length;
+      const idsToDelete: string[] = [];
+      const remainingEntries = careerEntries.filter(e => {
+        const key = `${(e.club || '').trim()}|${e.from_date}`;
+        const willBeReplaced = newClubSeasonKeys.has(key);
+        if (willBeReplaced) {
+          console.log(`[Transfermarkt] Entferne alten Eintrag: ${e.club} | ${e.league} | ${e.from_date} | ${e.games} Spiele`);
+          if (e.id) idsToDelete.push(e.id);
         }
+        return !willBeReplaced;
+      });
+      const removedCount = beforeCount - remainingEntries.length;
+
+      // IDs entfernter (in DB existierender) Einträge zur Lösch-Liste hinzufügen,
+      // damit savePdfChanges sie aus player_career löscht — sonst würden sie nach
+      // dem Speichern beim nächsten Reload wieder auftauchen.
+      if (idsToDelete.length > 0) {
+        console.log(`[Transfermarkt] Markiere zur DB-Löschung: ${idsToDelete.join(', ')}`);
+        setDeletedCareerEntryIds(prev => [...prev, ...idsToDelete]);
       }
 
-      setCareerEntries([...updatedEntries, ...entriesToAdd]);
+      // Final: verbleibende Einträge + neue Transfermarkt-Stationen
+      setCareerEntries([...remainingEntries, ...newEntries]);
 
-      if (entriesToAdd.length === 0 && updatedCount === 0) {
-        if (!silent) Alert.alert('Info', 'Alle gefundenen Statistiken sind bereits vorhanden.');
-      } else if (!silent) {
-        const parts = [];
-        if (updatedCount > 0) parts.push(`${updatedCount} aktualisiert`);
-        if (entriesToAdd.length > 0) parts.push(`${entriesToAdd.length} neu hinzugefügt`);
-        Alert.alert('Erfolg', `Statistiken: ${parts.join(', ')}.`);
-      }
+      const parts: string[] = [];
+      parts.push(`${newEntries.length} Stationen geladen`);
+      if (removedCount > 0) parts.push(`${removedCount} alte Einträge ersetzt`);
+      const msg = `Transfermarkt: ${parts.join(', ')}.`;
+      if (!silent) Alert.alert('Erfolg', msg);
+      setTransfermarktStatus({ kind: 'success', message: msg });
     } catch (error) {
       console.error('Fehler beim Laden der Transfermarkt Stats:', error);
       if (!silent) Alert.alert('Fehler', 'Konnte Statistiken nicht laden. Bitte versuche es später erneut.');
+      setTransfermarktStatus({ kind: 'error', message: 'Konnte Statistiken nicht laden — siehe Browser-Console für Details.' });
     }
     setLoadingStats(false);
   };
@@ -887,30 +1014,32 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const updateCareerEntry = (index: number, field: keyof CareerEntry, value: string | boolean) => {
     const updated = [...careerEntries];
     (updated[index] as any)[field] = value;
-    
-    // Parse Datum - unterstützt DD.MM.YYYY und YYYY-MM-DD
-    const parseDate = (dateStr: string): Date => {
-      if (!dateStr) return new Date(0);
-      if (dateStr.includes('.')) {
-        const parts = dateStr.split('.');
-        if (parts.length === 3) {
-          return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+
+    // Nur bei sortierungs-relevanten Feldern neu sortieren — sonst verliert die TextInput
+    // bei jedem Tastendruck den Focus weil Keys sich nach Sort-Reshuffle ändern.
+    if (field === 'from_date' || field === 'to_date' || field === 'is_current') {
+      const parseDate = (dateStr: string): Date => {
+        if (!dateStr) return new Date(0);
+        if (dateStr.includes('.')) {
+          const parts = dateStr.split('.');
+          if (parts.length === 3) {
+            return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+          }
         }
-      }
-      if (dateStr.includes('-')) {
-        return new Date(dateStr);
-      }
-      return new Date(0);
-    };
-    
-    // Sortiere: is_current zuerst, dann nach from_date (neueste zuerst)
-    updated.sort((a, b) => {
-      if (a.is_current && !b.is_current) return -1;
-      if (!a.is_current && b.is_current) return 1;
-      const dateA = parseDate(a.from_date);
-      const dateB = parseDate(b.from_date);
-      return dateB.getTime() - dateA.getTime();
-    });
+        if (dateStr.includes('-')) {
+          return new Date(dateStr);
+        }
+        return new Date(0);
+      };
+      updated.sort((a, b) => {
+        if (a.is_current && !b.is_current) return -1;
+        if (!a.is_current && b.is_current) return 1;
+        const dateA = parseDate(a.from_date);
+        const dateB = parseDate(b.from_date);
+        return dateB.getTime() - dateA.getTime();
+      });
+    }
+
     setCareerEntries(updated);
   };
 
@@ -933,28 +1062,44 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   };
 
   const savePdfChanges = async () => {
-    // Gelöschte Einträge aus DB entfernen
-    for (const id of deletedCareerEntryIds) {
-      await supabase.from('player_career').delete().eq('id', id);
+    try {
+      // Gelöschte Einträge aus DB entfernen
+      for (const id of deletedCareerEntryIds) {
+        const { error } = await supabase.from('player_career').delete().eq('id', id);
+        if (error) {
+          console.error('savePdfChanges DELETE failed:', error, 'id:', id);
+          throw error;
+        }
+      }
+      setDeletedCareerEntryIds([]);
+
+      // Karrierestationen speichern
+      for (const entry of careerEntries) {
+        await saveCareerEntry(entry);
+      }
+
+      // Spieler-Beschreibung + optionale PDF-Felder speichern
+      const { error: detailsError } = await supabase
+        .from('player_details')
+        .update({ pdf_description: playerDescription, pdf_optional_fields: pdfOptionalFields, pdf_additional_info: pdfAdditionalInfo.filter(s => s.trim()).join(";"), pdf_highlight_video_id: pdfHighlightVideoId, pdf_highlight_video_url: pdfHighlightVideoUrl?.trim() || null, pdf_language: pdfLanguage })
+        .eq('id', playerId)
+        .select();
+      if (detailsError) {
+        console.error('savePdfChanges player_details UPDATE failed:', detailsError);
+        throw detailsError;
+      }
+
+      // Daten neu laden
+      await fetchCareerEntries();
+
+      setPdfEditMode(false);
+      Alert.alert('Erfolg', 'Karrierestationen wurden gespeichert');
+    } catch (e: any) {
+      console.error('savePdfChanges exception:', e);
+      Alert.alert('Fehler beim Speichern', e?.message || e?.code || 'Unbekannter Fehler — siehe Browser-Konsole');
+      // WICHTIG: Bei Fehler NICHT fetchCareerEntries() aufrufen — sonst wird der lokale State
+      // mit dem (alten) DB-Stand überschrieben und die Eingaben des Users gehen verloren.
     }
-    setDeletedCareerEntryIds([]);
-
-    // Karrierestationen speichern
-    for (const entry of careerEntries) {
-      await saveCareerEntry(entry);
-    }
-
-    // Spieler-Beschreibung speichern
-    await supabase
-      .from('player_details')
-      .update({ pdf_description: playerDescription, pdf_optional_fields: pdfOptionalFields })
-      .eq('id', playerId);
-
-    // Daten neu laden
-    await fetchCareerEntries();
-
-    setPdfEditMode(false);
-    Alert.alert('Erfolg', 'Karrierestationen wurden gespeichert');
   };
 
   const generatePdfHtml = (): string => {
@@ -1183,6 +1328,18 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                   <div style="font-size: ${sc(9)}px; color: #1a202c; font-weight: 600;">${contractEndFormatted}</div>
                 </div>
 
+                ${pdfOptionalFields.contract_scope && (player as any).contract_scope ? `
+                <div style="margin-bottom: ${sc(4)}px;">
+                  <div style="font-size: ${sc(7)}px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">VERTRAG GILT FÜR</div>
+                  <div style="font-size: ${sc(9)}px; color: #1a202c; font-weight: 600;">${(player as any).contract_scope}</div>
+                </div>` : ''}
+
+                ${pdfOptionalFields.contract_option && (player as any).contract_option ? `
+                <div style="margin-bottom: ${sc(4)}px;">
+                  <div style="font-size: ${sc(7)}px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">OPTION</div>
+                  <div style="font-size: ${sc(9)}px; color: #1a202c; font-weight: 600;">${(player as any).contract_option}</div>
+                </div>` : ''}
+
                 <div>
                   <div style="font-size: ${sc(7)}px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 1px;">TRANSFERMARKT</div>
                   <div style="font-size: ${sc(9)}px; color: ${player.transfermarkt_url ? '#3182ce' : '#1a202c'}; font-weight: 600;">${player.transfermarkt_url ? 'Zum Profil' : '-'}</div>
@@ -1305,6 +1462,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
             is_current: e.is_current,
           })),
           bulletPoints: aiBulletPoints || '',
+          lang: pdfLanguage,
         },
       });
 
@@ -1373,10 +1531,26 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     }
   };
 
+  // Highlight-Video → public URL + Title für die Edge Function resolven.
+  // Vorrang: direkte URL (z.B. YouTube-Link) > Library-Video.
+  const resolveHighlightVideo = (): { url: string | undefined; title: string | undefined } => {
+    const directUrl = pdfHighlightVideoUrl?.trim();
+    if (directUrl) return { url: directUrl, title: undefined };
+    if (!pdfHighlightVideoId) return { url: undefined, title: undefined };
+    const v = availableVideos.find(x => x.id === pdfHighlightVideoId);
+    if (!v) return { url: undefined, title: undefined };
+    let url = v.video_url || '';
+    if (!url && v.video_path) {
+      url = supabase.storage.from('player-videos').getPublicUrl(v.video_path).data.publicUrl;
+    }
+    return { url: url || undefined, title: v.label || v.description || undefined };
+  };
+
   const generatePDF = async () => {
     if (!player) return;
 
-    const fileName = `Expose_${player.last_name}_${player.first_name}.pdf`;
+    const langSuffix = pdfLanguage === 'en' ? '_english' : '';
+    const fileName = `Expose_${player.last_name}_${player.first_name}${langSuffix}.pdf`;
 
     try {
       // ✅ WEB: Server-seitige PDF via Browserless (perfekte Qualität!)
@@ -1384,16 +1558,20 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         // Edge Function aufrufen mit geordneten Beratern
         const playerWithOrderedAdvisors = {
           ...player,
-          responsibility: pdfAdvisors.length > 0 ? pdfAdvisors.join(', ') : player.responsibility,
-          pdf_optional_fields: pdfOptionalFields,
+          responsibility: pdfAdvisors.length > 0 ? pdfAdvisors.join(', ') : player.responsibility
         };
         const { data, error } = await supabase.functions.invoke('generate-pdf', {
           body: {
             player: playerWithOrderedAdvisors,
             careerEntries,
             playerDescription,
+            additionalInfo: pdfAdditionalInfo.filter(s => s.trim()).join(';'),
+            highlightVideoUrl: resolveHighlightVideo().url,
+            highlightVideoTitle: resolveHighlightVideo().title,
+            lang: pdfLanguage,
             advisorEmail: firstAdvisorEmail,
             advisorPhone: firstAdvisorPhone,
+            clubLogoUrl: getClubLogo(player.club || '') || undefined,
           },
         });
 
@@ -1485,8 +1663,13 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           player: playerWithOrderedAdvisors,
           careerEntries,
           playerDescription,
+          additionalInfo: pdfAdditionalInfo.filter(s => s.trim()).join(';'),
+          highlightVideoUrl: resolveHighlightVideo().url,
+          highlightVideoTitle: resolveHighlightVideo().title,
+            lang: pdfLanguage,
           advisorEmail: firstAdvisorEmail,
           advisorPhone: firstAdvisorPhone,
+          clubLogoUrl: getClubLogo(player.club || '') || undefined,
         },
       });
 
@@ -1572,48 +1755,11 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   };
 
   // ============================================
-  // ACCESS CHECK - NUR advisor_access TABELLE
+  // ACCESS CHECK - alle Berater haben Zugriff auf alle Spieler
+  // (advisor_access-Tabelle wird nicht mehr ausgewertet)
   // ============================================
   const checkAccess = async () => {
-    if (!profile?.id || !playerId) {
-      setAccessChecked(true);
-      return;
-    }
-    
-    // Admin hat immer Zugriff
-    if (profile.role === 'admin') {
-      setHasAccess(true);
-      setAccessChecked(true);
-      return;
-    }
-    
-    // Prüfe ob Berater in advisor_access eingetragen ist
-    const { data: accessData } = await supabase
-      .from('advisor_access')
-      .select('*')
-      .eq('player_id', playerId)
-      .eq('advisor_id', profile.id)
-      .maybeSingle();
-    
-    if (accessData) {
-      setHasAccess(true);
-      setAccessChecked(true);
-      return;
-    }
-    
-    // Prüfe ob bereits eine Anfrage existiert
-    const { data: requestData } = await supabase
-      .from('access_requests')
-      .select('*')
-      .eq('player_id', playerId)
-      .eq('requester_id', profile.id)
-      .maybeSingle();
-    
-    if (requestData) {
-      setPendingRequest(requestData);
-    }
-    
-    setHasAccess(false);
+    setHasAccess(true);
     setAccessChecked(true);
   };
 
@@ -3363,8 +3509,9 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const isAnyDropdownOpen = showPositionPicker || showSecondaryPositionPicker || showNationalityPicker || showHeightPicker || showClubSuggestions || showFutureClubSuggestions || activeDatePicker !== null;
 
   return (
-    <View style={[styles.modalOverlayContainer, isMobile && styles.modalOverlayContainerMobile]}>
-      {!isMobile && <TouchableOpacity style={styles.modalBackdrop} onPress={() => navigation.goBack()} activeOpacity={1} />}
+    <View style={[styles.modalOverlayContainer, isMobile && styles.modalOverlayContainerMobile, openPdfEditor && { backgroundColor: '#000' }]}>
+      {!isMobile && !openPdfEditor && <TouchableOpacity style={styles.modalBackdrop} onPress={() => navigation.goBack()} activeOpacity={1} />}
+      {!openPdfEditor && (
       <View style={[styles.modalContainer, isMobile && styles.modalContainerMobile, { backgroundColor: colors.background }]}>
         <View style={[styles.header, isMobile && styles.headerMobile, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
           <Text style={[styles.headerTitle, isMobile && styles.headerTitleMobile, { color: colors.text }]}>Spielerprofil</Text>
@@ -3377,7 +3524,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         >
         <Pressable onPress={() => closeAllDropdowns()}>
         {/* Redesigned Top Section */}
-        <View style={[styles.topSection, isMobile && styles.topSectionMobile, { backgroundColor: colors.cardBackground }]}>
+        <View style={[styles.topSection, isMobile && styles.topSectionMobile, { backgroundColor: 'rgba(255,255,255,0.08)' }]}>
           <View style={[styles.topLeft, isMobile && styles.topLeftMobile]}>
             {editing ? (
               <TouchableOpacity onPress={uploadPhoto} style={styles.photoContainer}>
@@ -3447,7 +3594,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           /* Mobile: Cards in gewünschter Reihenfolge */
           <View style={styles.singleColumnContainer}>
             {/* 1. Allgemein */}
-            <View style={[styles.card, styles.cardMobile, { zIndex: 400, overflow: 'visible', backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+            <View style={[styles.card, styles.cardMobile, { zIndex: 400, overflow: 'visible', backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}>
               <Text style={[styles.cardTitle, { color: colors.text, borderBottomColor: colors.border }]}>Allgemein</Text>
               <View style={[styles.splitContainer, styles.splitContainerMobile, { overflow: 'visible' }]}>
                 <View style={[styles.splitColumn, { overflow: 'visible', zIndex: 400 }]}>
@@ -3465,7 +3612,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               </View>
             </View>
             {/* 2. Vertrag */}
-            <View style={[styles.card, styles.cardMobile, { zIndex: 100, overflow: 'visible', backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+            <View style={[styles.card, styles.cardMobile, { zIndex: 100, overflow: 'visible', backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}>
               <Text style={[styles.cardTitle, { color: colors.text, borderBottomColor: colors.border }]}>Vertrag</Text>
               <View style={[styles.splitContainer, styles.splitContainerMobile, { overflow: 'visible' }]}>
                 <View style={[styles.splitColumn, { overflow: 'visible', zIndex: 100 }]}>
@@ -3489,7 +3636,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               </View>
             </View>
             {/* 3. Beratung */}
-            <View style={[styles.card, styles.cardMobile, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+            <View style={[styles.card, styles.cardMobile, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}>
               <Text style={[styles.cardTitle, { color: colors.text, borderBottomColor: colors.border }]}>Beratung</Text>
               <View style={styles.beratungContainerMobile}>
                 <View style={styles.beratungColumnMobile}>
@@ -3508,7 +3655,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               </View>
             </View>
             {/* 4. Privat */}
-            <View style={[styles.card, styles.cardMobile, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+            <View style={[styles.card, styles.cardMobile, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}>
               <Text style={[styles.cardTitle, { color: colors.text, borderBottomColor: colors.border }]}>Privat</Text>
               <View style={[styles.splitContainer, styles.splitContainerMobile]}>
                 <View style={[styles.splitColumn, { zIndex: 10 }]}>
@@ -3527,7 +3674,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               </View>
             </View>
             {/* 5. Familie */}
-            <View style={[styles.card, styles.cardMobile, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+            <View style={[styles.card, styles.cardMobile, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}>
               <Text style={[styles.cardTitle, { color: colors.text, borderBottomColor: colors.border }]}>Familie</Text>
               <View style={styles.familyContainerMobileTwoCol}>
                 <View style={styles.familyColumnMobile}>
@@ -3549,7 +3696,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               </View>
             </View>
             {/* 6. Verletzungen */}
-            <View style={[styles.card, styles.cardMobile, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+            <View style={[styles.card, styles.cardMobile, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}>
               <Text style={[styles.cardTitle, { color: colors.text, borderBottomColor: colors.border }]}>Verletzungen & Krankheiten</Text>
               <View style={styles.infoRow}>{editing ? <TextInput style={[styles.input, styles.textArea, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={editData.injuries || ''} onChangeText={(text) => updateField('injuries', text)} placeholder="Verletzungshistorie..." placeholderTextColor={colors.textMuted} multiline /> : <Text style={[styles.value, { color: colors.text }]}>{player.injuries || '-'}</Text>}</View>
             </View>
@@ -3559,7 +3706,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           <>
           <View style={styles.twoColumnContainer}>
             <View style={[styles.halfColumn, { zIndex: 400 }]}>
-              <View style={[styles.card, { zIndex: 400, overflow: 'visible', backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+              <View style={[styles.card, { zIndex: 400, overflow: 'visible', backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}>
                 <Text style={[styles.cardTitle, { color: colors.text, borderBottomColor: colors.border }]}>Allgemein</Text>
                 <View style={[styles.splitContainer, { overflow: 'visible' }]}>
                   <View style={[styles.splitColumn, { overflow: 'visible', zIndex: 400 }]}>
@@ -3577,7 +3724,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                   </View>
                 </View>
               </View>
-              <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+              <View style={[styles.card, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}>
                 <Text style={[styles.cardTitle, { color: colors.text, borderBottomColor: colors.border }]}>Beratung</Text>
                 <View style={styles.infoRow}>
                   <Text style={[styles.label, { color: colors.textMuted }]}>Listung</Text>
@@ -3589,7 +3736,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 {renderFieldWithDocuments('Provision', 'provision', 'provision_documents')}
                 {renderFieldWithDocuments('Weg-Vermittlung', 'transfer_commission', 'transfer_commission_documents')}
               </View>
-              <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+              <View style={[styles.card, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}>
                 <Text style={[styles.cardTitle, { color: colors.text, borderBottomColor: colors.border }]}>Privat</Text>
                 <View style={styles.splitContainer}>
                   <View style={[styles.splitColumn, { zIndex: 10 }]}>
@@ -3609,7 +3756,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               </View>
             </View>
             <View style={[styles.halfColumn, { zIndex: 100 }]}>
-              <View style={[styles.card, { zIndex: 100, overflow: 'visible', backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+              <View style={[styles.card, { zIndex: 100, overflow: 'visible', backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}>
                 <Text style={[styles.cardTitle, { color: colors.text, borderBottomColor: colors.border }]}>Vertrag</Text>
                 <View style={[styles.splitContainer, { overflow: 'visible' }]}>
                   <View style={[styles.splitColumn, { overflow: 'visible', zIndex: 100 }]}>
@@ -3632,7 +3779,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                   </View>
                 </View>
               </View>
-              <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+              <View style={[styles.card, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}>
                 <Text style={[styles.cardTitle, { color: colors.text, borderBottomColor: colors.border }]}>Familie</Text>
                 <View style={styles.familyContainer}>
                   <View style={styles.familyColumn}>
@@ -3657,7 +3804,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               </View>
             </View>
           </View>
-          <View style={[styles.cardFullWidth, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+          <View style={[styles.cardFullWidth, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}>
             <Text style={[styles.cardTitle, { color: colors.text, borderBottomColor: colors.border }]}>Verletzungen & Krankheiten</Text>
             <View style={styles.infoRow}>{editing ? <TextInput style={[styles.input, styles.textArea, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={editData.injuries || ''} onChangeText={(text) => updateField('injuries', text)} placeholder="Verletzungshistorie..." placeholderTextColor={colors.textMuted} multiline /> : <Text style={[styles.value, { color: colors.text }]}>{player.injuries || '-'}</Text>}</View>
           </View>
@@ -3747,6 +3894,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           </View>
         </View>
       )}
+      </View>
+      )}
       {renderDeleteModal()}
 
       {/* Invite Code Modal */}
@@ -3789,205 +3938,429 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       />
 
       {/* PDF Profil Modal */}
-      <Modal visible={showPDFProfileModal} animationType="fade" transparent>
-        <View style={styles.pdfModalOverlay}>
-          <View style={[styles.pdfModalContainer, { backgroundColor: colors.surface }]}>
-            <View style={[styles.pdfModalHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-              <Text style={[styles.pdfModalTitle, { color: colors.text }]}>Spielerprofil PDF {pdfEditMode ? '(Bearbeiten)' : ''}</Text>
-              <TouchableOpacity onPress={() => { setShowPDFProfileModal(false); setPdfEditMode(false); }} style={[styles.closeButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
-                <Text style={[styles.closeButtonText, { color: colors.textSecondary }]}>✕</Text>
-              </TouchableOpacity>
+      <Modal visible={showPDFProfileModal} animationType={isMobile ? 'slide' : 'fade'} transparent>
+        <View style={[styles.pdfModalOverlay, isMobile && { padding: 0, justifyContent: 'flex-end', alignItems: 'stretch' }]}>
+          <View style={[styles.pdfModalContainer, isMobile && { width: '100%', maxWidth: undefined, height: 'auto' as any, maxHeight: '95%', borderRadius: 0, borderTopLeftRadius: 16, borderTopRightRadius: 16, borderBottomWidth: 0 }]}>
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 16, overflow: 'hidden', zIndex: 0 }} pointerEvents="none">
+              <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%', opacity: 0.85, ...({ objectFit: 'cover', objectPosition: 'center', backgroundSize: 'cover', backgroundPosition: 'center' } as any) }} resizeMode="cover" />
+              <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.55)' }} />
+            </View>
+            <View style={styles.pdfModalHeader}>
+              <Text style={styles.pdfModalTitle} numberOfLines={1}>{pdfEditMode ? 'CV Bearbeitung' : 'CV'}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                {pdfEditMode ? (
+                  <>
+                    <TouchableOpacity style={styles.pdfCancelButton} onPress={() => {
+                      setCareerEntries(careerEntriesBackup);
+                      setDeletedCareerEntryIds([]);
+                      setPdfEditMode(false);
+                      // PDF-Vorschau (NICHT Download) neu generieren — wurde beim Bearbeiten geleert
+                      setTimeout(() => generatePdfPreview(), 0);
+                    }}>
+                      <Text style={styles.pdfCancelButtonText}>Abbrechen</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.pdfSaveButton} onPress={savePdfChanges}>
+                      <Text style={styles.pdfSaveButtonText}>Speichern</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <>
+                    <TouchableOpacity style={styles.pdfCancelButton} onPress={() => {
+                      console.log('[PDF] Bearbeiten geklickt. careerEntries:', careerEntries.length, 'careerEntriesLoaded:', careerEntriesLoaded);
+                      setCareerEntriesBackup([...careerEntries]);
+                      if (pdfPreviewUrl) {
+                        try { URL.revokeObjectURL(pdfPreviewUrl); } catch {}
+                        setPdfPreviewUrl(null);
+                      }
+                      setPdfEditMode(true);
+                    }}>
+                      <Text style={styles.pdfCancelButtonText}>Bearbeiten</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.pdfCancelButton, { flexDirection: 'row', alignItems: 'center', gap: 4 }]} onPress={generatePDF} accessibilityLabel="Als PDF downloaden">
+                      <Ionicons name="download-outline" size={14} color="rgba(255,255,255,0.85)" />
+                    </TouchableOpacity>
+                  </>
+                )}
+                <TouchableOpacity onPress={async () => {
+                  // Im Edit-Mode: Änderungen automatisch speichern, bevor wir schließen.
+                  // Wenn das Speichern fehlschlägt, bleiben wir offen, damit der User
+                  // den Fehler sieht und entscheiden kann (Abbrechen oder erneut Speichern).
+                  if (pdfEditMode) {
+                    try {
+                      console.log('[PDF] Auto-save on close — playerId:', playerId, 'careerEntries:', careerEntries.length, 'description.len:', playerDescription?.length);
+                      for (const id of deletedCareerEntryIds) {
+                        const { error } = await supabase.from('player_career').delete().eq('id', id);
+                        if (error) throw error;
+                      }
+                      setDeletedCareerEntryIds([]);
+                      for (const entry of careerEntries) {
+                        await saveCareerEntry(entry);
+                      }
+                      const { data: updateData, error: detailsError } = await supabase
+                        .from('player_details')
+                        .update({ pdf_description: playerDescription, pdf_optional_fields: pdfOptionalFields, pdf_additional_info: pdfAdditionalInfo.filter(s => s.trim()).join(";"), pdf_highlight_video_id: pdfHighlightVideoId, pdf_highlight_video_url: pdfHighlightVideoUrl?.trim() || null, pdf_language: pdfLanguage })
+                        .eq('id', playerId)
+                        .select();
+                      console.log('[PDF] UPDATE player_details — rows:', updateData?.length || 0, 'error:', detailsError);
+                      if (detailsError) throw detailsError;
+                    } catch (e: any) {
+                      console.error('Auto-save on close failed:', e);
+                      Alert.alert(
+                        'Änderungen nicht gespeichert',
+                        (e?.message || e?.code || 'Unbekannter Fehler') + '\n\nBitte über "Speichern" oder "Abbrechen" entscheiden.'
+                      );
+                      return; // NICHT schließen
+                    }
+                  }
+                  setShowPDFProfileModal(false);
+                  setPdfEditMode(false);
+                  navigation.goBack();
+                }} style={{ width: 22, height: 22, alignItems: 'center', justifyContent: 'center', marginLeft: 4 }}>
+                  <Text style={{ fontSize: 20, lineHeight: 22, color: 'rgba(255,255,255,0.7)' }}>✕</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {pdfEditMode ? (
               /* Bearbeitungsmodus */
-              <ScrollView style={[styles.pdfModalContent, { backgroundColor: colors.background }]}>
+              <ScrollView style={styles.pdfModalContent}>
+                {/* Sprachauswahl — Skill-Dropdown-Pattern: Label oben, Pill-Dropdown darunter */}
+                <View {...({ 'data-kmh-dropdown': 'true' } as any)} style={[styles.pdfEditSection, { maxWidth: 160, zIndex: showLanguageDropdown ? 1000 : 1, position: 'relative' }]}>
+                  <Text style={styles.pdfEditSectionTitle}>Sprache</Text>
+                  <TouchableOpacity
+                    style={{ alignSelf: 'stretch', backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 4, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                    onPress={() => setShowLanguageDropdown(o => !o)}
+                  >
+                    <Text style={{ fontSize: 13, color: '#fff', flex: 1 }}>{pdfLanguage === 'de' ? 'Deutsch' : 'English'}</Text>
+                    <Ionicons name={showLanguageDropdown ? 'chevron-up' : 'chevron-down'} size={14} color="rgba(255,255,255,0.5)" />
+                  </TouchableOpacity>
+                  {showLanguageDropdown ? (
+                    <View style={{ position: 'absolute', top: '100%', left: 0, minWidth: 220, marginTop: 2, backgroundColor: '#1e293b', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12 }}>
+                      {(['de', 'en'] as const).map(l => (
+                        <TouchableOpacity
+                          key={l}
+                          style={{ paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}
+                          onPress={() => { setPdfLanguage(l); setShowLanguageDropdown(false); }}
+                        >
+                          <Text style={{ fontSize: 13, color: '#fff' }}>{l === 'de' ? 'Deutsch' : 'English'}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  ) : null}
+                </View>
+
                 <View style={styles.pdfEditSection}>
-                  <Text style={[styles.pdfEditSectionTitle, { color: colors.text }]}>Karriereverlauf der letzten Jahre</Text>
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
-                    <TouchableOpacity style={[styles.pdfAddCareerButton, { backgroundColor: colors.primary }]} onPress={addNewCareerEntry}>
-                      <Text style={[styles.pdfAddCareerButtonText, { color: colors.primaryText }]}>+ Station hinzufügen</Text>
+                  <Text style={[styles.pdfEditSectionTitle, { marginBottom: 8 }]} numberOfLines={1}>Karriereverlauf der letzten Jahre</Text>
+                  <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                    <TouchableOpacity style={[styles.pdfAddCareerButton, { backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', marginLeft: 0 }]} onPress={addNewCareerEntry}>
+                      <Text style={[styles.pdfAddCareerButtonText, { color: 'rgba(255,255,255,0.85)' }]}>+ Saison hinzufügen</Text>
                     </TouchableOpacity>
                     {player?.transfermarkt_url ? (
                       <TouchableOpacity
-                        style={[styles.pdfAddCareerButton, { backgroundColor: '#1a1a2e', opacity: loadingStats ? 0.6 : 1 }]}
+                        style={[styles.pdfAddCareerButton, { backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', marginLeft: 0, opacity: loadingStats ? 0.6 : 1 }]}
                         onPress={() => loadTransfermarktStats(false)}
                         disabled={loadingStats}
                       >
-                        <Text style={[styles.pdfAddCareerButtonText, { color: '#fff' }]}>
-                          {loadingStats ? 'Laden...' : 'Von Transfermarkt laden'}
+                        <Text style={[styles.pdfAddCareerButtonText, { color: 'rgba(255,255,255,0.85)' }]}>
+                          {loadingStats ? 'Laden...' : 'TM-Daten laden'}
                         </Text>
                       </TouchableOpacity>
                     ) : null}
                   </View>
                 </View>
 
-                {careerEntries.map((entry, index) => (
-                  <View key={entry.id || index} style={[styles.pdfCareerEditCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
-                    <View style={styles.pdfCareerEditRow}>
-                      <View style={{ flex: 2 }}>
-                        <Text style={[styles.pdfCareerEditLabel, { color: colors.textMuted }]}>Verein</Text>
-                        <TextInput
-                          style={[styles.pdfCareerEditInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
-                          value={entry.club}
-                          onChangeText={(t) => updateCareerEntry(index, 'club', t)}
-                          placeholder="Verein" placeholderTextColor={colors.textMuted}
-                        />
-                      </View>
-                      <View style={{ flex: 1, marginLeft: 6 }}>
-                        <Text style={[styles.pdfCareerEditLabel, { color: colors.textMuted }]}>Liga</Text>
-                        <TextInput
-                          style={[styles.pdfCareerEditInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
-                          value={entry.league}
-                          onChangeText={(t) => updateCareerEntry(index, 'league', t)}
-                          placeholder="Liga" placeholderTextColor={colors.textMuted}
-                        />
-                      </View>
-                    </View>
-
-                    <View style={[styles.pdfCareerEditRow, { marginTop: 4 }]}>
-                      {entry.is_current ? (
-                        <>
-                          <View style={{ flex: 1 }}>
-                            <Text style={[styles.pdfCareerEditLabel, { color: colors.textMuted }]}>Seit</Text>
-                            <TextInput
-                              style={[styles.pdfCareerEditInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
-                              value={entry.from_date}
-                              onChangeText={(t) => updateCareerEntry(index, 'from_date', t)}
-                              placeholder="01.07.2023" placeholderTextColor={colors.textMuted}
-                            />
-                          </View>
-                          <View style={{ marginTop: 18, marginLeft: 6 }}>
-                            <TouchableOpacity
-                              style={[styles.pdfCurrentToggle, styles.pdfCurrentToggleActive, { backgroundColor: colors.primary }]}
-                              onPress={() => updateCareerEntry(index, 'is_current', false)}
-                            >
-                              <Text style={[styles.pdfCurrentToggleText, styles.pdfCurrentToggleTextActive, { color: colors.primaryText }]}>
-                                Aktuell
-                              </Text>
-                            </TouchableOpacity>
-                          </View>
-                        </>
-                      ) : (
-                        <>
-                          <View style={{ flex: 1 }}>
-                            <Text style={[styles.pdfCareerEditLabel, { color: colors.textMuted }]}>Von</Text>
-                            <TextInput
-                              style={[styles.pdfCareerEditInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
-                              value={entry.from_date}
-                              onChangeText={(t) => updateCareerEntry(index, 'from_date', t)}
-                              placeholder="01.07.2023" placeholderTextColor={colors.textMuted}
-                            />
-                          </View>
-                          <View style={{ flex: 1, marginLeft: 6 }}>
-                            <Text style={[styles.pdfCareerEditLabel, { color: colors.textMuted }]}>Bis</Text>
-                            <TextInput
-                              style={[styles.pdfCareerEditInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
-                              value={entry.to_date}
-                              onChangeText={(t) => updateCareerEntry(index, 'to_date', t)}
-                              placeholder="30.06.2024" placeholderTextColor={colors.textMuted}
-                            />
-                          </View>
-                          <View style={{ marginTop: 18, marginLeft: 6 }}>
-                            <TouchableOpacity
-                              style={[styles.pdfCurrentToggle, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
-                              onPress={() => updateCareerEntry(index, 'is_current', true)}
-                            >
-                              <Text style={[styles.pdfCurrentToggleText, { color: colors.textSecondary }]}>
-                                Aktuell
-                              </Text>
-                            </TouchableOpacity>
-                          </View>
-                        </>
-                      )}
-                      <View style={{ flex: 0.6, marginLeft: 6 }}>
-                        <Text style={[styles.pdfCareerEditLabel, { color: colors.textMuted }]}>Spiele</Text>
-                        <TextInput
-                          style={[styles.pdfCareerEditInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
-                          value={entry.games || ''}
-                          onChangeText={(t) => updateCareerEntry(index, 'games', t.replace(/[^0-9]/g, ''))}
-                          placeholder="0" placeholderTextColor={colors.textMuted}
-                          keyboardType="numeric"
-                        />
-                      </View>
-                      <View style={{ flex: 0.6, marginLeft: 6 }}>
-                        <Text style={[styles.pdfCareerEditLabel, { color: colors.textMuted }]}>Tore</Text>
-                        <TextInput
-                          style={[styles.pdfCareerEditInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
-                          value={entry.goals || ''}
-                          onChangeText={(t) => updateCareerEntry(index, 'goals', t.replace(/[^0-9]/g, ''))}
-                          placeholder="0" placeholderTextColor={colors.textMuted}
-                          keyboardType="numeric"
-                        />
-                      </View>
-                      <View style={{ flex: 0.6, marginLeft: 6 }}>
-                        <Text style={[styles.pdfCareerEditLabel, { color: colors.textMuted }]}>Assists</Text>
-                        <TextInput
-                          style={[styles.pdfCareerEditInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
-                          value={entry.assists || ''}
-                          onChangeText={(t) => updateCareerEntry(index, 'assists', t.replace(/[^0-9]/g, ''))}
-                          placeholder="0" placeholderTextColor={colors.textMuted}
-                          keyboardType="numeric"
-                        />
-                      </View>
-                      {entry.id && (
-                        <TouchableOpacity style={[styles.pdfCareerDeleteButton, { marginTop: 18 }]} onPress={() => deleteCareerEntry(entry.id!)}>
-                          <Text style={styles.pdfCareerDeleteButtonText}>✕</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
+                {transfermarktStatus.kind !== 'idle' && (
+                  <View
+                    style={{
+                      marginBottom: 12,
+                      paddingHorizontal: 14,
+                      paddingVertical: 10,
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      backgroundColor: 'rgba(0,0,0,0.5)',
+                      borderColor:
+                        transfermarktStatus.kind === 'error' ? '#ef4444' :
+                        transfermarktStatus.kind === 'success' ? '#22c55e' :
+                        transfermarktStatus.kind === 'empty' ? '#fbbf24' :
+                        transfermarktStatus.kind === 'loading' ? '#60a5fa' :
+                        'rgba(255,255,255,0.15)',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 10,
+                    }}
+                  >
+                    {transfermarktStatus.kind === 'loading' ? <ActivityIndicator size="small" color="#60a5fa" /> : null}
+                    <Text style={{ flex: 1, fontSize: 12, fontWeight: '500', color: '#fff' }}>
+                      {transfermarktStatus.message}
+                    </Text>
+                    <TouchableOpacity onPress={() => setTransfermarktStatus({ kind: 'idle' })}>
+                      <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>✕</Text>
+                    </TouchableOpacity>
                   </View>
-                ))}
+                )}
 
-                <Text style={[styles.pdfEditSectionTitle, { marginTop: 16, marginBottom: 8, color: colors.text }]}>Optionale Felder im PDF</Text>
-                <View style={{ backgroundColor: '#fafafa', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#e8e8e8' }}>
-                  {([
-                    { key: 'contract_scope' as const, label: 'VERTRAG GILT FÜR', value: (player as any)?.contract_scope || '-' },
-                    { key: 'contract_option' as const, label: 'OPTION', value: (player as any)?.contract_option || '-' },
-                  ]).map(({ key, label, value }, idx) => {
-                    const enabled = pdfOptionalFields[key];
-                    return (
-                      <View
-                        key={key}
-                        style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderTopWidth: idx === 0 ? 0 : 1, borderTopColor: '#e8e8e8' }}
-                      >
-                        <View style={{ flex: 1, opacity: enabled ? 1 : 0.4 }}>
-                          <Text style={{ fontSize: 9, color: '#888', fontWeight: '600', letterSpacing: 0.5, marginBottom: 2 }}>{label}</Text>
-                          <Text style={{ fontSize: 13, color: '#1a202c', fontWeight: '600' }}>{value}</Text>
+                {(() => {
+                  // Einträge mit gleichem Zeitraum (from_date+to_date+is_current)
+                  // werden zu einer Card gruppiert. Original-Indexes bleiben erhalten,
+                  // damit Updates/Deletes weiterhin auf dem flachen careerEntries-Array operieren.
+                  type Group = { key: string; from_date: string; to_date: string; is_current: boolean; indexes: number[] };
+                  const groups: Group[] = [];
+                  careerEntries.forEach((e, idx) => {
+                    const key = `${e.from_date}|${e.to_date}|${e.is_current ? '1' : '0'}`;
+                    const existing = groups.find(g => g.key === key);
+                    if (existing) existing.indexes.push(idx);
+                    else groups.push({ key, from_date: e.from_date, to_date: e.to_date, is_current: !!e.is_current, indexes: [idx] });
+                  });
+
+                  const updateGroupDate = (indexes: number[], field: 'from_date' | 'to_date' | 'is_current', value: any) => {
+                    setCareerEntries(prev => prev.map((e, i) => indexes.includes(i) ? { ...e, [field]: value } : e));
+                  };
+
+                  // Saison-Helpers: "01.07.2024" + "30.06.2025" ↔ "24/25"
+                  const formatSeasonFromGroup = (g: Group): string => {
+                    const fy = (g.from_date || '').match(/(\d{4})$/);
+                    const ty = (g.to_date || '').match(/(\d{4})$/);
+                    if (fy && ty) return `${fy[1].slice(2)}/${ty[1].slice(2)}`;
+                    if (fy) {
+                      const y = parseInt(fy[1], 10);
+                      return `${String(y).slice(2)}/${String(y + 1).slice(2)}`;
+                    }
+                    return '';
+                  };
+                  const parseSeasonInput = (text: string): { from: string; to: string } | null => {
+                    const m = text.replace(/\s/g, '').match(/^(\d{2})\/(\d{2})$/);
+                    if (!m) return null;
+                    return { from: `01.07.20${m[1]}`, to: `30.06.20${m[2]}` };
+                  };
+                  const handleSeasonChange = (group: Group, text: string) => {
+                    setSeasonInputs(prev => ({ ...prev, [group.key]: text }));
+                    const parsed = parseSeasonInput(text);
+                    if (parsed) {
+                      setCareerEntries(prev => prev.map((e, i) =>
+                        group.indexes.includes(i) ? { ...e, from_date: parsed.from, to_date: parsed.to } : e
+                      ));
+                    }
+                  };
+
+                  return groups.map((group, gIdx) => (
+                    <View key={`grp-${gIdx}-${group.key}`} style={[styles.pdfCareerEditCard, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}>
+                      {/* Zeile 1: Saison + Aktuell-Toggle (gemeinsam für die Gruppe) */}
+                      <View style={styles.pdfCareerEditRow}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.pdfCareerEditLabel}>Saison</Text>
+                          <TextInput
+                            style={styles.pdfCareerEditInput}
+                            value={seasonInputs[group.key] ?? formatSeasonFromGroup(group)}
+                            onChangeText={(t) => handleSeasonChange(group, t)}
+                            placeholder="24/25"
+                            placeholderTextColor={colors.textMuted}
+                          />
                         </View>
-                        <Switch
-                          value={enabled}
-                          onValueChange={(v) => setPdfOptionalFields((prev) => ({ ...prev, [key]: v }))}
-                          trackColor={{ false: '#cbd5e0', true: colors.primary }}
-                          thumbColor={enabled ? '#fff' : '#f4f4f4'}
-                        />
+                        <View style={{ marginTop: 18, marginLeft: 6 }}>
+                          <TouchableOpacity
+                            style={[
+                              styles.pdfCurrentToggle,
+                              group.is_current && styles.pdfCurrentToggleActive,
+                              group.is_current
+                                ? { backgroundColor: colors.primary }
+                                : { backgroundColor: colors.surfaceSecondary, borderColor: colors.border },
+                            ]}
+                            onPress={() => updateGroupDate(group.indexes, 'is_current', !group.is_current)}
+                          >
+                            <Text style={[
+                              styles.pdfCurrentToggleText,
+                              group.is_current && styles.pdfCurrentToggleTextActive,
+                              { color: group.is_current ? colors.primaryText : colors.textSecondary },
+                            ]}>Aktuell</Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
-                    );
-                  })}
+
+                      {/* Pro Eintrag in der Gruppe: Verein, Wettbewerb, Spiele, Tore, Assists, ✕ */}
+                      {group.indexes.map((entryIdx) => {
+                        const entry = careerEntries[entryIdx];
+                        return (
+                          <View key={entry.id || entryIdx} style={[styles.pdfCareerEditRow, { marginTop: 4 }]}>
+                            <View style={{ flex: 1.7 }}>
+                              <Text style={styles.pdfCareerEditLabel} numberOfLines={1}>Verein</Text>
+                              <TextInput
+                                style={styles.pdfCareerEditInput}
+                                value={entry.club}
+                                onChangeText={(t) => updateCareerEntry(entryIdx, 'club', t)}
+                                placeholder="Verein" placeholderTextColor={colors.textMuted}
+                              />
+                            </View>
+                            <View style={{ flex: 1.3, marginLeft: 6 }}>
+                              <Text style={styles.pdfCareerEditLabel} numberOfLines={1}>Wettbewerb</Text>
+                              <TextInput
+                                style={styles.pdfCareerEditInput}
+                                value={entry.league}
+                                onChangeText={(t) => updateCareerEntry(entryIdx, 'league', t)}
+                                placeholder="Wettbewerb" placeholderTextColor={colors.textMuted}
+                              />
+                            </View>
+                            <View style={{ flex: 0.7, marginLeft: 6 }}>
+                              <Text style={styles.pdfCareerEditLabel} numberOfLines={1}>Spiele</Text>
+                              <TextInput
+                                style={styles.pdfCareerEditInput}
+                                value={entry.games || ''}
+                                onChangeText={(t) => updateCareerEntry(entryIdx, 'games', t.replace(/[^0-9]/g, ''))}
+                                placeholder="0" placeholderTextColor={colors.textMuted}
+                                keyboardType="numeric"
+                              />
+                            </View>
+                            <View style={{ flex: 0.7, marginLeft: 6 }}>
+                              <Text style={styles.pdfCareerEditLabel} numberOfLines={1}>Tore</Text>
+                              <TextInput
+                                style={styles.pdfCareerEditInput}
+                                value={entry.goals || ''}
+                                onChangeText={(t) => updateCareerEntry(entryIdx, 'goals', t.replace(/[^0-9]/g, ''))}
+                                placeholder="0" placeholderTextColor={colors.textMuted}
+                                keyboardType="numeric"
+                              />
+                            </View>
+                            <View style={{ flex: 0.9, marginLeft: 6, alignItems: 'flex-start' }}>
+                              <Text style={styles.pdfCareerEditLabel} numberOfLines={1}>Assists</Text>
+                              <TextInput
+                                style={[styles.pdfCareerEditInput, { width: '78%' }]}
+                                value={entry.assists || ''}
+                                onChangeText={(t) => updateCareerEntry(entryIdx, 'assists', t.replace(/[^0-9]/g, ''))}
+                                placeholder="0" placeholderTextColor={colors.textMuted}
+                                keyboardType="numeric"
+                              />
+                            </View>
+                            <TouchableOpacity
+                              style={[styles.pdfCareerDeleteButton, { marginTop: 18 }]}
+                              onPress={() => {
+                                if (entry.id) {
+                                  deleteCareerEntry(entry.id);
+                                } else {
+                                  setCareerEntries(prev => prev.filter((_, i) => i !== entryIdx));
+                                }
+                              }}
+                            >
+                              <Ionicons name="trash-outline" size={14} color="#ef4444" />
+                            </TouchableOpacity>
+                          </View>
+                        );
+                      })}
+
+                      {/* Wettbewerb in selbem Zeitraum hinzufügen */}
+                      <TouchableOpacity
+                        onPress={() => {
+                          const sample = careerEntries[group.indexes[0]];
+                          setCareerEntries(prev => [...prev, {
+                            club: sample?.club || '',
+                            league: '',
+                            from_date: group.from_date,
+                            to_date: group.to_date,
+                            is_current: group.is_current,
+                            stats: '',
+                            games: '',
+                            goals: '',
+                            assists: '',
+                            sort_order: prev.length,
+                          } as any]);
+                        }}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 6,
+                          paddingVertical: 6,
+                          paddingHorizontal: 10,
+                          borderWidth: 1,
+                          borderColor: 'rgba(255,255,255,0.2)',
+                          borderRadius: 6,
+                          alignSelf: 'flex-start',
+                          marginTop: 8,
+                        }}
+                      >
+                        <Ionicons name="add" size={12} color="rgba(255,255,255,0.85)" />
+                        <Text style={{ fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.85)' }}>Wettbewerb in diesem Zeitraum</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ));
+                })()}
+
+                <Text style={[styles.pdfEditSectionTitle, { marginTop: 16, marginBottom: 16 }]}>Weitere Informationen</Text>
+
+                {/* Feld 1: Optionale Bullet-Punkte */}
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', marginBottom: 12 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>
+                    Wissenswertes
+                  </Text>
+                  {pdfAdditionalInfo.map((point, idx) => (
+                    <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                      <Ionicons name="chevron-forward-outline" size={12} color="rgba(255,255,255,0.5)" />
+                      <TextInput
+                        style={{
+                          flex: 1,
+                          backgroundColor: '#000',
+                          borderWidth: 1,
+                          borderColor: 'rgba(255,255,255,0.25)',
+                          borderRadius: 24,
+                          paddingHorizontal: 14,
+                          paddingVertical: 4,
+                          fontSize: 11,
+                          color: '#fff',
+                        }}
+                        value={point}
+                        onChangeText={(t) => {
+                          const next = [...pdfAdditionalInfo];
+                          next[idx] = t;
+                          setPdfAdditionalInfo(next);
+                        }}
+                        placeholder="z.B. Vertragslos, Aufstieg mit Cottbus" placeholderTextColor="rgba(255,255,255,0.3)"
+                      />
+                      <TouchableOpacity
+                        onPress={() => setPdfAdditionalInfo(pdfAdditionalInfo.filter((_, i) => i !== idx))}
+                        style={{ padding: 6 }}
+                      >
+                        <Ionicons name="trash-outline" size={14} color="#ef4444" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                  <TouchableOpacity
+                    onPress={() => setPdfAdditionalInfo([...pdfAdditionalInfo, ''])}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 4,
+                      paddingVertical: 6,
+                      paddingHorizontal: 10,
+                      backgroundColor: 'rgba(255,255,255,0.05)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255,255,255,0.2)',
+                      borderRadius: 6,
+                      alignSelf: 'flex-start',
+                      marginTop: 4,
+                    }}
+                  >
+                    <Ionicons name="add" size={12} color="rgba(255,255,255,0.85)" />
+                    <Text style={{ fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.85)' }}>Punkt hinzufügen</Text>
+                  </TouchableOpacity>
                 </View>
 
-                <Text style={[styles.pdfEditSectionTitle, { marginTop: 16, marginBottom: 8, color: colors.text }]}>Über den Spieler</Text>
-
-                {/* Feld 1: Stichpunkte eingeben */}
-                <View style={{ backgroundColor: colors.surfaceSecondary, borderRadius: 8, padding: 12, marginBottom: 12 }}>
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: 6 }}>
+                {/* Feld 2: Stichpunkte für AI */}
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', marginBottom: 12 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>
                     Stichpunkte für AI (optional)
                   </Text>
                   <TextInput
                     style={{
-                      backgroundColor: colors.inputBackground,
+                      backgroundColor: '#000',
                       borderWidth: 1,
-                      borderColor: colors.inputBorder,
+                      borderColor: 'rgba(255,255,255,0.25)',
                       borderRadius: 6,
                       padding: 10,
-                      fontSize: 14,
+                      fontSize: 11,
                       minHeight: 80,
                       textAlignVertical: 'top',
-                      color: colors.text,
+                      color: '#fff',
                     }}
                     value={aiBulletPoints}
                     onChangeText={setAiBulletPoints}
-                    placeholder="z.B. schnell am Ball, Führungsspieler, war verletzt - jetzt fit, technisch stark..." placeholderTextColor={colors.textMuted}
+                    placeholder="z.B. schnell am Ball, Führungsspieler, war verletzt - jetzt fit, technisch stark..." placeholderTextColor="rgba(255,255,255,0.3)"
                     multiline
                     numberOfLines={3}
                   />
@@ -3995,49 +4368,130 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                     onPress={generateAIDescription}
                     disabled={generatingDescription}
                     style={{
-                      backgroundColor: generatingDescription ? colors.textMuted : colors.primary,
-                      paddingVertical: 10,
-                      paddingHorizontal: 16,
+                      backgroundColor: 'rgba(255,255,255,0.05)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255,255,255,0.2)',
+                      paddingVertical: 6,
+                      paddingHorizontal: 10,
                       borderRadius: 6,
                       marginTop: 10,
-                      alignItems: 'center',
+                      alignSelf: 'flex-start',
+                      opacity: generatingDescription ? 0.5 : 1,
                     }}
                   >
-                    <Text style={{ color: colors.primaryText, fontSize: 13, fontWeight: '600' }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 11, fontWeight: '600' }}>
                       {generatingDescription ? 'Generiere...' : 'AI Text generieren'}
                     </Text>
                   </TouchableOpacity>
                 </View>
 
-                {/* Feld 2: Generierter Text (bearbeitbar) */}
-                <View style={{ backgroundColor: colors.cardBackground, borderRadius: 8, padding: 12, borderWidth: 1, borderColor: colors.cardBorder }}>
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: 6 }}>
+                {/* Feld 3: Generierter Text (bearbeitbar) */}
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}>
+                  <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>
                     Spielerbeschreibung (bearbeitbar)
                   </Text>
                   <TextInput
                     style={{
-                      backgroundColor: colors.inputBackground,
+                      backgroundColor: '#000',
                       borderWidth: 1,
-                      borderColor: colors.inputBorder,
+                      borderColor: 'rgba(255,255,255,0.25)',
                       borderRadius: 6,
                       padding: 10,
-                      fontSize: 14,
+                      fontSize: 11,
                       minHeight: 120,
                       textAlignVertical: 'top',
-                      color: colors.text,
+                      color: '#fff',
                     }}
                     value={playerDescription}
                     onChangeText={setPlayerDescription}
-                    placeholder="Hier erscheint der generierte Text oder schreibe selbst..." placeholderTextColor={colors.textMuted}
+                    placeholder="Hier erscheint der generierte Text oder schreibe selbst..." placeholderTextColor="rgba(255,255,255,0.3)"
                     multiline
                     numberOfLines={6}
                   />
+                </View>
+
+                {/* Feld 4: Spielerprofil-Video (optional) — direkter Link ODER Library-Video */}
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', marginTop: 12 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>
+                    Spielerprofil-Video (optional)
+                  </Text>
+
+                  {/* Direkt-URL-Eingabe (z.B. YouTube-Link) — hat Vorrang vor Library-Auswahl */}
+                  <Text style={{ fontSize: 11, fontStyle: 'italic', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>
+                    Video-Link (YouTube, Vimeo, etc.)
+                  </Text>
+                  <TextInput
+                    style={{ backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 24, paddingHorizontal: 14, paddingVertical: 6, fontSize: 11, color: '#fff' }}
+                    value={pdfHighlightVideoUrl}
+                    onChangeText={setPdfHighlightVideoUrl}
+                    placeholder="https://www.youtube.com/watch?v=..." placeholderTextColor="rgba(255,255,255,0.3)"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+
+                  {/* Optional: Auswahl aus Video-Library als Alternative — nur sichtbar wenn keine URL eingegeben */}
+                  {!pdfHighlightVideoUrl?.trim() ? (
+                    <View style={{ marginTop: 12 }}>
+                      <Text style={{ fontSize: 11, fontStyle: 'italic', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>
+                        Oder aus Video-Library wählen
+                      </Text>
+                      {availableVideos.length === 0 ? (
+                        <Text style={{ fontSize: 12, color: colors.textMuted, fontStyle: 'italic' }}>
+                          Keine Videos für diesen Spieler in der Video-Library hinterlegt.
+                        </Text>
+                      ) : (
+                        <>
+                          <TouchableOpacity
+                            style={{ backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 24, paddingHorizontal: 14, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+                            onPress={() => setShowVideoPicker(!showVideoPicker)}
+                          >
+                            <Text style={{ flex: 1, color: '#fff', fontSize: 13 }} numberOfLines={1}>
+                              {(() => {
+                                if (!pdfHighlightVideoId) return 'Kein Video';
+                                const v = availableVideos.find(x => x.id === pdfHighlightVideoId);
+                                return v ? (v.label || v.description || 'Video') : 'Kein Video';
+                              })()}
+                            </Text>
+                            <Ionicons name={showVideoPicker ? 'chevron-up' : 'chevron-down'} size={14} color="rgba(255,255,255,0.5)" />
+                          </TouchableOpacity>
+                          {showVideoPicker && (
+                            <View style={{ marginTop: 6, backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, overflow: 'hidden' }}>
+                              <TouchableOpacity
+                                style={{ paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}
+                                onPress={() => { setPdfHighlightVideoId(null); setShowVideoPicker(false); }}
+                              >
+                                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, fontStyle: 'italic' }}>Kein Video</Text>
+                              </TouchableOpacity>
+                              {availableVideos.map(v => (
+                                <TouchableOpacity
+                                  key={v.id}
+                                  style={{ paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)', flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                                  onPress={() => { setPdfHighlightVideoId(v.id); setShowVideoPicker(false); }}
+                                >
+                                  <Ionicons name="play-circle-outline" size={16} color={pdfHighlightVideoId === v.id ? '#22c55e' : 'rgba(255,255,255,0.5)'} />
+                                  <View style={{ flex: 1 }}>
+                                    <Text style={{ color: '#fff', fontSize: 13, fontWeight: '500' }} numberOfLines={1}>{v.label || v.description || 'Video'}</Text>
+                                    {v.phase ? (
+                                      <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>{v.phase}</Text>
+                                    ) : null}
+                                  </View>
+                                  {pdfHighlightVideoId === v.id ? (
+                                    <Ionicons name="checkmark" size={14} color="#22c55e" />
+                                  ) : null}
+                                </TouchableOpacity>
+                              ))}
+                            </View>
+                          )}
+                        </>
+                      )}
+                    </View>
+                  ) : null}
                 </View>
               </ScrollView>
             ) : (
               /* Vorschau - echtes PDF für Web (100% identisch zum Download), WebView für Mobile */
               Platform.OS === 'web' ? (
-                <div style={{ flex: 1, backgroundColor: isDark ? '#1a1a2e' : '#e8e8e8', overflow: 'auto', padding: 16 }}>
+                <div style={{ flexShrink: 1, backgroundColor: isDark ? '#1a1a2e' : '#e8e8e8', overflow: 'auto', paddingLeft: 16, paddingRight: 16, paddingTop: 16, paddingBottom: 16, zIndex: 1, position: 'relative' }}>
                   {loadingPdfPreview ? (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12 }}>
                       <div style={{ width: 40, height: 40, border: `3px solid ${colors.border}`, borderTopColor: colors.text, borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
@@ -4047,7 +4501,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                   ) : pdfPreviewUrl ? (
                     <iframe
                       src={pdfPreviewUrl}
-                      style={{ border: 'none', width: '100%', height: 1200, boxShadow: '0 4px 16px rgba(0,0,0,0.2)', borderRadius: 4, backgroundColor: '#fff' }}
+                      style={{ border: 'none', width: '100%', aspectRatio: 0.75, boxShadow: '0 4px 16px rgba(0,0,0,0.2)', borderRadius: 4, backgroundColor: 'rgba(0,0,0,0.55)', display: 'block' }}
                     />
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12 }}>
@@ -4071,33 +4525,10 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               )
             )}
 
-            {/* Buttons */}
-            <View style={[styles.pdfButtonsContainer, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
-              {pdfEditMode ? (
-                <>
-                  <TouchableOpacity style={[styles.pdfCancelButton, { backgroundColor: colors.surfaceSecondary }]} onPress={() => { setCareerEntries(careerEntriesBackup); setDeletedCareerEntryIds([]); setPdfEditMode(false); }}>
-                    <Text style={[styles.pdfCancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.pdfSaveButton, { backgroundColor: colors.primary }]} onPress={savePdfChanges}>
-                    <Text style={[styles.pdfSaveButtonText, { color: colors.primaryText }]}>Speichern</Text>
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <>
-                  <TouchableOpacity style={[styles.pdfDownloadButton, { backgroundColor: colors.primary }]} onPress={generatePDF}>
-                    <Text style={[styles.pdfDownloadButtonText, { color: colors.primaryText }]}>Als PDF downloaden</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.pdfEditButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={() => { setCareerEntriesBackup([...careerEntries]); setPdfEditMode(true); }}>
-                    <Text style={[styles.pdfEditButtonText, { color: colors.textSecondary }]}>Bearbeiten</Text>
-                  </TouchableOpacity>
-                </>
-              )}
-            </View>
           </View>
         </View>
       </Modal>
-      
-      </View>
+
     </View>
   );
 }
@@ -4279,14 +4710,14 @@ const styles = StyleSheet.create({
     zIndex: 100,
     backgroundColor: 'transparent',
   },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#ddd', borderTopLeftRadius: 16, borderTopRightRadius: 16, zIndex: 101 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: 'rgba(0,0,0,0.55)', borderBottomWidth: 1, borderBottomColor: '#ddd', borderTopLeftRadius: 16, borderTopRightRadius: 16, zIndex: 101 },
   headerTitle: { fontSize: 14, fontWeight: 'bold' },
-  closeButton: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', justifyContent: 'center', alignItems: 'center' },
+  closeButton: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' },
   closeButtonText: { color: '#64748b', fontSize: 14 },
   closeButtonTextMobile: { fontSize: 14, color: '#64748b' },
   content: { flex: 1, padding: 16 },
   loadingText: { padding: 20, textAlign: 'center', color: '#666' },
-  topSection: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 12 },
+  topSection: { flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 12, padding: 14, marginBottom: 12 },
   topLeft: { alignItems: 'center', marginRight: 20 },
   photoContainer: { width: 80, height: 104, borderRadius: 8, overflow: 'hidden', marginBottom: 8, borderWidth: 1, borderColor: '#ddd', position: 'relative', backgroundColor: '#f5f5f5' },
   photo: { width: '100%', height: '100%', resizeMode: 'cover' },
@@ -4317,13 +4748,13 @@ const styles = StyleSheet.create({
   transfermarktIcon: { width: 40, height: 40, resizeMode: 'contain' },
   twoColumnContainer: { flexDirection: 'row', gap: 16 },
   halfColumn: { flex: 1 },
-  card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12 },
-  cardFullWidth: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12 },
+  card: { backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 12, padding: 16, marginBottom: 12 },
+  cardFullWidth: { backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 12, padding: 16, marginBottom: 12 },
   cardTitle: { fontSize: 13, fontWeight: '700', color: '#1a1a1a', marginBottom: 10, borderBottomWidth: 2, borderBottomColor: '#f0f0f0', paddingBottom: 8 },
   infoRow: { marginBottom: 8 },
   label: { fontSize: 10, color: '#999', marginBottom: 2 },
   value: { fontSize: 11, color: '#333' },
-  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 6, padding: 8, fontSize: 11, backgroundColor: '#fff' },
+  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 6, padding: 8, fontSize: 11, backgroundColor: 'rgba(0,0,0,0.55)' },
   smallTextArea: { minHeight: 60 },
   textArea: { minHeight: 100 },
   splitContainer: { flexDirection: 'row', gap: 12 },
@@ -4336,7 +4767,7 @@ const styles = StyleSheet.create({
   chipSelected: { backgroundColor: '#000', borderColor: '#000' },
   chipText: { fontSize: 13, color: '#333' },
   chipTextSelected: { color: '#fff' },
-  dropdownButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, backgroundColor: '#fff' },
+  dropdownButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, backgroundColor: 'rgba(0,0,0,0.55)' },
   dropdownButtonText: { fontSize: 15, color: '#333' },
   pickerList: { 
     position: 'absolute', 
@@ -4348,7 +4779,7 @@ const styles = StyleSheet.create({
     borderRadius: 8, 
     marginTop: 4, 
     maxHeight: 200, 
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     zIndex: 9999,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -4359,7 +4790,7 @@ const styles = StyleSheet.create({
   },
   pickerScroll: { maxHeight: 200 },
   pickerSearchInput: { margin: 8, padding: 10, borderWidth: 1, borderRadius: 6, fontSize: 14 },
-  pickerItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#eee', backgroundColor: '#fff' },
+  pickerItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#eee', backgroundColor: 'rgba(0,0,0,0.55)' },
   pickerItemSelected: { backgroundColor: '#000' },
   pickerItemText: { fontSize: 14, color: '#333' },
   pickerItemTextSelected: { color: '#fff' },
@@ -4415,23 +4846,23 @@ const styles = StyleSheet.create({
   smallDocItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8f8f8', padding: 6, borderRadius: 6, marginTop: 4 },
   smallDocName: { fontSize: 12, color: '#333', flex: 1 },
   docLink: { fontSize: 13, color: '#007bff', marginTop: 4 },
-  bottomButtons: { flexDirection: 'row', padding: 10, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#e2e8f0', justifyContent: 'space-between', alignItems: 'center' },
+  bottomButtons: { flexDirection: 'row', padding: 10, backgroundColor: 'rgba(0,0,0,0.55)', borderTopWidth: 1, borderTopColor: '#e2e8f0', justifyContent: 'space-between', alignItems: 'center' },
   bottomButtonsLeft: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   bottomButtonsRight: { flexDirection: 'row', gap: 8 },
-  transferButton: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#64748b', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+  transferButton: { backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: '#64748b', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   transferButtonText: { color: '#64748b', fontSize: 11, fontWeight: '600', textAlign: 'center' },
   pdfProfileButton: { backgroundColor: '#1a1a1a', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   pdfProfileButtonText: { color: '#fff', fontSize: 11, fontWeight: '600', textAlign: 'center' },
-  deleteButton: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#ef4444', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6 },
+  deleteButton: { backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: '#ef4444', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6 },
   deleteButtonText: { color: '#ef4444', fontSize: 11, fontWeight: '600' },
-  editButton: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#64748b', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6 },
+  editButton: { backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: '#64748b', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6 },
   editButtonText: { color: '#64748b', fontSize: 11, fontWeight: '600' },
-  cancelButton: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6 },
+  cancelButton: { backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6 },
   cancelButtonText: { color: '#64748b', fontSize: 11, fontWeight: '600' },
-  saveButton: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#10b981', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6 },
+  saveButton: { backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: '#10b981', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6 },
   saveButtonText: { color: '#10b981', fontSize: 11, fontWeight: '600' },
   // Mobile button styles
-  bottomButtonsMobile: { flexDirection: 'column', padding: 10, paddingBottom: 20, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#e2e8f0', gap: 6 },
+  bottomButtonsMobile: { flexDirection: 'column', padding: 10, paddingBottom: 20, backgroundColor: 'rgba(0,0,0,0.55)', borderTopWidth: 1, borderTopColor: '#e2e8f0', gap: 6 },
   bottomButtonsRowMobile: { flexDirection: 'row', gap: 6, justifyContent: 'center', flexWrap: 'wrap' },
   buttonMobile: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, minHeight: 28 },
   buttonTextMobile: { fontSize: 11 },
@@ -4444,7 +4875,7 @@ const styles = StyleSheet.create({
   mobileMenuButton: { position: 'absolute', right: 16, bottom: 16, width: 36, height: 36, borderRadius: 18, backgroundColor: '#1a1a1a', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5, borderWidth: 1 },
   mobileMenuButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 400 },
+  modalContent: { backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 16, padding: 24, width: '90%', maxWidth: 400 },
   modalTitle: { fontSize: 14, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' },
   modalText: { fontSize: 16, color: '#333', textAlign: 'center', marginBottom: 20 },
   modalWarning: { fontSize: 16, color: '#dc2626', textAlign: 'center', marginBottom: 20 },
@@ -4462,7 +4893,7 @@ const styles = StyleSheet.create({
     top: '100%', 
     left: 0, 
     right: 0, 
-    backgroundColor: '#fff', 
+    backgroundColor: 'rgba(0,0,0,0.55)', 
     borderWidth: 2, 
     borderColor: '#000', 
     borderRadius: 8, 
@@ -4479,7 +4910,7 @@ const styles = StyleSheet.create({
     padding: 14, 
     borderBottomWidth: 1, 
     borderBottomColor: '#eee',
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.55)',
   },
   suggestionText: { fontSize: 15, color: '#000', fontWeight: '500' },
   // Spielplan Button Styles
@@ -4529,7 +4960,7 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
     borderRadius: 8,
     padding: 12,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.55)',
   },
   dateDropdownText: {
     fontSize: 15,
@@ -4582,7 +5013,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   pickerModalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     borderRadius: 14,
     width: 280,
     maxHeight: 400,
@@ -4652,34 +5083,47 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   pdfModalContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    backgroundColor: '#000',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
     width: '98%',
     maxWidth: 900,
     height: '98%',
     maxHeight: 1000,
-    overflow: 'hidden',
+    overflow: 'visible',
     display: 'flex',
     flexDirection: 'column',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.7,
+    shadowRadius: 30,
+    elevation: 24,
   },
   pdfModalHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: 'rgba(255,255,255,0.3)',
+    gap: 8,
     zIndex: 10,
   },
   pdfModalTitle: {
+    fontFamily: 'Josefin Sans',
     fontSize: 14,
-    fontWeight: '700',
-    color: '#1a202c',
+    fontWeight: '300',
+    letterSpacing: 3,
+    textTransform: 'uppercase',
+    color: 'rgba(255,255,255,0.7)',
+    flex: 1,
   },
   pdfModalContent: {
     flex: 1,
-    padding: 20,
+    padding: 24,
+    minHeight: 0,
+    zIndex: 1,
   },
   pdfPreviewContainer: {
     flex: 1,
@@ -4695,7 +5139,7 @@ const styles = StyleSheet.create({
   pdfPreviewFrame: {
     width: 595,
     height: 842,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
@@ -4707,36 +5151,41 @@ const styles = StyleSheet.create({
   pdfWebView: {
     width: 595,
     height: 842,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.55)',
   },
   pdfEditSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
     marginBottom: 16,
   },
   pdfEditSectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1a202c',
+    fontFamily: 'Josefin Sans',
+    fontSize: 16,
+    fontWeight: '300',
+    letterSpacing: 4,
+    textTransform: 'uppercase',
+    color: 'rgba(255,255,255,0.5)',
+    marginBottom: 8,
   },
   pdfCareerEditCard: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 10,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: 'rgba(255,255,255,0.15)',
   },
   pdfCareerEditLabel: {
-    fontSize: 11,
-    color: '#888',
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.5)',
     fontWeight: '600',
-    marginBottom: 2,
-    marginTop: 6,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 6,
+    marginTop: 0,
   },
   pdfPage: {
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     borderRadius: 0,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -4927,7 +5376,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   pdfStrengthTag: {
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     borderWidth: 1,
     borderColor: '#ddd',
     paddingVertical: 5,
@@ -5076,41 +5525,49 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     gap: 10,
-    padding: 10,
-    paddingBottom: 14,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
     borderTopWidth: 1,
-    borderTopColor: '#e8e8e8',
-    backgroundColor: '#fafafa',
+    borderTopColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    flexShrink: 0,
+    zIndex: 20,
   },
   pdfDownloadButton: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 6,
   },
   pdfDownloadButtonText: {
-    color: '#fff',
+    color: 'rgba(255,255,255,0.85)',
     fontSize: 11,
     fontWeight: '600',
   },
   pdfEditButton: {
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   pdfEditButtonText: {
-    color: '#333',
+    color: 'rgba(255,255,255,0.85)',
     fontSize: 11,
     fontWeight: '600',
   },
   pdfSaveButton: {
-    backgroundColor: '#22c55e',
-    paddingVertical: 6,
+    height: 28,
     paddingHorizontal: 10,
+    backgroundColor: '#22c55e',
+    borderWidth: 1,
+    borderColor: '#22c55e',
     borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   pdfSaveButtonText: {
     color: '#fff',
@@ -5118,15 +5575,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   pdfCancelButton: {
-    backgroundColor: '#fff',
-    paddingVertical: 6,
+    height: 28,
     paddingHorizontal: 10,
+    backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   pdfCancelButtonText: {
-    color: '#333',
+    color: 'rgba(255,255,255,0.85)',
     fontSize: 11,
     fontWeight: '600',
   },
@@ -5168,7 +5627,7 @@ const styles = StyleSheet.create({
     minWidth: 60,
   },
   pdfEditInputSmall: {
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 4,
@@ -5178,7 +5637,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   pdfEditInputMultiline: {
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 4,
@@ -5213,14 +5672,16 @@ const styles = StyleSheet.create({
   // Career Edit Styles
   pdfAddCareerButton: {
     marginLeft: 'auto',
-    backgroundColor: '#22c55e',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
     paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     borderRadius: 6,
   },
   pdfAddCareerButtonText: {
-    color: '#fff',
-    fontSize: 12,
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 11,
     fontWeight: '600',
   },
   pdfTimelineContainer: {
@@ -5248,26 +5709,28 @@ const styles = StyleSheet.create({
   pdfCareerEditRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
   pdfCareerEditInput: {
-    backgroundColor: '#fff',
+    backgroundColor: '#000',
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 4,
+    borderColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 24,
     paddingVertical: 4,
-    paddingHorizontal: 8,
-    fontSize: 12,
+    paddingHorizontal: 12,
+    fontSize: 11,
+    color: '#fff',
     flex: 1,
   },
   pdfCareerEditInputSmall: {
-    backgroundColor: '#fff',
+    backgroundColor: '#000',
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 4,
+    borderColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 24,
     paddingVertical: 4,
-    paddingHorizontal: 6,
-    fontSize: 11,
+    paddingHorizontal: 14,
+    fontSize: 13,
+    color: '#fff',
     width: 80,
   },
   pdfCareerDateInput: {
@@ -5277,47 +5740,50 @@ const styles = StyleSheet.create({
   },
   pdfCareerDateLabel: {
     fontSize: 11,
-    color: '#666',
+    color: 'rgba(255,255,255,0.5)',
   },
   pdfCurrentToggle: {
     paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4,
+    paddingHorizontal: 12,
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: '#ddd',
-    backgroundColor: '#fff',
-    marginLeft: 6,
+    borderColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: '#000',
+    marginLeft: 8,
+    justifyContent: 'center',
   },
   pdfCurrentToggleActive: {
     backgroundColor: '#22c55e',
     borderColor: '#22c55e',
   },
   pdfCurrentToggleText: {
-    fontSize: 10,
-    color: '#666',
-    fontWeight: '500',
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.85)',
+    fontWeight: '600',
   },
   pdfCurrentToggleTextActive: {
     color: '#fff',
   },
   pdfCareerEditDash: {
-    color: '#666',
+    color: 'rgba(255,255,255,0.5)',
     fontSize: 14,
   },
   pdfCareerDeleteButton: {
-    backgroundColor: '#ef4444',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4,
+    width: 24,
+    height: 24,
+    backgroundColor: 'transparent',
     marginLeft: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   pdfCareerDeleteButtonText: {
-    color: '#fff',
-    fontSize: 12,
+    color: '#ef4444',
+    fontSize: 11,
     fontWeight: '600',
+    lineHeight: 14,
   },
   pdfDescriptionEditInput: {
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 4,
@@ -5349,7 +5815,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   pdfDescriptionInput: {
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,

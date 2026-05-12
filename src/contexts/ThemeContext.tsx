@@ -79,7 +79,7 @@ export const darkTheme: ThemeColors = {
   cardBorder: '#333333',
   headerBackground: '#000000',
   sidebarBackground: '#000000',
-  inputBackground: '#2a2a2a',
+  inputBackground: '#000000',
   inputBorder: '#444444',
   glowColor: 'transparent',
   glowIntensity: 0,
