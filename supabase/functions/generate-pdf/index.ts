@@ -952,7 +952,7 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
           const titlePart = highlightVideoTitle ? ` · ${highlightVideoTitle}` : '';
           return `
             <div style="margin-top: 16px;">
-              <a href="${highlightVideoUrl}" target="_blank" rel="noopener noreferrer" style="display: block; text-decoration: none; position: relative; height: 150px; border-radius: 8px; overflow: hidden; border: 2px solid #22c55e; box-shadow: 0 0 16px rgba(34,197,94,0.25); -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+              <a href="${highlightVideoUrl}" target="_blank" rel="noopener noreferrer" style="display: block; text-decoration: none; position: relative; height: 150px; border-radius: 8px; overflow: hidden; border: 1px solid #22c55e; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
                 ${bgLayer}
                 <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.7) 100%); -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
                 <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); -webkit-print-color-adjust: exact; print-color-adjust: exact;">

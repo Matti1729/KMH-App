@@ -2912,14 +2912,9 @@ export function ScoutingScreen({ navigation }: any) {
                 </View>
                 <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
                   {isEditing ? (
-                    <>
-                      <TouchableOpacity style={styles.detailToolbarBtn} onPress={() => setIsEditing(false)}>
-                        <Text style={styles.detailToolbarBtnText}>Abbrechen</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={[styles.detailToolbarBtn, styles.detailToolbarBtnPrimary]} onPress={updateScoutedPlayer}>
-                        <Text style={[styles.detailToolbarBtnText, { color: '#fff' }]}>Speichern</Text>
-                      </TouchableOpacity>
-                    </>
+                    <TouchableOpacity style={[styles.detailToolbarBtn, styles.detailToolbarBtnPrimary]} onPress={updateScoutedPlayer}>
+                      <Text style={[styles.detailToolbarBtnText, { color: '#fff' }]}>Speichern</Text>
+                    </TouchableOpacity>
                   ) : (
                     <TouchableOpacity style={styles.detailToolbarBtn} onPress={() => setIsEditing(true)}>
                       <Text style={styles.detailToolbarBtnText}>Bearbeiten</Text>
@@ -4305,14 +4300,9 @@ export function ScoutingScreen({ navigation }: any) {
                 </View>
                 <View style={styles.gameDetailHeaderRight}>
                   {isEditingGame ? (
-                    <>
-                      <TouchableOpacity style={[styles.headerBtn, { backgroundColor: colors.surfaceSecondary }]} onPress={() => { setIsEditingGame(false); closeAllEditDropdowns(); }}>
-                        <Text style={[styles.headerBtnText, { color: colors.textSecondary }]}>Abbrechen</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={[styles.headerBtn, styles.headerBtnPrimary]} onPress={() => { saveGameEdit(); setIsEditingGame(false); closeAllEditDropdowns(); }}>
-                        <Text style={styles.headerBtnTextPrimary}>Speichern</Text>
-                      </TouchableOpacity>
-                    </>
+                    <TouchableOpacity style={[styles.headerBtn, styles.headerBtnPrimary]} onPress={() => { saveGameEdit(); setIsEditingGame(false); closeAllEditDropdowns(); }}>
+                      <Text style={styles.headerBtnTextPrimary}>Speichern</Text>
+                    </TouchableOpacity>
                   ) : (
                     <TouchableOpacity style={[styles.headerBtn, { backgroundColor: colors.surfaceSecondary }]} onPress={() => { setIsEditingGame(true); setEditGameData(selectedGame); }}>
                       <Text style={[styles.headerBtnText, { color: colors.textSecondary }]}>Bearbeiten</Text>
@@ -4709,14 +4699,9 @@ export function ScoutingScreen({ navigation }: any) {
                 </View>
                 <View style={styles.detailToolbarRight}>
                   {isEditing ? (
-                    <>
-                      <TouchableOpacity style={styles.detailToolbarBtn} onPress={() => setIsEditing(false)}>
-                        <Text style={styles.detailToolbarBtnText}>Abbrechen</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={[styles.detailToolbarBtn, styles.detailToolbarBtnPrimary]} onPress={updateScoutedPlayer}>
-                        <Text style={[styles.detailToolbarBtnText, { color: '#fff' }]}>Speichern</Text>
-                      </TouchableOpacity>
-                    </>
+                    <TouchableOpacity style={[styles.detailToolbarBtn, styles.detailToolbarBtnPrimary]} onPress={updateScoutedPlayer}>
+                      <Text style={[styles.detailToolbarBtnText, { color: '#fff' }]}>Speichern</Text>
+                    </TouchableOpacity>
                   ) : (
                     <TouchableOpacity style={styles.detailToolbarBtn} onPress={() => setIsEditing(true)}>
                       <Text style={styles.detailToolbarBtnText}>Bearbeiten</Text>

@@ -3939,8 +3939,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
 
       {/* PDF Profil Modal */}
       <Modal visible={showPDFProfileModal} animationType={isMobile ? 'slide' : 'fade'} transparent>
-        <View style={[styles.pdfModalOverlay, isMobile && { padding: 0, justifyContent: 'flex-end', alignItems: 'stretch' }]}>
-          <View style={[styles.pdfModalContainer, isMobile && { width: '100%', maxWidth: undefined, height: 'auto' as any, maxHeight: '95%', borderRadius: 0, borderTopLeftRadius: 16, borderTopRightRadius: 16, borderBottomWidth: 0 }]}>
+        <View style={[styles.pdfModalOverlay, isMobile && { padding: 0, justifyContent: 'flex-end', alignItems: 'stretch', backgroundColor: '#000' }]}>
+          <View style={[styles.pdfModalContainer, isMobile && { width: '100%', maxWidth: undefined, height: 'auto' as any, maxHeight: '80%', borderRadius: 0, borderTopLeftRadius: 16, borderTopRightRadius: 16, borderBottomWidth: 0 }]}>
             <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 16, overflow: 'hidden', zIndex: 0 }} pointerEvents="none">
               <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%', opacity: 0.85, ...({ objectFit: 'cover', objectPosition: 'center', backgroundSize: 'cover', backgroundPosition: 'center' } as any) }} resizeMode="cover" />
               <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.55)' }} />
@@ -4190,7 +4190,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                                 placeholder="Verein" placeholderTextColor={colors.textMuted}
                               />
                             </View>
-                            <View style={{ flex: 1.3, marginLeft: 6 }}>
+                            <View style={{ flex: 1.3, marginLeft: 4 }}>
                               <Text style={styles.pdfCareerEditLabel} numberOfLines={1}>Wettbewerb</Text>
                               <TextInput
                                 style={styles.pdfCareerEditInput}
@@ -4199,7 +4199,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                                 placeholder="Wettbewerb" placeholderTextColor={colors.textMuted}
                               />
                             </View>
-                            <View style={{ flex: 0.7, marginLeft: 6 }}>
+                            <View style={{ flex: 0.7, marginLeft: 4 }}>
                               <Text style={styles.pdfCareerEditLabel} numberOfLines={1}>Spiele</Text>
                               <TextInput
                                 style={styles.pdfCareerEditInput}
@@ -4209,7 +4209,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                                 keyboardType="numeric"
                               />
                             </View>
-                            <View style={{ flex: 0.7, marginLeft: 6 }}>
+                            <View style={{ flex: 0.7, marginLeft: 4 }}>
                               <Text style={styles.pdfCareerEditLabel} numberOfLines={1}>Tore</Text>
                               <TextInput
                                 style={styles.pdfCareerEditInput}
@@ -4219,7 +4219,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                                 keyboardType="numeric"
                               />
                             </View>
-                            <View style={{ flex: 0.9, marginLeft: 6, alignItems: 'flex-start' }}>
+                            <View style={{ flex: 0.9, marginLeft: 4, alignItems: 'flex-start' }}>
                               <Text style={styles.pdfCareerEditLabel} numberOfLines={1}>Assists</Text>
                               <TextInput
                                 style={[styles.pdfCareerEditInput, { width: '78%' }]}
@@ -5121,7 +5121,7 @@ const styles = StyleSheet.create({
   },
   pdfModalContent: {
     flex: 1,
-    padding: 24,
+    padding: 12,
     minHeight: 0,
     zIndex: 1,
   },
@@ -5170,7 +5170,8 @@ const styles = StyleSheet.create({
   pdfCareerEditCard: {
     backgroundColor: 'rgba(0,0,0,0.5)',
     borderRadius: 12,
-    padding: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.15)',
@@ -5717,7 +5718,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.25)',
     borderRadius: 24,
     paddingVertical: 4,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     fontSize: 11,
     color: '#fff',
     flex: 1,

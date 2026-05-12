@@ -214,8 +214,11 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
           source={require('../../assets/kmh-logo.png')}
           style={styles.logoImage}
         />
-        <Text style={[styles.logoTitle, { color: colors.text }]}>Sports Agency</Text>
+        <Text style={[styles.logoTitle, { color: colors.text }]}>Karl Herzog{'\n'}Sportmanagement</Text>
       </Pressable>
+
+      {/* Trennstrich unter Logo */}
+      <View style={styles.divider} />
 
       {/* Scrollbarer Bereich für ALLE Nav- und Action-Buttons */}
       <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1 }}>
@@ -229,8 +232,8 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
               onPress={() => handleNavigation(item.screen, item.id)}
               style={[
                 styles.navItem,
-                activeScreen === item.id && { backgroundColor: colors.surfaceSecondary },
-                hoveredNav === item.id && { backgroundColor: colors.surfaceSecondary },
+                activeScreen === item.id && { backgroundColor: 'rgba(0,0,0,0.65)' },
+                hoveredNav === item.id && { backgroundColor: 'rgba(0,0,0,0.65)' },
               ]}
             >
               {item.id === 'aufgaben' ? (
@@ -258,8 +261,8 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
               onPress={() => handleNavigation('Wissenswertes', 'wissenswertes')}
               style={[
                 styles.navItem,
-                activeScreen === 'wissenswertes' && { backgroundColor: colors.surfaceSecondary },
-                hoveredNav === 'wissenswertes' && { backgroundColor: colors.surfaceSecondary },
+                activeScreen === 'wissenswertes' && { backgroundColor: 'rgba(0,0,0,0.65)' },
+                hoveredNav === 'wissenswertes' && { backgroundColor: 'rgba(0,0,0,0.65)' },
               ]}
             >
               <Text style={styles.navIcon}>💡</Text>
@@ -275,6 +278,9 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
         {/* Spacer schiebt die Bottom-Buttons nach unten, solange genug Platz da ist */}
         <View style={{ flex: 1, minHeight: 8 }} />
 
+        {/* Trennstrich über Administration */}
+        <View style={styles.divider} />
+
         {/* Admin - only if admin */}
         {!playerMode && profile?.role === 'admin' && (
           <Pressable
@@ -286,8 +292,8 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
             }}
             style={[
               styles.navItem,
-              activeScreen === 'admin' && { backgroundColor: colors.surfaceSecondary },
-              hoveredNav === 'admin' && { backgroundColor: colors.surfaceSecondary },
+              activeScreen === 'admin' && { backgroundColor: 'rgba(0,0,0,0.65)' },
+              hoveredNav === 'admin' && { backgroundColor: 'rgba(0,0,0,0.65)' },
             ]}
           >
             <Text style={styles.navIcon}>⚙️</Text>
@@ -367,7 +373,9 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
   // Mobile embedded: Nur Content ohne Header/Modal (für externes Overlay)
   if (isMobile && embedded) {
     return (
-      <View style={[styles.sidebarEmbedded, { backgroundColor: colors.surface }]}>
+      <View style={[styles.sidebarEmbedded, { backgroundColor: '#000' }]}>
+        <Image source={require('../../assets/scouting-header-bg.jpg')} style={[StyleSheet.absoluteFillObject, { width: '100%', height: '100%', opacity: 0.85, ...({ objectFit: 'cover', objectPosition: 'center', backgroundSize: 'cover', backgroundPosition: 'center' } as any) }]} resizeMode="cover" />
+        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.3)' }]} />
         {sidebarContent}
         <Modal visible={showFeedbackModal} transparent animationType="fade">
           <View style={styles.modalOverlay}>
@@ -506,7 +514,9 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
 
   // Desktop: Normale Sidebar
   return (
-    <View style={[styles.sidebar, { backgroundColor: colors.surface, borderRightColor: colors.border }]}>
+    <View style={[styles.sidebar, { backgroundColor: '#000', borderRightColor: 'rgba(255,255,255,0.15)' }]}>
+      <Image source={require('../../assets/scouting-header-bg.jpg')} style={[StyleSheet.absoluteFillObject, { width: '100%', height: '100%', opacity: 0.85, ...({ objectFit: 'cover', objectPosition: 'center', backgroundSize: 'cover', backgroundPosition: 'center' } as any) }]} resizeMode="cover" />
+      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.3)' }]} />
       {sidebarContent}
       <Modal visible={showFeedbackModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
@@ -682,38 +692,47 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
 const styles = StyleSheet.create({
   // Desktop Sidebar
   sidebar: {
-    width: 240,
-    backgroundColor: '#fff',
+    width: 230,
+    backgroundColor: '#000',
     borderRightWidth: 1,
-    borderRightColor: '#eee',
+    borderRightColor: 'rgba(255,255,255,0.15)',
     paddingVertical: 20,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
   },
   // Embedded Sidebar (für externes Overlay)
   sidebarEmbedded: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#000',
     paddingVertical: 20,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
   },
   logoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 32,
-    paddingHorizontal: 8,
+    marginBottom: 16,
+    paddingHorizontal: 6,
     // @ts-ignore
     cursor: 'pointer',
   },
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    marginVertical: 12,
+    marginHorizontal: -4,
+  },
   logoImage: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    marginRight: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    marginRight: 8,
   },
   logoTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1a1a1a',
+    fontFamily: 'Josefin Sans',
+    fontSize: 13,
+    fontWeight: '300',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    color: 'rgba(255,255,255,0.85)',
   },
   navContainer: {
     // gap removed for mobile compatibility
@@ -721,104 +740,113 @@ const styles = StyleSheet.create({
   navItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    marginBottom: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    marginBottom: 2,
     // @ts-ignore
     cursor: 'pointer',
     // @ts-ignore
     transition: 'all 0.15s ease',
   },
   navItemActive: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   navItemHovered: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: 'rgba(255,255,255,0.05)',
   },
   navIcon: {
-    fontSize: 18,
-    marginRight: 12,
-    width: 24,
+    fontSize: 16,
+    marginRight: 10,
+    width: 20,
     textAlign: 'center',
   },
   checkboxIcon: {
-    width: 22,
-    height: 22,
-    borderRadius: 5,
+    width: 18,
+    height: 18,
+    borderRadius: 4,
     borderWidth: 2,
-    marginRight: 12,
+    marginRight: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkboxIconText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '800',
     marginTop: -1,
   },
   navLabel: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
+    fontFamily: 'Josefin Sans',
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.7)',
+    fontWeight: '400',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   navLabelActive: {
-    color: '#1a1a1a',
-    fontWeight: '600',
+    color: '#fff',
+    fontWeight: '500',
   },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    marginTop: 8,
-    backgroundColor: '#fef2f2',
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    marginTop: 6,
+    backgroundColor: 'rgba(239,68,68,0.12)',
     // @ts-ignore
     cursor: 'pointer',
     // @ts-ignore
     transition: 'all 0.15s ease',
   },
   logoutButtonHovered: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: 'rgba(239,68,68,0.2)',
   },
   logoutIcon: {
-    fontSize: 18,
-    marginRight: 12,
-    width: 24,
+    fontSize: 16,
+    marginRight: 10,
+    width: 20,
     textAlign: 'center',
     color: '#ef4444',
   },
   logoutText: {
-    fontSize: 14,
+    fontFamily: 'Josefin Sans',
+    fontSize: 12,
     color: '#ef4444',
-    fontWeight: '500',
+    fontWeight: '400',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   feedbackButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    marginTop: 8,
-    backgroundColor: '#f0f9ff',
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    marginTop: 6,
+    backgroundColor: 'rgba(2,132,199,0.18)',
     // @ts-ignore
     cursor: 'pointer',
     // @ts-ignore
     transition: 'all 0.15s ease',
   },
   feedbackButtonHovered: {
-    backgroundColor: '#e0f2fe',
+    backgroundColor: 'rgba(2,132,199,0.28)',
   },
   feedbackIcon: {
-    fontSize: 18,
-    marginRight: 12,
-    width: 24,
+    fontSize: 16,
+    marginRight: 10,
+    width: 20,
     textAlign: 'center',
   },
   feedbackText: {
-    fontSize: 14,
-    color: '#0284c7',
-    fontWeight: '500',
+    fontFamily: 'Josefin Sans',
+    fontSize: 12,
+    color: '#38bdf8',
+    fontWeight: '400',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
 
   // Mobile Header

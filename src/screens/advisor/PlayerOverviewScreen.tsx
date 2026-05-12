@@ -1446,8 +1446,6 @@ export function PlayerOverviewScreen({ navigation }: any) {
     setIsEditing(true);
   };
 
-  const cancelEditAll = () => { setIsEditing(false); setEditData({}); cancelAdvisorPhoto(); };
-
   // Photo-Editor (WYSIWYG): Berater wählt Bild → Live-Preview im Foto-Frame
   // mit Toolbar (Zoom/Position) → Speichern rendert das Bild via Canvas exakt
   // im Frame-Aspect-Ratio und lädt es hoch.
@@ -1939,57 +1937,61 @@ export function PlayerOverviewScreen({ navigation }: any) {
         {/* Toolbar */}
         <View style={[styles.detailToolbar, isMobile && { paddingHorizontal: 10, gap: 6 }]}>
           <View style={[styles.detailToolbarLeft, isMobile && { gap: 6 }]}>
-            <TouchableOpacity
-              style={[styles.detailToolbarBtn, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}
-              onPress={handleInviteCode}
-              disabled={!fullPlayer || inviteCodeLoading}
-            >
-              {inviteCodeLoading ? (
-                <Text style={[styles.detailToolbarBtnText, { color: '#fbbf24' }]}>...</Text>
-              ) : (
-                <>
-                  <Ionicons name="key-outline" size={11} color="#fbbf24" />
-                  <Text style={[styles.detailToolbarBtnText, { color: '#fbbf24' }]}>Code</Text>
-                </>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.detailToolbarBtn, fullPlayer?.in_transfer_list && { backgroundColor: '#dc3545', borderColor: '#dc3545' }, isMobile && { flexDirection: 'row', alignItems: 'center', gap: 2 }]}
-              onPress={toggleTransferList}
-              disabled={!fullPlayer || transferBusy}
-            >
-              {isMobile ? (
-                fullPlayer?.in_transfer_list ? (
-                  <Ionicons name="close" size={14} color="#fff" />
-                ) : (
-                  <>
-                    <Ionicons name="arrow-up" size={12} color="#22c55e" />
-                    <Ionicons name="arrow-down" size={12} color="#ef4444" />
-                  </>
-                )
-              ) : (
-                <Text style={[styles.detailToolbarBtnText, fullPlayer?.in_transfer_list && { color: '#fff' }]}>
-                  {fullPlayer?.in_transfer_list ? 'Von Transfer entfernen' : 'Zu Transfer hinzufügen'}
-                </Text>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.detailToolbarBtn, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}
-              onPress={handleGeneratePdf}
-              disabled={!fullPlayer || pdfGenerating}
-            >
-              {pdfGenerating ? (
-                <Text style={[styles.detailToolbarBtnText, { color: colors.textSecondary }]}>...</Text>
-              ) : (
-                <Ionicons name="document-text-outline" size={14} color={colors.textSecondary} />
-              )}
-            </TouchableOpacity>
+            {!(isMobile && isEditing) && (
+              <>
+                <TouchableOpacity
+                  style={[styles.detailToolbarBtn, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}
+                  onPress={handleInviteCode}
+                  disabled={!fullPlayer || inviteCodeLoading}
+                >
+                  {inviteCodeLoading ? (
+                    <Text style={[styles.detailToolbarBtnText, { color: '#fbbf24' }]}>...</Text>
+                  ) : (
+                    <>
+                      <Ionicons name="key-outline" size={11} color="#fbbf24" />
+                      <Text style={[styles.detailToolbarBtnText, { color: '#fbbf24' }]}>Code</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.detailToolbarBtn, fullPlayer?.in_transfer_list && { backgroundColor: '#dc3545', borderColor: '#dc3545' }, isMobile && { flexDirection: 'row', alignItems: 'center', gap: 2 }]}
+                  onPress={toggleTransferList}
+                  disabled={!fullPlayer || transferBusy}
+                >
+                  {isMobile ? (
+                    fullPlayer?.in_transfer_list ? (
+                      <Ionicons name="close" size={14} color="#fff" />
+                    ) : (
+                      <>
+                        <Ionicons name="arrow-up" size={12} color="#22c55e" />
+                        <Ionicons name="arrow-down" size={12} color="#ef4444" />
+                      </>
+                    )
+                  ) : (
+                    <Text style={[styles.detailToolbarBtnText, fullPlayer?.in_transfer_list && { color: '#fff' }]}>
+                      {fullPlayer?.in_transfer_list ? 'Von Transfer entfernen' : 'Zu Transfer hinzufügen'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.detailToolbarBtn, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}
+                  onPress={handleGeneratePdf}
+                  disabled={!fullPlayer || pdfGenerating}
+                >
+                  {pdfGenerating ? (
+                    <Text style={[styles.detailToolbarBtnText, { color: colors.textSecondary }]}>...</Text>
+                  ) : (
+                    <Ionicons name="document-text-outline" size={14} color={colors.textSecondary} />
+                  )}
+                </TouchableOpacity>
+              </>
+            )}
           </View>
           <View style={[styles.detailToolbarRight, isMobile && { gap: 6 }]}>
             {isEditing ? (
               <>
                 <TouchableOpacity
-                  style={[styles.detailToolbarBtn, { borderColor: '#dc2626' }]}
+                  style={[styles.detailToolbarBtn, { borderColor: '#dc2626' }, isMobile && { paddingHorizontal: 8 }]}
                   onPress={async () => {
                     if (!fullPlayer) return;
                     const confirmed = typeof window !== 'undefined' && window.confirm
@@ -2008,10 +2010,11 @@ export function PlayerOverviewScreen({ navigation }: any) {
                   }}
                   disabled={cardSaving}
                 >
-                  <Text style={[styles.detailToolbarBtnText, { color: '#dc2626' }]}>Löschen</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.detailToolbarBtn} onPress={cancelEditAll} disabled={cardSaving}>
-                  <Text style={styles.detailToolbarBtnText}>Abbrechen</Text>
+                  {isMobile ? (
+                    <Ionicons name="trash-outline" size={14} color="#dc2626" />
+                  ) : (
+                    <Text style={[styles.detailToolbarBtnText, { color: '#dc2626' }]}>Löschen</Text>
+                  )}
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.detailToolbarBtn, { backgroundColor: '#22c55e', borderColor: '#22c55e' }]} onPress={saveAll} disabled={cardSaving}>
                   <Text style={[styles.detailToolbarBtnText, { color: '#fff' }]}>{cardSaving ? 'Speichern…' : 'Speichern'}</Text>
@@ -2233,9 +2236,9 @@ export function PlayerOverviewScreen({ navigation }: any) {
               <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>Laden...</Text>
             </View>
           ) : (
-            <View style={styles.detailCardGrid}>
+            <View style={[styles.detailCardGrid, isMobile && { padding: 12, gap: 12 }]}>
               {/* Spielerprofil — 3 Spalten */}
-              <View style={[styles.detailCard, { position: 'relative', zIndex: 100 }]}>
+              <View style={[styles.detailCard, { position: 'relative', zIndex: 100 }, isMobile && { minWidth: 0, flexBasis: '100%', padding: 12 }]}>
                 <Text style={styles.detailCardTitle}>Spielerprofil</Text>
                 <View style={{ flexDirection: 'row', gap: 24, flexWrap: 'wrap', zIndex: isEditing ? 200 : undefined, position: 'relative' }}>
                   {/* Spalte 1: Position + Starker Fuß + Größe */}
@@ -2411,9 +2414,9 @@ export function PlayerOverviewScreen({ navigation }: any) {
               </View>
 
               {/* Vertrag — 2 Spalten */}
-              <View style={[styles.detailCard, { position: 'relative', zIndex: 90 }]}>
+              <View style={[styles.detailCard, { position: 'relative', zIndex: 90 }, isMobile && { minWidth: 0, flexBasis: '100%', padding: 12 }]}>
                 <Text style={styles.detailCardTitle}>Vertrag</Text>
-                <View style={{ flexDirection: 'row', gap: 24, flexWrap: 'wrap' }}>
+                <View style={{ flexDirection: isMobile && isEditing ? 'column' : 'row', gap: isMobile && isEditing ? 14 : 24, flexWrap: 'wrap' }}>
                   {/* Spalte 1 */}
                   <View style={{ flex: 1, minWidth: 180, gap: 14 }}>
                     <View style={{ zIndex: 80, position: 'relative' }}>
@@ -2573,11 +2576,11 @@ export function PlayerOverviewScreen({ navigation }: any) {
               </View>
 
               {/* Mobile: Beratung VOR Kontaktdaten; Desktop: Reihenfolge wie im Source */}
-              <View style={isMobile ? { display: 'flex', flexDirection: 'column-reverse', gap: 16 } : ({ display: 'contents' } as any)}>
+              <View style={isMobile ? { display: 'flex', flexDirection: 'column-reverse', gap: 12, width: '100%', flexBasis: '100%' } : ({ display: 'contents' } as any)}>
               {/* Kontaktdaten — 2 Spalten */}
-              <View style={[styles.detailCard, { position: 'relative', zIndex: 80 }]}>
+              <View style={[styles.detailCard, { position: 'relative', zIndex: 80 }, isMobile && { minWidth: 0, width: '100%', flexBasis: 'auto', flexGrow: 0, padding: 12 }]}>
                 <Text style={styles.detailCardTitle}>Kontaktdaten</Text>
-                <View style={{ flexDirection: 'row', gap: 24, flexWrap: 'wrap' }}>
+                <View style={{ flexDirection: isMobile && isEditing ? 'column' : 'row', gap: isMobile && isEditing ? 14 : 24, flexWrap: 'wrap' }}>
                   {/* Spalte 1: Telefon, E-Mail */}
                   <View style={{ flex: 1, minWidth: 180, gap: 14 }}>
                     <View>
@@ -2667,9 +2670,9 @@ export function PlayerOverviewScreen({ navigation }: any) {
               </View>
 
               {/* Beratung — 2 Spalten */}
-              <View style={[styles.detailCard, { position: 'relative', zIndex: 70 }]}>
+              <View style={[styles.detailCard, { position: 'relative', zIndex: 70 }, isMobile && { minWidth: 0, width: '100%', flexBasis: 'auto', flexGrow: 0, padding: 12 }]}>
                 <Text style={styles.detailCardTitle}>Beratung</Text>
-                <View style={{ flexDirection: 'row', gap: 24, flexWrap: 'wrap' }}>
+                <View style={{ flexDirection: isMobile && isEditing ? 'column' : 'row', gap: isMobile && isEditing ? 14 : 24, flexWrap: 'wrap' }}>
                   {/* Spalte 1: Listung, Zuständigkeit, Mandat gültig bis */}
                   <View style={{ flex: 1, minWidth: 180, gap: 14 }}>
                     <View style={{ zIndex: 30, position: 'relative' }}>
@@ -2736,9 +2739,9 @@ export function PlayerOverviewScreen({ navigation }: any) {
               </View>
 
               {/* Familie — 3 Spalten (Papa | Mama | Geschwister) */}
-              <View style={[styles.detailCard, { position: 'relative', zIndex: 60 }]}>
+              <View style={[styles.detailCard, { position: 'relative', zIndex: 60 }, isMobile && { minWidth: 0, flexBasis: '100%', padding: 12 }]}>
                 <Text style={styles.detailCardTitle}>Familie</Text>
-                <View style={{ flexDirection: 'row', gap: 24, flexWrap: 'wrap' }}>
+                <View style={{ flexDirection: isMobile && isEditing ? 'column' : 'row', gap: isMobile && isEditing ? 14 : 24, flexWrap: 'wrap' }}>
                   {/* Spalte 1: Papa */}
                   <View style={{ flex: 1, minWidth: 160, gap: 14 }}>
                     <View>
@@ -2808,7 +2811,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
               </View>
 
               {/* Sonstiges */}
-              <View style={[styles.detailCard, { position: 'relative', zIndex: 50 }]}>
+              <View style={[styles.detailCard, { position: 'relative', zIndex: 50 }, isMobile && { minWidth: 0, flexBasis: '100%', padding: 12 }]}>
                 <Text style={styles.detailCardTitle}>Sonstiges</Text>
                 <View style={{ gap: 14 }}>
                   <View style={{ flexDirection: 'row', gap: 16, flexWrap: 'wrap' }}>
@@ -2850,9 +2853,9 @@ export function PlayerOverviewScreen({ navigation }: any) {
               </View>
 
               {/* Ausbildung — 3 Spalten */}
-              <View style={[styles.detailCard, { position: 'relative', zIndex: 40 }]}>
+              <View style={[styles.detailCard, { position: 'relative', zIndex: 40 }, isMobile && { minWidth: 0, flexBasis: '100%', padding: 12 }]}>
                 <Text style={styles.detailCardTitle}>Ausbildung</Text>
-                <View style={{ flexDirection: 'row', gap: 24, flexWrap: 'wrap' }}>
+                <View style={{ flexDirection: isMobile && isEditing ? 'column' : 'row', gap: isMobile && isEditing ? 14 : 24, flexWrap: 'wrap' }}>
                   <View style={{ flex: 1, minWidth: 140 }}>
                     <Text style={styles.detailFieldLabel}>Schulabschluss</Text>
                     <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="education" displayValue={fullPlayer?.education} />
@@ -2869,7 +2872,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
               </View>
 
               {/* Verletzungen & Krankheiten */}
-              <View style={[styles.detailCard, { position: 'relative', zIndex: 30 }]}>
+              <View style={[styles.detailCard, { position: 'relative', zIndex: 30 }, isMobile && { minWidth: 0, flexBasis: '100%', padding: 12 }]}>
                 <Text style={styles.detailCardTitle}>Verletzungen & Krankheiten</Text>
                 <View>
                   <Text style={styles.detailFieldLabel}>Historie</Text>

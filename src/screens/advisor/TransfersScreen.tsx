@@ -1337,9 +1337,6 @@ export function TransfersScreen({ navigation }: any) {
                   </View>
                 </ScrollView>
                 <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, paddingHorizontal: 20, paddingVertical: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)', zIndex: 1 }}>
-                  <TouchableOpacity style={{ height: 28, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' }} onPress={() => { setShowAddClubModal(false); resetClubForm(); }}>
-                    <Text style={{ fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.85)' }}>Abbrechen</Text>
-                  </TouchableOpacity>
                   <TouchableOpacity style={{ height: 28, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: '#22c55e', backgroundColor: '#22c55e', alignItems: 'center', justifyContent: 'center' }} onPress={saveSearchingClub}>
                     <Text style={{ fontSize: 11, fontWeight: '600', color: '#fff' }}>Speichern</Text>
                   </TouchableOpacity>

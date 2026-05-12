@@ -396,7 +396,8 @@ export function AdvisorHomeScreen({ navigation }: any) {
       <View style={[styles.mainContent, { backgroundColor: 'transparent' }]}>
         {/* Header */}
         <View style={[styles.header, { overflow: 'hidden' }]}>
-          <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.45 }} resizeMode="cover" />
+          <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.85 }} resizeMode="cover" />
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.3)' }} />
           <View style={styles.headerTopRow}>
             <TouchableOpacity
               onPress={() => navigation.navigate('MyProfile')}

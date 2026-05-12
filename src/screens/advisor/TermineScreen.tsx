@@ -1160,7 +1160,7 @@ END:VEVENT
               <View style={styles.mobileCardContent}>
                 <View style={[styles.mobileCardIcon, { backgroundColor: colors.surfaceSecondary }]}><Text style={styles.mobileCardIconText}>⚽</Text></View>
                 <View style={styles.mobileCardText}>
-                  <Text style={[styles.mobileCardTitle, { color: colors.text }]}>Spiele unserer Spieler</Text>
+                  <Text style={[styles.mobileCardTitle, { color: colors.text }]}>Spieltage</Text>
                   <Text style={[styles.mobileCardSubtitle, { color: colors.textSecondary }]}>
                     {playerGames.length > 0
                       ? `${playerGames.length} Spiele in 5 Wochen`
@@ -1202,7 +1202,7 @@ END:VEVENT
               <Text style={[styles.todayCountTopRight, { color: colors.text }]}>{getTodayGamesCount()}</Text>
               <View style={styles.mainCardContent}>
                 <View style={styles.mainCardLeft}>
-                  <Text style={[styles.mainCardTitle, { color: colors.text }]}>Spiele unserer Spieler</Text>
+                  <Text style={[styles.mainCardTitle, { color: colors.text }]}>Spieltage</Text>
                   <Text style={[styles.mainCardSubtitle, { color: colors.textSecondary }]}>
                     {playerGames.length > 0
                       ? `${playerGames.length} Spiele in den nächsten 5 Wochen`
@@ -1597,7 +1597,7 @@ END:VEVENT
           <Pressable onPress={closeAllGameDropdowns}>
             <AdvisorHeroHeader
               title="SPIELTAGE"
-              subtitle={`${playersWithUrl.length} SPIELER · ${playerGames.length} SPIELE GELADEN`}
+              subtitle={`${playerGames.length} SPIELE GELADEN`}
               backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
               backgroundImageOpacity={0.45}
             >
@@ -1818,15 +1818,17 @@ END:VEVENT
                       isTooltipOpen && ({ zIndex: 9999, elevation: 24 } as any),
                     ]}>
                       <TouchableOpacity
-                        style={[styles.scoutingTableCell, { width: 40 }]}
+                        style={{ width: 36, alignItems: 'center', justifyContent: 'center' }}
                         onPress={() => toggleGameSelection(game.id, game.selected)}
                       >
-                        <View style={[styles.gameCheckbox, { backgroundColor: colors.surface, borderColor: colors.border }, game.selected && styles.gameCheckboxSelected]}>
-                          {game.selected && <Text style={styles.gameCheckmark}>✓</Text>}
-                        </View>
+                        <Ionicons
+                          name={game.selected ? 'checkbox' : 'square-outline'}
+                          size={18}
+                          color={game.selected ? colors.primary : colors.textMuted}
+                        />
                       </TouchableOpacity>
                       <View style={[styles.scoutingTableCell, { flex: 0.8, flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
-                        <Text style={[styles.scoutingTableCell, { color: colors.text, paddingRight: 0 }, isCancelled && { textDecorationLine: 'line-through' }]} numberOfLines={1}>
+                        <Text style={[styles.scoutingTableCell, { color: colors.text, paddingHorizontal: 0 }, isCancelled && { textDecorationLine: 'line-through' }]} numberOfLines={1}>
                           {formatGameDate(game.date)}
                         </Text>
                         {isCancelled && (
@@ -1919,9 +1921,11 @@ END:VEVENT
                           );
                         })()}
                       </View>
+                      <View style={{ width: 12 }} />
                       <Text style={[styles.scoutingTableCell, { flex: 0.5, color: colors.text }, isCancelled && { textDecorationLine: 'line-through' }]}>
                         {game.time || '-'}
                       </Text>
+                      <View style={{ width: 12 }} />
                       <Text style={[styles.scoutingTableCell, { flex: 0.8, color: colors.text }]} numberOfLines={1}>
                         {(() => {
                           // Altersklasse aus Spielerprofil-Liga extrahieren (z.B. "U17 Bundesliga")
@@ -1935,6 +1939,7 @@ END:VEVENT
                           return 'Herren';
                         })()}
                       </Text>
+                      <View style={{ width: 12 }} />
                       <Text style={[styles.scoutingTableCell, { flex: 2.2, color: colors.text }]} numberOfLines={1}>
                         {(() => {
                           const pl = (game as any).playerLeague || game.player?.league || '';
@@ -1942,9 +1947,11 @@ END:VEVENT
                           return `${cleanTeamName(game.home_team, isHerren)} - ${cleanTeamName(game.away_team, isHerren)}`;
                         })()}
                       </Text>
+                      <View style={{ width: 12 }} />
                       <Text style={[styles.scoutingTableCell, { flex: 0.7, color: colors.text }]} numberOfLines={1}>
                         {getGameArt(game.league)}
                       </Text>
+                      <View style={{ width: 12 }} />
                       <TouchableOpacity
                         style={[styles.scoutingTableCell, { flex: 0.5, justifyContent: 'center', alignItems: 'flex-start' }]}
                         onPress={() => {
@@ -1963,9 +1970,11 @@ END:VEVENT
                           {(game.game_url || game.player?.fussball_de_url) ? '↗' : '-'}
                         </Text>
                       </TouchableOpacity>
+                      <View style={{ width: 12 }} />
                       <Text style={[styles.scoutingTableCell, { flex: 1.2, fontWeight: '600', color: colors.text }]} numberOfLines={2}>
                         {(game as any).playerNames?.join(', ') || game.player_name}
                       </Text>
+                      <View style={{ width: 12 }} />
                       <Text style={[styles.scoutingTableCell, { flex: 1.2, color: colors.text }]} numberOfLines={1}>
                         {(game as any).playerResponsibilities?.map((r: string) => formatResponsibilityInitials(r)).join(', ') || formatResponsibilityInitials(game.player?.responsibility)}
                       </Text>
@@ -2999,7 +3008,8 @@ END:VEVENT
         {/* Mobile Header */}
         {isMobile && (
           <MobileHeader
-            title={viewMode === 'spiele' ? 'Spiele unserer Spieler' : viewMode === 'termine' ? 'Weitere Termine' : 'Spieltage'}
+            title={viewMode === 'spiele' ? 'Spieltage' : viewMode === 'termine' ? 'Weitere Termine' : 'Spieltage'}
+            subtitle={viewMode === 'spiele' ? `${playerGames.length} SPIELE GELADEN` : undefined}
             backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
             onMenuPress={() => setShowMobileSidebar(true)}
           >
@@ -3663,7 +3673,7 @@ const styles = StyleSheet.create({
   scoutingTableHeaderDivider: { width: 12, alignSelf: 'stretch', justifyContent: 'center', alignItems: 'center' },
   scoutingTableHeaderDividerLine: { width: 1, height: '100%', backgroundColor: 'rgba(255,255,255,0.4)', borderRadius: 1 },
   scoutingTableRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', alignItems: 'center' },
-  scoutingTableCell: { fontSize: 11, color: '#1a1a1a', paddingRight: 12 },
+  scoutingTableCell: { fontSize: 11, color: '#1a1a1a', paddingHorizontal: 4 },
   scoutingClubLogo: { width: 20, height: 20, resizeMode: 'contain' as any, marginHorizontal: 4 },
   scoutingMatchText: { fontWeight: '500', marginHorizontal: 4 },
   scoutingEmptyState: { padding: 60, alignItems: 'center' },

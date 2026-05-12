@@ -676,18 +676,16 @@ export function TransferDetailScreen({ route, navigation }: any) {
               {logo && (
                 <Image source={{ uri: logo }} style={styles.clubLogo} />
               )}
-              <Text style={[styles.clubName, { color: colors.text }]}>{club.club_name}</Text>
-            </View>
-            {club.advisor_name && (
-              <View style={styles.clubCardRow}>
-                <Text style={styles.clubCardIcon}>👤</Text>
-                <Text style={[styles.clubCardText, { color: colors.textSecondary }]}>{club.advisor_name}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.clubName, { color: colors.text }]}>{club.club_name}</Text>
+                {club.advisor_name && (
+                  <Text style={[styles.clubCardText, { color: colors.textSecondary, marginTop: 2 }]}>👤 {club.advisor_name}</Text>
+                )}
               </View>
-            )}
+            </View>
             {club.last_contact && (
               <View style={styles.clubCardRow}>
-                <Text style={styles.clubCardIcon}>🕐</Text>
-                <Text style={[styles.clubCardText, { color: colors.textSecondary }]}>Letzter Kontakt: {formatDate(club.last_contact)}</Text>
+                <Text style={[styles.clubCardText, { color: colors.textSecondary }]}>🕐 Letzter Kontakt: {formatDate(club.last_contact)}</Text>
               </View>
             )}
             {club.notes && (
@@ -705,18 +703,16 @@ export function TransferDetailScreen({ route, navigation }: any) {
           {logo && (
             <Image source={{ uri: logo }} style={styles.clubLogo} />
           )}
-          <Text style={[styles.clubName, { color: colors.text }]}>{club.club_name}</Text>
-        </View>
-        {club.advisor_name && (
-          <View style={styles.clubCardRow}>
-            <Text style={styles.clubCardIcon}>👤</Text>
-            <Text style={[styles.clubCardText, { color: colors.textSecondary }]}>{club.advisor_name}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.clubName, { color: colors.text }]}>{club.club_name}</Text>
+            {club.advisor_name && (
+              <Text style={[styles.clubCardText, { color: colors.textSecondary, marginTop: 2 }]}>👤 {club.advisor_name}</Text>
+            )}
           </View>
-        )}
+        </View>
         {club.last_contact && (
           <View style={styles.clubCardRow}>
-            <Text style={styles.clubCardIcon}>🕐</Text>
-            <Text style={[styles.clubCardText, { color: colors.textSecondary }]}>Letzter Kontakt: {formatDate(club.last_contact)}</Text>
+            <Text style={[styles.clubCardText, { color: colors.textSecondary }]}>🕐 Letzter Kontakt: {formatDate(club.last_contact)}</Text>
           </View>
         )}
         {club.notes && (
@@ -1351,9 +1347,6 @@ export function TransferDetailScreen({ route, navigation }: any) {
                 {renderForm()}
               </ScrollView>
               <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, paddingHorizontal: 20, paddingVertical: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)', zIndex: 1 }}>
-                <TouchableOpacity style={{ paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.05)' }} onPress={() => setShowAddModal(false)}>
-                  <Text style={{ fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.85)' }}>Abbrechen</Text>
-                </TouchableOpacity>
                 <TouchableOpacity style={{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: '#22c55e', backgroundColor: '#22c55e' }} onPress={addClub}>
                   <Text style={{ fontSize: 11, fontWeight: '600', color: '#fff' }}>Hinzufügen</Text>
                 </TouchableOpacity>
@@ -1381,14 +1374,9 @@ export function TransferDetailScreen({ route, navigation }: any) {
                 <TouchableOpacity style={{ paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.15)' }} onPress={() => selectedClub && deleteClub(selectedClub.id)}>
                   <Text style={{ fontSize: 11, fontWeight: '600', color: '#ef4444' }}>Löschen</Text>
                 </TouchableOpacity>
-                <View style={{ flexDirection: 'row', gap: 10 }}>
-                  <TouchableOpacity style={{ paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.05)' }} onPress={() => setShowEditModal(false)}>
-                    <Text style={{ fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.85)' }}>Abbrechen</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: '#22c55e', backgroundColor: '#22c55e' }} onPress={updateClub}>
-                    <Text style={{ fontSize: 11, fontWeight: '600', color: '#fff' }}>Speichern</Text>
-                  </TouchableOpacity>
-                </View>
+                <TouchableOpacity style={{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: '#22c55e', backgroundColor: '#22c55e' }} onPress={updateClub}>
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: '#fff' }}>Speichern</Text>
+                </TouchableOpacity>
               </View>
             </View>
           </View>
@@ -1805,17 +1793,17 @@ const styles = StyleSheet.create({
   kanbanContent: { flex: 1 },
   emptyColumn: { color: 'rgba(255,255,255,0.4)', fontStyle: 'italic', marginTop: 8, fontSize: 12 },
   
-  // Club Card - kompakter
-  clubCard: { 
-    backgroundColor: 'rgba(0,0,0,0.55)', 
-    borderRadius: 8, 
-    padding: 10, 
-    marginBottom: 8, 
-    borderWidth: 1, 
-    borderColor: 'rgba(255,255,255,0.15)', 
-    shadowColor: '#000', 
-    shadowOpacity: 0.03, 
-    shadowRadius: 2, 
+  // Club Card - mobile-konsistent (logo 36×36, padding 14, radius 12)
+  clubCard: {
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
     shadowOffset: { width: 0, height: 1 },
     position: 'relative',
   },
@@ -1857,14 +1845,14 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   reminderBadgeOverdueText: { fontSize: 10, color: '#dc2626', fontWeight: '600' },
-  clubCardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 6, paddingRight: 60 },
-  clubLogo: { width: 24, height: 24, borderRadius: 3, marginRight: 8, resizeMode: 'contain' },
-  clubLogoPlaceholder: { width: 24, height: 24, borderRadius: 3, backgroundColor: '#e2e8f0', justifyContent: 'center', alignItems: 'center', marginRight: 8 },
-  clubLogoText: { fontSize: 9, fontWeight: '600', color: '#64748b' },
-  clubName: { fontSize: 13, fontWeight: '600', color: '#1a1a1a', flex: 1 },
-  clubCardRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
-  clubCardIcon: { marginRight: 4, fontSize: 10 },
-  clubCardText: { fontSize: 11, color: '#64748b' },
+  clubCardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 4, paddingRight: 60 },
+  clubLogo: { width: 36, height: 36, borderRadius: 6, marginRight: 12, resizeMode: 'contain' },
+  clubLogoPlaceholder: { width: 36, height: 36, borderRadius: 6, backgroundColor: '#e2e8f0', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  clubLogoText: { fontSize: 11, fontWeight: '600', color: '#64748b' },
+  clubName: { fontSize: 14, fontWeight: '700', color: '#1a1a1a', flex: 1 },
+  clubCardRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
+  clubCardIcon: { marginRight: 6, fontSize: 11 },
+  clubCardText: { fontSize: 12, color: '#64748b' },
   clubNotes: { fontSize: 11, color: '#64748b', fontStyle: 'italic', marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#f1f5f9' },
   
   // Table

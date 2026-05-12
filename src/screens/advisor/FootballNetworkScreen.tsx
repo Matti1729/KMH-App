@@ -1307,14 +1307,9 @@ export function FootballNetworkScreen({ navigation }: any) {
                     <Text style={{ fontSize: 11, fontWeight: '600', color: '#ef4444' }}>Löschen</Text>
                   </TouchableOpacity>
                 ) : <View />}
-                <View style={{ flexDirection: 'row', gap: 10 }}>
-                  <TouchableOpacity style={{ paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.05)' }} onPress={closeModal}>
-                    <Text style={{ fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.85)' }}>Abbrechen</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: '#22c55e', backgroundColor: '#22c55e' }} onPress={editingContact ? updateContact : addContact}>
-                    <Text style={{ fontSize: 11, fontWeight: '600', color: '#fff' }}>{editingContact ? 'Speichern' : 'Hinzufügen'}</Text>
-                  </TouchableOpacity>
-                </View>
+                <TouchableOpacity style={{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: '#22c55e', backgroundColor: '#22c55e' }} onPress={editingContact ? updateContact : addContact}>
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: '#fff' }}>{editingContact ? 'Speichern' : 'Hinzufügen'}</Text>
+                </TouchableOpacity>
               </View>
             </TouchableOpacity>
           </TouchableOpacity>
@@ -1914,7 +1909,6 @@ export function FootballNetworkScreen({ navigation }: any) {
                 </TouchableOpacity>
               )}
               <View style={styles.modalButtonsRight}>
-                <TouchableOpacity style={[styles.cancelButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={closeModal}><Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text></TouchableOpacity>
                 <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.primary }]} onPress={editingContact ? updateContact : addContact}><Text style={[styles.saveButtonText, { color: colors.primaryText }]}>{editingContact ? 'Speichern' : 'Hinzufügen'}</Text></TouchableOpacity>
               </View>
             </View>
