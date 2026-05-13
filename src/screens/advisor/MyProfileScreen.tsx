@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Image, ScrollView, Switch } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Image, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../config/supabase';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -27,7 +27,7 @@ interface AdvisorProfile {
 }
 
 export function MyProfileScreen({ navigation }: any) {
-  const { theme, colors, setTheme, isDark } = useTheme();
+  const { colors } = useTheme();
 
   const [profile, setProfile] = useState<AdvisorProfile | null>(null);
   const [firstName, setFirstName] = useState('');
@@ -245,10 +245,6 @@ export function MyProfileScreen({ navigation }: any) {
     }
   };
 
-  const toggleDarkMode = () => {
-    setTheme(isDark ? 'light' : 'dark');
-  };
-
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}><AdvisorBackground />
@@ -288,21 +284,6 @@ export function MyProfileScreen({ navigation }: any) {
               onChange={(e) => setPhotoUrl(e.target.value)}
             />
           )}
-        </View>
-
-        {/* Dark Mode Card */}
-        <View style={[styles.card, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}>
-          <Text style={[styles.cardTitle, { color: colors.text }]}>Erscheinungsbild</Text>
-
-          <View style={styles.darkModeRow}>
-            <Text style={[styles.darkModeLabel, { color: colors.text }]}>Dark Mode</Text>
-            <Switch
-              value={isDark}
-              onValueChange={toggleDarkMode}
-              trackColor={{ false: '#767577', true: '#81b0ff' }}
-              thumbColor={isDark ? '#f5dd4b' : '#f4f3f4'}
-            />
-          </View>
         </View>
 
         {/* Profile Card */}

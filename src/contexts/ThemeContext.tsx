@@ -1,5 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Platform } from 'react-native';
+import React, { createContext, useContext, ReactNode } from 'react';
 
 // Theme Types
 export type ThemeType = 'light' | 'dark' | 'tech';
@@ -141,40 +140,12 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-const THEME_STORAGE_KEY = '@app_theme';
-
-// Provider
+// Provider — Dark-Theme ist fest, keine Auswahl mehr für User
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeType>('light');
-
-  // Load saved theme on mount
-  useEffect(() => {
-    try {
-      if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
-        const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
-        if (savedTheme && ['light', 'dark', 'tech'].includes(savedTheme)) {
-          setThemeState(savedTheme as ThemeType);
-        }
-      }
-    } catch (error) {
-      console.log('Error loading theme:', error);
-    }
-  }, []);
-
-  // Save and set theme
-  const setTheme = (newTheme: ThemeType) => {
-    try {
-      if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
-        localStorage.setItem(THEME_STORAGE_KEY, newTheme);
-      }
-    } catch (error) {
-      console.log('Error saving theme:', error);
-    }
-    setThemeState(newTheme);
-  };
-
-  const colors = getTheme(theme);
-  const isDark = theme === 'dark' || theme === 'tech';
+  const theme: ThemeType = 'dark';
+  const colors = darkTheme;
+  const isDark = true;
+  const setTheme = () => {}; // no-op, Theme ist fixiert
 
   return (
     <ThemeContext.Provider value={{ theme, colors, setTheme, isDark }}>
@@ -189,10 +160,10 @@ export function useTheme() {
   if (!context) {
     // Return default values if context is not available
     return {
-      theme: 'light' as ThemeType,
-      colors: lightTheme,
+      theme: 'dark' as ThemeType,
+      colors: darkTheme,
       setTheme: () => {},
-      isDark: false,
+      isDark: true,
     };
   }
   return context;
