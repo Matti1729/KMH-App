@@ -1572,6 +1572,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
             advisorEmail: firstAdvisorEmail,
             advisorPhone: firstAdvisorPhone,
             clubLogoUrl: getClubLogo(player.club || '') || undefined,
+            loanFromClubLogoUrl: (player as any).loan_from_club ? (getClubLogo((player as any).loan_from_club) || undefined) : undefined,
           },
         });
 
@@ -1670,6 +1671,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           advisorEmail: firstAdvisorEmail,
           advisorPhone: firstAdvisorPhone,
           clubLogoUrl: getClubLogo(player.club || '') || undefined,
+          loanFromClubLogoUrl: (player as any).loan_from_club ? (getClubLogo((player as any).loan_from_club) || undefined) : undefined,
         },
       });
 

@@ -287,9 +287,10 @@ export function FootballNetworkScreen({ navigation }: any) {
   const normalizeClubTokens = (name: string): string[] => {
     return name
       .toLowerCase()
-      .replace(/[.,()]/g, '')
       .replace(/e\.v\.?/gi, '')
       .replace(/gmbh|ag|co\s*kg/gi, '')
+      .replace(/[.,()]/g, ' ')           // Punkte/Klammern als Trennzeichen, NICHT entfernen → "1.FC" → "1 FC"
+      .replace(/(\d)([a-zA-Z])/g, '$1 $2') // "1FC" → "1 FC" (falls schon ohne Punkt)
       .split(/[\s\-\/]+/)
       .filter(t => t.length > 0);
   };
@@ -999,19 +1000,22 @@ export function FootballNetworkScreen({ navigation }: any) {
               <Image source={require('../../../assets/scouting-header-bg.jpg')} style={[StyleSheet.absoluteFillObject, { width: '100%', height: '100%', opacity: 0.85, ...({ objectFit: 'cover', objectPosition: 'center', backgroundSize: 'cover', backgroundPosition: 'center' } as any) }]} resizeMode="cover" />
               <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.55)' }]} />
 
-              {/* Header — Name + Bearbeiten + Close */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', zIndex: 1, gap: 8 }}>
+              {/* Header — Logo + Name (+ Verein · Liga) + Bearbeiten + Close */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', zIndex: 1, gap: 10 }}>
+                {selectedContact.verein?.includes('Vereinslos') ? (
+                  <Image source={ArbeitsamtIcon} style={{ width: 36, height: 36, borderRadius: 6, resizeMode: 'contain' }} />
+                ) : selectedContact.verein?.toLowerCase().includes('transfermarkt') ? (
+                  <Image source={TransfermarktIcon} style={{ width: 36, height: 36, borderRadius: 6, resizeMode: 'contain' }} />
+                ) : getClubLogo(selectedContact.verein) ? (
+                  <Image source={{ uri: getClubLogo(selectedContact.verein)! }} style={{ width: 36, height: 36, borderRadius: 6, resizeMode: 'contain' }} />
+                ) : null}
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#fff' }} numberOfLines={1}>{formatName(selectedContact)}</Text>
-                  {selectedContact.position ? (
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
-                      {selectedContact.position.split(',').map((p: string, idx: number) => (
-                        <View key={idx} style={{ backgroundColor: 'rgba(59,130,246,0.18)', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(59,130,246,0.5)' }}>
-                          <Text style={{ fontSize: 9, fontWeight: '600', color: '#60a5fa', letterSpacing: 0.3 }}>{p.trim()}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  ) : null}
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#fff' }} numberOfLines={1}>{formatName(selectedContact)}</Text>
+                  {(selectedContact.verein || selectedContact.liga) && (
+                    <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 2 }} numberOfLines={1}>
+                      {selectedContact.verein || ''}{selectedContact.verein && selectedContact.liga ? '  ·  ' : ''}{selectedContact.liga || ''}
+                    </Text>
+                  )}
                 </View>
                 <TouchableOpacity style={{ height: 28, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' }} onPress={openEditFromDetail}>
                   <Text style={{ fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.85)' }}>Bearbeiten</Text>
@@ -1022,60 +1026,73 @@ export function FootballNetworkScreen({ navigation }: any) {
               </View>
 
               <ScrollView style={{ flex: 1, zIndex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24 }}>
-                {/* Verein | Bereich | Mannschaft */}
+                {/* Position (Badges untereinander) | Bereich | Mannschaft — alles mittig */}
                 <View style={{ backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}>
                   <View style={{ flexDirection: 'row', gap: 16 }}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Verein / Institution</Text>
-                      <Text style={{ fontSize: 13, fontWeight: '500', color: '#fff' }}>{selectedContact.verein || '-'}</Text>
-                      {selectedContact.liga ? <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>{selectedContact.liga}</Text> : null}
+                    <View style={{ flex: 1, alignItems: 'center', minWidth: 0 }}>
+                      <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Position</Text>
+                      {selectedContact.position ? (
+                        <View style={{ gap: 4, alignItems: 'center', maxWidth: '100%' }}>
+                          {selectedContact.position.split(',').map((p: string, idx: number) => (
+                            <View key={idx} style={{ backgroundColor: 'rgba(59,130,246,0.18)', borderWidth: 1, borderColor: 'rgba(59,130,246,0.5)', paddingVertical: 2, paddingHorizontal: 8, borderRadius: 4, maxWidth: '100%' }}>
+                              <Text style={{ fontSize: 11, fontWeight: '600', color: '#60a5fa', letterSpacing: 0.3 }} numberOfLines={1}>{p.trim()}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      ) : <Text style={{ fontSize: 13, fontWeight: '500', color: '#fff' }}>-</Text>}
                     </View>
-                    <View style={{ flex: 1 }}>
+                    <View style={{ flex: 1, alignItems: 'center' }}>
                       <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Bereich</Text>
-                      <Text style={{ fontSize: 13, fontWeight: '500', color: '#fff' }}>{selectedContact.bereich || '-'}</Text>
+                      {selectedContact.bereich ? (
+                        <View style={{ backgroundColor: selectedContact.bereich === 'Nachwuchs' ? 'rgba(251,191,36,0.2)' : 'rgba(34,197,94,0.18)', borderWidth: 1, borderColor: selectedContact.bereich === 'Nachwuchs' ? 'rgba(251,191,36,0.5)' : 'rgba(34,197,94,0.5)', paddingVertical: 2, paddingHorizontal: 8, borderRadius: 4 }}>
+                          <Text style={{ fontSize: 11, fontWeight: '600', color: selectedContact.bereich === 'Nachwuchs' ? '#fbbf24' : '#22c55e', letterSpacing: 0.3 }}>{selectedContact.bereich}</Text>
+                        </View>
+                      ) : <Text style={{ fontSize: 13, fontWeight: '500', color: '#fff' }}>-</Text>}
                     </View>
-                    <View style={{ flex: 1 }}>
+                    <View style={{ flex: 1, alignItems: 'center' }}>
                       <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Mannschaft</Text>
                       <Text style={{ fontSize: 13, fontWeight: '500', color: '#fff' }}>{selectedContact.mannschaft || '-'}</Text>
                     </View>
                   </View>
                 </View>
 
-                {/* Kontaktdaten */}
+                {/* Kontaktdaten — Label + Value untereinander, alles mittig */}
                 <View style={{ backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}>
-                  <View style={{ flexDirection: 'row', gap: 16 }}>
-                    <View style={{ flex: 1, gap: 10 }}>
-                      <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => selectedContact.email && Linking.openURL(`mailto:${selectedContact.email}`)} disabled={!selectedContact.email}>
-                        <Ionicons name="mail-outline" size={15} color="rgba(255,255,255,0.5)" style={{ marginRight: 10, width: 18 }} />
-                        <Text style={{ fontSize: 13, fontWeight: '500', color: selectedContact.email ? '#60a5fa' : '#fff' }} numberOfLines={1}>{selectedContact.email || '-'}</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}>
+                    <View style={{ flex: 1, minWidth: 120, alignItems: 'center' }}>
+                      <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>E-Mail</Text>
+                      <TouchableOpacity style={{ width: '100%' }} onPress={() => selectedContact.email && Linking.openURL(`mailto:${selectedContact.email}`)} disabled={!selectedContact.email}>
+                        <Text style={{ fontSize: 13, fontWeight: '500', color: selectedContact.email ? '#60a5fa' : '#fff', textAlign: 'center' }} numberOfLines={1} ellipsizeMode="tail">{selectedContact.email || '-'}</Text>
                       </TouchableOpacity>
-                      {selectedContact.transfermarkt_url ? (
-                        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => Linking.openURL(selectedContact.transfermarkt_url!)}>
-                          <Ionicons name="link-outline" size={15} color="rgba(255,255,255,0.5)" style={{ marginRight: 10, width: 18 }} />
-                          <Text style={{ fontSize: 13, fontWeight: '500', color: '#60a5fa' }} numberOfLines={1}>Transfermarkt</Text>
-                        </TouchableOpacity>
-                      ) : null}
                     </View>
-                    <View style={{ flex: 1, gap: 10 }}>
-                      <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => selectedContact.telefon && Linking.openURL(`tel:${selectedContact.telefon_code}${selectedContact.telefon}`)} disabled={!selectedContact.telefon}>
-                        <Ionicons name="call-outline" size={15} color="rgba(255,255,255,0.5)" style={{ marginRight: 10, width: 18 }} />
-                        <Text style={{ fontSize: 13, fontWeight: '500', color: selectedContact.telefon ? '#60a5fa' : '#fff' }} numberOfLines={1}>{formatPhone(selectedContact)}</Text>
+                    <View style={{ flex: 1, minWidth: 120, alignItems: 'center' }}>
+                      <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Telefon</Text>
+                      <TouchableOpacity style={{ width: '100%' }} onPress={() => selectedContact.telefon && Linking.openURL(`tel:${selectedContact.telefon_code}${selectedContact.telefon}`)} disabled={!selectedContact.telefon}>
+                        <Text style={{ fontSize: 13, fontWeight: '500', color: selectedContact.telefon ? '#60a5fa' : '#fff', textAlign: 'center' }} numberOfLines={1} ellipsizeMode="tail">{formatPhone(selectedContact) || '-'}</Text>
                       </TouchableOpacity>
-                      {selectedContact.linkedin_url ? (
-                        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => Linking.openURL(selectedContact.linkedin_url!)}>
-                          <Ionicons name="link-outline" size={15} color="#0a66c2" style={{ marginRight: 10, width: 18 }} />
-                          <Text style={{ fontSize: 13, fontWeight: '500', color: '#0a66c2' }} numberOfLines={1}>LinkedIn</Text>
+                    </View>
+                    {selectedContact.transfermarkt_url && (
+                      <View style={{ flex: 1, minWidth: 120, alignItems: 'center' }}>
+                        <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Transfermarkt</Text>
+                        <TouchableOpacity onPress={() => Linking.openURL(selectedContact.transfermarkt_url!)}>
+                          <Image source={TransfermarktIcon} style={{ width: 18, height: 18 }} resizeMode="contain" />
                         </TouchableOpacity>
-                      ) : null}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      {selectedContact.created_by_name ? (
-                        <>
-                          <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Hinzugefügt von</Text>
-                          <Text style={{ fontSize: 13, fontWeight: '500', color: '#fff' }}>{selectedContact.created_by_name}</Text>
-                        </>
-                      ) : null}
-                    </View>
+                      </View>
+                    )}
+                    {selectedContact.linkedin_url && (
+                      <View style={{ flex: 1, minWidth: 120, alignItems: 'center' }}>
+                        <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>LinkedIn</Text>
+                        <TouchableOpacity onPress={() => Linking.openURL(selectedContact.linkedin_url!)}>
+                          <Ionicons name="logo-linkedin" size={18} color="#0a66c2" />
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                    {selectedContact.created_by_name && (
+                      <View style={{ flex: 1, minWidth: 120, alignItems: 'center' }}>
+                        <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Hinzugefügt von</Text>
+                        <Text style={{ fontSize: 13, fontWeight: '500', color: '#fff', textAlign: 'center', width: '100%' }} numberOfLines={1} ellipsizeMode="tail">{selectedContact.created_by_name}</Text>
+                      </View>
+                    )}
                   </View>
                 </View>
 
@@ -1094,19 +1111,27 @@ export function FootballNetworkScreen({ navigation }: any) {
           )}
         </SlideUpModal>
 
-        {/* Add/Edit Modal for Mobile — Skill-Pattern */}
-        <Modal visible={showAddModal} transparent animationType="fade">
-          <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={closeModal}>
-            <TouchableOpacity style={[styles.mobileFormModal, { backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', overflow: 'hidden' }]} activeOpacity={1} onPress={() => setActiveDropdown(null)}>
+        {/* Add/Edit Modal for Mobile — Skill-Pattern (Bottom-Sheet) */}
+        <Modal visible={showAddModal} transparent animationType="slide">
+          <TouchableOpacity style={[styles.modalOverlay, { justifyContent: 'flex-end', alignItems: 'stretch' }]} activeOpacity={1} onPress={closeModal}>
+            <TouchableOpacity style={[styles.mobileFormModal, { backgroundColor: '#000', borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: 'rgba(255,255,255,0.25)', overflow: 'hidden' }]} activeOpacity={1} onPress={() => setActiveDropdown(null)}>
               <Image source={require('../../../assets/scouting-header-bg.jpg')} style={[StyleSheet.absoluteFillObject, { width: '100%', height: '100%', opacity: 0.85, ...({ objectFit: 'cover', objectPosition: 'center', backgroundSize: 'cover', backgroundPosition: 'center' } as any) }]} resizeMode="cover" />
               <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />
-              <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', position: 'relative', zIndex: 1 }}>
-                <Text style={{ fontFamily: 'Josefin Sans', fontSize: 16, fontWeight: '300', letterSpacing: 4, textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>{editingContact ? 'Kontakt bearbeiten' : 'Neuer Kontakt'}</Text>
-                <TouchableOpacity onPress={closeModal} style={{ position: 'absolute', right: 16, width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 20 }}>✕</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', position: 'relative', zIndex: 1, gap: 8 }}>
+                <Text style={{ fontFamily: 'Josefin Sans', fontSize: 14, fontWeight: '300', letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)', flex: 1 }} numberOfLines={1}>{editingContact ? 'Kontakt bearbeiten' : 'Neuer Kontakt'}</Text>
+                {editingContact ? (
+                  <TouchableOpacity style={{ paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.15)' }} onPress={() => setShowDeleteConfirm(true)}>
+                    <Text style={{ fontSize: 11, fontWeight: '600', color: '#ef4444' }}>Löschen</Text>
+                  </TouchableOpacity>
+                ) : null}
+                <TouchableOpacity style={{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: '#22c55e', backgroundColor: '#22c55e' }} onPress={editingContact ? updateContact : addContact}>
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: '#fff' }}>{editingContact ? 'Speichern' : 'Hinzufügen'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={closeModal} style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 20, lineHeight: 22 }}>✕</Text>
                 </TouchableOpacity>
               </View>
-              <ScrollView style={[styles.modalScroll, { zIndex: 1 }]}>
+              <ScrollView style={{ zIndex: 1, flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16 }}>
                 {!editingContact && (
                   <TouchableOpacity
                     style={[styles.importContactBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
@@ -1116,151 +1141,182 @@ export function FootballNetworkScreen({ navigation }: any) {
                     <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '600' }}>Kontakte importieren (.vcf)</Text>
                   </TouchableOpacity>
                 )}
-                <View style={styles.formField}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>Vorname</Text><TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.vorname} onChangeText={(t) => setNewContact({...newContact, vorname: t})} placeholder="Vorname" placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} /></View>
-                <View style={styles.formField}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>Nachname *</Text><TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.nachname} onChangeText={(t) => setNewContact({...newContact, nachname: t})} placeholder="Nachname" placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} /></View>
-
+                <View style={{ backgroundColor: 'rgba(0,0,0,0.5)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 12, padding: 14 }}>
+                <View style={[styles.formRow, { gap: 8 }]}>
+                  <View style={[styles.formField, { flex: 1 }]}><Text style={styles.formLabel}>Vorname</Text><TextInput style={styles.formInput} value={newContact.vorname} onChangeText={(t) => setNewContact({...newContact, vorname: t})} placeholder="Vorname" placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} /></View>
+                  <View style={[styles.formField, { flex: 1 }]}><Text style={styles.formLabel}>Nachname *</Text><TextInput style={styles.formInput} value={newContact.nachname} onChangeText={(t) => setNewContact({...newContact, nachname: t})} placeholder="Nachname" placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} /></View>
+                </View>
                 <View style={styles.formField}>
-                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Verein / Institution</Text>
-                  <View style={{ flexDirection: 'row', gap: 6 }}>
-                    <TouchableOpacity style={[styles.formSelect, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => setActiveDropdown(activeDropdown === 'verein' ? null : 'verein')}>
-                      <Text style={newContact.verein ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]}>{newContact.verein || 'Verein auswählen...'}</Text>
-                      <Text style={[styles.formSelectArrow, { color: colors.textSecondary }]}>▼</Text>
-                    </TouchableOpacity>
-                    {newContact.verein ? <TouchableOpacity style={[styles.formSelect, { width: 28, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => setNewContact({...newContact, verein: ''})}><Text style={{ color: colors.textSecondary, fontSize: 11 }}>✕</Text></TouchableOpacity> : null}
+                  <Text style={styles.formLabel}>Transfermarkt URL {parsingTmUrl && '(wird geparst...)'}</Text>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TextInput style={[styles.formInput, { flex: 1 }]} value={newContact.transfermarkt_url} onChangeText={(t) => setNewContact({...newContact, transfermarkt_url: t})} placeholder="https://www.transfermarkt.de/..." placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} />
+                    {newContact.transfermarkt_url ? (
+                      <TouchableOpacity style={[styles.formSelect, { width: 32, justifyContent: 'center', alignItems: 'center' }]} onPress={() => { if (window.confirm('TM-Verknüpfung entfernen?\nVerein/Position bleiben erhalten.')) setNewContact({...newContact, transfermarkt_url: ''}); }}>
+                        <Text style={{ color: colors.textSecondary, fontSize: 12 }}>✕</Text>
+                      </TouchableOpacity>
+                    ) : null}
                   </View>
-                  {activeDropdown === 'verein' && (
-                    <View style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                      <TextInput style={[styles.dropdownSearch, { borderBottomColor: colors.border, color: colors.text }]} value={vereinSearch} onChangeText={handleVereinSearchChange} placeholder="Verein suchen..." placeholderTextColor={colors.textMuted} autoFocus />
-                      <ScrollView style={styles.dropdownScroll}>
-                        {filteredClubs.map(club => (
-                          <TouchableOpacity key={club} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => selectLocalClub(club)}>
-                            <View style={styles.clubItemRow}>{getClubLogo(club) && <Image source={{ uri: getClubLogo(club)! }} style={styles.clubLogo} />}<Text style={[styles.dropdownItemText, { color: colors.text }]}>{club}</Text></View>
-                          </TouchableOpacity>
-                        ))}
-                        {clubSearching && (
-                          <View style={[styles.dropdownItem, { borderBottomColor: colors.border }]}><Text style={[styles.dropdownItemText, { color: colors.textMuted }]}>Suche auf Transfermarkt...</Text></View>
-                        )}
-                        {clubSearchResults.length > 0 && (
-                          <>
-                            <View style={[styles.dropdownItem, { borderBottomColor: colors.border, backgroundColor: isDark ? 'rgba(59,130,246,0.1)' : '#eff6ff' }]}><Text style={[styles.dropdownItemText, { color: colors.textSecondary, fontWeight: '700', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }]}>Transfermarkt-Ergebnisse</Text></View>
-                            {clubSearchResults.map(club => (
-                              <TouchableOpacity key={club.name} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => selectRemoteClub(club)}>
-                                <View style={styles.clubItemRow}>
-                                  {club.logoUrl ? <Image source={{ uri: club.logoUrl }} style={styles.clubLogo} /> : null}
-                                  <View style={{ flex: 1 }}>
-                                    <Text style={[styles.dropdownItemText, { color: colors.text }]}>{club.name}</Text>
-                                    {club.liga ? <Text style={{ fontSize: 10, color: colors.textMuted }}>{club.liga}{club.country ? ` · ${club.country}` : ''}</Text> : null}
-                                  </View>
-                                </View>
-                              </TouchableOpacity>
-                            ))}
-                          </>
-                        )}
-                        {vereinSearch.trim() && !clubs.includes(vereinSearch) && !clubSearching && (
-                          <TouchableOpacity style={[styles.dropdownItem, styles.dropdownItemNew, { borderBottomColor: colors.border, backgroundColor: isDark ? 'rgba(34, 197, 94, 0.2)' : '#f0fdf4' }]} onPress={selectFreitextClub}>
-                            <Text style={[styles.dropdownItemText, { color: colors.text }]}>+ "{vereinSearch}" als Freitext übernehmen</Text>
-                          </TouchableOpacity>
-                        )}
-                      </ScrollView>
-                    </View>
-                  )}
                 </View>
-
                 <View style={styles.formField}>
-                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Bereich</Text>
-                  <TouchableOpacity style={[styles.formSelect, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => setActiveDropdown(activeDropdown === 'bereich' ? null : 'bereich')}>
-                    <Text style={newContact.bereich ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]}>{newContact.bereich || 'Bereich auswählen...'}</Text>
-                    <Text style={[styles.formSelectArrow, { color: colors.textSecondary }]}>▼</Text>
-                  </TouchableOpacity>
-                  {activeDropdown === 'bereich' && (
-                    <View style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                      <ScrollView style={styles.dropdownScroll}>
-                        {newContact.bereich ? <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, bereich: '', position: '', mannschaft: ''}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.error || '#ef4444' }]}>— Leeren</Text></TouchableOpacity> : null}
-                        {BEREICHE.map(b => (<TouchableOpacity key={b} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, bereich: b, position: '', mannschaft: ''}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.text }]}>{b}</Text></TouchableOpacity>))}
-                      </ScrollView>
-                    </View>
-                  )}
+                  <Text style={styles.formLabel}>LinkedIn URL</Text>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TextInput style={[styles.formInput, { flex: 1 }]} value={newContact.linkedin_url} onChangeText={(t) => setNewContact({...newContact, linkedin_url: t})} placeholder="https://www.linkedin.com/in/..." placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} />
+                    {newContact.linkedin_url ? (
+                      <TouchableOpacity style={[styles.formSelect, { width: 28, justifyContent: 'center', alignItems: 'center' }]} onPress={() => setNewContact({...newContact, linkedin_url: ''})}>
+                        <Text style={{ color: colors.textSecondary, fontSize: 11 }}>✕</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
                 </View>
+                </View>
+                <View style={{ backgroundColor: 'rgba(0,0,0,0.5)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 12, padding: 14, marginTop: 10 }}>
 
-                <View style={styles.formField}>
-                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Position</Text>
-                  {customPositionInput ? (
-                    <View style={{ flexDirection: 'row', gap: 8 }}>
-                      <TextInput
-                        style={[styles.formInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
-                        value={customPositionText}
-                        onChangeText={setCustomPositionText}
-                        placeholder="Position eingeben..."
-                        placeholderTextColor={colors.textMuted}
-                        autoFocus
-                      />
-                      <TouchableOpacity style={[styles.formSelect, { width: 80, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.primary }]} onPress={() => { if (customPositionText.trim()) { setNewContact({...newContact, position: customPositionText.trim()}); } setCustomPositionInput(false); setCustomPositionText(''); }}>
-                        <Text style={{ color: colors.primaryText, fontSize: 11, fontWeight: '600' }}>OK</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={[styles.formSelect, { width: 40, justifyContent: 'center', alignItems: 'center' }]} onPress={() => { setCustomPositionInput(false); setCustomPositionText(''); }}>
-                        <Text style={{ color: colors.textSecondary, fontSize: 14 }}>✕</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ) : (
-                    <>
-                      <TouchableOpacity style={[styles.formSelect, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => setActiveDropdown(activeDropdown === 'position' ? null : 'position')}>
-                        <Text style={newContact.position ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]}>{newContact.position || ('Position...')}</Text>
+                <View style={[styles.formRow, { gap: 8 }]}>
+                  <View style={[styles.formField, { flex: 1.6, zIndex: activeDropdown === 'verein' ? 30 : 1 }]}>
+                    <Text style={styles.formLabel}>Verein / Institution</Text>
+                    <View style={{ flexDirection: 'row', gap: 6 }}>
+                      <TouchableOpacity style={[styles.formSelect, { flex: 1 }]} onPress={() => setActiveDropdown(activeDropdown === 'verein' ? null : 'verein')}>
+                        <Text style={newContact.verein ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]} numberOfLines={1}>{newContact.verein || 'Verein...'}</Text>
                         <Text style={[styles.formSelectArrow, { color: colors.textSecondary }]}>▼</Text>
                       </TouchableOpacity>
-                      {activeDropdown === 'position' && (
-                        <View style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                          <ScrollView style={styles.dropdownScroll}>
-                            {newContact.position ? <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, position: ''}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.error || '#ef4444' }]}>— Leeren</Text></TouchableOpacity> : null}
-                            <TouchableOpacity style={[styles.dropdownItem, styles.dropdownItemNew, { borderBottomColor: colors.border, backgroundColor: isDark ? 'rgba(59,130,246,0.15)' : '#eff6ff' }]} onPress={() => { setActiveDropdown(null); setCustomPositionInput(true); }}>
-                              <Text style={[styles.dropdownItemText, { color: colors.text }]}>+ Andere Position eingeben...</Text>
+                      {newContact.verein ? <TouchableOpacity style={[styles.formSelect, { width: 28, justifyContent: 'center', alignItems: 'center' }]} onPress={() => setNewContact({...newContact, verein: ''})}><Text style={{ color: colors.textSecondary, fontSize: 11 }}>✕</Text></TouchableOpacity> : null}
+                    </View>
+                    {activeDropdown === 'verein' && (
+                      <View style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                        <TextInput style={[styles.dropdownSearch, { borderBottomColor: colors.border, color: colors.text }]} value={vereinSearch} onChangeText={handleVereinSearchChange} placeholder="Verein suchen..." placeholderTextColor={colors.textMuted} autoFocus />
+                        <ScrollView style={styles.dropdownScroll}>
+                          {filteredClubs.map(club => (
+                            <TouchableOpacity key={club} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => selectLocalClub(club)}>
+                              <View style={styles.clubItemRow}>{getClubLogo(club) && <Image source={{ uri: getClubLogo(club)! }} style={styles.clubLogo} />}<Text style={[styles.dropdownItemText, { color: colors.text }]}>{club}</Text></View>
                             </TouchableOpacity>
-                            {getAvailablePositions().map(p => (<TouchableOpacity key={p} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, position: p}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.text }]}>{p}</Text></TouchableOpacity>))}
-                          </ScrollView>
-                        </View>
-                      )}
-                    </>
-                  )}
+                          ))}
+                          {clubSearching && (
+                            <View style={[styles.dropdownItem, { borderBottomColor: colors.border }]}><Text style={[styles.dropdownItemText, { color: colors.textMuted }]}>Suche auf Transfermarkt...</Text></View>
+                          )}
+                          {clubSearchResults.length > 0 && (
+                            <>
+                              <View style={[styles.dropdownItem, { borderBottomColor: colors.border, backgroundColor: isDark ? 'rgba(59,130,246,0.1)' : '#eff6ff' }]}><Text style={[styles.dropdownItemText, { color: colors.textSecondary, fontWeight: '700', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }]}>Transfermarkt-Ergebnisse</Text></View>
+                              {clubSearchResults.map(club => (
+                                <TouchableOpacity key={club.name} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => selectRemoteClub(club)}>
+                                  <View style={styles.clubItemRow}>
+                                    {club.logoUrl ? <Image source={{ uri: club.logoUrl }} style={styles.clubLogo} /> : null}
+                                    <View style={{ flex: 1 }}>
+                                      <Text style={[styles.dropdownItemText, { color: colors.text }]}>{club.name}</Text>
+                                      {club.liga ? <Text style={{ fontSize: 10, color: colors.textMuted }}>{club.liga}{club.country ? ` · ${club.country}` : ''}</Text> : null}
+                                    </View>
+                                  </View>
+                                </TouchableOpacity>
+                              ))}
+                            </>
+                          )}
+                          {vereinSearch.trim() && !clubs.includes(vereinSearch) && !clubSearching && (
+                            <TouchableOpacity style={[styles.dropdownItem, styles.dropdownItemNew, { borderBottomColor: colors.border, backgroundColor: isDark ? 'rgba(34, 197, 94, 0.2)' : '#f0fdf4' }]} onPress={selectFreitextClub}>
+                              <Text style={[styles.dropdownItemText, { color: colors.text }]}>+ "{vereinSearch}" als Freitext übernehmen</Text>
+                            </TouchableOpacity>
+                          )}
+                        </ScrollView>
+                      </View>
+                    )}
+                  </View>
+
+                  <View style={[styles.formField, { flex: 1, zIndex: activeDropdown === 'liga' ? 30 : 1 }]}>
+                    <Text style={styles.formLabel}>Liga</Text>
+                    <TouchableOpacity style={styles.formSelect} onPress={() => setActiveDropdown(activeDropdown === 'liga' ? null : 'liga')}>
+                      <Text style={newContact.liga ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]} numberOfLines={1}>{newContact.liga || 'Liga...'}</Text>
+                      <Text style={[styles.formSelectArrow, { color: colors.textSecondary }]}>▼</Text>
+                    </TouchableOpacity>
+                    {activeDropdown === 'liga' && (
+                      <View style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                        {newContact.liga ? <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, liga: ''}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.error || '#ef4444' }]}>— Leeren</Text></TouchableOpacity> : null}
+                        <TextInput style={[styles.dropdownSearch, { borderBottomColor: colors.border, color: colors.text }]} value={ligaSearch} onChangeText={setLigaSearch} placeholder="Liga suchen..." placeholderTextColor={colors.textMuted} autoFocus />
+                        <ScrollView style={styles.dropdownScroll}>
+                          {filteredLeagues.map(league => (
+                            <TouchableOpacity key={league} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, liga: league}); setLigaSearch(''); setActiveDropdown(null); }}>
+                              <Text style={[styles.dropdownItemText, { color: colors.text }]}>{league}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    )}
+                  </View>
+                </View>
+
+                <View style={[styles.formRow, { gap: 8 }]}>
+                  <View style={[styles.formField, { flex: 1, zIndex: activeDropdown === 'bereich' ? 30 : 1 }]}>
+                    <Text style={styles.formLabel}>Bereich</Text>
+                    <TouchableOpacity style={styles.formSelect} onPress={() => setActiveDropdown(activeDropdown === 'bereich' ? null : 'bereich')}>
+                      <Text style={newContact.bereich ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]} numberOfLines={1}>{newContact.bereich || 'Bereich...'}</Text>
+                      <Text style={[styles.formSelectArrow, { color: colors.textSecondary }]}>▼</Text>
+                    </TouchableOpacity>
+                    {activeDropdown === 'bereich' && (
+                      <View style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                        <ScrollView style={styles.dropdownScroll}>
+                          {newContact.bereich ? <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, bereich: '', position: '', mannschaft: ''}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.error || '#ef4444' }]}>— Leeren</Text></TouchableOpacity> : null}
+                          {BEREICHE.map(b => (<TouchableOpacity key={b} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, bereich: b, position: '', mannschaft: ''}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.text }]}>{b}</Text></TouchableOpacity>))}
+                        </ScrollView>
+                      </View>
+                    )}
+                  </View>
+
+                  <View style={[styles.formField, { flex: 1, zIndex: activeDropdown === 'position' ? 30 : 1 }]}>
+                    <Text style={styles.formLabel}>Position</Text>
+                    {customPositionInput ? (
+                      <View style={{ flexDirection: 'row', gap: 6 }}>
+                        <TextInput
+                          style={[styles.formInput, { flex: 1 }]}
+                          value={customPositionText}
+                          onChangeText={setCustomPositionText}
+                          placeholder="Position..."
+                          placeholderTextColor={colors.textMuted}
+                          autoFocus
+                        />
+                        <TouchableOpacity style={[styles.formSelect, { width: 44, justifyContent: 'center', alignItems: 'center', backgroundColor: '#22c55e', borderColor: '#22c55e' }]} onPress={() => { if (customPositionText.trim()) { setNewContact({...newContact, position: customPositionText.trim()}); } setCustomPositionInput(false); setCustomPositionText(''); }}>
+                          <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>OK</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.formSelect, { width: 32, justifyContent: 'center', alignItems: 'center' }]} onPress={() => { setCustomPositionInput(false); setCustomPositionText(''); }}>
+                          <Text style={{ color: colors.textSecondary, fontSize: 14 }}>✕</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <>
+                        <TouchableOpacity style={styles.formSelect} onPress={() => setActiveDropdown(activeDropdown === 'position' ? null : 'position')}>
+                          <Text style={newContact.position ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]} numberOfLines={1}>{newContact.position || ('Position...')}</Text>
+                          <Text style={[styles.formSelectArrow, { color: colors.textSecondary }]}>▼</Text>
+                        </TouchableOpacity>
+                        {activeDropdown === 'position' && (
+                          <View style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                            <ScrollView style={styles.dropdownScroll}>
+                              {newContact.position ? <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, position: ''}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.error || '#ef4444' }]}>— Leeren</Text></TouchableOpacity> : null}
+                              <TouchableOpacity style={[styles.dropdownItem, styles.dropdownItemNew, { borderBottomColor: colors.border, backgroundColor: isDark ? 'rgba(59,130,246,0.15)' : '#eff6ff' }]} onPress={() => { setActiveDropdown(null); setCustomPositionInput(true); }}>
+                                <Text style={[styles.dropdownItemText, { color: colors.text }]}>+ Andere Position eingeben...</Text>
+                              </TouchableOpacity>
+                              {getAvailablePositions().map(p => (<TouchableOpacity key={p} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, position: p}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.text }]}>{p}</Text></TouchableOpacity>))}
+                            </ScrollView>
+                          </View>
+                        )}
+                      </>
+                    )}
+                  </View>
+
+                  <View style={[styles.formField, { flex: 1, zIndex: activeDropdown === 'mannschaft' ? 30 : 1 }]}>
+                    <Text style={styles.formLabel}>Mannschaft</Text>
+                    <TouchableOpacity style={styles.formSelect} onPress={() => setActiveDropdown(activeDropdown === 'mannschaft' ? null : 'mannschaft')}>
+                      <Text style={newContact.mannschaft ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]} numberOfLines={1}>{newContact.mannschaft || ('Mannschaft...')}</Text>
+                      <Text style={[styles.formSelectArrow, { color: colors.textSecondary }]}>▼</Text>
+                    </TouchableOpacity>
+                    {activeDropdown === 'mannschaft' && (
+                      <View style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                        <ScrollView style={styles.dropdownScroll}>
+                          {newContact.mannschaft ? <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, mannschaft: ''}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.error || '#ef4444' }]}>— Leeren</Text></TouchableOpacity> : null}
+                          {getAvailableMannschaften().map(m => (<TouchableOpacity key={m} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, mannschaft: m}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.text }]}>{m}</Text></TouchableOpacity>))}
+                        </ScrollView>
+                      </View>
+                    )}
+                  </View>
                 </View>
 
                 <View style={styles.formField}>
-                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Mannschaft</Text>
-                  <TouchableOpacity style={[styles.formSelect, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => setActiveDropdown(activeDropdown === 'mannschaft' ? null : 'mannschaft')}>
-                    <Text style={newContact.mannschaft ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]}>{newContact.mannschaft || ('Mannschaft...')}</Text>
-                    <Text style={[styles.formSelectArrow, { color: colors.textSecondary }]}>▼</Text>
-                  </TouchableOpacity>
-                  {activeDropdown === 'mannschaft' && (
-                    <View style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                      <ScrollView style={styles.dropdownScroll}>
-                        {newContact.mannschaft ? <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, mannschaft: ''}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.error || '#ef4444' }]}>— Leeren</Text></TouchableOpacity> : null}
-                        {getAvailableMannschaften().map(m => (<TouchableOpacity key={m} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, mannschaft: m}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.text }]}>{m}</Text></TouchableOpacity>))}
-                      </ScrollView>
-                    </View>
-                  )}
-                </View>
-
-                <View style={styles.formField}>
-                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Liga (Zugehörigkeit 1. Mannschaft)</Text>
-                  <TouchableOpacity style={[styles.formSelect, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => setActiveDropdown(activeDropdown === 'liga' ? null : 'liga')}>
-                    <Text style={newContact.liga ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]}>{newContact.liga || 'Liga auswählen...'}</Text>
-                    <Text style={[styles.formSelectArrow, { color: colors.textSecondary }]}>▼</Text>
-                  </TouchableOpacity>
-                  {activeDropdown === 'liga' && (
-                    <View style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                      {newContact.liga ? <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, liga: ''}); setActiveDropdown(null); }}><Text style={[styles.dropdownItemText, { color: colors.error || '#ef4444' }]}>— Leeren</Text></TouchableOpacity> : null}
-                      <TextInput style={[styles.dropdownSearch, { borderBottomColor: colors.border, color: colors.text }]} value={ligaSearch} onChangeText={setLigaSearch} placeholder="Liga suchen..." placeholderTextColor={colors.textMuted} autoFocus />
-                      <ScrollView style={styles.dropdownScroll}>
-                        {filteredLeagues.map(league => (
-                          <TouchableOpacity key={league} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => { setNewContact({...newContact, liga: league}); setLigaSearch(''); setActiveDropdown(null); }}>
-                            <Text style={[styles.dropdownItemText, { color: colors.text }]}>{league}</Text>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-                    </View>
-                  )}
-                </View>
-
-                <View style={styles.formField}>
-                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Telefon</Text>
+                  <Text style={styles.formLabel}>Telefon</Text>
                   <View style={styles.phoneRow}>
                     <TouchableOpacity style={[styles.countryCodeButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => setActiveDropdown(activeDropdown === 'country' ? null : 'country')}>
                       <Text style={[styles.countryCodeText, { color: colors.text }]}>{newContact.telefon_code}</Text><Text style={[styles.countryCodeArrow, { color: colors.textSecondary }]}>▼</Text>
@@ -1276,41 +1332,10 @@ export function FootballNetworkScreen({ navigation }: any) {
                   )}
                 </View>
 
-                <View style={styles.formField}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>E-Mail</Text><TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.email} onChangeText={(t) => setNewContact({...newContact, email: t})} placeholder="email@beispiel.de" placeholderTextColor={colors.textMuted} keyboardType="email-address" onFocus={() => setActiveDropdown(null)} /></View>
-                <View style={styles.formField}>
-                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Transfermarkt URL {parsingTmUrl && '(wird geparst...)'}</Text>
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
-                    <TextInput style={[styles.formInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.transfermarkt_url} onChangeText={(t) => setNewContact({...newContact, transfermarkt_url: t})} placeholder="https://www.transfermarkt.de/..." placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} />
-                    {newContact.transfermarkt_url ? (
-                      <TouchableOpacity style={[styles.formSelect, { width: 32, justifyContent: 'center', alignItems: 'center' }]} onPress={() => { if (window.confirm('TM-Verknüpfung entfernen?\nVerein/Position bleiben erhalten.')) setNewContact({...newContact, transfermarkt_url: ''}); }}>
-                        <Text style={{ color: colors.textSecondary, fontSize: 12 }}>✕</Text>
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
+                <View style={styles.formField}><Text style={styles.formLabel}>E-Mail</Text><TextInput style={styles.formInput} value={newContact.email} onChangeText={(t) => setNewContact({...newContact, email: t})} placeholder="email@beispiel.de" placeholderTextColor={colors.textMuted} keyboardType="email-address" onFocus={() => setActiveDropdown(null)} /></View>
+                <View style={styles.formField}><Text style={styles.formLabel}>Weitere Informationen</Text><TextInput style={[styles.formInput, styles.textArea]} value={newContact.notes} onChangeText={(t) => setNewContact({...newContact, notes: t})} placeholder="Zusätzliche Informationen..." placeholderTextColor={colors.textMuted} multiline numberOfLines={3} onFocus={() => setActiveDropdown(null)} /></View>
                 </View>
-                <View style={styles.formField}>
-                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>LinkedIn URL</Text>
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
-                    <TextInput style={[styles.formInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.linkedin_url} onChangeText={(t) => setNewContact({...newContact, linkedin_url: t})} placeholder="https://www.linkedin.com/in/..." placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} />
-                    {newContact.linkedin_url ? (
-                      <TouchableOpacity style={[styles.formSelect, { width: 28, justifyContent: 'center', alignItems: 'center' }]} onPress={() => setNewContact({...newContact, linkedin_url: ''})}>
-                        <Text style={{ color: colors.textSecondary, fontSize: 11 }}>✕</Text>
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-                </View>
-                <View style={styles.formField}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>Weitere Informationen</Text><TextInput style={[styles.formInput, styles.textArea, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.notes} onChangeText={(t) => setNewContact({...newContact, notes: t})} placeholder="Zusätzliche Informationen..." placeholderTextColor={colors.textMuted} multiline numberOfLines={3} onFocus={() => setActiveDropdown(null)} /></View>
               </ScrollView>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingVertical: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)', zIndex: 1 }}>
-                {editingContact ? (
-                  <TouchableOpacity style={{ paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.15)' }} onPress={() => setShowDeleteConfirm(true)}>
-                    <Text style={{ fontSize: 11, fontWeight: '600', color: '#ef4444' }}>Löschen</Text>
-                  </TouchableOpacity>
-                ) : <View />}
-                <TouchableOpacity style={{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: '#22c55e', backgroundColor: '#22c55e' }} onPress={editingContact ? updateContact : addContact}>
-                  <Text style={{ fontSize: 11, fontWeight: '600', color: '#fff' }}>{editingContact ? 'Speichern' : 'Hinzufügen'}</Text>
-                </TouchableOpacity>
-              </View>
             </TouchableOpacity>
           </TouchableOpacity>
         </Modal>
@@ -1447,7 +1472,7 @@ export function FootballNetworkScreen({ navigation }: any) {
             <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.45)', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 16, overflow: 'hidden' }}>
               <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.45 }} resizeMode="cover" />
               <TouchableOpacity onPress={toggleAllExport} style={{ width: 36, alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}>
-                <Ionicons name={selectedExportIds.length === filteredContacts.length && filteredContacts.length > 0 ? "checkbox" : "square-outline"} size={14} color={selectedExportIds.length > 0 ? colors.primary : colors.textMuted} />
+                <Ionicons name={selectedExportIds.length === filteredContacts.length && filteredContacts.length > 0 ? "checkbox" : "square-outline"} size={22} color={selectedExportIds.length > 0 ? colors.primary : colors.textMuted} />
               </TouchableOpacity>
               {tableWidth > 0 && (
                 <TableHeader
@@ -1488,7 +1513,7 @@ export function FootballNetworkScreen({ navigation }: any) {
                 filteredContacts.map(contact => (
                   <View key={contact.id} style={[styles.tableRow, { borderBottomColor: colors.border }]}>
                     <TouchableOpacity style={{ width: 36, alignItems: 'center', justifyContent: 'center' }} onPress={() => toggleExportId(contact.id)}>
-                      <Ionicons name={selectedExportIds.includes(contact.id) ? "checkbox" : "square-outline"} size={18} color={selectedExportIds.includes(contact.id) ? colors.primary : colors.textMuted} />
+                      <Ionicons name={selectedExportIds.includes(contact.id) ? "checkbox" : "square-outline"} size={22} color={selectedExportIds.includes(contact.id) ? colors.primary : colors.textMuted} />
                     </TouchableOpacity>
                     <TableRow
                       columnOrder={table.columnOrder}
@@ -1570,10 +1595,12 @@ export function FootballNetworkScreen({ navigation }: any) {
       {/* Desktop Detail Modal */}
       <Modal visible={showDesktopDetailModal} transparent animationType="fade">
         <Pressable style={styles.modalOverlay} onPress={() => setShowDesktopDetailModal(false)}>
-          <Pressable style={[styles.detailModalContent, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
+          <Pressable style={[styles.detailModalContent, { backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', overflow: 'hidden' }]} onPress={(e) => e.stopPropagation()}>
+            <Image source={require('../../../assets/scouting-header-bg.jpg')} style={[StyleSheet.absoluteFillObject, { width: '100%', height: '100%', opacity: 0.85, ...({ objectFit: 'cover', objectPosition: 'center', backgroundSize: 'cover', backgroundPosition: 'center' } as any) }]} resizeMode="cover" />
+            <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.55)' }]} />
             {selectedContact && (
               <>
-                <View style={[styles.detailModalHeader, { borderBottomColor: colors.border }]}>
+                <View style={[styles.detailModalHeader, { borderBottomColor: 'rgba(255,255,255,0.15)', zIndex: 1 }]}>
                   <View style={styles.detailModalNameRow}>
                     {selectedContact.verein?.includes('Vereinslos') ? (
                       <Image source={ArbeitsamtIcon} style={styles.detailModalLogo} />
@@ -1582,99 +1609,104 @@ export function FootballNetworkScreen({ navigation }: any) {
                     ) : getClubLogo(selectedContact.verein) ? (
                       <Image source={{ uri: getClubLogo(selectedContact.verein)! }} style={styles.detailModalLogo} />
                     ) : null}
-                    <View>
-                      <Text style={[styles.detailModalName, { color: colors.text }]}>{formatName(selectedContact)}</Text>
-                      {selectedContact.position && (
-                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3, marginTop: 4 }}>
-                          {selectedContact.position.split(',').map((p: string, idx: number) => (
-                            <View key={idx} style={[styles.positionBadge, { backgroundColor: isDark ? 'rgba(14, 165, 233, 0.2)' : '#e0f2fe' }]}>
-                              <Text style={[styles.positionText, { color: isDark ? '#38bdf8' : '#0369a1' }]}>{p.trim()}</Text>
-                            </View>
-                          ))}
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.detailModalName, { color: '#fff' }]}>{formatName(selectedContact)}</Text>
+                      {(selectedContact.verein || selectedContact.liga) && (
+                        <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 4 }} numberOfLines={1}>
+                          {selectedContact.verein || ''}{selectedContact.verein && selectedContact.liga ? '  ·  ' : ''}{selectedContact.liga || ''}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                  <TouchableOpacity onPress={() => setShowDesktopDetailModal(false)} style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center', marginLeft: 8 }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 20, lineHeight: 22 }}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={[styles.detailModalBody, { zIndex: 1 }]}>
+                  {/* Position (Badges untereinander) | Bereich | Mannschaft — alles mittig */}
+                  <View style={[styles.detailModalBox, { backgroundColor: 'rgba(0,0,0,0.5)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }]}>
+                    <View style={styles.detailModalRow}>
+                      <View style={[styles.detailModalField, { alignItems: 'center', minWidth: 0 }]}>
+                        <Text style={[styles.detailModalLabel, { color: 'rgba(255,255,255,0.5)' }]}>Position</Text>
+                        {selectedContact.position ? (
+                          <View style={{ gap: 4, alignItems: 'center', maxWidth: '100%' }}>
+                            {selectedContact.position.split(',').map((p: string, idx: number) => (
+                              <View key={idx} style={{ backgroundColor: 'rgba(59,130,246,0.18)', borderWidth: 1, borderColor: 'rgba(59,130,246,0.5)', paddingVertical: 2, paddingHorizontal: 8, borderRadius: 4, maxWidth: '100%' }}>
+                                <Text style={{ fontSize: 11, fontWeight: '600', color: '#60a5fa', letterSpacing: 0.3 }} numberOfLines={1}>{p.trim()}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        ) : <Text style={[styles.detailModalValue, { color: '#fff' }]}>-</Text>}
+                      </View>
+                      <View style={[styles.detailModalField, { alignItems: 'center' }]}>
+                        <Text style={[styles.detailModalLabel, { color: 'rgba(255,255,255,0.5)' }]}>Bereich</Text>
+                        {selectedContact.bereich ? (
+                          <View style={{ backgroundColor: selectedContact.bereich === 'Nachwuchs' ? 'rgba(251,191,36,0.2)' : 'rgba(34,197,94,0.18)', borderWidth: 1, borderColor: selectedContact.bereich === 'Nachwuchs' ? 'rgba(251,191,36,0.5)' : 'rgba(34,197,94,0.5)', paddingVertical: 2, paddingHorizontal: 8, borderRadius: 4 }}>
+                            <Text style={{ fontSize: 11, fontWeight: '600', color: selectedContact.bereich === 'Nachwuchs' ? '#fbbf24' : '#22c55e', letterSpacing: 0.3 }}>{selectedContact.bereich}</Text>
+                          </View>
+                        ) : <Text style={[styles.detailModalValue, { color: '#fff' }]}>-</Text>}
+                      </View>
+                      <View style={[styles.detailModalField, { alignItems: 'center' }]}>
+                        <Text style={[styles.detailModalLabel, { color: 'rgba(255,255,255,0.5)' }]}>Mannschaft</Text>
+                        <Text style={[styles.detailModalValue, { color: '#fff' }]}>{selectedContact.mannschaft || '-'}</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Kontaktdaten — pro Eintrag: LABEL + Value untereinander, alles mittig */}
+                  <View style={[styles.detailModalBox, { backgroundColor: 'rgba(0,0,0,0.5)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }]}>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}>
+                      <View style={{ flex: 1, minWidth: 140, alignItems: 'center' }}>
+                        <Text style={[styles.detailModalLabel, { color: 'rgba(255,255,255,0.5)' }]}>E-Mail</Text>
+                        <TouchableOpacity style={{ width: '100%' }} onPress={() => selectedContact.email && Linking.openURL(`mailto:${selectedContact.email}`)} disabled={!selectedContact.email}>
+                          <Text style={[styles.detailModalValue, { color: selectedContact.email ? '#60a5fa' : '#fff', textAlign: 'center' }]} numberOfLines={1} ellipsizeMode="tail">{selectedContact.email || '-'}</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <View style={{ flex: 1, minWidth: 140, alignItems: 'center' }}>
+                        <Text style={[styles.detailModalLabel, { color: 'rgba(255,255,255,0.5)' }]}>Telefon</Text>
+                        <TouchableOpacity style={{ width: '100%' }} onPress={() => selectedContact.telefon && Linking.openURL(`tel:${selectedContact.telefon_code}${selectedContact.telefon}`)} disabled={!selectedContact.telefon}>
+                          <Text style={[styles.detailModalValue, { color: selectedContact.telefon ? '#60a5fa' : '#fff', textAlign: 'center' }]} numberOfLines={1} ellipsizeMode="tail">{formatPhone(selectedContact) || '-'}</Text>
+                        </TouchableOpacity>
+                      </View>
+                      {selectedContact.transfermarkt_url && (
+                        <View style={{ flex: 1, minWidth: 140, alignItems: 'center' }}>
+                          <Text style={[styles.detailModalLabel, { color: 'rgba(255,255,255,0.5)' }]}>Transfermarkt</Text>
+                          <TouchableOpacity onPress={() => Linking.openURL(selectedContact.transfermarkt_url!)}>
+                            <Image source={TransfermarktIcon} style={{ width: 18, height: 18 }} resizeMode="contain" />
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                      {selectedContact.linkedin_url && (
+                        <View style={{ flex: 1, minWidth: 140, alignItems: 'center' }}>
+                          <Text style={[styles.detailModalLabel, { color: 'rgba(255,255,255,0.5)' }]}>LinkedIn</Text>
+                          <TouchableOpacity onPress={() => Linking.openURL(selectedContact.linkedin_url!)}>
+                            <Ionicons name="logo-linkedin" size={18} color="#0a66c2" />
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                      {selectedContact.created_by_name && (
+                        <View style={{ flex: 1, minWidth: 140, alignItems: 'center' }}>
+                          <Text style={[styles.detailModalLabel, { color: 'rgba(255,255,255,0.5)' }]}>Hinzugefügt von</Text>
+                          <Text style={[styles.detailModalValue, { color: '#fff', textAlign: 'center', width: '100%' }]} numberOfLines={1} ellipsizeMode="tail">{selectedContact.created_by_name}</Text>
                         </View>
                       )}
                     </View>
                   </View>
-                  <TouchableOpacity onPress={() => setShowDesktopDetailModal(false)} style={{ position: 'absolute', top: 12, right: 12, width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ color: colors.textSecondary, fontSize: 13, lineHeight: 14 }}>✕</Text>
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.detailModalBody}>
-                  {/* Verein, Bereich, Mannschaft - grouped */}
-                  <View style={[styles.detailModalBox, { backgroundColor: colors.surfaceSecondary }]}>
-                    <View style={styles.detailModalRow}>
-                      <View style={styles.detailModalField}>
-                        <Text style={[styles.detailModalLabel, { color: colors.textMuted }]}>Verein / Institution</Text>
-                        <Text style={[styles.detailModalValue, { color: colors.text }]}>{selectedContact.verein || '-'}</Text>
-                        {selectedContact.liga && <Text style={{ fontSize: 10, color: colors.textMuted, marginTop: 2 }}>{selectedContact.liga}</Text>}
-                      </View>
-                      <View style={styles.detailModalField}>
-                        <Text style={[styles.detailModalLabel, { color: colors.textMuted }]}>Bereich</Text>
-                        {selectedContact.bereich ? (
-                          <View style={[styles.bereichBadge, { alignSelf: 'flex-start', backgroundColor: selectedContact.bereich === 'Nachwuchs' ? (isDark ? 'rgba(251, 191, 36, 0.2)' : '#fef3c7') : (isDark ? 'rgba(34, 197, 94, 0.2)' : '#f0fdf4') }]}>
-                            <Text style={[styles.bereichText, { color: selectedContact.bereich === 'Nachwuchs' ? (isDark ? '#fbbf24' : '#92400e') : (isDark ? '#4ade80' : '#166534') }]}>{selectedContact.bereich}</Text>
-                          </View>
-                        ) : <Text style={[styles.detailModalValue, { color: colors.text }]}>-</Text>}
-                      </View>
-                      <View style={styles.detailModalField}>
-                        <Text style={[styles.detailModalLabel, { color: colors.textMuted }]}>Mannschaft</Text>
-                        <Text style={[styles.detailModalValue, { color: colors.text }]}>{selectedContact.mannschaft || '-'}</Text>
-                      </View>
-                    </View>
-                  </View>
-
-                  {/* Kontaktdaten mit Icons - vertikal */}
-                  <View style={[styles.detailModalBox, { backgroundColor: colors.surfaceSecondary }]}>
-                    <View style={styles.detailModalRow}>
-                      <View style={[styles.detailModalField, { gap: 10 }]}>
-                        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => selectedContact.email && Linking.openURL(`mailto:${selectedContact.email}`)} disabled={!selectedContact.email}>
-                          <Ionicons name="mail-outline" size={16} color={colors.textMuted} style={{ marginRight: 10, width: 20 }} />
-                          <Text style={[styles.detailModalValue, { color: selectedContact.email ? '#3b82f6' : colors.text }]} numberOfLines={1}>{selectedContact.email || '-'}</Text>
-                        </TouchableOpacity>
-                        {selectedContact.transfermarkt_url && (
-                          <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => Linking.openURL(selectedContact.transfermarkt_url!)}>
-                            <Ionicons name="link-outline" size={16} color={colors.textMuted} style={{ marginRight: 10, width: 20 }} />
-                            <Text style={[styles.detailModalValue, { color: '#3b82f6' }]} numberOfLines={1}>Transfermarkt Profil</Text>
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                      <View style={[styles.detailModalField, { gap: 10 }]}>
-                        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => selectedContact.telefon && Linking.openURL(`tel:${selectedContact.telefon_code}${selectedContact.telefon}`)} disabled={!selectedContact.telefon}>
-                          <Ionicons name="call-outline" size={16} color={colors.textMuted} style={{ marginRight: 10, width: 20 }} />
-                          <Text style={[styles.detailModalValue, { color: selectedContact.telefon ? '#3b82f6' : colors.text }]} numberOfLines={1}>{formatPhone(selectedContact)}</Text>
-                        </TouchableOpacity>
-                        {selectedContact.linkedin_url && (
-                          <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => Linking.openURL(selectedContact.linkedin_url!)}>
-                            <Ionicons name="link-outline" size={16} color={colors.textMuted} style={{ marginRight: 10, width: 20 }} />
-                            <Text style={[styles.detailModalValue, { color: '#3b82f6' }]} numberOfLines={1}>LinkedIn Profil</Text>
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                      <View style={styles.detailModalField}>
-                        {selectedContact.created_by_name && (
-                          <>
-                            <Text style={[styles.detailModalLabel, { color: colors.textMuted }]}>Hinzugefügt von</Text>
-                            <Text style={[styles.detailModalValue, { color: colors.text }]}>{selectedContact.created_by_name}</Text>
-                          </>
-                        )}
-                      </View>
-                    </View>
-                  </View>
 
                   {selectedContact.notes && (
-                    <View style={[styles.detailModalBox, { backgroundColor: colors.surfaceSecondary }]}>
+                    <View style={[styles.detailModalBox, { backgroundColor: 'rgba(0,0,0,0.5)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }]}>
                       <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-                        <Ionicons name="document-text-outline" size={16} color={colors.textMuted} style={{ marginRight: 10, width: 20, marginTop: 2 }} />
-                        <Text style={[styles.detailModalValue, { color: colors.text, flex: 1 }]}>{selectedContact.notes}</Text>
+                        <Ionicons name="document-text-outline" size={16} color="rgba(255,255,255,0.5)" style={{ marginRight: 10, width: 20, marginTop: 2 }} />
+                        <Text style={[styles.detailModalValue, { color: '#fff', flex: 1 }]}>{selectedContact.notes}</Text>
                       </View>
                     </View>
                   )}
                 </View>
 
-                <View style={[styles.detailModalFooter, { borderTopColor: colors.border }]}>
-                  <TouchableOpacity style={{ paddingVertical: 6, paddingHorizontal: 14, borderRadius: 6, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border }} onPress={() => { setShowDesktopDetailModal(false); openEditModal(selectedContact); }}>
-                    <Text style={[styles.editButtonText, { color: colors.text }]}>Bearbeiten</Text>
+                <View style={[styles.detailModalFooter, { borderTopColor: 'rgba(255,255,255,0.15)', zIndex: 1 }]}>
+                  <TouchableOpacity style={{ height: 28, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' }} onPress={() => { setShowDesktopDetailModal(false); openEditModal(selectedContact); }}>
+                    <Text style={{ fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.85)' }}>Bearbeiten</Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -1685,12 +1717,14 @@ export function FootballNetworkScreen({ navigation }: any) {
 
       <Modal visible={showAddModal} transparent animationType="fade">
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={closeModal}>
-          <TouchableOpacity style={[styles.modalContent, { backgroundColor: colors.surface }]} activeOpacity={1} onPress={() => setActiveDropdown(null)}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>{editingContact ? 'Kontakt bearbeiten' : 'Neuen Kontakt anlegen'}</Text>
-              <TouchableOpacity onPress={closeModal} style={styles.closeButton}><Text style={[styles.closeButtonText, { color: colors.textSecondary }]}>✕</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.modalContent} activeOpacity={1} onPress={() => setActiveDropdown(null)}>
+            <Image source={require('../../../assets/scouting-header-bg.jpg')} style={[StyleSheet.absoluteFillObject, { width: '100%', height: '100%', opacity: 0.85, ...({ objectFit: 'cover', objectPosition: 'center', backgroundSize: 'cover', backgroundPosition: 'center' } as any) }]} resizeMode="cover" />
+            <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.55)' }]} />
+            <View style={[styles.modalHeader, { zIndex: 1 }]}>
+              <Text style={styles.modalTitle}>{editingContact ? 'Kontakt bearbeiten' : 'Neuen Kontakt anlegen'}</Text>
+              <TouchableOpacity onPress={closeModal} style={styles.closeButton}><Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 20, lineHeight: 22 }}>✕</Text></TouchableOpacity>
             </View>
-            <ScrollView style={styles.modalScroll}>
+            <ScrollView style={[styles.modalScroll, { zIndex: 1 }]}>
               {!editingContact && (
                 <TouchableOpacity
                   style={[styles.importContactBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
@@ -1702,15 +1736,15 @@ export function FootballNetworkScreen({ navigation }: any) {
               )}
               {/* Nachname + Vorname nebeneinander */}
               <View style={styles.formRow}>
-                <View style={[styles.formField, { flex: 1 }]}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>Nachname *</Text><TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.nachname} onChangeText={(t) => setNewContact({...newContact, nachname: t})} placeholder="Nachname" placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} /></View>
-                <View style={[styles.formField, { flex: 1 }]}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>Vorname</Text><TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.vorname} onChangeText={(t) => setNewContact({...newContact, vorname: t})} placeholder="Vorname" placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} /></View>
+                <View style={[styles.formField, { flex: 1 }]}><Text style={styles.formLabel}>Nachname *</Text><TextInput style={styles.formInput} value={newContact.nachname} onChangeText={(t) => setNewContact({...newContact, nachname: t})} placeholder="Nachname" placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} /></View>
+                <View style={[styles.formField, { flex: 1 }]}><Text style={styles.formLabel}>Vorname</Text><TextInput style={styles.formInput} value={newContact.vorname} onChangeText={(t) => setNewContact({...newContact, vorname: t})} placeholder="Vorname" placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} /></View>
               </View>
 
               {/* TM URL */}
               <View style={styles.formField}>
-                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Transfermarkt URL {parsingTmUrl && '(wird geparst...)'}</Text>
+                <Text style={styles.formLabel}>Transfermarkt URL {parsingTmUrl && '(wird geparst...)'}</Text>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <TextInput style={[styles.formInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.transfermarkt_url} onChangeText={(t) => setNewContact({...newContact, transfermarkt_url: t})} placeholder="https://www.transfermarkt.de/..." placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} />
+                  <TextInput style={[styles.formInput, { flex: 1 }]} value={newContact.transfermarkt_url} onChangeText={(t) => setNewContact({...newContact, transfermarkt_url: t})} placeholder="https://www.transfermarkt.de/..." placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} />
                   {newContact.transfermarkt_url ? (
                     <TouchableOpacity style={[styles.formSelect, { width: 32, justifyContent: 'center', alignItems: 'center' }]} onPress={() => { if (window.confirm('TM-Verknüpfung entfernen?\nVerein/Position bleiben erhalten.')) setNewContact({...newContact, transfermarkt_url: ''}); }}>
                       <Text style={{ color: colors.textSecondary, fontSize: 12 }}>✕</Text>
@@ -1720,9 +1754,9 @@ export function FootballNetworkScreen({ navigation }: any) {
               </View>
 
               <View style={styles.formField}>
-                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>LinkedIn URL</Text>
+                <Text style={styles.formLabel}>LinkedIn URL</Text>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <TextInput style={[styles.formInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.linkedin_url} onChangeText={(t) => setNewContact({...newContact, linkedin_url: t})} placeholder="https://www.linkedin.com/in/..." placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} />
+                  <TextInput style={[styles.formInput, { flex: 1 }]} value={newContact.linkedin_url} onChangeText={(t) => setNewContact({...newContact, linkedin_url: t})} placeholder="https://www.linkedin.com/in/..." placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} />
                   {newContact.linkedin_url ? (
                     <TouchableOpacity style={[styles.formSelect, { width: 28, justifyContent: 'center', alignItems: 'center' }]} onPress={() => setNewContact({...newContact, linkedin_url: ''})}>
                       <Text style={{ color: colors.textSecondary, fontSize: 11 }}>✕</Text>
@@ -1734,7 +1768,7 @@ export function FootballNetworkScreen({ navigation }: any) {
               {/* Verein + Liga nebeneinander */}
               <View style={styles.formRow}>
               <View style={[styles.formField, { flex: 1 }]}>
-                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Verein / Institution</Text>
+                <Text style={styles.formLabel}>Verein / Institution</Text>
                 <View style={{ flexDirection: 'row', gap: 6 }}>
                   <TouchableOpacity style={[styles.formSelect, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => setActiveDropdown(activeDropdown === 'verein' ? null : 'verein')}>
                     <Text style={newContact.verein ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]}>{newContact.verein || 'Verein auswählen...'}</Text>
@@ -1781,8 +1815,8 @@ export function FootballNetworkScreen({ navigation }: any) {
               </View>
 
               <View style={[styles.formField, { flex: 1 }]}>
-                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Liga</Text>
-                <TouchableOpacity style={[styles.formSelect, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => setActiveDropdown(activeDropdown === 'liga' ? null : 'liga')}>
+                <Text style={styles.formLabel}>Liga</Text>
+                <TouchableOpacity style={styles.formSelect} onPress={() => setActiveDropdown(activeDropdown === 'liga' ? null : 'liga')}>
                   <Text style={newContact.liga ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]}>{newContact.liga || 'Liga...'}</Text>
                   <Text style={[styles.formSelectArrow, { color: colors.textSecondary }]}>▼</Text>
                 </TouchableOpacity>
@@ -1810,8 +1844,8 @@ export function FootballNetworkScreen({ navigation }: any) {
               {/* Bereich + Position + Mannschaft nebeneinander */}
               <View style={styles.formRow}>
               <View style={[styles.formField, { flex: 1 }]}>
-                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Bereich</Text>
-                <TouchableOpacity style={[styles.formSelect, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => setActiveDropdown(activeDropdown === 'bereich' ? null : 'bereich')}>
+                <Text style={styles.formLabel}>Bereich</Text>
+                <TouchableOpacity style={styles.formSelect} onPress={() => setActiveDropdown(activeDropdown === 'bereich' ? null : 'bereich')}>
                   <Text style={newContact.bereich ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]}>{newContact.bereich || 'Bereich...'}</Text>
                   <Text style={[styles.formSelectArrow, { color: colors.textSecondary }]}>▼</Text>
                 </TouchableOpacity>
@@ -1826,11 +1860,11 @@ export function FootballNetworkScreen({ navigation }: any) {
               </View>
 
               <View style={[styles.formField, { flex: 1 }]}>
-                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Position</Text>
+                <Text style={styles.formLabel}>Position</Text>
                 {customPositionInput ? (
                   <View style={{ flexDirection: 'row', gap: 8 }}>
                     <TextInput
-                      style={[styles.formInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+                      style={[styles.formInput, { flex: 1 }]}
                       value={customPositionText}
                       onChangeText={setCustomPositionText}
                       placeholder="Position..."
@@ -1846,7 +1880,7 @@ export function FootballNetworkScreen({ navigation }: any) {
                   </View>
                 ) : (
                   <>
-                    <TouchableOpacity style={[styles.formSelect, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => setActiveDropdown(activeDropdown === 'position' ? null : 'position')}>
+                    <TouchableOpacity style={styles.formSelect} onPress={() => setActiveDropdown(activeDropdown === 'position' ? null : 'position')}>
                       <Text style={newContact.position ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]}>{newContact.position || ('Position...')}</Text>
                       <Text style={[styles.formSelectArrow, { color: colors.textSecondary }]}>▼</Text>
                     </TouchableOpacity>
@@ -1866,8 +1900,8 @@ export function FootballNetworkScreen({ navigation }: any) {
               </View>
 
               <View style={[styles.formField, { flex: 1 }]}>
-                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Mannschaft</Text>
-                <TouchableOpacity style={[styles.formSelect, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => setActiveDropdown(activeDropdown === 'mannschaft' ? null : 'mannschaft')}>
+                <Text style={styles.formLabel}>Mannschaft</Text>
+                <TouchableOpacity style={styles.formSelect} onPress={() => setActiveDropdown(activeDropdown === 'mannschaft' ? null : 'mannschaft')}>
                   <Text style={newContact.mannschaft ? [styles.formSelectText, { color: colors.text }] : [styles.formSelectPlaceholder, { color: colors.textMuted }]}>{newContact.mannschaft || ('Mannschaft...')}</Text>
                   <Text style={[styles.formSelectArrow, { color: colors.textSecondary }]}>▼</Text>
                 </TouchableOpacity>
@@ -1883,7 +1917,7 @@ export function FootballNetworkScreen({ navigation }: any) {
               </View>
 
               <View style={styles.formField}>
-                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Telefon</Text>
+                <Text style={styles.formLabel}>Telefon</Text>
                 <View style={styles.phoneRow}>
                   <TouchableOpacity style={[styles.countryCodeButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]} onPress={() => setActiveDropdown(activeDropdown === 'country' ? null : 'country')}>
                     <Text style={[styles.countryCodeText, { color: colors.text }]}>{newContact.telefon_code}</Text><Text style={[styles.countryCodeArrow, { color: colors.textSecondary }]}>▼</Text>
@@ -1899,17 +1933,17 @@ export function FootballNetworkScreen({ navigation }: any) {
                 )}
               </View>
 
-              <View style={styles.formField}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>E-Mail</Text><TextInput style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.email} onChangeText={(t) => setNewContact({...newContact, email: t})} placeholder="email@beispiel.de" placeholderTextColor={colors.textMuted} keyboardType="email-address" onFocus={() => setActiveDropdown(null)} /></View>
-              <View style={styles.formField}><Text style={[styles.formLabel, { color: colors.textSecondary }]}>Weitere Informationen</Text><TextInput style={[styles.formInput, styles.textArea, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]} value={newContact.notes} onChangeText={(t) => setNewContact({...newContact, notes: t})} placeholder="Zusätzliche Informationen..." placeholderTextColor={colors.textMuted} multiline numberOfLines={3} onFocus={() => setActiveDropdown(null)} /></View>
+              <View style={styles.formField}><Text style={styles.formLabel}>E-Mail</Text><TextInput style={styles.formInput} value={newContact.email} onChangeText={(t) => setNewContact({...newContact, email: t})} placeholder="email@beispiel.de" placeholderTextColor={colors.textMuted} keyboardType="email-address" onFocus={() => setActiveDropdown(null)} /></View>
+              <View style={styles.formField}><Text style={styles.formLabel}>Weitere Informationen</Text><TextInput style={[styles.formInput, styles.textArea]} value={newContact.notes} onChangeText={(t) => setNewContact({...newContact, notes: t})} placeholder="Zusätzliche Informationen..." placeholderTextColor={colors.textMuted} multiline numberOfLines={3} onFocus={() => setActiveDropdown(null)} /></View>
             </ScrollView>
-            <View style={[styles.modalButtonsSpaced, { borderTopColor: colors.border }]}>
+            <View style={[styles.modalButtonsSpaced, { zIndex: 1 }]}>
               {editingContact && (
                 <TouchableOpacity style={styles.deleteButton} onPress={() => setShowDeleteConfirm(true)}>
                   <Text style={styles.deleteButtonText}>Löschen</Text>
                 </TouchableOpacity>
               )}
               <View style={styles.modalButtonsRight}>
-                <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.primary }]} onPress={editingContact ? updateContact : addContact}><Text style={[styles.saveButtonText, { color: colors.primaryText }]}>{editingContact ? 'Speichern' : 'Hinzufügen'}</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.saveButton} onPress={editingContact ? updateContact : addContact}><Text style={styles.saveButtonText}>{editingContact ? 'Speichern' : 'Hinzufügen'}</Text></TouchableOpacity>
               </View>
             </View>
           </TouchableOpacity>
@@ -2051,7 +2085,7 @@ const styles = StyleSheet.create({
   emptyStateText: { fontSize: 11, color: '#64748b' },
   tableClubLogo: { width: 20, height: 20, borderRadius: 3, marginRight: 8, resizeMode: 'contain' as any },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 16, padding: 24, width: '90%', maxWidth: 680, maxHeight: '90%' },
+  modalContent: { backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 16, padding: 24, width: '90%', maxWidth: 680, maxHeight: '90%', overflow: 'hidden' },
 
   // Desktop Detail Modal
   detailModalContent: { backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 16, width: '90%', maxWidth: 550, maxHeight: '90%' },
@@ -2072,19 +2106,19 @@ const styles = StyleSheet.create({
   editButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   editButtonText: { fontSize: 11, fontWeight: '600', color: '#1a1a1a' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: 16, fontWeight: '700', color: '#1a1a1a' },
-  closeButton: { padding: 6 },
+  modalTitle: { fontFamily: 'Josefin Sans', fontSize: 16, fontWeight: '300', letterSpacing: 4, textTransform: 'uppercase' as any, color: 'rgba(255,255,255,0.7)' },
+  closeButton: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
   closeButtonText: { fontSize: 16, color: '#64748b' },
   modalScroll: { maxHeight: 450 },
   formField: { marginBottom: 10 },
   formRow: { flexDirection: 'row', gap: 12 },
-  formLabel: { fontSize: 10, color: '#94a3b8', marginBottom: 4, fontWeight: '500' },
-  formInput: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 6, padding: 8, fontSize: 11, backgroundColor: 'rgba(0,0,0,0.55)' },
-  formSelect: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 6, padding: 8, backgroundColor: 'rgba(0,0,0,0.55)', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  formLabel: { fontSize: 10, color: 'rgba(255,255,255,0.5)', marginBottom: 6, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase' as any },
+  formInput: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 4, fontSize: 13, color: '#fff', backgroundColor: '#1a1a1a' },
+  formSelect: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 4, backgroundColor: '#1a1a1a', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   formSelectDisabled: { backgroundColor: 'rgba(0,0,0,0.45)' },
-  formSelectText: { fontSize: 11, color: '#1a1a1a' },
-  formSelectPlaceholder: { fontSize: 11, color: '#9ca3af' },
-  formSelectArrow: { fontSize: 10, color: '#64748b' },
+  formSelectText: { fontSize: 13, color: '#fff' },
+  formSelectPlaceholder: { fontSize: 13, color: 'rgba(255,255,255,0.3)' },
+  formSelectArrow: { fontSize: 12, color: 'rgba(255,255,255,0.5)' },
   dropdownList: { backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', marginTop: 4, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
   dropdownSearch: { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', padding: 8, fontSize: 11 },
   dropdownScroll: { maxHeight: 180 },
@@ -2093,21 +2127,21 @@ const styles = StyleSheet.create({
   dropdownItemText: { fontSize: 11, color: '#1a1a1a' },
   clubItemRow: { flexDirection: 'row', alignItems: 'center' },
   clubLogo: { width: 24, height: 24, borderRadius: 4, marginRight: 10 },
-  textArea: { minHeight: 80, textAlignVertical: 'top' },
+  textArea: { minHeight: 60, paddingVertical: 8, borderRadius: 12, textAlignVertical: 'top' },
   phoneRow: { flexDirection: 'row', gap: 8 },
-  countryCodeButton: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 8, backgroundColor: 'rgba(0,0,0,0.55)', minWidth: 70 },
+  countryCodeButton: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 24, paddingHorizontal: 12, paddingVertical: 4, backgroundColor: '#1a1a1a', minWidth: 70 },
   countryCodeText: { fontSize: 11, color: '#1a1a1a', marginRight: 4 },
   countryCodeArrow: { fontSize: 10, color: '#64748b' },
   phoneInput: { flex: 1 },
   modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
-  modalButtonsSpaced: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
-  modalButtonsRight: { flexDirection: 'row', gap: 12 },
+  modalButtonsSpaced: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)' },
+  modalButtonsRight: { flexDirection: 'row', gap: 10 },
   cancelButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   cancelButtonText: { fontSize: 11, color: '#64748b' },
-  saveButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#1a1a1a' },
-  saveButtonText: { fontSize: 11, color: '#fff', fontWeight: '500' },
-  deleteButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: 'rgba(239,68,68,0.15)', borderWidth: 1, borderColor: '#fecaca' },
-  deleteButtonText: { fontSize: 11, color: '#ef4444', fontWeight: '500' },
+  saveButton: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: '#22c55e', backgroundColor: '#22c55e' },
+  saveButtonText: { fontSize: 11, color: '#fff', fontWeight: '600' },
+  deleteButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: 'rgba(239,68,68,0.15)', borderWidth: 1, borderColor: '#ef4444' },
+  deleteButtonText: { fontSize: 11, color: '#ef4444', fontWeight: '600' },
 
   // Delete Confirmation Modal
   deleteConfirmModal: { backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 12, padding: 20, width: '85%', maxWidth: 280, alignItems: 'center' },
@@ -2208,7 +2242,7 @@ const styles = StyleSheet.create({
   mobileEditText: { fontSize: 16, color: '#64748b', fontWeight: '600' },
 
   // Mobile Form Modal
-  mobileFormModal: { backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 16, padding: 20, width: '95%', maxHeight: '95%' },
+  mobileFormModal: { backgroundColor: 'rgba(0,0,0,0.55)', borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 0, width: '100%', maxHeight: '90%' },
 
   // Empty State
   emptyText: { textAlign: 'center', color: '#64748b', fontSize: 14, paddingVertical: 40 },

@@ -315,6 +315,11 @@ export function ScoutingScreen({ navigation }: any) {
   const [tmSelected, setTmSelected] = useState<any>(null);
   const tmDebounceRef = useRef<any>(null);
 
+  // TM club search (used by renderClubSelector to extend local club_logos list)
+  const [tmClubResults, setTmClubResults] = useState<Array<{ name: string; logoUrl: string; liga?: string; country?: string }>>([]);
+  const [tmClubSearching, setTmClubSearching] = useState(false);
+  const tmClubSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [newGame, setNewGame] = useState({
     date: '', home_team: '', away_team: '', location: '', notes: '',
     game_type: '', description: '', age_group: '', scout_id: ''
@@ -689,20 +694,17 @@ export function ScoutingScreen({ navigation }: any) {
 
   const getFilteredClubs = (searchTxt: string, showAll: boolean = false) => {
     const filtered = clubNames.filter(name => {
-      // Filter out 2. Mannschaften, U23, U21, II, B-Team etc.
       const lowerName = name.toLowerCase();
-      if (lowerName.includes(' ii') || lowerName.includes(' 2')) return false;
+      // Reserve-/Jugend-/B-Teams nur ausschließen wenn als Suffix (verhindert Treffer wie "Wacker 2014")
+      if (/\s(ii|2|b)$/i.test(name)) return false;
       if (lowerName.includes('u23') || lowerName.includes('u21') || lowerName.includes('u19')) return false;
       if (lowerName.includes('reserve') || lowerName.includes('amateur')) return false;
-      if (lowerName.includes(' b ') || lowerName.endsWith(' b')) return false; // More precise B-Team filter
-      // If search text provided, filter by it
       if (searchTxt && searchTxt.length > 0) {
         return lowerName.includes(searchTxt.toLowerCase());
       }
       return true;
     });
-    // Show more results when browsing all, limit when searching
-    return showAll ? filtered.slice(0, 50) : filtered.slice(0, 20);
+    return showAll ? filtered.slice(0, 50) : filtered.slice(0, 50);
   };
 
   // Liga-Rang Mapping für Sortierung (deutsche Top-Vereine)
@@ -775,6 +777,33 @@ export function ScoutingScreen({ navigation }: any) {
     if (tmDebounceRef.current) clearTimeout(tmDebounceRef.current);
     const query = firstName.trim() ? `${firstName.trim()} ${lastName.trim()}` : lastName.trim();
     tmDebounceRef.current = setTimeout(() => searchTmPlayers(query), 500);
+  };
+
+  // ── TM Club Search (for renderClubSelector fallback) ──
+  const searchTmClubs = async (query: string) => {
+    if (query.trim().length < 2) { setTmClubResults([]); return; }
+    setTmClubSearching(true);
+    try {
+      const { data } = await supabase.functions.invoke('search-club', { body: { query } });
+      const results: Array<{ name: string; logoUrl: string; liga?: string; country?: string }> = data?.results || [];
+      const localLower = new Set(clubNames.map(n => n.toLowerCase()));
+      const dedup = results.filter(r => r?.name && !localLower.has(r.name.toLowerCase()));
+      setTmClubResults(dedup);
+    } catch { setTmClubResults([]); }
+    setTmClubSearching(false);
+  };
+
+  const triggerTmClubSearch = (query: string) => {
+    if (tmClubSearchTimer.current) clearTimeout(tmClubSearchTimer.current);
+    tmClubSearchTimer.current = setTimeout(() => searchTmClubs(query), 300);
+  };
+
+  const selectTmClub = (club: { name: string; logoUrl: string }) => {
+    // Die search-club Edge-Function hat den Verein bereits in club_logos upgeserted (service-role).
+    // Hier nur lokalen State spiegeln, damit der Verein sofort ohne Re-Fetch nutzbar ist.
+    setClubLogos(prev => ({ ...prev, [club.name]: club.logoUrl }));
+    setClubNames(prev => prev.includes(club.name) ? prev : [...prev, club.name].sort());
+    setTmClubResults([]);
   };
 
   // Reset TM-automatisch ausgefüllte Felder (Verein, Position, Geburtsdatum, TM-Link)
@@ -872,91 +901,94 @@ export function ScoutingScreen({ navigation }: any) {
 
   const addScoutedPlayer = async () => {
     if (!newPlayer.first_name || !newPlayer.last_name || !currentUserId) return;
-    
-    // Duplikat-Prüfung: Prüfe in scouted_players und player_details
-    const firstName = newPlayer.first_name.trim().toLowerCase();
-    const lastName = newPlayer.last_name.trim().toLowerCase();
-    
-    // Prüfe in Scouting
-    const { data: scoutingDuplicates } = await supabase
-      .from('scouted_players')
-      .select('id, first_name, last_name, club')
-      .ilike('first_name', firstName)
-      .ilike('last_name', lastName);
-    
-    // Prüfe in Spielerübersicht
-    const { data: playerDuplicates } = await supabase
-      .from('player_details')
-      .select('id, first_name, last_name, club')
-      .ilike('first_name', firstName)
-      .ilike('last_name', lastName);
-    
-    const hasDuplicates = (scoutingDuplicates && scoutingDuplicates.length > 0) || (playerDuplicates && playerDuplicates.length > 0);
-    
-    if (hasDuplicates) {
-      let message = `Ein Spieler mit dem Namen "${newPlayer.first_name} ${newPlayer.last_name}" existiert bereits:\n\n`;
+    if (tmLoading) return; // Schon im Anlegen, ignoriere weitere Klicks
 
-      if (scoutingDuplicates && scoutingDuplicates.length > 0) {
-        message += '📋 In Scouting:\n';
-        scoutingDuplicates.forEach(p => {
-          message += `  • ${p.first_name} ${p.last_name}${p.club ? ` (${p.club})` : ''}\n`;
-        });
+    setTmLoading(true);
+    try {
+      // Duplikat-Prüfung: Prüfe in scouted_players und player_details — PARALLEL
+      const firstName = newPlayer.first_name.trim().toLowerCase();
+      const lastName = newPlayer.last_name.trim().toLowerCase();
+
+      const [{ data: scoutingDuplicates }, { data: playerDuplicates }] = await Promise.all([
+        supabase
+          .from('scouted_players')
+          .select('id, first_name, last_name, club')
+          .ilike('first_name', firstName)
+          .ilike('last_name', lastName),
+        supabase
+          .from('player_details')
+          .select('id, first_name, last_name, club')
+          .ilike('first_name', firstName)
+          .ilike('last_name', lastName),
+      ]);
+
+      const hasDuplicates = (scoutingDuplicates && scoutingDuplicates.length > 0) || (playerDuplicates && playerDuplicates.length > 0);
+
+      if (hasDuplicates) {
+        let message = `Ein Spieler mit dem Namen "${newPlayer.first_name} ${newPlayer.last_name}" existiert bereits:\n\n`;
+
+        if (scoutingDuplicates && scoutingDuplicates.length > 0) {
+          message += '📋 In Scouting:\n';
+          scoutingDuplicates.forEach(p => {
+            message += `  • ${p.first_name} ${p.last_name}${p.club ? ` (${p.club})` : ''}\n`;
+          });
+        }
+
+        if (playerDuplicates && playerDuplicates.length > 0) {
+          message += '\n👥 In Spielerübersicht:\n';
+          playerDuplicates.forEach(p => {
+            message += `  • ${p.first_name} ${p.last_name}${p.club ? ` (${p.club})` : ''}\n`;
+          });
+        }
+
+        message += '\nTrotzdem anlegen?';
+
+        // Use platform-appropriate confirm dialog
+        if (Platform.OS === 'web') {
+          const confirmAdd = window.confirm(message);
+          if (!confirmAdd) { setTmLoading(false); return; }
+        }
+        // On mobile, skip duplicate check confirmation and allow adding
       }
 
-      if (playerDuplicates && playerDuplicates.length > 0) {
-        message += '\n👥 In Spielerübersicht:\n';
-        playerDuplicates.forEach(p => {
-          message += `  • ${p.first_name} ${p.last_name}${p.club ? ` (${p.club})` : ''}\n`;
-        });
+      // TM-Agent-Fetch ist OPTIONAL und kann lange dauern → im Hintergrund nach Insert
+      // (nicht blockieren!)
+
+      // Strip helper fields not in DB schema
+      const { scout_manual, ...playerFields } = newPlayer;
+      const playerData: any = {
+        ...playerFields,
+        // Leere Strings → null für Felder die DB als nullable hat (DATE/TEXT)
+        birth_date: playerFields.birth_date || null,
+        position: playerFields.position || '',
+        club: playerFields.club || '',
+        rating: playerFields.rating || null,
+        transfermarkt_url: playerFields.transfermarkt_url || null,
+        agent_name: newPlayer.agent_name || null,
+        agent_updated_at: newPlayer.transfermarkt_url ? new Date().toISOString() : null,
+        scout_id: newPlayer.scout_id || currentUserId,
+        // Wenn manueller Scout eingegeben → an additional_info als "Externer Scout: <name>" anhängen
+        additional_info: scout_manual && !newPlayer.scout_id ? `${newPlayer.additional_info ? newPlayer.additional_info + '\n' : ''}Externer Scout: ${scout_manual}` : (newPlayer.additional_info || null),
+        responsibility: newPlayer.responsibility || null,
+        archived: false,
+      };
+
+      const { data: insertedRows, error } = await supabase.from('scouted_players').insert(playerData).select('id').limit(1);
+      if (error) {
+        console.error('Error adding player:', error);
+        alert('Fehler beim Hinzufügen: ' + (error.message || JSON.stringify(error)));
+        setTmLoading(false);
+        return;
       }
 
-      message += '\nTrotzdem anlegen?';
+      const insertedId = insertedRows?.[0]?.id;
 
-      // Use platform-appropriate confirm dialog
-      if (Platform.OS === 'web') {
-        const confirmAdd = window.confirm(message);
-        if (!confirmAdd) return;
-      }
-      // On mobile, skip duplicate check confirmation and allow adding
-    }
-    
-    // Try to fetch agent if transfermarkt URL is provided
-    let agentName = newPlayer.agent_name;
-    if (newPlayer.transfermarkt_url && !agentName) {
-      const fetchedAgent = await fetchAgentFromTransfermarkt(newPlayer.transfermarkt_url);
-      if (fetchedAgent) agentName = fetchedAgent;
-    }
-    
-    // Strip helper fields not in DB schema
-    const { scout_manual, ...playerFields } = newPlayer;
-    const playerData: any = {
-      ...playerFields,
-      // Leere Strings → null für Felder die DB als nullable hat (DATE/TEXT)
-      birth_date: playerFields.birth_date || null,
-      position: playerFields.position || '',
-      club: playerFields.club || '',
-      rating: playerFields.rating || null,
-      transfermarkt_url: playerFields.transfermarkt_url || null,
-      agent_name: agentName || null,
-      agent_updated_at: newPlayer.transfermarkt_url ? new Date().toISOString() : null,
-      scout_id: newPlayer.scout_id || currentUserId,
-      // Wenn manueller Scout eingegeben → an additional_info als "Externer Scout: <name>" anhängen
-      additional_info: scout_manual && !newPlayer.scout_id ? `${newPlayer.additional_info ? newPlayer.additional_info + '\n' : ''}Externer Scout: ${scout_manual}` : (newPlayer.additional_info || null),
-      responsibility: newPlayer.responsibility || null,
-      archived: false,
-    };
-
-    const { error } = await supabase.from('scouted_players').insert(playerData);
-    if (error) {
-      console.error('Error adding player:', error);
-      alert('Fehler beim Hinzufügen: ' + (error.message || JSON.stringify(error)));
-    } else {
       // If this was from a game player, mark them as added
       if (addingGamePlayerId) {
         await supabase.from('scouting_game_players').update({ added_to_database: true }).eq('id', addingGamePlayerId);
         setAddingGamePlayerId(null);
       }
-      
+
       setShowAddPlayerModal(false);
       setNewPlayer(EMPTY_NEW_PLAYER);
       setNewPlayerClubSearch('');
@@ -965,7 +997,7 @@ export function ScoutingScreen({ navigation }: any) {
       setTmSearching(false);
       setTmLoading(false);
       fetchScoutedPlayers();
-      
+
       // Reopen the game detail modal if we came from there
       if (gameToReopenAfterAdd) {
         const gameToReopen = gameToReopenAfterAdd;
@@ -974,6 +1006,21 @@ export function ScoutingScreen({ navigation }: any) {
           openGameDetail(gameToReopen);
         }, 100);
       }
+
+      // TM-Agent im HINTERGRUND nachladen (nicht blockierend)
+      if (insertedId && newPlayer.transfermarkt_url && !newPlayer.agent_name) {
+        fetchAgentFromTransfermarkt(newPlayer.transfermarkt_url).then(agentName => {
+          if (agentName) {
+            supabase.from('scouted_players').update({ agent_name: agentName }).eq('id', insertedId).then(() => {
+              fetchScoutedPlayers();
+            });
+          }
+        }).catch(() => {/* ignore */});
+      }
+    } catch (e: any) {
+      console.error('addScoutedPlayer exception:', e);
+      alert('Fehler beim Anlegen: ' + (e?.message || 'Unbekannter Fehler'));
+      setTmLoading(false);
     }
   };
 
@@ -1529,18 +1576,32 @@ export function ScoutingScreen({ navigation }: any) {
   ) => {
     const showAll = searchTxt.length === 0;
     const list = getFilteredClubs(searchTxt, showAll);
+    const hasTmResults = tmClubResults.length > 0;
+    const hasAnyContent = list.length > 0 || hasTmResults || tmClubSearching;
     return (
       <View style={styles.clubSelectorContainer}>
-        <TextInput
-          style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
-          value={searchTxt}
-          onChangeText={(t) => { setSearchTxt(t); onSelect(t); setShowDrop(true); }}
-          onFocus={() => setShowDrop(true)}
-          onBlur={() => setTimeout(() => setShowDrop(false), 200)}
-          placeholder="Verein suchen oder auswählen..."
-          placeholderTextColor={colors.textMuted}
-        />
-        {showDrop && list.length > 0 && (
+        <View style={{ position: 'relative' }}>
+          <TextInput
+            style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text, paddingRight: tmClubSearching ? 32 : undefined }]}
+            value={searchTxt}
+            onChangeText={(t) => {
+              setSearchTxt(t);
+              onSelect(t);
+              setShowDrop(true);
+              triggerTmClubSearch(t);
+            }}
+            onFocus={() => setShowDrop(true)}
+            onBlur={() => setTimeout(() => setShowDrop(false), 200)}
+            placeholder="Verein suchen oder auswählen..."
+            placeholderTextColor={colors.textMuted}
+          />
+          {tmClubSearching && (
+            <View style={{ position: 'absolute', right: 10, top: 0, bottom: 0, justifyContent: 'center' }}>
+              <Ionicons name="search" size={14} color="rgba(255,255,255,0.5)" />
+            </View>
+          )}
+        </View>
+        {showDrop && hasAnyContent && (
           <View style={[styles.clubDropdown, { backgroundColor: '#000', borderColor: 'rgba(255,255,255,0.25)', borderWidth: 1, borderRadius: 8, marginTop: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.6, shadowRadius: 16, elevation: 16, overflow: 'hidden' }]}>
             <ScrollView style={styles.clubDropdownScroll} nestedScrollEnabled keyboardShouldPersistTaps="handled">
               {list.map((club) => (
@@ -1549,6 +1610,40 @@ export function ScoutingScreen({ navigation }: any) {
                   <Text style={[styles.clubDropdownText, { color: '#fff' }]}>{club}</Text>
                 </TouchableOpacity>
               ))}
+              {hasTmResults && (
+                <>
+                  <View style={{ paddingVertical: 6, paddingHorizontal: 12, backgroundColor: 'rgba(255,255,255,0.04)', borderTopWidth: 1, borderBottomWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '600', letterSpacing: 0.5, textTransform: 'uppercase' }}>Aus Transfermarkt</Text>
+                  </View>
+                  {tmClubResults.map((club, i) => (
+                    <TouchableOpacity
+                      key={`tm-${club.name}-${i}`}
+                      style={[styles.clubDropdownItem, { backgroundColor: '#000', borderBottomColor: 'rgba(255,255,255,0.06)' }]}
+                      onPress={() => {
+                        selectTmClub(club);
+                        setSearchTxt(club.name);
+                        onSelect(club.name);
+                        setShowDrop(false);
+                      }}
+                    >
+                      {club.logoUrl ? <Image source={{ uri: club.logoUrl }} style={styles.clubDropdownLogo} /> : null}
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.clubDropdownText, { color: '#fff' }]}>{club.name}</Text>
+                        {(club.liga || club.country) && (
+                          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginTop: 1 }}>
+                            {[club.liga, club.country].filter(Boolean).join(' · ')}
+                          </Text>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </>
+              )}
+              {!hasTmResults && tmClubSearching && list.length === 0 && (
+                <View style={{ paddingVertical: 10, paddingHorizontal: 12 }}>
+                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>Suche auf Transfermarkt…</Text>
+                </View>
+              )}
             </ScrollView>
           </View>
         )}
@@ -2021,17 +2116,31 @@ export function ScoutingScreen({ navigation }: any) {
               style={[
                 styles.statusOption,
                 { backgroundColor: isDark ? colors.surface : '#f1f5f9', borderColor: colors.border },
-                data.status === status.id && { backgroundColor: status.color, borderColor: status.color }
+                data.status === status.id && !selectedPlayer?.archived && { backgroundColor: status.color, borderColor: status.color }
               ]}
               onPress={() => setData({ ...data, status: status.id })}
             >
               <Text style={[
                 styles.statusOptionText,
                 { color: colors.textSecondary },
-                data.status === status.id && { color: '#fff' }
+                data.status === status.id && !selectedPlayer?.archived && { color: '#fff' }
               ]}>{status.label}</Text>
             </TouchableOpacity>
           ))}
+          <TouchableOpacity
+            style={[
+              styles.statusOption,
+              { backgroundColor: isDark ? colors.surface : '#f1f5f9', borderColor: colors.border },
+              selectedPlayer?.archived && { backgroundColor: '#64748b', borderColor: '#64748b' }
+            ]}
+            onPress={() => { if (selectedPlayer) setShowArchiveModal(true); }}
+          >
+            <Text style={[
+              styles.statusOptionText,
+              { color: colors.textSecondary },
+              selectedPlayer?.archived && { color: '#fff' }
+            ]}>Archiv</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -3263,6 +3372,7 @@ export function ScoutingScreen({ navigation }: any) {
               <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
                 <Text style={[styles.modalTitle, { color: colors.text }]}>Spieler archivieren</Text>
                 <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>{selectedPlayer.last_name}, {selectedPlayer.first_name}</Text>
+                <Text style={{ color: colors.text, fontSize: 14, marginBottom: 12, marginTop: 4 }}>Soll der Spieler wirklich archiviert werden?</Text>
 
                 <View style={styles.formField}>
                   <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Grund für Archivierung</Text>
@@ -3654,7 +3764,7 @@ export function ScoutingScreen({ navigation }: any) {
                 <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 20 }}>✕</Text>
               </TouchableOpacity>
             </View>
-            <View>
+            <View style={{ position: 'relative', zIndex: 1000 }}>
             {/* Card 1: Vorname | Nachname | Verein */}
             <View style={[styles.detailInfo, { zIndex: 9999, position: 'relative' }]}>
               <View style={{ position: 'relative', zIndex: 9999 }}>
@@ -3876,7 +3986,7 @@ export function ScoutingScreen({ navigation }: any) {
                 </View>
               </View>
             </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'flex-end', marginTop: 20 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'flex-end', marginTop: 20, position: 'relative', zIndex: 0 }}>
               <TouchableOpacity style={{ paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#22c55e', borderWidth: 1, borderColor: '#22c55e', opacity: tmLoading ? 0.5 : 1 }} onPress={addScoutedPlayer} disabled={tmLoading}>
                 <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>{tmLoading ? 'Laden...' : 'Spieler anlegen'}</Text>
               </TouchableOpacity>
@@ -4715,8 +4825,8 @@ export function ScoutingScreen({ navigation }: any) {
 
               {/* Header-Card */}
               <View style={styles.detailHeader}>
-                <View style={styles.detailHeaderTop}>
-                  <View style={{ flex: 1 }}>
+                <View style={[styles.detailHeaderTop, { zIndex: 200, position: 'relative' }]}>
+                  <View style={{ flex: 1, zIndex: 200 }}>
                     {isEditing ? (
                       <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start', zIndex: 9999 }}>
                         <View style={{ flex: 1 }}>
@@ -4770,7 +4880,7 @@ export function ScoutingScreen({ navigation }: any) {
                 <View style={styles.detailHeaderDivider} />
 
                 {/* Stats-Row: Transfermarkt | Geburtsdatum | Position | Einschätzung */}
-                <View style={styles.detailStatsRow}>
+                <View style={[styles.detailStatsRow, { zIndex: 1, position: 'relative' }]}>
                   {/* Transfermarkt */}
                   <View style={styles.detailStatCol}>
                     <Text style={styles.detailStatLabel}>Transfermarkt</Text>
@@ -5034,6 +5144,7 @@ export function ScoutingScreen({ navigation }: any) {
           <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>Spieler archivieren</Text>
             <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>{selectedPlayer?.last_name}, {selectedPlayer?.first_name}</Text>
+            <Text style={{ color: colors.text, fontSize: 14, marginBottom: 12, marginTop: 4 }}>Soll der Spieler wirklich archiviert werden?</Text>
 
             <View style={styles.formField}>
               <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Grund für Archivierung</Text>

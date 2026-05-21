@@ -1736,7 +1736,7 @@ END:VEVENT
               <TouchableOpacity onPress={toggleSelectAllFiltered} style={{ width: 36, alignItems: 'center', justifyContent: 'center' }}>
                 <Ionicons
                   name={areAllFilteredSelected() ? 'checkbox' : 'square-outline'}
-                  size={18}
+                  size={22}
                   color={areAllFilteredSelected() ? colors.primary : colors.textMuted}
                 />
               </TouchableOpacity>
@@ -1823,7 +1823,7 @@ END:VEVENT
                       >
                         <Ionicons
                           name={game.selected ? 'checkbox' : 'square-outline'}
-                          size={18}
+                          size={22}
                           color={game.selected ? colors.primary : colors.textMuted}
                         />
                       </TouchableOpacity>

@@ -36,17 +36,21 @@ export function MobileHeader({ title, subtitle, backgroundImage, backgroundImage
           <Text style={styles.title} numberOfLines={1}>{title}</Text>
           {subtitle ? <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text> : null}
         </View>
-
-        {onProfilePress ? (
-          <TouchableOpacity style={[styles.profileButton, { backgroundColor: colors.primary }]} onPress={onProfilePress}>
-            <Text style={[styles.profileInitials, { color: colors.primaryText }]}>{profileInitials || '?'}</Text>
-          </TouchableOpacity>
-        ) : null}
       </View>
 
       <View style={styles.divider} />
 
-      {children ? <View style={styles.toolbar}>{children}</View> : null}
+      {(children || onProfilePress) ? (
+        <View style={styles.toolbar}>
+          {children}
+          <View style={{ flex: 1 }} />
+          {onProfilePress ? (
+            <TouchableOpacity style={[styles.profileButton, { backgroundColor: colors.primary }]} onPress={onProfilePress}>
+              <Text style={[styles.profileInitials, { color: colors.primaryText }]}>{profileInitials || '?'}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }

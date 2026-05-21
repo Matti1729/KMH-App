@@ -171,6 +171,8 @@ interface Player {
   secondary_position: string;
   club: string;
   league: string;
+  loan_from_club?: string;
+  loan_from_club_league?: string;
   birth_date: string;
   nationality: string;
   height: number;
@@ -192,6 +194,7 @@ interface RequestBody {
   advisorEmail?: string;
   advisorPhone?: string;
   clubLogoUrl?: string;
+  loanFromClubLogoUrl?: string;
   lang?: 'de' | 'en';
 }
 
@@ -496,7 +499,7 @@ function normalizeLeagueName(name: string): string {
   return name.replace(/\s+-\s+.+$/, '').trim();
 }
 
-function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescription: string, additionalInfo: string, highlightVideoUrl: string | undefined, highlightVideoTitle: string | undefined, lang: 'de' | 'en', translations: Map<string, string>, advisorEmail?: string, advisorPhone?: string, clubLogoUrl?: string): string {
+function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescription: string, additionalInfo: string, highlightVideoUrl: string | undefined, highlightVideoTitle: string | undefined, lang: 'de' | 'en', translations: Map<string, string>, advisorEmail?: string, advisorPhone?: string, clubLogoUrl?: string, loanFromClubLogoUrl?: string): string {
   const t = I18N[lang];
   const dateLocale = lang === 'en' ? 'en-GB' : 'de-DE';
   const positionFullMap = lang === 'en' ? POSITION_MAP_EN : POSITION_MAP;
@@ -531,6 +534,8 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
   const age = calculateAge(player.birth_date);
   const normalizedClub = normalizeGermanClubName(player.club);
   const normalizedLeague = normalizeLeagueName(player.league || '');
+  const normalizedLoanClub = player.loan_from_club ? normalizeGermanClubName(player.loan_from_club) : '';
+  const normalizedLoanLeague = player.loan_from_club_league ? normalizeLeagueName(player.loan_from_club_league) : '';
   const flagsHtml = nationalityToFlags(player.nationality);
   const longestName = Math.max((player.last_name || '').length, (player.first_name || '').length);
   const nameSize = longestName > 16 ? 36 : longestName > 12 ? 44 : 52;
@@ -749,14 +754,21 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
             <div style="display: flex; align-items: center; gap: 10px; margin-top: 6px; flex-wrap: nowrap; white-space: nowrap; min-width: 0;">
               ${clubLogoUrl ? `<img src="${clubLogoUrl}" crossorigin="anonymous" style="width: 28px; height: 28px; object-fit: contain; flex-shrink: 0;" />` : ''}
               <span style="font-family: 'Josefin Sans', sans-serif; font-size: ${clubLeagueSize}px; font-weight: 300; letter-spacing: ${ls}px; text-transform: uppercase; color: rgba(255,255,255,0.7) !important; white-space: nowrap;">${normalizedClub || '-'}</span>
-              ${normalizedLeague ? `<span style="font-family: 'Josefin Sans', sans-serif; font-size: ${clubLeagueSize}px; font-weight: 300; letter-spacing: ${ls}px; color: rgba(255,255,255,0.4) !important; white-space: nowrap;"> · </span><span style="font-family: 'Josefin Sans', sans-serif; font-size: ${clubLeagueSize}px; font-weight: 300; letter-spacing: ${ls}px; text-transform: uppercase; color: rgba(255,255,255,0.7) !important; white-space: nowrap;">${normalizedLeague}</span>` : ''}
-            </div>`;
+              ${normalizedLeague ? `<span style="font-family: 'Josefin Sans', sans-serif; font-size: ${clubLeagueSize}px; font-weight: 300; letter-spacing: ${ls}px; color: rgba(255,255,255,0.75) !important; white-space: nowrap;"> · </span><span style="font-family: 'Josefin Sans', sans-serif; font-size: ${clubLeagueSize}px; font-weight: 300; letter-spacing: ${ls}px; text-transform: uppercase; color: rgba(255,255,255,0.7) !important; white-space: nowrap;">${normalizedLeague}</span>` : ''}
+            </div>
+            ${normalizedLoanClub ? `
+            <div style="display: flex; align-items: center; gap: 10px; margin-top: 4px; flex-wrap: nowrap; white-space: nowrap; min-width: 0;">
+              <span style="font-family: 'Josefin Sans', sans-serif; font-size: ${Math.max(clubLeagueSize - 4, 9)}px; font-weight: 500; letter-spacing: ${Math.max(ls - 0.5, 1)}px; text-transform: uppercase; color: #22c55e !important; white-space: nowrap; flex-shrink: 0;">${lang === 'en' ? 'on loan from' : 'ausgeliehen von'}</span>
+              ${loanFromClubLogoUrl ? `<img src="${loanFromClubLogoUrl}" crossorigin="anonymous" style="width: 22px; height: 22px; object-fit: contain; flex-shrink: 0;" />` : ''}
+              <span style="font-family: 'Josefin Sans', sans-serif; font-size: ${Math.max(clubLeagueSize - 2, 11)}px; font-weight: 300; letter-spacing: ${Math.max(ls - 0.5, 1.2)}px; text-transform: uppercase; color: rgba(255,255,255,0.55) !important; white-space: nowrap;">${normalizedLoanClub}</span>
+              ${normalizedLoanLeague ? `<span style="font-family: 'Josefin Sans', sans-serif; font-size: ${clubLeagueSize}px; font-weight: 300; letter-spacing: ${ls}px; color: rgba(255,255,255,0.75) !important; white-space: nowrap;"> · </span><span style="font-family: 'Josefin Sans', sans-serif; font-size: ${Math.max(clubLeagueSize - 2, 11)}px; font-weight: 300; letter-spacing: ${Math.max(ls - 0.5, 1.2)}px; text-transform: uppercase; color: rgba(255,255,255,0.55) !important; white-space: nowrap;">${normalizedLoanLeague}</span>` : ''}
+            </div>` : ''}`;
             })()}
           </div>
 
-          <div style="align-self: flex-start; padding-top: 4px; flex-shrink: 0; display: flex; flex-direction: row; flex-wrap: nowrap; align-items: center; gap: 10px;">
-            <span style="font-size: 9px; color: #fff !important; font-weight: 500; line-height: 18px; white-space: nowrap;">${t.asOf}: ${(() => { const d = new Date(); return lang === 'en' ? formatEnDate(d.getDate(), d.getMonth(), d.getFullYear()) : `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`; })()}</span>
+          <div style="align-self: flex-start; padding-top: 4px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px;">
             <span style="font-family: 'Josefin Sans', sans-serif; font-size: 18px; font-weight: 300; letter-spacing: 4px; text-transform: uppercase; color: rgba(255,255,255,0.5) !important; line-height: 18px; white-space: nowrap;">${t.expose}</span>
+            <span style="font-size: 9px; color: rgba(255,255,255,0.6) !important; font-weight: 500; line-height: 12px; white-space: nowrap;">${t.asOf}: ${(() => { const d = new Date(); return lang === 'en' ? formatEnDate(d.getDate(), d.getMonth(), d.getFullYear()) : `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`; })()}</span>
           </div>
         </div>
 
@@ -994,7 +1006,7 @@ serve(async (req) => {
     }
     console.log("BROWSERLESS_API_KEY is set");
 
-    const { player, careerEntries, playerDescription, additionalInfo, highlightVideoUrl, highlightVideoTitle, advisorEmail, advisorPhone, clubLogoUrl, lang }: RequestBody = await req.json();
+    const { player, careerEntries, playerDescription, additionalInfo, highlightVideoUrl, highlightVideoTitle, advisorEmail, advisorPhone, clubLogoUrl, loanFromClubLogoUrl, lang }: RequestBody = await req.json();
     const language: 'de' | 'en' = lang === 'en' ? 'en' : 'de';
     console.log("Received player:", player?.first_name, player?.last_name);
 
@@ -1028,7 +1040,7 @@ serve(async (req) => {
     }
 
     // HTML generieren (exakt wie in der App-Vorschau)
-    const html = generateHtml(player, careerEntries || [], playerDescription || '', additionalInfo || '', highlightVideoUrl, highlightVideoTitle, language, translations, advisorEmail, advisorPhone, clubLogoUrl);
+    const html = generateHtml(player, careerEntries || [], playerDescription || '', additionalInfo || '', highlightVideoUrl, highlightVideoTitle, language, translations, advisorEmail, advisorPhone, clubLogoUrl, loanFromClubLogoUrl);
     console.log("HTML generated, length:", html.length);
 
     // Browserless.io API aufrufen

@@ -2074,8 +2074,8 @@ export function TransfersScreen({ navigation }: any) {
                       <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Gesuchte Position</Text>
                       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
                         {selectedClub.position_needed ? selectedClub.position_needed.split(', ').map((p, idx) => (
-                          <View key={idx} style={{ backgroundColor: 'rgba(34,197,94,0.15)', borderWidth: 1, borderColor: '#22c55e', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 }}>
-                            <Text style={{ color: '#22c55e', fontSize: 12, fontWeight: '600' }}>{POSITION_SHORT[p.trim()] || p}</Text>
+                          <View key={idx} style={{ backgroundColor: 'rgba(59,130,246,0.18)', borderWidth: 1, borderColor: 'rgba(59,130,246,0.5)', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 }}>
+                            <Text style={{ color: '#60a5fa', fontSize: 12, fontWeight: '600' }}>{POSITION_SHORT[p.trim()] || p}</Text>
                           </View>
                         )) : <Text style={{ fontSize: 13, color: '#fff' }}>-</Text>}
                       </View>
@@ -2182,8 +2182,8 @@ export function TransfersScreen({ navigation }: any) {
                           return (
                             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
                               {club.position_needed ? club.position_needed.split(', ').map((p, idx) => (
-                                <View key={idx} style={[styles.positionBadge, { backgroundColor: isDark ? 'rgba(14, 165, 233, 0.2)' : '#e0f2fe' }]}>
-                                  <Text style={[styles.positionBadgeText, { color: isDark ? '#38bdf8' : '#0369a1' }]}>{POSITION_SHORT[p.trim()] || p}</Text>
+                                <View key={idx} style={{ backgroundColor: 'rgba(59,130,246,0.18)', borderWidth: 1, borderColor: 'rgba(59,130,246,0.5)', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4 }}>
+                                  <Text style={{ fontSize: 11, fontWeight: '600', color: '#60a5fa' }}>{POSITION_SHORT[p.trim()] || p}</Text>
                                 </View>
                               )) : <Text style={[styles.tableCell, { color: colors.text }]}>-</Text>}
                             </View>

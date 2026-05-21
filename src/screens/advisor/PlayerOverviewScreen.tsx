@@ -376,7 +376,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
   const [advisorPhotoOffsetX, setAdvisorPhotoOffsetX] = useState(0);
   const [advisorPhotoOffsetY, setAdvisorPhotoOffsetY] = useState(0);
   // TM-Vereinssuche für Verein + Zukünftiger Verein im Edit-Modus
-  const [tmClubSearchField, setTmClubSearchField] = useState<'club' | 'future_club' | null>(null);
+  const [tmClubSearchField, setTmClubSearchField] = useState<'club' | 'future_club' | 'loan_from_club' | null>(null);
   const [tmClubResults, setTmClubResults] = useState<Array<{ name: string; logoUrl?: string; liga?: string; country?: string }>>([]);
   const [tmClubSearching, setTmClubSearching] = useState(false);
   const tmClubSearchTimeout = useRef<any>(null);
@@ -792,6 +792,67 @@ export function PlayerOverviewScreen({ navigation }: any) {
     }, 400);
   };
 
+  // Renders a TextInput + TM-Vereinssuche-Dropdown für Felder vom Typ Verein.
+  // editData[fieldKey] ist die Quelle; bei Klick auf einen TM-Treffer wird Name + Logo (in club_logos) übernommen.
+  const renderClubSearchField = (fieldKey: 'club' | 'loan_from_club' | 'future_club', placeholder: string) => {
+    const value = (editData[fieldKey] ?? '').toString();
+    const isActive = tmClubSearchField === fieldKey;
+    return (
+      <View style={{ position: 'relative' }}>
+        <TextInput
+          style={[styles.detailEditInput, { paddingVertical: 4 }]}
+          value={value}
+          onChangeText={(v) => {
+            setEditData({ ...editData, [fieldKey]: v });
+            setTmClubSearchField(fieldKey);
+            triggerTmClubSearch(v);
+          }}
+          onFocus={() => {
+            setTmClubSearchField(fieldKey);
+            if (value) triggerTmClubSearch(value);
+          }}
+          placeholder={placeholder} placeholderTextColor="rgba(255,255,255,0.3)"
+        />
+        {isActive && (tmClubSearching || tmClubResults.length > 0) ? (
+          <View style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, backgroundColor: '#1e293b', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, zIndex: 1000, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12, maxHeight: 260 }}>
+            <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled">
+              {tmClubSearching && tmClubResults.length === 0 ? (
+                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, paddingHorizontal: 12, paddingVertical: 8 }}>Suche…</Text>
+              ) : null}
+              {tmClubResults.length > 0 ? (
+                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '600', letterSpacing: 0.8, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6, textTransform: 'uppercase' }}>Transfermarkt-Ergebnisse</Text>
+              ) : null}
+              {tmClubResults.map((club, idx) => (
+                <TouchableOpacity
+                  key={`${club.name}-${idx}`}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}
+                  onPress={() => {
+                    const next: any = { ...editData, [fieldKey]: club.name };
+                    // Liga aus TM mitnehmen: für `club` → `league`, für `loan_from_club` → `loan_from_club_league`
+                    if (club.liga) {
+                      if (fieldKey === 'club') next.league = club.liga;
+                      else if (fieldKey === 'loan_from_club') next.loan_from_club_league = club.liga;
+                    }
+                    setEditData(next);
+                    if (club.logoUrl) setClubLogos(prev => ({ ...prev, [club.name]: club.logoUrl! }));
+                    setTmClubSearchField(null);
+                    setTmClubResults([]);
+                  }}
+                >
+                  {club.logoUrl ? <Image source={{ uri: club.logoUrl }} style={{ width: 18, height: 18 }} resizeMode="contain" /> : <View style={{ width: 18, height: 18 }} />}
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: '#fff', fontSize: 13, fontWeight: '500' }} numberOfLines={1}>{club.name}</Text>
+                    {club.liga ? <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }} numberOfLines={1}>{club.liga}{club.country ? ` · ${club.country}` : ''}</Text> : null}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
+      </View>
+    );
+  };
+
   useEffect(() => {
     if (!showPlayerDetailModal || !selectedPlayer?.id) {
       setFullPlayer(null);
@@ -1040,6 +1101,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
           preferredFoot: p.preferredFoot || '',
           contractUntil: p.contractUntil || '',
           league: p.league || '',
+          loanFromClub: p.loanFromClub || '',
           tmPosition: suggestion.position || '',
           tmAge: suggestion.age || '',
         });
@@ -1107,6 +1169,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
     if (tmSelected) {
       if (tmSelected.transfermarkt_url) insertData.transfermarkt_url = tmSelected.transfermarkt_url;
       if (tmSelected.verein) insertData.club = tmSelected.verein;
+      if (tmSelected.loanFromClub) insertData.loan_from_club = tmSelected.loanFromClub;
       const dob = tmSelected.dateOfBirth ? toIsoDate(tmSelected.dateOfBirth) : null;
       if (dob) {
         insertData.birth_date = dob;
@@ -1365,6 +1428,8 @@ export function PlayerOverviewScreen({ navigation }: any) {
       strengthSlots: padSlots(parseList(fullPlayer.strengths)),
       potentialSlots: padSlots(parseList(fullPlayer.potentials)),
       club: fullPlayer.club || '',
+      loan_from_club: fullPlayer.loan_from_club || '',
+      loan_from_club_league: fullPlayer.loan_from_club_league || '',
       future_club: fullPlayer.future_club || '',
       league: fullPlayer.league || '',
       contract_end: fullPlayer.contract_end || '',
@@ -1697,8 +1762,10 @@ export function PlayerOverviewScreen({ navigation }: any) {
       // PDF startet immer auf Deutsch beim Öffnen. Wechsel zu English passiert
       // erst manuell im Edit-Mode (PlayerDetailScreen).
       const lang = 'de';
+      const clubLogoUrl = getClubLogo(fullPlayer.club || '') || undefined;
+      const loanFromClubLogoUrl = fullPlayer.loan_from_club ? (getClubLogo(fullPlayer.loan_from_club) || undefined) : undefined;
       const { data, error } = await supabase.functions.invoke('generate-pdf', {
-        body: { player: fullPlayer, careerEntries, playerDescription, additionalInfo, highlightVideoUrl, highlightVideoTitle, lang }
+        body: { player: fullPlayer, careerEntries, playerDescription, additionalInfo, highlightVideoUrl, highlightVideoTitle, clubLogoUrl, loanFromClubLogoUrl, lang }
       });
       if (error) {
         if (typeof window !== 'undefined') window.alert('PDF konnte nicht erstellt werden');
@@ -2156,7 +2223,20 @@ export function PlayerOverviewScreen({ navigation }: any) {
                   {getClubLogo(selectedPlayer.club) && (
                     <Image source={{ uri: getClubLogo(selectedPlayer.club)! }} style={{ width: isMobile ? 32 : 44, height: isMobile ? 32 : 44 }} resizeMode="contain" />
                   )}
-                  <Text style={[styles.detailHeaderClubText, { fontSize: isMobile ? 15 : 30 }]}>{normalizeGermanClubName(selectedPlayer.club) || '-'}</Text>
+                  <Text numberOfLines={1} style={[styles.detailHeaderClubText, { fontSize: isMobile ? 15 : 30, flexShrink: 1 }]}>{normalizeGermanClubName(selectedPlayer.club) || '-'}</Text>
+                  {fullPlayer?.loan_from_club ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 }}>
+                      <Text numberOfLines={1} style={[styles.detailHeaderClubText, { fontSize: isMobile ? 10 : 13, color: 'rgba(255,255,255,0.55)', fontWeight: '400' }]}>
+                        (ausgeliehen von
+                      </Text>
+                      {getClubLogo(fullPlayer.loan_from_club) ? (
+                        <Image source={{ uri: getClubLogo(fullPlayer.loan_from_club)! }} style={{ width: isMobile ? 16 : 20, height: isMobile ? 16 : 20 }} resizeMode="contain" />
+                      ) : null}
+                      <Text numberOfLines={1} style={[styles.detailHeaderClubText, { fontSize: isMobile ? 10 : 13, color: 'rgba(255,255,255,0.55)', fontWeight: '400', flexShrink: 1 }]}>
+                        {fullPlayer.loan_from_club})
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
               </View>
 
@@ -2308,14 +2388,14 @@ export function PlayerOverviewScreen({ navigation }: any) {
                   </View>
 
                   {/* Spalte 2: Stärken */}
-                  <View style={{ flex: 1, minWidth: 140, gap: 6 }}>
+                  <View style={{ flexBasis: 120, flexGrow: 0, flexShrink: 1, minWidth: 100, gap: 6 }}>
                     <Text style={[styles.detailFieldLabel, { marginBottom: 0 }]}>Stärken</Text>
                     {isEditing ? (
                       (editData.strengthSlots as string[] || []).map((val: string, i: number) => (
                         <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                           <Ionicons name="chevron-forward-outline" size={10} color="#22c55e" />
                           <TextInput
-                            style={[styles.detailEditInput, { flex: 1, paddingVertical: 4 }]}
+                            style={[styles.detailEditInput, { flex: 1, minWidth: 0, paddingVertical: 4, paddingHorizontal: 10 }]}
                             value={val}
                             onChangeText={(v) => {
                               const arr = [...(editData.strengthSlots as string[])];
@@ -2341,14 +2421,14 @@ export function PlayerOverviewScreen({ navigation }: any) {
                   </View>
 
                   {/* Spalte 3: Potenziale */}
-                  <View style={{ flex: 1, minWidth: 140, gap: 6 }}>
+                  <View style={{ flexBasis: 120, flexGrow: 0, flexShrink: 1, minWidth: 100, gap: 6 }}>
                     <Text style={[styles.detailFieldLabel, { marginBottom: 0 }]}>Potenziale</Text>
                     {isEditing ? (
                       (editData.potentialSlots as string[] || []).map((val: string, i: number) => (
                         <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                           <Ionicons name="chevron-forward-outline" size={10} color="#ef4444" />
                           <TextInput
-                            style={[styles.detailEditInput, { flex: 1, paddingVertical: 4 }]}
+                            style={[styles.detailEditInput, { flex: 1, minWidth: 0, paddingVertical: 4, paddingHorizontal: 10 }]}
                             value={val}
                             onChangeText={(v) => {
                               const arr = [...(editData.potentialSlots as string[])];
@@ -2418,69 +2498,39 @@ export function PlayerOverviewScreen({ navigation }: any) {
                 <Text style={styles.detailCardTitle}>Vertrag</Text>
                 <View style={{ flexDirection: isMobile && isEditing ? 'column' : 'row', gap: isMobile && isEditing ? 14 : 24, flexWrap: 'wrap' }}>
                   {/* Spalte 1 */}
-                  <View style={{ flex: 1, minWidth: 180, gap: 14 }}>
-                    <View style={{ zIndex: 80, position: 'relative' }}>
+                  <View style={isMobile && isEditing ? { width: '100%', gap: 14 } : { flex: 1, minWidth: 180, gap: 14 }}>
+                    <View style={{ zIndex: 80, position: 'relative' }} {...({ dataSet: { tmClubDropdown: 'true' } } as any)}>
                       <Text style={styles.detailFieldLabel}>Verein</Text>
-                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="club" displayValue={fullPlayer?.club} />
+                      {isEditing ? renderClubSearchField('club', 'z.B. Hertha BSC II') : (
+                        <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="club" displayValue={fullPlayer?.club} />
+                      )}
                     </View>
+                    <View style={{ zIndex: 78, position: 'relative' }}>
+                      <Text style={styles.detailFieldLabel}>Liga</Text>
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="league" displayValue={fullPlayer?.league} />
+                    </View>
+                    {(isEditing || fullPlayer?.loan_from_club) ? (
+                      <View style={{ zIndex: 75, position: 'relative' }} {...({ dataSet: { tmClubDropdown: 'true' } } as any)}>
+                        <Text style={styles.detailFieldLabel}>Ausgeliehen von</Text>
+                        {isEditing ? renderClubSearchField('loan_from_club', 'z.B. FC Ingolstadt 04') : (
+                          <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="loan_from_club" displayValue={fullPlayer?.loan_from_club} />
+                        )}
+                      </View>
+                    ) : null}
+                    {(isEditing || fullPlayer?.loan_from_club_league) && (isEditing || fullPlayer?.loan_from_club) ? (
+                      <View style={{ zIndex: 73, position: 'relative' }}>
+                        <Text style={styles.detailFieldLabel}>Liga (Stammverein)</Text>
+                        <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="loan_from_club_league" displayValue={fullPlayer?.loan_from_club_league} placeholder="z.B. 3. Liga" />
+                      </View>
+                    ) : null}
                     {(isEditing || fullPlayer?.future_club) ? (
                       <View style={{ zIndex: 70, position: 'relative' }} {...({ dataSet: { tmClubDropdown: 'true' } } as any)}>
                         <Text style={styles.detailFieldLabel}>Zukünftiger Verein</Text>
-                        {isEditing ? (
-                          <View style={{ position: 'relative' }}>
-                            <TextInput
-                              style={[styles.detailEditInput, { paddingVertical: 4 }]}
-                              value={(editData.future_club ?? '').toString()}
-                              onChangeText={(v) => {
-                                setEditData({ ...editData, future_club: v });
-                                setTmClubSearchField('future_club');
-                                triggerTmClubSearch(v);
-                              }}
-                              onFocus={() => {
-                                setTmClubSearchField('future_club');
-                                if (editData.future_club) triggerTmClubSearch(editData.future_club);
-                              }}
-                              placeholder="Name" placeholderTextColor="rgba(255,255,255,0.3)"
-                            />
-                            {tmClubSearchField === 'future_club' && (tmClubSearching || tmClubResults.length > 0) ? (
-                              <View style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, backgroundColor: '#1e293b', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, zIndex: 1000, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12, maxHeight: 260 }}>
-                                <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled">
-                                  {tmClubSearching && tmClubResults.length === 0 ? (
-                                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, paddingHorizontal: 12, paddingVertical: 8 }}>Suche…</Text>
-                                  ) : null}
-                                  {tmClubResults.length > 0 ? (
-                                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '600', letterSpacing: 0.8, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6, textTransform: 'uppercase' }}>Transfermarkt-Ergebnisse</Text>
-                                  ) : null}
-                                  {tmClubResults.map((club, idx) => (
-                                    <TouchableOpacity
-                                      key={`${club.name}-${idx}`}
-                                      style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}
-                                      onPress={() => {
-                                        setEditData({ ...editData, future_club: club.name });
-                                        setTmClubSearchField(null);
-                                        setTmClubResults([]);
-                                      }}
-                                    >
-                                      {club.logoUrl ? <Image source={{ uri: club.logoUrl }} style={{ width: 18, height: 18 }} resizeMode="contain" /> : <View style={{ width: 18, height: 18 }} />}
-                                      <View style={{ flex: 1 }}>
-                                        <Text style={{ color: '#fff', fontSize: 13, fontWeight: '500' }} numberOfLines={1}>{club.name}</Text>
-                                        {club.liga ? <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }} numberOfLines={1}>{club.liga}{club.country ? ` · ${club.country}` : ''}</Text> : null}
-                                      </View>
-                                    </TouchableOpacity>
-                                  ))}
-                                </ScrollView>
-                              </View>
-                            ) : null}
-                          </View>
-                        ) : (
+                        {isEditing ? renderClubSearchField('future_club', 'Name') : (
                           <Text style={styles.detailFieldValue}>{fullPlayer.future_club}</Text>
                         )}
                       </View>
                     ) : null}
-                    <View style={{ zIndex: 60, position: 'relative' }}>
-                      <Text style={styles.detailFieldLabel}>Liga</Text>
-                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="league" displayValue={fullPlayer?.league} />
-                    </View>
                     <View style={{ zIndex: 50, position: 'relative' }}>
                       <Text style={styles.detailFieldLabel}>U23-Spieler</Text>
                       {(() => {
@@ -2517,7 +2567,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
                     </View>
                   </View>
                   {/* Spalte 2 */}
-                  <View style={{ flex: 1, minWidth: 180, gap: 14 }}>
+                  <View style={isMobile && isEditing ? { width: '100%', gap: 14 } : { flex: 1, minWidth: 180, gap: 14 }}>
                     <View>
                       <Text style={styles.detailFieldLabel}>Gehalt/Monat</Text>
                       <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="salary_month" displayValue={fullPlayer?.salary_month} />
@@ -2582,7 +2632,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
                 <Text style={styles.detailCardTitle}>Kontaktdaten</Text>
                 <View style={{ flexDirection: isMobile && isEditing ? 'column' : 'row', gap: isMobile && isEditing ? 14 : 24, flexWrap: 'wrap' }}>
                   {/* Spalte 1: Telefon, E-Mail */}
-                  <View style={{ flex: 1, minWidth: 180, gap: 14 }}>
+                  <View style={isMobile && isEditing ? { width: '100%', gap: 14 } : { flex: 1, minWidth: 180, gap: 14 }}>
                     <View>
                       <Text style={styles.detailFieldLabel}>Telefon</Text>
                       {isEditing ? (
@@ -2614,7 +2664,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
                     </View>
                   </View>
                   {/* Spalte 2: Adresse, Internat */}
-                  <View style={{ flex: 1, minWidth: 180, gap: 14 }}>
+                  <View style={isMobile && isEditing ? { width: '100%', gap: 14 } : { flex: 1, minWidth: 180, gap: 14 }}>
                     <View>
                       <Text style={styles.detailFieldLabel}>Adresse</Text>
                       {isEditing ? (
@@ -2674,7 +2724,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
                 <Text style={styles.detailCardTitle}>Beratung</Text>
                 <View style={{ flexDirection: isMobile && isEditing ? 'column' : 'row', gap: isMobile && isEditing ? 14 : 24, flexWrap: 'wrap' }}>
                   {/* Spalte 1: Listung, Zuständigkeit, Mandat gültig bis */}
-                  <View style={{ flex: 1, minWidth: 180, gap: 14 }}>
+                  <View style={isMobile && isEditing ? { width: '100%', gap: 14 } : { flex: 1, minWidth: 180, gap: 14 }}>
                     <View style={{ zIndex: 30, position: 'relative' }}>
                       <Text style={styles.detailFieldLabel}>Listung</Text>
                       {isEditing ? (
@@ -2724,7 +2774,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
                     </View>
                   </View>
                   {/* Spalte 2: Provision, Weg-Vermittlung */}
-                  <View style={{ flex: 1, minWidth: 180, gap: 14 }}>
+                  <View style={isMobile && isEditing ? { width: '100%', gap: 14 } : { flex: 1, minWidth: 180, gap: 14 }}>
                     <View>
                       <Text style={styles.detailFieldLabel}>Provision</Text>
                       <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="provision" displayValue={fullPlayer?.provision} />
@@ -2743,7 +2793,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
                 <Text style={styles.detailCardTitle}>Familie</Text>
                 <View style={{ flexDirection: isMobile && isEditing ? 'column' : 'row', gap: isMobile && isEditing ? 14 : 24, flexWrap: 'wrap' }}>
                   {/* Spalte 1: Papa */}
-                  <View style={{ flex: 1, minWidth: 160, gap: 14 }}>
+                  <View style={isMobile && isEditing ? { width: '100%', gap: 14 } : { flex: 1, minWidth: 160, gap: 14 }}>
                     <View>
                       <Text style={styles.detailFieldLabel}>Papa</Text>
                       <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="father_name" displayValue={fullPlayer?.father_name} />
@@ -2772,7 +2822,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
                   </View>
 
                   {/* Spalte 2: Mama */}
-                  <View style={{ flex: 1, minWidth: 160, gap: 14 }}>
+                  <View style={isMobile && isEditing ? { width: '100%', gap: 14 } : { flex: 1, minWidth: 160, gap: 14 }}>
                     <View>
                       <Text style={styles.detailFieldLabel}>Mama</Text>
                       <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="mother_name" displayValue={fullPlayer?.mother_name} />
@@ -2801,7 +2851,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
                   </View>
 
                   {/* Spalte 3: Geschwister */}
-                  <View style={{ flex: 1, minWidth: 160, gap: 14 }}>
+                  <View style={isMobile && isEditing ? { width: '100%', gap: 14 } : { flex: 1, minWidth: 160, gap: 14 }}>
                     <View>
                       <Text style={styles.detailFieldLabel}>Geschwister</Text>
                       <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="siblings" displayValue={fullPlayer?.siblings} multiline />
@@ -2815,15 +2865,15 @@ export function PlayerOverviewScreen({ navigation }: any) {
                 <Text style={styles.detailCardTitle}>Sonstiges</Text>
                 <View style={{ gap: 14 }}>
                   <View style={{ flexDirection: 'row', gap: 16, flexWrap: 'wrap' }}>
-                    <View style={{ flex: 1, minWidth: 120 }}>
+                    <View style={isMobile && isEditing ? { width: '100%' } : { flex: 1, minWidth: 120 }}>
                       <Text style={styles.detailFieldLabel}>Instagram</Text>
                       <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="instagram" displayValue={fullPlayer?.instagram} />
                     </View>
-                    <View style={{ flex: 1, minWidth: 120 }}>
+                    <View style={isMobile && isEditing ? { width: '100%' } : { flex: 1, minWidth: 120 }}>
                       <Text style={styles.detailFieldLabel}>TikTok</Text>
                       <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="tiktok" displayValue={fullPlayer?.tiktok} />
                     </View>
-                    <View style={{ flex: 1, minWidth: 120 }}>
+                    <View style={isMobile && isEditing ? { width: '100%' } : { flex: 1, minWidth: 120 }}>
                       <Text style={styles.detailFieldLabel}>LinkedIn</Text>
                       <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="linkedin" displayValue={fullPlayer?.linkedin} />
                     </View>
@@ -2856,15 +2906,15 @@ export function PlayerOverviewScreen({ navigation }: any) {
               <View style={[styles.detailCard, { position: 'relative', zIndex: 40 }, isMobile && { minWidth: 0, flexBasis: '100%', padding: 12 }]}>
                 <Text style={styles.detailCardTitle}>Ausbildung</Text>
                 <View style={{ flexDirection: isMobile && isEditing ? 'column' : 'row', gap: isMobile && isEditing ? 14 : 24, flexWrap: 'wrap' }}>
-                  <View style={{ flex: 1, minWidth: 140 }}>
+                  <View style={isMobile && isEditing ? { width: '100%' } : { flex: 1, minWidth: 140 }}>
                     <Text style={styles.detailFieldLabel}>Schulabschluss</Text>
                     <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="education" displayValue={fullPlayer?.education} />
                   </View>
-                  <View style={{ flex: 1, minWidth: 140 }}>
+                  <View style={isMobile && isEditing ? { width: '100%' } : { flex: 1, minWidth: 140 }}>
                     <Text style={styles.detailFieldLabel}>Ausbildung/Studium</Text>
                     <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="training" displayValue={fullPlayer?.training} />
                   </View>
-                  <View style={{ flex: 1, minWidth: 140 }}>
+                  <View style={isMobile && isEditing ? { width: '100%' } : { flex: 1, minWidth: 140 }}>
                     <Text style={styles.detailFieldLabel}>Job</Text>
                     <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="job" displayValue={fullPlayer?.job} />
                   </View>

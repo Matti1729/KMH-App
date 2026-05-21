@@ -74,6 +74,20 @@ serve(async (req: Request) => {
         if (contractMatch2) profile.contractUntil = contractMatch2[1];
       }
 
+      // Ausgeliehen von (Leihverein, falls vorhanden) — primär aus info-table mit Verein-Link
+      const loanMatch = html.match(/Ausgeliehen von:[\s\S]*?title="([^"]+)"[^>]*href="[^"]*\/startseite\/verein/);
+      if (loanMatch) {
+        profile.loanFromClub = loanMatch[1];
+      } else {
+        // Fallback: info-table (klassisches Tabellen-Layout)
+        const loanMatch2 = html.match(/info-table__content--regular">\s*Ausgeliehen von:<\/span>\s*<span[^>]*info-table__content--bold[^>]*>\s*<a[^>]*title="([^"]+)"/);
+        if (loanMatch2) profile.loanFromClub = loanMatch2[1];
+      }
+
+      // Vertrag dort bis (Vertragsende beim Stammverein während Leihe)
+      const loanContractMatch = html.match(/Vertrag dort bis:[\s\S]*?(\d{2}\.\d{2}\.\d{4})/);
+      if (loanContractMatch) profile.loanContractUntil = loanContractMatch[1];
+
       // Liga
       const leagueMatch = html.match(/data-header__league-link"[^>]*>([\s\S]*?)<\/a>/);
       if (leagueMatch) {
