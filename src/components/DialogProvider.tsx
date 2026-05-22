@@ -18,6 +18,10 @@
 import React, { createContext, useContext, useState, useRef, useCallback, ReactNode } from 'react';
 import { View, Text, TouchableOpacity, Pressable, StyleSheet, Platform } from 'react-native';
 
+// react-dom nur auf Web laden — auf Native nicht verfügbar.
+const reactDomCreatePortal: ((node: any, container: any) => any) | null =
+  Platform.OS === 'web' ? (require('react-dom') as any).createPortal : null;
+
 type ConfirmOptions = {
   title: string;
   message?: string;
@@ -100,59 +104,64 @@ export function DialogProvider({ children }: { children: ReactNode }) {
 
   const value: DialogContextValue = { confirm, alert };
 
-  // Web: position:fixed mit hohem z-index — bypasst RN-Web's Modal-Portal-Stacking
-  // (das mit anderen Modals im Spielerprofil kollidieren kann). Native: position:absolute
-  // im Root-View, was bei nativen Apps reicht weil dort keine konkurrierenden Web-Portale existieren.
   const overlayPositionStyle: any = Platform.OS === 'web'
     ? { position: 'fixed' as any, top: 0, left: 0, right: 0, bottom: 0 }
     : { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 };
 
+  const overlayNode = dialog ? (
+    <View
+      style={[overlayPositionStyle, styles.overlay, { zIndex: 2147483647, elevation: 999 }]}
+      pointerEvents="auto"
+    >
+      <Pressable style={StyleSheet.absoluteFillObject} onPress={() => close(false)} />
+      <View style={[styles.box, dialog.kind === 'confirm' && dialog.opts.danger ? { borderColor: '#dc2626' } : null]}>
+        <Text style={styles.title}>{dialog.opts.title}</Text>
+        {dialog.opts.message ? (
+          <Text style={styles.message}>{dialog.opts.message}</Text>
+        ) : null}
+
+        {dialog.kind === 'confirm' ? (
+          <View style={styles.buttonRow}>
+            <TouchableOpacity
+              style={[styles.btn, styles.btnCancel]}
+              onPress={() => close(false)}
+            >
+              <Text style={styles.btnCancelText}>{dialog.opts.cancelLabel || 'Abbrechen'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.btn,
+                dialog.opts.danger ? styles.btnDanger : styles.btnPrimary,
+              ]}
+              onPress={() => close(true)}
+            >
+              <Text style={styles.btnConfirmText}>{dialog.opts.confirmLabel || 'OK'}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={[styles.buttonRow, { justifyContent: 'center' }]}>
+            <TouchableOpacity
+              style={[styles.btn, styles.btnPrimary, { minWidth: 120 }]}
+              onPress={() => close()}
+            >
+              <Text style={styles.btnConfirmText}>{(dialog.opts as AlertOptions).buttonLabel || 'OK'}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    </View>
+  ) : null;
+
+  // Auf Web: per createPortal direkt an <body> hängen — sonst stapelt RN-Web's Modal
+  // (das die Spielerprofil-Sheet rendert) über dem Dialog, weil RN-Modals als separater
+  // r-modalRoot mit höherem Stack-Index gemountet werden. Ein direkter document.body-Portal
+  // wird IMMER als letztes gerendert und liegt deshalb über allen anderen Portalen.
   return (
     <DialogContext.Provider value={value}>
       {children}
-      {dialog ? (
-        <View
-          style={[overlayPositionStyle, styles.overlay, { zIndex: 999999, elevation: 999 }]}
-          pointerEvents="auto"
-        >
-          <Pressable style={StyleSheet.absoluteFillObject} onPress={() => close(false)} />
-          <View style={[styles.box, dialog.kind === 'confirm' && dialog.opts.danger ? { borderColor: '#dc2626' } : null]}>
-            <Text style={styles.title}>{dialog.opts.title}</Text>
-            {dialog.opts.message ? (
-              <Text style={styles.message}>{dialog.opts.message}</Text>
-            ) : null}
-
-            {dialog.kind === 'confirm' ? (
-              <View style={styles.buttonRow}>
-                <TouchableOpacity
-                  style={[styles.btn, styles.btnCancel]}
-                  onPress={() => close(false)}
-                >
-                  <Text style={styles.btnCancelText}>{dialog.opts.cancelLabel || 'Abbrechen'}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.btn,
-                    dialog.opts.danger ? styles.btnDanger : styles.btnPrimary,
-                  ]}
-                  onPress={() => close(true)}
-                >
-                  <Text style={styles.btnConfirmText}>{dialog.opts.confirmLabel || 'OK'}</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View style={[styles.buttonRow, { justifyContent: 'center' }]}>
-                <TouchableOpacity
-                  style={[styles.btn, styles.btnPrimary, { minWidth: 120 }]}
-                  onPress={() => close()}
-                >
-                  <Text style={styles.btnConfirmText}>{(dialog.opts as AlertOptions).buttonLabel || 'OK'}</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        </View>
-      ) : null}
+      {Platform.OS === 'web' && reactDomCreatePortal && typeof document !== 'undefined'
+        ? reactDomCreatePortal(overlayNode, document.body)
+        : overlayNode}
     </DialogContext.Provider>
   );
 }
