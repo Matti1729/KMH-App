@@ -475,12 +475,10 @@ export function TransferDetailScreen({ route, navigation }: any) {
   const addClub = async () => {
     if (!formData.club_name.trim()) {
       alertDialog({ title: 'Eingabe fehlt', message: 'Bitte einen Verein auswählen.' });
-      else Alert.alert('Hinweis', 'Bitte einen Verein auswählen.');
       return;
     }
     if (!formData.status) {
       alertDialog({ title: 'Eingabe fehlt', message: 'Bitte einen Status auswählen (Ideen / Offen / Absage).' });
-      else Alert.alert('Hinweis', 'Bitte einen Status auswählen.');
       return;
     }
 
@@ -501,7 +499,6 @@ export function TransferDetailScreen({ route, navigation }: any) {
     if (error) {
       const msg = error.message || error.code || 'Unbekannter Fehler';
       alertDialog({ title: 'Fehler', message: 'Verein konnte nicht angelegt werden: ' + msg });
-      else Alert.alert('Fehler', msg);
       return;
     }
 

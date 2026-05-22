@@ -386,6 +386,7 @@ function PrototypeCard({ prototype, onPress }: { prototype: Prototype; onPress: 
 function PrototypeEditView({ prototype, onChange, onClose, onSave, onUpload, uploading, saving }: {
   prototype: Prototype; onChange: (p: Prototype) => void; onClose: () => void; onSave: () => void; onUpload: () => void; uploading: boolean; saving: boolean;
 }) {
+  const { alert: alertDialog } = useDialog();
   const [positionDropdownOpen, setPositionDropdownOpen] = useState(false);
   const imgUrl = getPrototypeImageUrl(prototype.image_path);
   const [keyWordsLocal, setKeyWordsLocal] = useState<string[]>(() => {

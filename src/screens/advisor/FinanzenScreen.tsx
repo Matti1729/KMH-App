@@ -489,7 +489,6 @@ export function FinanzenScreen({ navigation }: any) {
       if (uploadError) {
         console.error('Upload error:', uploadError);
         alertDialog({ title: 'Upload fehlgeschlagen', message: uploadError.message });
-        else Alert.alert('Fehler', uploadError.message);
         return;
       }
 
@@ -514,7 +513,6 @@ export function FinanzenScreen({ navigation }: any) {
     } catch (error) {
       console.error('Upload catch error:', error);
       alertDialog({ title: 'Upload-Fehler', message: 'Dokument konnte nicht hochgeladen werden.' });
-      else Alert.alert('Fehler', 'Dokument konnte nicht hochgeladen werden');
     }
   };
 
@@ -565,7 +563,6 @@ export function FinanzenScreen({ navigation }: any) {
       if (!response.ok || data?.error || !data?.parsed) {
         console.error('Parse provision error:', data?.error);
         alertDialog({ title: 'Hinweis', message: 'Provisionsvereinbarung hochgeladen, konnte aber nicht automatisch analysiert werden.' });
-        else Alert.alert('Hinweis', 'PDF hochgeladen, konnte aber nicht automatisch analysiert werden.');
         return;
       }
 
@@ -629,7 +626,6 @@ export function FinanzenScreen({ navigation }: any) {
       }
 
       alertDialog({ title: 'Analyse abgeschlossen', message: 'Provisionsvereinbarung wurde analysiert und die Felder automatisch ausgefüllt.' });
-      else Alert.alert('Erfolg', 'Provisionsvereinbarung wurde analysiert und die Felder automatisch ausgefüllt.');
     } catch (err) {
       console.error('Parse provision catch:', err);
     } finally {
@@ -663,7 +659,6 @@ export function FinanzenScreen({ navigation }: any) {
       if (!response.ok || data?.error || !data?.parsed) {
         console.error('Parse contract error:', data?.error);
         alertDialog({ title: 'Hinweis', message: 'Vertrag hochgeladen, konnte aber nicht automatisch analysiert werden.' });
-        else Alert.alert('Hinweis', 'PDF hochgeladen, konnte aber nicht automatisch analysiert werden.');
         return;
       }
 
