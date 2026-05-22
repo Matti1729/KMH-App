@@ -8,6 +8,7 @@ import { Sidebar } from '../../components/Sidebar';
 import { AdvisorBackground } from '../../components/AdvisorBackground';
 import { MobileSidebar } from '../../components/MobileSidebar';
 import { MobileHeader } from '../../components/MobileHeader';
+import { useDialog } from '../../components/DialogProvider';
 import { useIsMobile } from '../../hooks/useIsMobile';
 
 interface AccessRequest {
@@ -44,6 +45,7 @@ interface Feedback {
 export function AdminPanelScreen({ navigation }: any) {
   const { session, loading: authLoading } = useAuth();
   const { colors, isDark } = useTheme();
+  const { alert: alertDialog } = useDialog();
   const isMobile = useIsMobile();
   const dataLoadedRef = useRef(false);
   const [pendingRequests, setPendingRequests] = useState<AccessRequest[]>([]);
@@ -163,7 +165,7 @@ Achte dabei auf:
     const prompt = generatePrompt(feedback);
     if (Platform.OS === 'web') {
       navigator.clipboard.writeText(prompt).then(() => {
-        window.alert('Prompt wurde kopiert!');
+        alertDialog({ title: 'Kopiert', message: 'Prompt wurde in die Zwischenablage kopiert.' });
       });
     }
   };

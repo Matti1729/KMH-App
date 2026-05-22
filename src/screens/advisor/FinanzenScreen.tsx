@@ -17,6 +17,7 @@ import { ColumnDef } from '../../types/tableColumns';
 import { useTableColumns } from '../../hooks/useTableColumns';
 import { TableHeader } from '../../components/table/TableHeader';
 import { TableRow } from '../../components/table/TableRow';
+import { useDialog } from '../../components/DialogProvider';
 
 // --- Types ---
 
@@ -152,6 +153,7 @@ export function FinanzenScreen({ navigation }: any) {
   const isMobile = useIsMobile();
   const { session, profile: authProfile } = useAuth();
   const { colors, isDark } = useTheme();
+  const { confirm: confirmDialog, alert: alertDialog } = useDialog();
 
   const [loading, setLoading] = useState(true);
   const [season, setSeason] = useState(getCurrentSeason());
@@ -440,30 +442,21 @@ export function FinanzenScreen({ navigation }: any) {
     fetchData();
   };
 
-  const deleteAllProvisions = () => {
+  const deleteAllProvisions = async () => {
     const existingIds = provisions.filter(p => p.player_id === detailPlayerId).map(p => p.id);
     if (existingIds.length === 0) return;
     const player = players.find(p => p.id === detailPlayerId);
     const name = player ? `${player.last_name}, ${player.first_name}` : '';
-
-    if (Platform.OS === 'web') {
-      if (window.confirm(`Alle Provisionen für ${name} löschen?`)) {
-        supabase.from('player_provisions').delete().in('id', existingIds).then(() => {
-          setShowDetail(false);
-          fetchData();
-        });
-      }
-    } else {
-      Alert.alert('Löschen', `Alle Provisionen für ${name} löschen?`, [
-        { text: 'Abbrechen', style: 'cancel' },
-        { text: 'Löschen', style: 'destructive', onPress: () => {
-          supabase.from('player_provisions').delete().in('id', existingIds).then(() => {
-            setShowDetail(false);
-            fetchData();
-          });
-        }},
-      ]);
-    }
+    const ok = await confirmDialog({
+      title: 'Alle Provisionen löschen',
+      message: `Alle Provisionen für ${name} löschen?`,
+      danger: true,
+      confirmLabel: 'Löschen',
+    });
+    if (!ok) return;
+    await supabase.from('player_provisions').delete().in('id', existingIds);
+    setShowDetail(false);
+    fetchData();
   };
 
   // --- Document Upload/Delete ---
@@ -495,7 +488,7 @@ export function FinanzenScreen({ navigation }: any) {
 
       if (uploadError) {
         console.error('Upload error:', uploadError);
-        if (Platform.OS === 'web') window.alert('Upload fehlgeschlagen: ' + uploadError.message);
+        alertDialog({ title: 'Upload fehlgeschlagen', message: uploadError.message });
         else Alert.alert('Fehler', uploadError.message);
         return;
       }
@@ -520,7 +513,7 @@ export function FinanzenScreen({ navigation }: any) {
       }
     } catch (error) {
       console.error('Upload catch error:', error);
-      if (Platform.OS === 'web') window.alert('Dokument konnte nicht hochgeladen werden');
+      alertDialog({ title: 'Upload-Fehler', message: 'Dokument konnte nicht hochgeladen werden.' });
       else Alert.alert('Fehler', 'Dokument konnte nicht hochgeladen werden');
     }
   };
@@ -540,14 +533,8 @@ export function FinanzenScreen({ navigation }: any) {
       fetchData();
     };
 
-    if (Platform.OS === 'web') {
-      if (window.confirm('Dokument löschen?')) doDelete();
-    } else {
-      Alert.alert('Löschen', 'Dokument löschen?', [
-        { text: 'Abbrechen', style: 'cancel' },
-        { text: 'Löschen', style: 'destructive', onPress: doDelete },
-      ]);
-    }
+    const ok = await confirmDialog({ title: 'Dokument löschen?', danger: true, confirmLabel: 'Löschen' });
+    if (ok) doDelete();
   };
 
   // --- Auto-Parse Documents ---
@@ -577,7 +564,7 @@ export function FinanzenScreen({ navigation }: any) {
       const data = await response.json();
       if (!response.ok || data?.error || !data?.parsed) {
         console.error('Parse provision error:', data?.error);
-        if (Platform.OS === 'web') window.alert('Provisionsvereinbarung hochgeladen, konnte aber nicht automatisch analysiert werden.');
+        alertDialog({ title: 'Hinweis', message: 'Provisionsvereinbarung hochgeladen, konnte aber nicht automatisch analysiert werden.' });
         else Alert.alert('Hinweis', 'PDF hochgeladen, konnte aber nicht automatisch analysiert werden.');
         return;
       }
@@ -641,7 +628,7 @@ export function FinanzenScreen({ navigation }: any) {
         );
       }
 
-      if (Platform.OS === 'web') window.alert('Provisionsvereinbarung wurde analysiert und die Felder automatisch ausgefüllt.');
+      alertDialog({ title: 'Analyse abgeschlossen', message: 'Provisionsvereinbarung wurde analysiert und die Felder automatisch ausgefüllt.' });
       else Alert.alert('Erfolg', 'Provisionsvereinbarung wurde analysiert und die Felder automatisch ausgefüllt.');
     } catch (err) {
       console.error('Parse provision catch:', err);
@@ -675,7 +662,7 @@ export function FinanzenScreen({ navigation }: any) {
       const data = await response.json();
       if (!response.ok || data?.error || !data?.parsed) {
         console.error('Parse contract error:', data?.error);
-        if (Platform.OS === 'web') window.alert('Vertrag hochgeladen, konnte aber nicht automatisch analysiert werden.');
+        alertDialog({ title: 'Hinweis', message: 'Vertrag hochgeladen, konnte aber nicht automatisch analysiert werden.' });
         else Alert.alert('Hinweis', 'PDF hochgeladen, konnte aber nicht automatisch analysiert werden.');
         return;
       }

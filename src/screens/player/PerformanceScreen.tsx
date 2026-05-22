@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Sidebar } from '../../components/Sidebar';
 import { MobileSidebar } from '../../components/MobileSidebar';
 import { MobileHeader } from '../../components/MobileHeader';
+import { useDialog } from '../../components/DialogProvider';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useIsMobile } from '../../hooks/useIsMobile';
@@ -667,6 +668,7 @@ export function PerformanceScreen() {
   const navigation = useNavigation<any>();
   const { session, profile, viewAsPlayerId } = useAuth();
   const { colors, isDark } = useTheme();
+  const { confirm: confirmDialog } = useDialog();
   const isMobile = useIsMobile();
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [player, setPlayer] = useState<PlayerHeaderData | null>(null);
@@ -1124,7 +1126,7 @@ export function PerformanceScreen() {
 
   const deleteAnalysis = async (entry: AnalysisEntry) => {
     if (!entry.id) return;
-    const confirmed = Platform.OS === 'web' ? window.confirm('Analyse wirklich löschen?') : true;
+    const confirmed = await confirmDialog({ title: 'Analyse löschen', message: 'Analyse wirklich löschen?', danger: true, confirmLabel: 'Löschen' });
     if (!confirmed) return;
     if (entry.video_path) {
       await supabase.storage.from(ANALYSIS_VIDEOS_BUCKET).remove([entry.video_path]);

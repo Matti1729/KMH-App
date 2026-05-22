@@ -8,6 +8,7 @@ import { AdvisorBackground } from '../../components/AdvisorBackground';
 import { AdvisorHeroHeader } from '../../components/AdvisorHeroHeader';
 import { MobileHeader } from '../../components/MobileHeader';
 import { MobileSidebar } from '../../components/MobileSidebar';
+import { useDialog } from '../../components/DialogProvider';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -56,6 +57,7 @@ function getVideoPublicUrl(path: string | null | undefined): string | null {
 export function VideoLibraryScreen({ navigation }: any) {
   const isMobile = useIsMobile();
   const { session } = useAuth();
+  const { confirm: confirmDialog, alert: alertDialog } = useDialog();
   const [profile, setProfile] = useState<{ first_name?: string; last_name?: string; photo_url?: string; role?: string } | null>(null);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [videos, setVideos] = useState<VideoRow[]>([]);
@@ -133,7 +135,7 @@ export function VideoLibraryScreen({ navigation }: any) {
       if (result.canceled || !result.assets?.[0]) return;
       const asset = result.assets[0];
       if (asset.size && asset.size > MAX_VIDEO_SIZE) {
-        if (typeof window !== 'undefined') window.alert(`Video ist zu groß (${(asset.size / (1024*1024)).toFixed(1)} MB). Maximum 30 MB.`);
+        alertDialog({ title: 'Datei zu groß', message: `Video ist zu groß (${(asset.size / (1024*1024)).toFixed(1)} MB). Maximum 30 MB.` });
         return;
       }
       setUploading(true);
@@ -150,7 +152,7 @@ export function VideoLibraryScreen({ navigation }: any) {
       const { error } = await supabase.storage.from(VIDEO_BUCKET).upload(fileName, fileData, { contentType: asset.mimeType || 'video/mp4', upsert: false });
       setUploading(false);
       if (error) {
-        if (typeof window !== 'undefined') window.alert('Upload-Fehler: ' + error.message);
+        alertDialog({ title: 'Upload-Fehler', message: error.message });
         return;
       }
       setEditing({ ...editing, video_path: fileName, video_url: null });
@@ -162,12 +164,12 @@ export function VideoLibraryScreen({ navigation }: any) {
 
   const saveVideo = async () => {
     if (!editing) return;
-    if (!editing.label.trim()) { if (typeof window !== 'undefined') window.alert('Label ist Pflicht.'); return; }
-    if (!editing.video_path && !editing.video_url) { if (typeof window !== 'undefined') window.alert('Bitte Video hochladen oder URL angeben.'); return; }
+    if (!editing.label.trim()) { alertDialog({ title: 'Eingabe fehlt', message: 'Label ist Pflicht.' }); return; }
+    if (!editing.video_path && !editing.video_url) { alertDialog({ title: 'Eingabe fehlt', message: 'Bitte Video hochladen oder URL angeben.' }); return; }
     // Bei Potenzial: Phase muss gewählt sein (negative oder positive)
     const currentType = editingAssignments[0]?.type;
     if (currentType === 'potential' && editing.phase === 'neutral') {
-      if (typeof window !== 'undefined') window.alert('Bitte wähle: Negativ- oder Positiv-Beispiel.');
+      alertDialog({ title: 'Auswahl fehlt', message: 'Bitte wähle: Negativ- oder Positiv-Beispiel.' });
       return;
     }
     setSaving(true);
@@ -185,10 +187,10 @@ export function VideoLibraryScreen({ navigation }: any) {
     let videoId = editing.id;
     if (videoId) {
       const { error } = await supabase.from('player_videos').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', videoId);
-      if (error) { if (typeof window !== 'undefined') window.alert('Fehler: ' + error.message); setSaving(false); return; }
+      if (error) { alertDialog({ title: 'Fehler', message: error.message }); setSaving(false); return; }
     } else {
       const { data, error } = await supabase.from('player_videos').insert(payload).select('id').single();
-      if (error || !data) { if (typeof window !== 'undefined') window.alert('Fehler: ' + error?.message); setSaving(false); return; }
+      if (error || !data) { alertDialog({ title: 'Fehler', message: error?.message || 'Unbekannter Fehler' }); setSaving(false); return; }
       videoId = data.id;
     }
     // Assignments diffen: alle für dieses Video löschen + neu setzen
@@ -204,7 +206,8 @@ export function VideoLibraryScreen({ navigation }: any) {
   };
 
   const deleteVideo = async (id: string) => {
-    if (typeof window !== 'undefined' && !window.confirm('Video wirklich löschen?')) return;
+    const ok = await confirmDialog({ title: 'Video löschen', message: 'Video wirklich löschen?', danger: true, confirmLabel: 'Löschen' });
+    if (!ok) return;
     await supabase.from('player_videos').delete().eq('id', id);
     loadAll();
   };

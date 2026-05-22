@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../config/supabase';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useDialog } from '../../components/DialogProvider';
 
 const TRANSFER_STATUS = [
   { id: 'ideen', label: 'IDEEN', color: '#64748b' },
@@ -175,6 +176,7 @@ export function TransferDetailScreen({ route, navigation }: any) {
   const { playerId, highlightClub } = route.params;
   const isMobile = useIsMobile();
   const { colors, isDark } = useTheme();
+  const { alert: alertDialog } = useDialog();
   const [player, setPlayer] = useState<Player | null>(null);
   const [clubs, setClubs] = useState<TransferClub[]>([]);
   const [clubLogos, setClubLogos] = useState<Record<string, string>>({});
@@ -472,12 +474,12 @@ export function TransferDetailScreen({ route, navigation }: any) {
 
   const addClub = async () => {
     if (!formData.club_name.trim()) {
-      if (Platform.OS === 'web' && typeof window !== 'undefined') window.alert('Bitte einen Verein auswählen.');
+      alertDialog({ title: 'Eingabe fehlt', message: 'Bitte einen Verein auswählen.' });
       else Alert.alert('Hinweis', 'Bitte einen Verein auswählen.');
       return;
     }
     if (!formData.status) {
-      if (Platform.OS === 'web' && typeof window !== 'undefined') window.alert('Bitte einen Status auswählen (Ideen / Offen / Absage).');
+      alertDialog({ title: 'Eingabe fehlt', message: 'Bitte einen Status auswählen (Ideen / Offen / Absage).' });
       else Alert.alert('Hinweis', 'Bitte einen Status auswählen.');
       return;
     }
@@ -498,7 +500,7 @@ export function TransferDetailScreen({ route, navigation }: any) {
 
     if (error) {
       const msg = error.message || error.code || 'Unbekannter Fehler';
-      if (Platform.OS === 'web' && typeof window !== 'undefined') window.alert('Verein konnte nicht angelegt werden:\n' + msg);
+      alertDialog({ title: 'Fehler', message: 'Verein konnte nicht angelegt werden: ' + msg });
       else Alert.alert('Fehler', msg);
       return;
     }

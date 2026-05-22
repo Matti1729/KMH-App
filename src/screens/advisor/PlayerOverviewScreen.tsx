@@ -8,6 +8,7 @@ import { AdvisorBackground } from '../../components/AdvisorBackground';
 import { MobileHeader } from '../../components/MobileHeader';
 import { MobileSidebar } from '../../components/MobileSidebar';
 import { SlideUpModal } from '../../components/SlideUpModal';
+import { useDialog } from '../../components/DialogProvider';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -315,6 +316,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
   const isMobile = useIsMobile();
   const { session, loading: authLoading } = useAuth();
   const { colors, isDark } = useTheme();
+  const { confirm: confirmDialog, alert: alertDialog } = useDialog();
   const [players, setPlayers] = useState<Player[]>([]);
   const [filteredPlayers, setFilteredPlayers] = useState<Player[]>([]);
   const [advisors, setAdvisors] = useState<Advisor[]>([]);
@@ -349,7 +351,6 @@ export function PlayerOverviewScreen({ navigation }: any) {
   
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [showPlayerDetailModal, setShowPlayerDetailModal] = useState(false);
-  const [showDeletePlayerConfirm, setShowDeletePlayerConfirm] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [fullPlayer, setFullPlayer] = useState<any | null>(null);
   const [fullPlayerLoading, setFullPlayerLoading] = useState(false);
@@ -1118,8 +1119,8 @@ export function PlayerOverviewScreen({ navigation }: any) {
 
   const handleAddPlayer = async () => {
     console.log('[AddPlayer] firstName:', newFirstName, 'lastName:', newLastName, 'userId:', currentUserId, 'tmLoading:', tmLoading);
-    if (!newLastName.trim()) { window.alert('Bitte Nachname eingeben.'); return; }
-    if (!currentUserId) { window.alert('Nicht eingeloggt.'); return; }
+    if (!newLastName.trim()) { await alertDialog({ title: 'Eingabe fehlt', message: 'Bitte Nachname eingeben.' }); return; }
+    if (!currentUserId) { await alertDialog({ title: 'Nicht eingeloggt', message: 'Bitte zuerst anmelden.' }); return; }
 
     // Duplikat-Prüfung
     const existing = players.filter(p =>
@@ -1127,9 +1128,11 @@ export function PlayerOverviewScreen({ navigation }: any) {
       p.first_name?.toLowerCase() === newFirstName.trim().toLowerCase()
     );
     if (existing.length > 0) {
-      const confirmed = window.confirm
-        ? window.confirm(`Ein Spieler mit dem Namen "${newFirstName.trim()} ${newLastName.trim()}" existiert bereits in der Kartei.\n\nTrotzdem anlegen?`)
-        : true;
+      const confirmed = await confirmDialog({
+        title: 'Spieler existiert bereits',
+        message: `Ein Spieler mit dem Namen "${newFirstName.trim()} ${newLastName.trim()}" existiert bereits in der Kartei. Trotzdem anlegen?`,
+        confirmLabel: 'Trotzdem anlegen',
+      });
       if (!confirmed) return;
     }
 
@@ -1609,7 +1612,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
       cancelAdvisorPhoto();
     } catch (e: any) {
       console.error('Photo save failed:', e);
-      if (typeof window !== 'undefined') window.alert('Foto konnte nicht gespeichert werden: ' + (e?.message || ''));
+      alertDialog({ title: 'Fehler', message: 'Foto konnte nicht gespeichert werden: ' + (e?.message || '') });
     } finally {
       setUploadingAdvisorPhoto(false);
     }
@@ -1654,7 +1657,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
     // Leere Strings zu null
     Object.keys(updates).forEach(k => { if (updates[k] === '') updates[k] = null; });
     const { error } = await supabase.from('player_details').update(updates).eq('id', fullPlayer.id);
-    if (error) { setCardSaving(false); if (typeof window !== 'undefined') window.alert('Fehler beim Speichern: ' + error.message); return; }
+    if (error) { setCardSaving(false); alertDialog({ title: 'Fehler beim Speichern', message: error.message }); return; }
 
     // Single-Assignment: alte Row löschen, neue anlegen (nur wenn !== null)
     if (pendingProtoId !== undefined) {
@@ -1677,7 +1680,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
     const newValue = !fullPlayer.in_transfer_list;
     const { error } = await supabase.from('player_details').update({ in_transfer_list: newValue }).eq('id', fullPlayer.id);
     setTransferBusy(false);
-    if (error) { if (typeof window !== 'undefined') window.alert('Fehler: ' + error.message); return; }
+    if (error) { alertDialog({ title: 'Fehler', message: error.message }); return; }
     setFullPlayer({ ...fullPlayer, in_transfer_list: newValue });
   };
 
@@ -1686,7 +1689,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
     setInviteCodeLoading(true);
     try {
       const { data } = await supabase.from('player_details').select('invitation_code, linked_user_id').eq('id', fullPlayer.id).single();
-      if (data?.linked_user_id) { if (typeof window !== 'undefined') window.alert('Dieser Spieler hat sich bereits registriert.'); setInviteCodeLoading(false); return; }
+      if (data?.linked_user_id) { alertDialog({ title: 'Bereits registriert', message: 'Dieser Spieler hat sich bereits registriert.' }); setInviteCodeLoading(false); return; }
       if (data?.invitation_code) { setInviteCode(data.invitation_code); setShowInviteCodeModal(true); setInviteCodeLoading(false); return; }
       const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
       let code = 'KMH-';
@@ -1769,7 +1772,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
         body: { player: fullPlayer, careerEntries, playerDescription, additionalInfo, highlightVideoUrl, highlightVideoTitle, clubLogoUrl, loanFromClubLogoUrl, lang }
       });
       if (error) {
-        if (typeof window !== 'undefined') window.alert('PDF konnte nicht erstellt werden');
+        alertDialog({ title: 'PDF-Fehler', message: 'PDF konnte nicht erstellt werden.' });
         setPdfGenerating(false);
         setShowPdfPreview(false);
         return;
@@ -2060,7 +2063,25 @@ export function PlayerOverviewScreen({ navigation }: any) {
               <>
                 <TouchableOpacity
                   style={[styles.detailToolbarBtn, { borderColor: '#dc2626' }, isMobile && { paddingHorizontal: 8 }]}
-                  onPress={() => { if (fullPlayer) setShowDeletePlayerConfirm(true); }}
+                  onPress={async () => {
+                    if (!fullPlayer) return;
+                    const ok = await confirmDialog({
+                      title: 'Spieler löschen',
+                      message: `"${fullPlayer.first_name} ${fullPlayer.last_name}" wirklich endgültig löschen? Diese Aktion kann nicht rückgängig gemacht werden.`,
+                      danger: true,
+                      confirmLabel: 'Endgültig löschen',
+                    });
+                    if (!ok) return;
+                    setCardSaving(true);
+                    const { error } = await supabase.from('player_details').delete().eq('id', fullPlayer.id);
+                    setCardSaving(false);
+                    if (error) {
+                      alertDialog({ title: 'Fehler beim Löschen', message: error.message });
+                      return;
+                    }
+                    closePlayerDetailModal();
+                    fetchPlayers();
+                  }}
                   disabled={cardSaving}
                 >
                   {isMobile ? (
@@ -2915,49 +2936,6 @@ export function PlayerOverviewScreen({ navigation }: any) {
                   <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="injuries" displayValue={fullPlayer?.injuries} multiline />
                 </View>
               </View>
-
-            {/* Endgültig-Löschen Bestätigung — eigenes Modal statt window.confirm,
-                weil Chrome/Edge confirm() nach wiederholtem Aufruf unterdrücken kann. */}
-            {showDeletePlayerConfirm ? (
-              <View style={styles.detailInviteOverlay}>
-                <Pressable style={StyleSheet.absoluteFillObject} onPress={() => { if (!cardSaving) setShowDeletePlayerConfirm(false); }} />
-                <View style={[styles.detailInviteCodeBox, { borderColor: '#dc2626' }]}>
-                  <Text style={styles.detailInviteCodeTitle}>Spieler löschen</Text>
-                  <Text style={styles.detailInviteCodeSubtitle}>
-                    {fullPlayer ? `"${fullPlayer.first_name} ${fullPlayer.last_name}" wirklich endgültig löschen?` : ''}
-                  </Text>
-                  <Text style={[styles.detailInviteCodeHint, { marginTop: 8, color: '#ef4444' }]}>Diese Aktion kann nicht rückgängig gemacht werden.</Text>
-                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 16, alignSelf: 'stretch' }}>
-                    <TouchableOpacity
-                      style={[styles.detailInviteCodeCloseBtn, { flex: 1, backgroundColor: 'rgba(255,255,255,0.08)' }]}
-                      onPress={() => setShowDeletePlayerConfirm(false)}
-                      disabled={cardSaving}
-                    >
-                      <Text style={styles.detailInviteCodeCloseText}>Abbrechen</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.detailInviteCodeCloseBtn, { flex: 1, backgroundColor: '#dc2626' }]}
-                      disabled={cardSaving || !fullPlayer}
-                      onPress={async () => {
-                        if (!fullPlayer) return;
-                        setCardSaving(true);
-                        const { error } = await supabase.from('player_details').delete().eq('id', fullPlayer.id);
-                        setCardSaving(false);
-                        if (error) {
-                          if (typeof window !== 'undefined') window.alert('Fehler beim Löschen: ' + error.message);
-                          return;
-                        }
-                        setShowDeletePlayerConfirm(false);
-                        closePlayerDetailModal();
-                        fetchPlayers();
-                      }}
-                    >
-                      <Text style={[styles.detailInviteCodeCloseText, { color: '#fff', fontWeight: '700' }]}>{cardSaving ? 'Löschen…' : 'Endgültig löschen'}</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            ) : null}
 
             {/* Invite-Code Overlay innerhalb des Modals (vermeidet Z-Index-Probleme) */}
             {showInviteCodeModal ? (

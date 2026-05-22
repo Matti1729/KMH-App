@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert,
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useDialog } from '../../components/DialogProvider';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import * as Print from 'expo-print';
@@ -424,6 +425,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const { playerId, openPdfEditor } = route.params;
   const { profile } = useAuth();
   const { colors, isDark } = useTheme();
+  const { alert: alertDialog } = useDialog();
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
   const [player, setPlayer] = useState<Player | null>(null);
@@ -1510,11 +1512,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
 
     if (error) {
       console.error('Transfer list update error:', error);
-      if (Platform.OS === 'web') {
-        window.alert('Fehler: Konnte Transfer-Status nicht ändern. ' + error.message);
-      } else {
-        Alert.alert('Fehler', 'Konnte Transfer-Status nicht ändern');
-      }
+      alertDialog({ title: 'Fehler', message: 'Konnte Transfer-Status nicht ändern. ' + error.message });
       return;
     }
 
@@ -1524,11 +1522,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       ? `${player.first_name} ${player.last_name} wurde zur Transferliste hinzugefügt`
       : `${player.first_name} ${player.last_name} wurde von der Transferliste entfernt`;
 
-    if (Platform.OS === 'web') {
-      window.alert(message);
-    } else {
-      Alert.alert(newValue ? 'Hinzugefügt' : 'Entfernt', message);
-    }
+    alertDialog({ title: newValue ? 'Hinzugefügt' : 'Entfernt', message });
   };
 
   // Highlight-Video → public URL + Title für die Edge Function resolven.
@@ -2300,7 +2294,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         .single();
 
       if (data?.linked_user_id) {
-        window.alert('Dieser Spieler hat sich bereits registriert.');
+        alertDialog({ title: 'Bereits registriert', message: 'Dieser Spieler hat sich bereits registriert.' });
         setInviteCodeLoading(false);
         return;
       }

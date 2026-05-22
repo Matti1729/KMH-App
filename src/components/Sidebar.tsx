@@ -5,6 +5,7 @@ import { CommonActions } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import * as ImagePicker from 'expo-image-picker';
+import { useDialog } from './DialogProvider';
 
 interface SidebarProps {
   navigation: any;
@@ -25,6 +26,7 @@ interface SidebarProps {
 const MOBILE_BREAKPOINT = 768;
 
 export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedded, onFeedbackModalChange, playerMode }: SidebarProps) {
+  const { alert: alertDialog } = useDialog();
   const [hoveredNav, setHoveredNav] = useState<string | null>(null);
   const [showFeedbackModal, setShowFeedbackModalState] = useState(false);
 
@@ -124,9 +126,7 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
 
   const submitFeedback = async () => {
     if (!feedbackText.trim()) {
-      if (Platform.OS === 'web') {
-        window.alert('Bitte beschreibe das Problem oder den Vorschlag.');
-      }
+      alertDialog({ title: 'Eingabe fehlt', message: 'Bitte beschreibe das Problem oder den Vorschlag.' });
       return;
     }
 
@@ -144,9 +144,7 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
 
       if (error) throw error;
 
-      if (Platform.OS === 'web') {
-        window.alert('Danke für dein Feedback! Es wurde an den Admin gesendet.');
-      }
+      alertDialog({ title: 'Danke!', message: 'Dein Feedback wurde an den Admin gesendet.' });
       setFeedbackText('');
       setFeedbackType('bug');
       setFeedbackImage(null);
@@ -154,9 +152,7 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
       setShowFeedbackModal(false);
     } catch (err: any) {
       console.error('Feedback error:', err);
-      if (Platform.OS === 'web') {
-        window.alert('Fehler beim Senden: ' + err.message);
-      }
+      alertDialog({ title: 'Fehler beim Senden', message: err.message });
     } finally {
       setSubmitting(false);
     }

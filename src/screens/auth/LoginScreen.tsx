@@ -4,20 +4,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { supabase } from '../../config/supabase';
-
-// Platform-spezifischer Alert
-const showAlert = (title: string, message: string, onOk?: () => void) => {
-  if (Platform.OS === 'web') {
-    window.alert(`${title}\n\n${message}`);
-    if (onOk) onOk();
-  } else {
-    Alert.alert(title, message, [{ text: 'OK', onPress: onOk }]);
-  }
-};
+import { useDialog } from '../../components/DialogProvider';
 
 export function LoginScreen({ navigation }: any) {
   const { signIn } = useAuth();
   const { colors, isDark } = useTheme();
+  const { alert: alertDialog } = useDialog();
+  const showAlert = (title: string, message: string, onOk?: () => void) => {
+    alertDialog({ title, message }).then(() => { if (onOk) onOk(); });
+  };
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);

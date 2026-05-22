@@ -15,6 +15,7 @@ import { ColumnDef } from '../../types/tableColumns';
 import { useTableColumns } from '../../hooks/useTableColumns';
 import { TableHeader } from '../../components/table/TableHeader';
 import { TableRow } from '../../components/table/TableRow';
+import { useDialog } from '../../components/DialogProvider';
 
 const POSITIONS = ['TW', 'IV', 'LV', 'RV', 'DM', 'ZM', 'OM', 'LA', 'RA', 'ST'];
 
@@ -242,6 +243,7 @@ export function ScoutingScreen({ navigation }: any) {
   const isMobile = useIsMobile();
   const { session, loading: authLoading, profile: authProfile } = useAuth();
   const { colors, isDark } = useTheme();
+  const { confirm: confirmDialog } = useDialog();
   const dataLoadedRef = useRef(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [activeTab, setActiveTab] = useState<ActiveTab>('spieler');
@@ -941,14 +943,12 @@ export function ScoutingScreen({ navigation }: any) {
           });
         }
 
-        message += '\nTrotzdem anlegen?';
-
-        // Use platform-appropriate confirm dialog
-        if (Platform.OS === 'web') {
-          const confirmAdd = window.confirm(message);
-          if (!confirmAdd) { setTmLoading(false); return; }
-        }
-        // On mobile, skip duplicate check confirmation and allow adding
+        const confirmAdd = await confirmDialog({
+          title: 'Spieler existiert bereits',
+          message,
+          confirmLabel: 'Trotzdem anlegen',
+        });
+        if (!confirmAdd) { setTmLoading(false); return; }
       }
 
       // TM-Agent-Fetch ist OPTIONAL und kann lange dauern → im Hintergrund nach Insert
@@ -1437,9 +1437,11 @@ export function ScoutingScreen({ navigation }: any) {
         message += `  • ${p.first_name} ${p.last_name}${p.club ? ` (${p.club})` : ''}\n`;
       });
       
-      message += '\nTrotzdem übernehmen?';
-      
-      const confirmAdd = window.confirm(message);
+      const confirmAdd = await confirmDialog({
+        title: 'Spieler existiert bereits',
+        message,
+        confirmLabel: 'Trotzdem übernehmen',
+      });
       if (!confirmAdd) return;
     }
 

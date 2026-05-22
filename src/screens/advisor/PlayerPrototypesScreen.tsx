@@ -12,6 +12,7 @@ import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { PrototypePoster } from '../../components/PrototypePoster';
+import { useDialog } from '../../components/DialogProvider';
 import {
   Prototype,
   POSITION_SHORTS,
@@ -22,7 +23,7 @@ import {
   PROTOTYPE_BUCKET,
 } from '../../utils/prototypes';
 
-async function uploadRoleModelImage(prototypeId: string, index: number): Promise<string | null> {
+async function uploadRoleModelImage(prototypeId: string, index: number, onError?: (msg: string) => void): Promise<string | null> {
   try {
     const result = await DocumentPicker.getDocumentAsync({ type: 'image/*', copyToCacheDirectory: true });
     if (result.canceled || !result.assets?.[0]) return null;
@@ -37,7 +38,7 @@ async function uploadRoleModelImage(prototypeId: string, index: number): Promise
       fileData = { uri: asset.uri, name: asset.name, type: asset.mimeType || 'image/jpeg' };
     }
     const { error } = await supabase.storage.from(PROTOTYPE_BUCKET).upload(fileName, fileData, { contentType: asset.mimeType || 'image/jpeg', upsert: false });
-    if (error) { if (typeof window !== 'undefined') window.alert('Upload-Fehler: ' + error.message); return null; }
+    if (error) { onError?.(error.message); return null; }
     return fileName;
   } catch (e: any) {
     console.error('RoleModel upload error:', e);
@@ -49,6 +50,7 @@ export function PlayerPrototypesScreen({ navigation }: any) {
   const isMobile = useIsMobile();
   const { colors, isDark } = useTheme();
   const { session } = useAuth();
+  const { confirm: confirmDialog, alert: alertDialog } = useDialog();
   const [prototypes, setPrototypes] = useState<Prototype[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -131,7 +133,7 @@ export function PlayerPrototypesScreen({ navigation }: any) {
       }
       const { error } = await supabase.storage.from(PROTOTYPE_BUCKET).upload(fileName, fileData, { contentType: asset.mimeType || 'image/jpeg', upsert: false });
       setUploading(false);
-      if (error) { if (typeof window !== 'undefined') window.alert('Upload-Fehler: ' + error.message); return null; }
+      if (error) { alertDialog({ title: 'Upload-Fehler', message: error.message }); return null; }
       return fileName;
     } catch (e: any) {
       setUploading(false);
@@ -142,7 +144,7 @@ export function PlayerPrototypesScreen({ navigation }: any) {
 
   const savePrototype = async () => {
     if (!editing) return;
-    if (!editing.name.trim()) { if (typeof window !== 'undefined') window.alert('Name erforderlich'); return; }
+    if (!editing.name.trim()) { alertDialog({ title: 'Eingabe fehlt', message: 'Name erforderlich.' }); return; }
     setSaving(true);
     const cleanReqs = editing.requirements.map(r => r.trim()).filter(Boolean);
     // Role-Models + Images synchron filtern (Index-sync)
@@ -166,10 +168,10 @@ export function PlayerPrototypesScreen({ navigation }: any) {
     };
     if (editing.id) {
       const { error } = await supabase.from('player_prototypes').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', editing.id);
-      if (error) { if (typeof window !== 'undefined') window.alert('Fehler: ' + error.message); setSaving(false); return; }
+      if (error) { alertDialog({ title: 'Fehler', message: error.message }); setSaving(false); return; }
     } else {
       const { error } = await supabase.from('player_prototypes').insert(payload);
-      if (error) { if (typeof window !== 'undefined') window.alert('Fehler: ' + error.message); setSaving(false); return; }
+      if (error) { alertDialog({ title: 'Fehler', message: error.message }); setSaving(false); return; }
     }
     setSaving(false);
     setEditing(null);
@@ -177,7 +179,8 @@ export function PlayerPrototypesScreen({ navigation }: any) {
   };
 
   const deletePrototype = async (id: string) => {
-    if (typeof window !== 'undefined' && !window.confirm('Prototyp wirklich löschen?')) return;
+    const ok = await confirmDialog({ title: 'Prototyp löschen', message: 'Prototyp wirklich löschen?', danger: true, confirmLabel: 'Löschen' });
+    if (!ok) return;
     await supabase.from('player_prototypes').delete().eq('id', id);
     if (selectedId === id) setSelectedId(null);
     loadPrototypes();
@@ -507,7 +510,7 @@ function PrototypeEditView({ prototype, onChange, onClose, onSave, onUpload, upl
               <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <TouchableOpacity
                   onPress={async () => {
-                    const path = await uploadRoleModelImage(prototype.id || 'new', i);
+                    const path = await uploadRoleModelImage(prototype.id || 'new', i, (msg) => alertDialog({ title: 'Upload-Fehler', message: msg }));
                     if (path) {
                       const imgs = [...(prototype.role_model_images || [])];
                       while (imgs.length <= i) imgs.push('');

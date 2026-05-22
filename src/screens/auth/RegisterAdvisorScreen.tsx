@@ -3,19 +3,15 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Platform, Alert } 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
-
-const showAlert = (title: string, message: string, onOk?: () => void) => {
-  if (Platform.OS === 'web') {
-    window.alert(title + '\n\n' + message);
-    if (onOk) onOk();
-  } else {
-    Alert.alert(title, message, [{ text: 'OK', onPress: onOk }]);
-  }
-};
+import { useDialog } from '../../components/DialogProvider';
 
 export function RegisterAdvisorScreen({ navigation }: any) {
   const { signUp } = useAuth();
   const { colors, isDark } = useTheme();
+  const { alert: alertDialog } = useDialog();
+  const showAlert = (title: string, message: string, onOk?: () => void) => {
+    alertDialog({ title, message }).then(() => { if (onOk) onOk(); });
+  };
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');

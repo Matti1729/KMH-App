@@ -15,6 +15,7 @@ import { ColumnDef } from '../../types/tableColumns';
 import { useTableColumns } from '../../hooks/useTableColumns';
 import { TableHeader } from '../../components/table/TableHeader';
 import { TableRow } from '../../components/table/TableRow';
+import { useDialog } from '../../components/DialogProvider';
 
 const ArbeitsamtIcon = require('../../../assets/arbeitsamt.png');
 const TransfermarktIcon = require('../../../assets/transfermarkt-logo.png');
@@ -88,6 +89,7 @@ export function FootballNetworkScreen({ navigation }: any) {
   const isMobile = useIsMobile();
   const { session, loading: authLoading, profile: authProfile } = useAuth();
   const { colors, isDark } = useTheme();
+  const { confirm: confirmDialog } = useDialog();
   const dataLoadedRef = useRef(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -587,8 +589,12 @@ export function FootballNetworkScreen({ navigation }: any) {
         c.vorname?.toLowerCase() === contact.vorname.toLowerCase()
       );
       if (existing) {
-        const skip = !window.confirm(`"${contact.vorname} ${contact.nachname}" existiert bereits im Football Network.\n\nTrotzdem anlegen?`);
-        if (skip) continue;
+        const proceed = await confirmDialog({
+          title: 'Kontakt existiert bereits',
+          message: `"${contact.vorname} ${contact.nachname}" existiert bereits im Football Network. Trotzdem anlegen?`,
+          confirmLabel: 'Trotzdem anlegen',
+        });
+        if (!proceed) continue;
       }
 
       // Vereinslos-Handling: TM-URL wird immer gespeichert, Position/Bereich auch
@@ -1151,7 +1157,7 @@ export function FootballNetworkScreen({ navigation }: any) {
                   <View style={{ flexDirection: 'row', gap: 8 }}>
                     <TextInput style={[styles.formInput, { flex: 1 }]} value={newContact.transfermarkt_url} onChangeText={(t) => setNewContact({...newContact, transfermarkt_url: t})} placeholder="https://www.transfermarkt.de/..." placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} />
                     {newContact.transfermarkt_url ? (
-                      <TouchableOpacity style={[styles.formSelect, { width: 32, justifyContent: 'center', alignItems: 'center' }]} onPress={() => { if (window.confirm('TM-Verknüpfung entfernen?\nVerein/Position bleiben erhalten.')) setNewContact({...newContact, transfermarkt_url: ''}); }}>
+                      <TouchableOpacity style={[styles.formSelect, { width: 32, justifyContent: 'center', alignItems: 'center' }]} onPress={async () => { const ok = await confirmDialog({ title: 'TM-Verknüpfung entfernen', message: 'Verein/Position bleiben erhalten.', confirmLabel: 'Entfernen', danger: true }); if (ok) setNewContact({...newContact, transfermarkt_url: ''}); }}>
                         <Text style={{ color: colors.textSecondary, fontSize: 12 }}>✕</Text>
                       </TouchableOpacity>
                     ) : null}
@@ -1746,7 +1752,7 @@ export function FootballNetworkScreen({ navigation }: any) {
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   <TextInput style={[styles.formInput, { flex: 1 }]} value={newContact.transfermarkt_url} onChangeText={(t) => setNewContact({...newContact, transfermarkt_url: t})} placeholder="https://www.transfermarkt.de/..." placeholderTextColor={colors.textMuted} onFocus={() => setActiveDropdown(null)} />
                   {newContact.transfermarkt_url ? (
-                    <TouchableOpacity style={[styles.formSelect, { width: 32, justifyContent: 'center', alignItems: 'center' }]} onPress={() => { if (window.confirm('TM-Verknüpfung entfernen?\nVerein/Position bleiben erhalten.')) setNewContact({...newContact, transfermarkt_url: ''}); }}>
+                    <TouchableOpacity style={[styles.formSelect, { width: 32, justifyContent: 'center', alignItems: 'center' }]} onPress={async () => { const ok = await confirmDialog({ title: 'TM-Verknüpfung entfernen', message: 'Verein/Position bleiben erhalten.', confirmLabel: 'Entfernen', danger: true }); if (ok) setNewContact({...newContact, transfermarkt_url: ''}); }}>
                       <Text style={{ color: colors.textSecondary, fontSize: 12 }}>✕</Text>
                     </TouchableOpacity>
                   ) : null}

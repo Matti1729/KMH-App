@@ -5,6 +5,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { GameSyncProvider } from './src/contexts/GameSyncContext';
+import { DialogProvider } from './src/components/DialogProvider';
 import { RootNavigator } from './src/navigation';
 
 // Wrapper component to apply theme to StatusBar
@@ -57,7 +58,9 @@ function ThemedApp() {
       )}
       <AuthProvider>
         <GameSyncProvider>
-          <RootNavigator />
+          <DialogProvider>
+            <RootNavigator />
+          </DialogProvider>
         </GameSyncProvider>
       </AuthProvider>
     </View>
