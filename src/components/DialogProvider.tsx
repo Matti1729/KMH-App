@@ -173,10 +173,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 24,
   },
+  // Modal-Card: schwarz statt #1a1a1a (das wirkt im Vergleich zur Overlay grau).
+  // Folgt dem Dropdown-Listen-Pattern aus dem Skill ("Niemals #1a1a1a für Listen — immer #000").
   box: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#000',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: 'rgba(255,255,255,0.25)',
     borderRadius: 16,
     padding: 24,
     maxWidth: 440,
@@ -184,7 +186,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.6,
+    shadowOpacity: 0.7,
     shadowRadius: 24,
     elevation: 24,
   },
