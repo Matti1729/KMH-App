@@ -3774,8 +3774,11 @@ const styles = StyleSheet.create({
   containerMobile: { flex: 1, flexDirection: 'column', backgroundColor: 'rgba(0,0,0,0.45)' },
   sidebarOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 100, flexDirection: 'row' },
   sidebarMobile: { width: 280, height: '100%', backgroundColor: 'rgba(0,0,0,0.55)' },
-  mainContent: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
-  mainContentMobile: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
+  // minHeight: 0 + overflow hidden ist nötig, damit verschachtelte ScrollViews auf
+  // Chromium/Edge/Windows ihre Höhe korrekt berechnen — sonst wird der Container so
+  // groß wie sein Inhalt und der innere ScrollView scrollt nicht.
+  mainContent: { flex: 1, minHeight: 0, overflow: 'hidden', backgroundColor: 'rgba(0,0,0,0.45)' },
+  mainContentMobile: { flex: 1, minHeight: 0, backgroundColor: 'rgba(0,0,0,0.45)' },
 
   // Mobile Toolbar
   mobileToolbar: {
@@ -4159,10 +4162,10 @@ const styles = StyleSheet.create({
   dropdownOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, backgroundColor: 'transparent' },
 
   // Content with padding
-  content: { flex: 1, padding: 24 },
+  content: { flex: 1, minHeight: 0, padding: 24 },
 
   // Table Wrapper with rounded borders
-  tableWrapper: { flex: 1, borderRadius: 12, borderWidth: 1, overflow: 'hidden', zIndex: 1, position: 'relative' },
+  tableWrapper: { flex: 1, minHeight: 0, borderRadius: 12, borderWidth: 1, overflow: 'hidden', zIndex: 1, position: 'relative' },
 
   // Add Button
   addButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1 },
