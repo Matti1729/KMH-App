@@ -222,19 +222,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minWidth: 96,
   },
+  // Cancel: transparenter Hintergrund + subtiler Rand — kein Grau, folgt dem
+  // kmh-design-system "secondary" Style (Borders only, kein Fill).
   btnCancel: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'transparent',
+    borderColor: 'rgba(255,255,255,0.25)',
   },
   btnCancelText: {
     color: 'rgba(255,255,255,0.85)',
     fontSize: 12,
     fontWeight: '600',
   },
+  // Primary: vollflächiges KMH-Grün
   btnPrimary: {
     backgroundColor: '#22c55e',
     borderColor: '#22c55e',
   },
+  // Danger: vollflächiges Rot für endgültige Aktionen (Löschen-Confirm).
   btnDanger: {
     backgroundColor: '#dc2626',
     borderColor: '#dc2626',
