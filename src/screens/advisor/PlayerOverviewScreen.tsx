@@ -349,6 +349,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
   
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [showPlayerDetailModal, setShowPlayerDetailModal] = useState(false);
+  const [showDeletePlayerConfirm, setShowDeletePlayerConfirm] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [fullPlayer, setFullPlayer] = useState<any | null>(null);
   const [fullPlayerLoading, setFullPlayerLoading] = useState(false);
@@ -2059,22 +2060,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
               <>
                 <TouchableOpacity
                   style={[styles.detailToolbarBtn, { borderColor: '#dc2626' }, isMobile && { paddingHorizontal: 8 }]}
-                  onPress={async () => {
-                    if (!fullPlayer) return;
-                    const confirmed = typeof window !== 'undefined' && window.confirm
-                      ? window.confirm(`Spieler "${fullPlayer.first_name} ${fullPlayer.last_name}" wirklich endgültig löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden.`)
-                      : true;
-                    if (!confirmed) return;
-                    setCardSaving(true);
-                    const { error } = await supabase.from('player_details').delete().eq('id', fullPlayer.id);
-                    setCardSaving(false);
-                    if (error) {
-                      if (typeof window !== 'undefined') window.alert('Fehler beim Löschen: ' + error.message);
-                      return;
-                    }
-                    closePlayerDetailModal();
-                    fetchPlayers();
-                  }}
+                  onPress={() => { if (fullPlayer) setShowDeletePlayerConfirm(true); }}
                   disabled={cardSaving}
                 >
                   {isMobile ? (
@@ -2929,6 +2915,49 @@ export function PlayerOverviewScreen({ navigation }: any) {
                   <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="injuries" displayValue={fullPlayer?.injuries} multiline />
                 </View>
               </View>
+
+            {/* Endgültig-Löschen Bestätigung — eigenes Modal statt window.confirm,
+                weil Chrome/Edge confirm() nach wiederholtem Aufruf unterdrücken kann. */}
+            {showDeletePlayerConfirm ? (
+              <View style={styles.detailInviteOverlay}>
+                <Pressable style={StyleSheet.absoluteFillObject} onPress={() => { if (!cardSaving) setShowDeletePlayerConfirm(false); }} />
+                <View style={[styles.detailInviteCodeBox, { borderColor: '#dc2626' }]}>
+                  <Text style={styles.detailInviteCodeTitle}>Spieler löschen</Text>
+                  <Text style={styles.detailInviteCodeSubtitle}>
+                    {fullPlayer ? `"${fullPlayer.first_name} ${fullPlayer.last_name}" wirklich endgültig löschen?` : ''}
+                  </Text>
+                  <Text style={[styles.detailInviteCodeHint, { marginTop: 8, color: '#ef4444' }]}>Diese Aktion kann nicht rückgängig gemacht werden.</Text>
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 16, alignSelf: 'stretch' }}>
+                    <TouchableOpacity
+                      style={[styles.detailInviteCodeCloseBtn, { flex: 1, backgroundColor: 'rgba(255,255,255,0.08)' }]}
+                      onPress={() => setShowDeletePlayerConfirm(false)}
+                      disabled={cardSaving}
+                    >
+                      <Text style={styles.detailInviteCodeCloseText}>Abbrechen</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.detailInviteCodeCloseBtn, { flex: 1, backgroundColor: '#dc2626' }]}
+                      disabled={cardSaving || !fullPlayer}
+                      onPress={async () => {
+                        if (!fullPlayer) return;
+                        setCardSaving(true);
+                        const { error } = await supabase.from('player_details').delete().eq('id', fullPlayer.id);
+                        setCardSaving(false);
+                        if (error) {
+                          if (typeof window !== 'undefined') window.alert('Fehler beim Löschen: ' + error.message);
+                          return;
+                        }
+                        setShowDeletePlayerConfirm(false);
+                        closePlayerDetailModal();
+                        fetchPlayers();
+                      }}
+                    >
+                      <Text style={[styles.detailInviteCodeCloseText, { color: '#fff', fontWeight: '700' }]}>{cardSaving ? 'Löschen…' : 'Endgültig löschen'}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            ) : null}
 
             {/* Invite-Code Overlay innerhalb des Modals (vermeidet Z-Index-Probleme) */}
             {showInviteCodeModal ? (
