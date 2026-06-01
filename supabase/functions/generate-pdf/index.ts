@@ -161,6 +161,7 @@ interface CareerEntry {
   goals?: string;
   assists?: string;
   is_current: boolean;
+  season_label?: string; // Freitext-Override für Saison-Anzeige (gewinnt vor Datums-Ableitung)
 }
 
 interface Player {
@@ -583,14 +584,16 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
   };
 
   // Karriere-Einträge nach Verein + Saison gruppieren
-  const groupedCareer: { club: string; from_date: string; to_date: string; is_current: boolean; competitions: { league: string; games: string; goals: string; assists: string; stats: string }[] }[] = [];
+  const groupedCareer: { club: string; from_date: string; to_date: string; is_current: boolean; season_label?: string; competitions: { league: string; games: string; goals: string; assists: string; stats: string }[] }[] = [];
   for (const entry of careerEntries || []) {
     const key = `${entry.club}_${entry.from_date}`;
     const existing = groupedCareer.find(g => `${g.club}_${g.from_date}` === key);
     if (existing) {
       existing.competitions.push({ league: entry.league, games: entry.games || '', goals: entry.goals || '', assists: entry.assists || '', stats: entry.stats || '' });
+      // Erstes nicht-leeres season_label in der Gruppe gewinnt
+      if (!existing.season_label && entry.season_label) existing.season_label = entry.season_label;
     } else {
-      groupedCareer.push({ club: entry.club, from_date: entry.from_date, to_date: entry.to_date, is_current: entry.is_current, competitions: [{ league: entry.league, games: entry.games || '', goals: entry.goals || '', assists: entry.assists || '', stats: entry.stats || '' }] });
+      groupedCareer.push({ club: entry.club, from_date: entry.from_date, to_date: entry.to_date, is_current: entry.is_current, season_label: entry.season_label, competitions: [{ league: entry.league, games: entry.games || '', goals: entry.goals || '', assists: entry.assists || '', stats: entry.stats || '' }] });
     }
   }
   // Wettbewerbe innerhalb jeder Gruppe nach Liga-Hierarchie sortieren
@@ -629,7 +632,10 @@ function generateHtml(player: Player, careerEntries: CareerEntry[], playerDescri
   const careerHtml = groupedCareer.map((group) => {
     const season = seasonFromDates(group.from_date, group.to_date);
     let dateDisplay = '';
-    if (group.is_current && season) {
+    // Freitext-Override aus dem PDF-Editor gewinnt vor allem anderen.
+    if (group.season_label && group.season_label.trim()) {
+      dateDisplay = group.season_label.trim();
+    } else if (group.is_current && season) {
       dateDisplay = `${t.since} ${season}`;
     } else if (season) {
       dateDisplay = season;

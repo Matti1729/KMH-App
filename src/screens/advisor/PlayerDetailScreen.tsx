@@ -474,6 +474,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     assists?: string;
     is_current: boolean;
     sort_order: number;
+    season_label?: string; // Freitext-Override für die Saison-Anzeige im PDF
   }
   const [careerEntries, setCareerEntries] = useState<CareerEntry[]>([]);
   // Rohtext beim Saison-Tippen pro Gruppe ("24/2", "24/", etc.) — wird auf
@@ -850,7 +851,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           to_date: entry.to_date,
           stats: statsString,
           is_current: entry.is_current,
-          sort_order: entry.sort_order
+          sort_order: entry.sort_order,
+          season_label: entry.season_label ?? null,
         })
         .eq('id', entry.id)
         .select();
@@ -870,7 +872,8 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           to_date: entry.to_date,
           stats: statsString,
           is_current: entry.is_current,
-          sort_order: entry.sort_order
+          sort_order: entry.sort_order,
+          season_label: entry.season_label ?? null,
         })
         .select();
       console.log('[PDF] INSERT player_career — rows:', data?.length || 0, 'returned:', data, 'error:', error);
@@ -4113,7 +4116,11 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                   };
 
                   // Saison-Helpers: "01.07.2024" + "30.06.2025" ↔ "24/25"
+                  // Wenn season_label gesetzt ist (Freitext-Override), gewinnt es vor der
+                  // Datums-Ableitung — der User sieht im Input wieder, was er getippt hat.
                   const formatSeasonFromGroup = (g: Group): string => {
+                    const labelEntry = g.indexes.map(i => careerEntries[i]).find(e => e?.season_label);
+                    if (labelEntry?.season_label) return labelEntry.season_label;
                     const fy = (g.from_date || '').match(/(\d{4})$/);
                     const ty = (g.to_date || '').match(/(\d{4})$/);
                     if (fy && ty) return `${fy[1].slice(2)}/${ty[1].slice(2)}`;
@@ -4131,11 +4138,22 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                   const handleSeasonChange = (group: Group, text: string) => {
                     setSeasonInputs(prev => ({ ...prev, [group.key]: text }));
                     const parsed = parseSeasonInput(text);
-                    if (parsed) {
-                      setCareerEntries(prev => prev.map((e, i) =>
-                        group.indexes.includes(i) ? { ...e, from_date: parsed.from, to_date: parsed.to } : e
-                      ));
-                    }
+                    setCareerEntries(prev => prev.map((e, i) => {
+                      if (!group.indexes.includes(i)) return e;
+                      // Freitext immer in season_label spiegeln (leerer Text → null).
+                      // Bei vollständigem Pattern "DD/DD" zusätzlich from_date/to_date updaten,
+                      // damit das automatische Sortieren weiter funktioniert.
+                      const trimmed = text.trim();
+                      const next: typeof e = {
+                        ...e,
+                        season_label: trimmed === '' ? undefined : trimmed,
+                      };
+                      if (parsed) {
+                        next.from_date = parsed.from;
+                        next.to_date = parsed.to;
+                      }
+                      return next;
+                    }));
                   };
 
                   return groups.map((group, gIdx) => (
