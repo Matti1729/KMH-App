@@ -495,12 +495,15 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const [pdfLanguage, setPdfLanguage] = useState<'de' | 'en'>('de');
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
 
-  // Click-outside-Handler für Sprach-Dropdown (Skill-Pattern)
+  // Click-outside-Handler für Sprach-Dropdown (Skill-Pattern).
+  // ACHTUNG: RN-Web rendert dataSet-Keys all-lowercase ohne Bindestriche
+  // → data-kmhdropdown (siehe kmh-design-system Skill). Direkte data-*-Props
+  // werden vom View-Typ ignoriert — daher dataSet verwenden.
   useEffect(() => {
     if (!showLanguageDropdown || typeof document === 'undefined') return;
     const handler = (e: any) => {
       const target = e.target;
-      if (target && target.closest && target.closest('[data-kmh-dropdown]')) return;
+      if (target && target.closest && target.closest('[data-kmhdropdown]')) return;
       setShowLanguageDropdown(false);
     };
     document.addEventListener('mousedown', handler);
@@ -4024,7 +4027,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               /* Bearbeitungsmodus */
               <ScrollView style={styles.pdfModalContent}>
                 {/* Sprachauswahl — Skill-Dropdown-Pattern: Label oben, Pill-Dropdown darunter */}
-                <View {...({ 'data-kmh-dropdown': 'true' } as any)} style={[styles.pdfEditSection, { maxWidth: 160, zIndex: showLanguageDropdown ? 1000 : 1, position: 'relative' }]}>
+                <View {...({ dataSet: { kmhdropdown: 'true' } } as any)} style={[styles.pdfEditSection, { maxWidth: 160, zIndex: showLanguageDropdown ? 1000 : 1, position: 'relative' }]}>
                   <Text style={styles.pdfEditSectionTitle}>Sprache</Text>
                   <TouchableOpacity
                     style={{ alignSelf: 'stretch', backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 4, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
