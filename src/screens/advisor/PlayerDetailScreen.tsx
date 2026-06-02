@@ -800,9 +800,9 @@ export function PlayerDetailScreen({ route, navigation }: any) {
       setPdfAdditionalInfo(infoStr ? infoStr.split(';').map((s: string) => s.trim()).filter(Boolean) : []);
       setPdfHighlightVideoId(playerData?.pdf_highlight_video_id || null);
       setPdfHighlightVideoUrl(playerData?.pdf_highlight_video_url || '');
-      // Beim Öffnen immer auf Deutsch starten — auch wenn beim letzten Save 'en' gewählt war.
-      // Berater kann manuell auf English wechseln; das wird dann beim Speichern wieder persistiert.
-      setPdfLanguage('de');
+      // Gespeicherte Sprache übernehmen (Default 'de', falls noch nichts in der DB steht).
+      const savedLang = playerData?.pdf_language;
+      setPdfLanguage(savedLang === 'en' ? 'en' : 'de');
 
       // Verfügbare Videos für diesen Spieler laden (M:N via player_video_assignments)
       const { data: assignments } = await supabase
