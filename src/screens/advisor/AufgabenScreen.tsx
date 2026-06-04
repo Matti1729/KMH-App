@@ -149,25 +149,30 @@ export function AufgabenScreen({ navigation }: any) {
     return `${a.first_name} ${a.last_name}`.trim();
   };
 
-  const renderTabs = () => (
-    <View style={styles.tabsRow}>
-      {(['team', 'personal'] as const).map(scope => {
+  // Segmented Pill — zwei Buttons in einer Pille mit vertikalem Trenner.
+  // Aktiv: weiße Schrift; inaktiv: gedimmt. Folgt dem Hero-Button-Stil
+  // (height 28, bg rgba(0,0,0,0.7), border rgba(255,255,255,0.25)).
+  const renderSegmentedTabs = () => (
+    <View style={styles.segmentedWrap}>
+      {(['team', 'personal'] as const).map((scope, idx) => {
         const isActive = activeTab === scope;
-        const label = scope === 'team' ? 'Team-Aufgaben' : 'Meine Aufgaben';
+        const label = scope === 'team' ? 'Team Aufgaben' : 'Meine Aufgaben';
         const openCount = tasks.filter(t => t.scope === scope && !t.completed_at && (scope === 'team' || t.owner_advisor_id === userId)).length;
         return (
-          <TouchableOpacity
-            key={scope}
-            onPress={() => setActiveTab(scope)}
-            style={[styles.tabBtn, isActive && styles.tabBtnActive]}
-          >
-            <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>{label}</Text>
-            {openCount > 0 ? (
-              <View style={styles.tabBadge}>
-                <Text style={styles.tabBadgeText}>{openCount}</Text>
-              </View>
-            ) : null}
-          </TouchableOpacity>
+          <React.Fragment key={scope}>
+            {idx > 0 ? <View style={styles.segmentedDivider} /> : null}
+            <TouchableOpacity
+              onPress={() => setActiveTab(scope)}
+              style={[styles.segmentedBtn, isActive && styles.segmentedBtnActive]}
+            >
+              <Text style={[styles.segmentedLabel, isActive && styles.segmentedLabelActive]}>{label}</Text>
+              {openCount > 0 ? (
+                <View style={[styles.segmentedCountPill, isActive && styles.segmentedCountPillActive]}>
+                  <Text style={[styles.segmentedCountText, isActive && styles.segmentedCountTextActive]}>{openCount}</Text>
+                </View>
+              ) : null}
+            </TouchableOpacity>
+          </React.Fragment>
         );
       })}
     </View>
@@ -255,9 +260,8 @@ export function AufgabenScreen({ navigation }: any) {
     });
   };
 
-  const content = (
+  const cardsContent = (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: isMobile ? 16 : 32, paddingBottom: 80 }}>
-      {renderTabs()}
       <View style={styles.frostedCard}>
         {renderInputRow()}
         <View style={styles.divider} />
@@ -276,8 +280,10 @@ export function AufgabenScreen({ navigation }: any) {
           subtitle="Team & persönliche To-Dos"
           backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
           onMenuPress={() => setShowMobileSidebar(true)}
-        />
-        {content}
+        >
+          {renderSegmentedTabs()}
+        </MobileHeader>
+        {cardsContent}
       </View>
     );
   }
@@ -292,8 +298,10 @@ export function AufgabenScreen({ navigation }: any) {
           subtitle="TEAM-PUNKTE · PERSÖNLICHE TO-DOS"
           backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
           backgroundImageOpacity={0.45}
-        />
-        {content}
+        >
+          {renderSegmentedTabs()}
+        </AdvisorHeroHeader>
+        {cardsContent}
       </View>
     </View>
   );
@@ -304,49 +312,61 @@ const styles = StyleSheet.create({
   containerMobile: { flex: 1, flexDirection: 'column' },
   mainContent: { flex: 1, minHeight: 0, padding: 24 },
 
-  // Tabs — Skill-Pattern: 2px Border-Bottom #22c55e on active
-  tabsRow: {
+  // Segmented Pill — eine Pille, zwei Buttons, vertikaler Divider.
+  // Hero-Button-Stil: height 28, bg rgba(0,0,0,0.7), border rgba(255,255,255,0.25), borderRadius 6.
+  segmentedWrap: {
     flexDirection: 'row',
-    gap: 24,
-    marginBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'stretch',
+    height: 28,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 6,
+    overflow: 'hidden',
   },
-  tabBtn: {
+  segmentedDivider: {
+    width: 1,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+  },
+  segmentedBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 4,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    gap: 6,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
   },
-  tabBtnActive: {
-    borderBottomColor: '#22c55e',
+  segmentedBtnActive: {
+    backgroundColor: 'rgba(34,197,94,0.15)',
   },
-  tabLabel: {
-    fontSize: 12,
+  segmentedLabel: {
+    fontSize: 11,
     fontWeight: '600',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
     color: 'rgba(255,255,255,0.5)',
   },
-  tabLabelActive: {
+  segmentedLabelActive: {
     color: '#fff',
   },
-  tabBadge: {
-    backgroundColor: '#22c55e',
+  segmentedCountPill: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 8,
-    paddingHorizontal: 6,
-    minWidth: 18,
-    height: 18,
+    paddingHorizontal: 5,
+    minWidth: 16,
+    height: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  tabBadgeText: {
-    color: '#fff',
-    fontSize: 10,
+  segmentedCountPillActive: {
+    backgroundColor: '#22c55e',
+  },
+  segmentedCountText: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 9,
     fontWeight: '700',
+  },
+  segmentedCountTextActive: {
+    color: '#fff',
   },
 
   // Frosted-Glass Container für die Liste
