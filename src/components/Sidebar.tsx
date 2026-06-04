@@ -197,6 +197,7 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
         { id: 'scouting', label: 'Scouting', icon: '🔍', screen: 'Scouting' },
         { id: 'network', label: 'Football Network', icon: '💼', screen: 'FootballNetwork' },
         { id: 'termine', label: 'Spieltage', icon: '📅', screen: 'Calendar' },
+        { id: 'aufgaben', label: 'Aufgaben', icon: '📋', screen: 'Aufgaben' },
       ];
 
   // Sidebar-Inhalt: Logo fixed oben, alles andere in einer scrollbaren ScrollView.

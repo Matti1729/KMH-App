@@ -17,6 +17,7 @@ import { WissenswertesScreen } from '../screens/advisor/WissenswertesScreen';
 import { AECalculatorScreen } from '../screens/advisor/AECalculatorScreen';
 import { PlayerPrototypesScreen } from '../screens/advisor/PlayerPrototypesScreen';
 import { VideoLibraryScreen } from '../screens/advisor/VideoLibraryScreen';
+import { AufgabenScreen } from '../screens/advisor/AufgabenScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -72,6 +73,7 @@ export function RootNavigator() {
             <Stack.Screen name="AECalculator" component={AECalculatorScreen} />
             <Stack.Screen name="PlayerPrototypes" component={PlayerPrototypesScreen} />
             <Stack.Screen name="VideoLibrary" component={VideoLibraryScreen} />
+            <Stack.Screen name="Aufgaben" component={AufgabenScreen} />
           </>
         ) : (
           <>

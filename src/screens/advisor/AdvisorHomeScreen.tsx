@@ -35,6 +35,7 @@ export function AdvisorHomeScreen({ navigation }: any) {
   const [openFeedbackCount, setOpenFeedbackCount] = useState(0);
   const [todayGamesCount, setTodayGamesCount] = useState(0);
   const [networkContactsCount, setNetworkContactsCount] = useState(0);
+  const [openTasksCount, setOpenTasksCount] = useState(0);
   const dataLoadedRef = useRef(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
@@ -53,6 +54,7 @@ export function AdvisorHomeScreen({ navigation }: any) {
     fetchOpenFeedbackCount();
     fetchTodayGamesCount();
     fetchNetworkContactsCount();
+    fetchOpenTasksCount();
   }, [authLoading, session]);
 
   const fetchProfile = async () => {
@@ -189,8 +191,22 @@ export function AdvisorHomeScreen({ navigation }: any) {
     const { count } = await supabase
       .from('football_network_contacts')
       .select('*', { count: 'exact', head: true });
-    
+
     setNetworkContactsCount(count || 0);
+  };
+
+  // Offene Aufgaben: alle offenen Team-Tasks + meine eigenen offenen persönlichen Tasks.
+  const fetchOpenTasksCount = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('advisor_tasks')
+      .select('id, scope, owner_advisor_id, completed_at');
+    if (error || !data) return;
+    const openCount = data.filter((t: any) =>
+      !t.completed_at && (t.scope === 'team' || t.owner_advisor_id === user.id)
+    ).length;
+    setOpenTasksCount(openCount);
   };
 
   const DashboardCard = ({
@@ -338,6 +354,23 @@ export function AdvisorHomeScreen({ navigation }: any) {
                 </View>
               </DashboardCard>
 
+              {/* Aufgaben */}
+              <DashboardCard
+                id="aufgaben"
+                style={[styles.mobileCard, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}
+                onPress={() => navigation.navigate('Aufgaben')}
+                hoverStyle={{ backgroundColor: 'transparent' }}
+              >
+                <View style={styles.mobileCardContent}>
+                  <View style={[styles.mobileCardIcon, { backgroundColor: colors.surfaceSecondary }]}><Text style={styles.mobileCardIconText}>📋</Text></View>
+                  <View style={styles.mobileCardText}>
+                    <Text style={[styles.mobileCardTitle, { color: colors.text }]}>Aufgaben</Text>
+                    <Text style={[styles.mobileCardSubtitle, { color: colors.textSecondary }]}>Team & persönliche To-Dos</Text>
+                  </View>
+                  <Text style={[styles.mobileCardCount, { color: colors.text }]}>{openTasksCount}</Text>
+                </View>
+              </DashboardCard>
+
               {/* Wissenswertes — TEMPORÄR nur für Matti (Feature in Bearbeitung) */}
               {session?.user?.id === '892d4dbc-3c5b-4908-9735-ac0ca3794dfc' && (
                 <DashboardCard
@@ -435,6 +468,7 @@ export function AdvisorHomeScreen({ navigation }: any) {
               { id: 'scouting', icon: '🔍', title: 'Scouting', subtitle: 'Talente im Blick', count: scoutingCount, screen: 'Scouting' },
               { id: 'network', icon: '💼', title: 'Football Network', subtitle: 'Kontakte zu Vereinen & Entscheidern', count: networkContactsCount, screen: 'FootballNetwork' },
               { id: 'termine', icon: '📅', title: 'Spieltage', subtitle: 'Lehrgänge, Spiele & Turniere', badge: todayGamesCount, screen: 'Calendar' },
+              { id: 'aufgaben', icon: '📋', title: 'Aufgaben', subtitle: 'Team & persönliche To-Dos', count: openTasksCount, screen: 'Aufgaben' },
               // Wissenswertes TEMPORÄR nur für Matti (Feature in Bearbeitung)
               ...(isMatti ? [{ id: 'wissenswertes', icon: '💡', title: 'Wissenswertes', subtitle: 'Tools & Informationen', screen: 'Wissenswertes' }] : []),
               ...(isAdmin ? [{ id: 'admin', icon: '⚙️', title: 'Administration', subtitle: 'Benutzer & Rechte verwalten', badge: pendingRequestsCount + openFeedbackCount, screen: 'AdminPanel' }] : []),
