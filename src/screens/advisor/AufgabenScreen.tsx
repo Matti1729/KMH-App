@@ -152,7 +152,9 @@ export function AufgabenScreen({ navigation }: any) {
   // Segmented Pill — zwei Buttons in einer Pille mit vertikalem Trenner.
   // Aktiv: weiße Schrift; inaktiv: gedimmt. Folgt dem Hero-Button-Stil
   // (height 28, bg rgba(0,0,0,0.7), border rgba(255,255,255,0.25)).
+  // Wrapper schiebt die Pille im Toolbar-Slot nach rechts.
   const renderSegmentedTabs = () => (
+    <View style={styles.segmentedAlignRight}>
     <View style={styles.segmentedWrap}>
       {(['team', 'personal'] as const).map((scope, idx) => {
         const isActive = activeTab === scope;
@@ -175,6 +177,7 @@ export function AufgabenScreen({ navigation }: any) {
           </React.Fragment>
         );
       })}
+    </View>
     </View>
   );
 
@@ -312,6 +315,13 @@ const styles = StyleSheet.create({
   containerMobile: { flex: 1, flexDirection: 'column' },
   mainContent: { flex: 1, minHeight: 0, padding: 24 },
 
+  // Wrapper schiebt die Segmented-Pille rechts in den Toolbar-Slot
+  // (flex: 1 schluckt die volle Breite, alignItems: 'flex-end' richtet die Pille rechts aus).
+  segmentedAlignRight: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
   // Segmented Pill — eine Pille, zwei Buttons, vertikaler Divider.
   // Hero-Button-Stil: height 28, bg rgba(0,0,0,0.7), border rgba(255,255,255,0.25), borderRadius 6.
   segmentedWrap: {
