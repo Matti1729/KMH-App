@@ -45,8 +45,45 @@ export function AufgabenScreen({ navigation }: any) {
   const [newTitle, setNewTitle] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
 
   const userId = session?.user?.id || null;
+
+  const canEdit = (task: TaskRow): boolean => {
+    if (!userId) return false;
+    if (task.scope === 'team') return true; // kollaborativ, RLS erlaubt update für alle
+    return task.owner_advisor_id === userId;
+  };
+
+  const startEdit = (task: TaskRow) => {
+    if (!canEdit(task)) return;
+    setEditingId(task.id);
+    setEditingTitle(task.title);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditingTitle('');
+  };
+
+  const saveEdit = async () => {
+    if (!editingId) return;
+    const title = editingTitle.trim();
+    if (!title) { cancelEdit(); return; }
+    const target = tasks.find(t => t.id === editingId);
+    if (!target || target.title === title) { cancelEdit(); return; }
+    // Optimistisch
+    setTasks(prev => prev.map(t => t.id === editingId ? { ...t, title } : t));
+    const id = editingId;
+    cancelEdit();
+    const { error } = await supabase.from('advisor_tasks').update({ title }).eq('id', id);
+    if (error) {
+      // Revert
+      setTasks(prev => prev.map(t => t.id === id ? { ...t, title: target.title } : t));
+      alertDialog({ title: 'Fehler beim Speichern', message: error.message });
+    }
+  };
 
   const fetchTasks = useCallback(async () => {
     if (!userId) return;
@@ -217,8 +254,11 @@ export function AufgabenScreen({ navigation }: any) {
     }
     return visibleTasks.map(task => {
       const done = !!task.completed_at;
+      const isEditing = editingId === task.id;
       const showHover = hoveredId === task.id;
-      const showDelete = canDelete(task) && (!isMobile ? showHover : true);
+      const showActions = (!isMobile ? showHover : true) && !isEditing;
+      const showEdit = canEdit(task) && showActions;
+      const showDelete = canDelete(task) && showActions;
       return (
         <View
           key={task.id}
@@ -228,7 +268,7 @@ export function AufgabenScreen({ navigation }: any) {
             onMouseLeave: () => setHoveredId(null),
           } as any : {})}
         >
-          <TouchableOpacity onPress={() => toggleComplete(task)} style={styles.checkboxBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <TouchableOpacity onPress={() => toggleComplete(task)} style={styles.checkboxBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} disabled={isEditing}>
             <Ionicons
               name={done ? 'checkbox' : 'square-outline'}
               size={20}
@@ -236,12 +276,31 @@ export function AufgabenScreen({ navigation }: any) {
             />
           </TouchableOpacity>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text
-              style={[styles.taskTitle, done && styles.taskTitleDone]}
-              numberOfLines={2}
-            >
-              {task.title}
-            </Text>
+            {isEditing ? (
+              <TextInput
+                style={[styles.taskTitle, styles.taskTitleInput]}
+                value={editingTitle}
+                onChangeText={setEditingTitle}
+                onSubmitEditing={saveEdit}
+                onBlur={saveEdit}
+                autoFocus
+                returnKeyType="done"
+                blurOnSubmit
+              />
+            ) : (
+              <TouchableOpacity
+                onPress={() => startEdit(task)}
+                disabled={!canEdit(task)}
+                activeOpacity={canEdit(task) ? 0.6 : 1}
+              >
+                <Text
+                  style={[styles.taskTitle, done && styles.taskTitleDone]}
+                  numberOfLines={2}
+                >
+                  {task.title}
+                </Text>
+              </TouchableOpacity>
+            )}
             {task.scope === 'team' ? (
               <Text style={styles.taskMeta} numberOfLines={1}>
                 von {advisorName(task.created_by) || '—'}
@@ -253,11 +312,24 @@ export function AufgabenScreen({ navigation }: any) {
               </Text>
             ) : null}
           </View>
-          {showDelete ? (
-            <TouchableOpacity onPress={() => deleteTask(task)} style={styles.deleteBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="trash-outline" size={16} color="#ef4444" />
+          {isEditing ? (
+            <TouchableOpacity onPress={saveEdit} style={styles.saveBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="checkmark" size={16} color="#22c55e" />
             </TouchableOpacity>
-          ) : null}
+          ) : (
+            <>
+              {showEdit ? (
+                <TouchableOpacity onPress={() => startEdit(task)} style={styles.editBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Ionicons name="pencil" size={14} color="rgba(255,255,255,0.7)" />
+                </TouchableOpacity>
+              ) : null}
+              {showDelete ? (
+                <TouchableOpacity onPress={() => deleteTask(task)} style={styles.deleteBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Ionicons name="trash-outline" size={16} color="#ef4444" />
+                </TouchableOpacity>
+              ) : null}
+            </>
+          )}
         </View>
       );
     });
@@ -450,6 +522,14 @@ const styles = StyleSheet.create({
     color: '#fff',
     lineHeight: 18,
   },
+  taskTitleInput: {
+    backgroundColor: '#000',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
   taskTitleDone: {
     color: 'rgba(255,255,255,0.45)',
     textDecorationLine: 'line-through',
@@ -460,6 +540,26 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     color: 'rgba(255,255,255,0.45)',
     marginTop: 2,
+  },
+  editBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: 'rgba(34,197,94,0.15)',
+    borderWidth: 1,
+    borderColor: '#22c55e',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   deleteBtn: {
     width: 28,
