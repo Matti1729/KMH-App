@@ -2292,18 +2292,12 @@ export function PlayerOverviewScreen({ navigation }: any) {
               <View style={styles.detailStatCol}>
                 <Text style={styles.detailStatLabel}>Position</Text>
                 {(() => {
-                  // Header nimmt die frisch gespeicherten Daten aus fullPlayer (sonst zeigt
-                  // selectedPlayer.position den alten Stand, weil die Player-Liste nach Save
-                  // nicht neu geladen wird). Haupt- + Nebenpositionen werden zusammengesetzt.
+                  // Nur die Hauptposition; Nebenpositionen werden hier bewusst nicht angezeigt.
+                  // Fallback auf selectedPlayer falls fullPlayer noch nicht geladen ist
+                  // (z.B. unmittelbar nach dem Öffnen, vor der Detail-Fetch).
                   const primary = (fullPlayer?.position ?? selectedPlayer.position ?? '').toString().trim();
-                  const secondaryRaw = (fullPlayer?.secondary_position ?? '').toString();
-                  const parts: string[] = [];
-                  if (primary) parts.push(primary);
-                  for (const s of secondaryRaw.split(/[,;/]+/).map((p: string) => p.trim()).filter(Boolean)) {
-                    if (!parts.includes(s)) parts.push(s);
-                  }
                   return (
-                    <Text style={styles.detailStatValue}>{parts.length > 0 ? parts.join(', ') : '-'}</Text>
+                    <Text style={styles.detailStatValue}>{primary || '-'}</Text>
                   );
                 })()}
               </View>
