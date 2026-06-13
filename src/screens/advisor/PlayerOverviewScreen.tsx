@@ -1670,6 +1670,10 @@ export function PlayerOverviewScreen({ navigation }: any) {
 
     setCardSaving(false);
     setFullPlayer({ ...fullPlayer, ...updates });
+    // selectedPlayer + die Liste nachziehen, damit Header-Felder (Position, Verein,
+    // Geburtsdatum, Vertragsende) und die Tabelle außerhalb des Modals nicht stale bleiben.
+    setSelectedPlayer(prev => prev ? { ...prev, ...updates } as any : prev);
+    setPlayers(prev => prev.map(p => p.id === fullPlayer.id ? { ...p, ...updates } as any : p));
     setIsEditing(false);
     setEditData({});
   };
@@ -2287,7 +2291,21 @@ export function PlayerOverviewScreen({ navigation }: any) {
               </View>
               <View style={styles.detailStatCol}>
                 <Text style={styles.detailStatLabel}>Position</Text>
-                <Text style={styles.detailStatValue}>{selectedPlayer.position || '-'}</Text>
+                {(() => {
+                  // Header nimmt die frisch gespeicherten Daten aus fullPlayer (sonst zeigt
+                  // selectedPlayer.position den alten Stand, weil die Player-Liste nach Save
+                  // nicht neu geladen wird). Haupt- + Nebenpositionen werden zusammengesetzt.
+                  const primary = (fullPlayer?.position ?? selectedPlayer.position ?? '').toString().trim();
+                  const secondaryRaw = (fullPlayer?.secondary_position ?? '').toString();
+                  const parts: string[] = [];
+                  if (primary) parts.push(primary);
+                  for (const s of secondaryRaw.split(/[,;/]+/).map((p: string) => p.trim()).filter(Boolean)) {
+                    if (!parts.includes(s)) parts.push(s);
+                  }
+                  return (
+                    <Text style={styles.detailStatValue}>{parts.length > 0 ? parts.join(', ') : '-'}</Text>
+                  );
+                })()}
               </View>
               <View style={styles.detailStatCol}>
                 <Text style={styles.detailStatLabel}>Vertragsende</Text>
