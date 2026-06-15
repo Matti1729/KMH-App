@@ -26,15 +26,24 @@ function ThemedApp() {
     if (!document.getElementById('kmh-scrollbar-style')) {
       const style = document.createElement('style');
       style.id = 'kmh-scrollbar-style';
+      // -webkit-appearance:none + min-height am Thumb + overflow:scroll-Erzwingung
+      // verhindern, dass Chrome auf macOS den Bar als Overlay rendert und beim
+      // Scroll-Stopp ausblendet. Damit ist der Balken IMMER sichtbar — egal ob
+      // gerade gescrollt wird oder nicht.
       style.textContent = `
         @media (min-width: 768px) {
-          *::-webkit-scrollbar { width: 10px; height: 10px; }
+          *::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+            -webkit-appearance: none;
+          }
           *::-webkit-scrollbar-track { background: transparent; }
           *::-webkit-scrollbar-thumb {
             background: rgba(255, 255, 255, 0.22);
             border-radius: 8px;
             border: 2px solid transparent;
             background-clip: padding-box;
+            min-height: 30px;
           }
           *::-webkit-scrollbar-thumb:hover {
             background: rgba(255, 255, 255, 0.4);
@@ -44,6 +53,13 @@ function ThemedApp() {
             scrollbar-width: thin;
             scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
           }
+          /* RN-Web ScrollViews setzen per Inline-Style overflow:auto auf den scroll-
+             baren Container. Auf macOS Chrome triggert das die Overlay-Variante mit
+             Auto-Hide — selbst trotz Custom-::-webkit-scrollbar. overflow:scroll
+             zwingt den klassischen, immer reservierten Balken. */
+          [style*="overflow-y: auto"] { overflow-y: scroll !important; }
+          [style*="overflow-x: auto"] { overflow-x: scroll !important; }
+          [style*="overflow: auto"] { overflow: scroll !important; }
         }
       `;
       document.head.appendChild(style);
