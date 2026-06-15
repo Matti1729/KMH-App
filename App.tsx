@@ -16,13 +16,35 @@ function ThemedApp() {
     if (Platform.OS !== 'web') return;
     if (typeof document === 'undefined') return;
 
-    // Scrollbar ausblenden
-    if (!document.getElementById('kmh-scrollbar-hide')) {
+    // Scrollbar global stylen.
+    // Bisher waren Scrollbars per CSS komplett ausgeblendet — auf Mac mit Trackpad
+    // kein Problem, auf Windows mit Maus aber UX-blockierend (User sieht nicht, wo
+    // er scrollen kann/muss). Jetzt: schlanker, theme-passender Balken auf Desktop
+    // (≥ 768 px), Mobile-Web bleibt System-Default.
+    // ID umbenannt, damit alte Hot-Reload-Caches mit "kmh-scrollbar-hide" überschrieben werden.
+    document.getElementById('kmh-scrollbar-hide')?.remove();
+    if (!document.getElementById('kmh-scrollbar-style')) {
       const style = document.createElement('style');
-      style.id = 'kmh-scrollbar-hide';
+      style.id = 'kmh-scrollbar-style';
       style.textContent = `
-        *::-webkit-scrollbar { display: none; }
-        * { scrollbar-width: none; -ms-overflow-style: none; }
+        @media (min-width: 768px) {
+          *::-webkit-scrollbar { width: 10px; height: 10px; }
+          *::-webkit-scrollbar-track { background: transparent; }
+          *::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.22);
+            border-radius: 8px;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+          }
+          *::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.4);
+            background-clip: padding-box;
+          }
+          * {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+          }
+        }
       `;
       document.head.appendChild(style);
     }
