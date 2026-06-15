@@ -2612,14 +2612,40 @@ export function PlayerOverviewScreen({ navigation }: any) {
                           const name = typeof doc === 'string' ? doc : (doc?.name || doc?.file_name || `Dokument ${i + 1}`);
                           const url = typeof doc === 'string' ? doc : doc?.url;
                           return (
-                            <TouchableOpacity
-                              key={i}
-                              onPress={() => { if (url && typeof window !== 'undefined') window.open(url, '_blank'); }}
-                              style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
-                            >
-                              <Ionicons name="document-outline" size={12} color="rgba(255,255,255,0.7)" />
-                              <Text style={[styles.detailListItem, { textDecorationLine: url ? 'underline' : 'none' }]}>{name}</Text>
-                            </TouchableOpacity>
+                            <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <TouchableOpacity
+                                onPress={() => { if (url && typeof window !== 'undefined') window.open(url, '_blank'); }}
+                                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}
+                              >
+                                <Ionicons name="document-outline" size={12} color="rgba(255,255,255,0.7)" />
+                                <Text style={[styles.detailListItem, { textDecorationLine: url ? 'underline' : 'none' }]}>{name}</Text>
+                              </TouchableOpacity>
+                              {isEditing ? (
+                                <TouchableOpacity
+                                  onPress={async () => {
+                                    if (!fullPlayer?.id) return;
+                                    const ok = await confirmDialog({
+                                      title: 'Dokument löschen',
+                                      message: `"${name}" wirklich löschen? Das Dokument wird aus der Vertragsunterlagen-Liste entfernt.`,
+                                      danger: true,
+                                      confirmLabel: 'Löschen',
+                                    });
+                                    if (!ok) return;
+                                    const next = (fullPlayer.contract_documents || []).filter((_: any, idx: number) => idx !== i);
+                                    const { error } = await supabase.from('player_details').update({ contract_documents: next }).eq('id', fullPlayer.id);
+                                    if (error) {
+                                      alertDialog({ title: 'Fehler beim Löschen', message: error.message });
+                                      return;
+                                    }
+                                    setFullPlayer({ ...fullPlayer, contract_documents: next });
+                                  }}
+                                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                                  style={{ padding: 4 }}
+                                >
+                                  <Ionicons name="trash-outline" size={14} color="#ef4444" />
+                                </TouchableOpacity>
+                              ) : null}
+                            </View>
                           );
                         });
                       })()}
