@@ -340,7 +340,7 @@ export function AufgabenScreen({ navigation }: any) {
       <View style={styles.frostedCard}>
         {renderInputRow()}
         <View style={styles.divider} />
-        <View style={{ gap: 8 }}>{renderTaskList()}</View>
+        <View>{renderTaskList()}</View>
       </View>
     </ScrollView>
   );
@@ -502,16 +502,16 @@ const styles = StyleSheet.create({
     marginVertical: 14,
   },
 
-  // Task-Card
+  // Task-Row: kompakte Liste, kein eigener Frame pro Eintrag — nur eine zarte
+  // Trennlinie unten und ein wenig vertikales Padding.
   taskCard: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: 12,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 10,
-    padding: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
   },
   checkboxBtn: {
     paddingTop: 1,
