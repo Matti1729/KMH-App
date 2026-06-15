@@ -33,33 +33,32 @@ function ThemedApp() {
       style.textContent = `
         @media (min-width: 768px) {
           *::-webkit-scrollbar {
-            width: 10px;
-            height: 10px;
-            -webkit-appearance: none;
+            width: 10px !important;
+            height: 10px !important;
+            -webkit-appearance: none !important;
+            display: block !important;
           }
-          *::-webkit-scrollbar-track { background: transparent; }
+          *::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.04) !important;
+          }
           *::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.22);
-            border-radius: 8px;
-            border: 2px solid transparent;
-            background-clip: padding-box;
-            min-height: 30px;
+            background: rgba(255, 255, 255, 0.3) !important;
+            border-radius: 8px !important;
+            border: 2px solid transparent !important;
+            background-clip: padding-box !important;
+            min-height: 30px !important;
           }
           *::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.4);
-            background-clip: padding-box;
+            background: rgba(255, 255, 255, 0.5) !important;
+            background-clip: padding-box !important;
+          }
+          *::-webkit-scrollbar-corner {
+            background: transparent !important;
           }
           * {
-            scrollbar-width: thin;
-            scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+            scrollbar-width: thin !important;
+            scrollbar-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.04) !important;
           }
-          /* RN-Web ScrollViews setzen per Inline-Style overflow:auto auf den scroll-
-             baren Container. Auf macOS Chrome triggert das die Overlay-Variante mit
-             Auto-Hide — selbst trotz Custom-::-webkit-scrollbar. overflow:scroll
-             zwingt den klassischen, immer reservierten Balken. */
-          [style*="overflow-y: auto"] { overflow-y: scroll !important; }
-          [style*="overflow-x: auto"] { overflow-x: scroll !important; }
-          [style*="overflow: auto"] { overflow: scroll !important; }
         }
       `;
       document.head.appendChild(style);
@@ -79,11 +78,19 @@ function ThemedApp() {
       if (!isDesktop()) return;
       isWriting = true;
       try {
-        const all = document.querySelectorAll<HTMLElement>('div, section, main, ul, ol, article, nav');
+        // Alle Elemente sweepen (nicht nur divs) — manche RN-Web-Container sind
+        // <span>, <section> oder generierte Tags. setProperty mit 'important'
+        // sticht inline + class.
+        const all = document.querySelectorAll<HTMLElement>('*');
         for (const el of Array.from(all)) {
+          if (!(el instanceof HTMLElement)) continue;
           const cs = window.getComputedStyle(el);
-          if (cs.overflowY === 'auto' && el.style.overflowY !== 'scroll') el.style.overflowY = 'scroll';
-          if (cs.overflowX === 'auto' && el.style.overflowX !== 'scroll') el.style.overflowX = 'scroll';
+          if (cs.overflowY === 'auto') {
+            el.style.setProperty('overflow-y', 'scroll', 'important');
+          }
+          if (cs.overflowX === 'auto') {
+            el.style.setProperty('overflow-x', 'scroll', 'important');
+          }
         }
       } finally {
         isWriting = false;
