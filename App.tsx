@@ -65,6 +65,39 @@ function ThemedApp() {
       document.head.appendChild(style);
     }
 
+    // Mac-Chrome ignoriert Custom-::-webkit-scrollbar weiterhin, wenn der Container
+    // overflow:auto hat (Overlay-Modus aus dem OS). RN-Web setzt overflow via generierte
+    // CSS-Klassen, nicht inline — der Attribut-Selektor oben greift nicht. Daher hier
+    // einmalig + per MutationObserver alle Scroll-Container hart auf overflow:scroll
+    // zwingen. Das deaktiviert den Overlay-Modus zuverlässig und der Balken bleibt
+    // immer sichtbar.
+    const isDesktop = () => window.matchMedia('(min-width: 768px)').matches;
+    let scheduled = false;
+    let isWriting = false; // verhindert Endlosschleife mit dem MutationObserver
+    const forceScrollOnContainers = () => {
+      scheduled = false;
+      if (!isDesktop()) return;
+      isWriting = true;
+      try {
+        const all = document.querySelectorAll<HTMLElement>('div, section, main, ul, ol, article, nav');
+        for (const el of Array.from(all)) {
+          const cs = window.getComputedStyle(el);
+          if (cs.overflowY === 'auto' && el.style.overflowY !== 'scroll') el.style.overflowY = 'scroll';
+          if (cs.overflowX === 'auto' && el.style.overflowX !== 'scroll') el.style.overflowX = 'scroll';
+        }
+      } finally {
+        isWriting = false;
+      }
+    };
+    const scheduleSweep = () => {
+      if (scheduled || isWriting) return;
+      scheduled = true;
+      requestAnimationFrame(forceScrollOnContainers);
+    };
+    forceScrollOnContainers();
+    const observer = new MutationObserver(scheduleSweep);
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+
     // Josefin Sans (Google Fonts)
     if (!document.getElementById('kmh-google-fonts')) {
       const link = document.createElement('link');
