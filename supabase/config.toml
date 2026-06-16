@@ -426,3 +426,15 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/sync-network-data/deno.json"
 entrypoint = "./functions/sync-network-data/index.ts"
+
+[functions.notify-dispatch]
+enabled = true
+verify_jwt = false
+import_map = "./functions/notify-dispatch/deno.json"
+entrypoint = "./functions/notify-dispatch/index.ts"
+
+[functions.telegram-link-code]
+enabled = true
+verify_jwt = true
+import_map = "./functions/telegram-link-code/deno.json"
+entrypoint = "./functions/telegram-link-code/index.ts"
