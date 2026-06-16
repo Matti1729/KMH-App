@@ -70,12 +70,35 @@ Mögliche Aktionen:
   "antwort": "Deine hilfreiche Antwort auf die Frage"
 }
 
+6. **aufgabe_liste** - User will seine offenen Aufgaben sehen (z.B. "meine Aufgaben", "was steht an", "to-do liste", "offene punkte")
+{
+  "action": "aufgabe_liste",
+  "scope": "persoenlich" | "team" | "alle"
+}
+
+7. **aufgabe_erledigen** - User markiert eine bestehende Aufgabe als erledigt (z.B. "Provision Philipp erledigt", "abhaken: trainer treffen", "hab den schritt 3 gemacht")
+{
+  "action": "aufgabe_erledigen",
+  "such_text": "Schlüsselwörter aus dem Titel der zu erledigenden Aufgabe"
+}
+
+8. **aufgabe_anlegen** - User möchte eine neue Aufgabe anlegen (z.B. "neue Aufgabe: trainer xy anrufen", "merke dir: provision mit philipp absprechen")
+{
+  "action": "aufgabe_anlegen",
+  "titel": "Titel der Aufgabe",
+  "scope": "persoenlich" | "team"
+}
+
 Regeln:
 - Interpretiere die Nachricht im Kontext von Fußball-Spielerberatung
 - Bei Spielernamen: Versuche Vor- und Nachname zu trennen
 - Bei Datums-Angaben: Konvertiere zu YYYY-MM-DD (heutiges Datum: HEUTE_DATUM)
 - Bei mehrdeutigen Nachrichten: Frage nach (action: "frage")
 - Antworte NUR mit JSON, nichts anderes`;
+
+function escapeHtmlBot(s: string): string {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
 
 async function sendTelegramMessage(chatId: number, text: string) {
   await fetch(`${TELEGRAM_API}/sendMessage`, {
@@ -125,7 +148,16 @@ async function parseWithClaude(message: string): Promise<any> {
   return JSON.parse(jsonMatch[0]);
 }
 
-async function handleAction(supabase: any, action: any, chatId: number) {
+async function getAdvisorIdFromTelegram(supabase: any, telegramUserId: number): Promise<string | null> {
+  const { data } = await supabase
+    .from("advisor_telegram_links")
+    .select("advisor_id")
+    .eq("telegram_user_id", telegramUserId)
+    .maybeSingle();
+  return data?.advisor_id ?? null;
+}
+
+async function handleAction(supabase: any, action: any, chatId: number, advisorId: string | null) {
   switch (action.action) {
     case "spieler_notiz": {
       // Spieler suchen
@@ -289,6 +321,112 @@ async function handleAction(supabase: any, action: any, chatId: number) {
       break;
     }
 
+    case "aufgabe_liste": {
+      if (!advisorId) {
+        await sendTelegramMessage(chatId, "⚠️ Du musst zuerst dein Telegram-Konto in der App mit deinem Berater-Account verknüpfen (Profil → Telegram-Benachrichtigungen).");
+        break;
+      }
+      const scope = action.scope === "team" ? "team" : action.scope === "alle" ? "alle" : "persoenlich";
+      let q = supabase
+        .from("advisor_tasks")
+        .select("id, scope, title, owner_advisor_id, created_at, created_by")
+        .is("completed_at", null)
+        .order("created_at", { ascending: false });
+      if (scope === "persoenlich") q = q.eq("scope", "personal").eq("owner_advisor_id", advisorId);
+      if (scope === "team") q = q.eq("scope", "team");
+      if (scope === "alle") q = q.or(`scope.eq.team,and(scope.eq.personal,owner_advisor_id.eq.${advisorId})`);
+
+      const { data: tasks, error } = await q;
+      if (error) {
+        await sendTelegramMessage(chatId, `❌ Fehler beim Laden: ${error.message}`);
+        break;
+      }
+      if (!tasks || tasks.length === 0) {
+        await sendTelegramMessage(chatId, `✨ Keine offenen ${scope === "team" ? "Team-Aufgaben" : scope === "alle" ? "Aufgaben" : "persönlichen Aufgaben"}.`);
+        break;
+      }
+      const lines = tasks.map((t: any, i: number) => {
+        const tag = t.scope === "team" ? " <i>(Team)</i>" : "";
+        return `${i + 1}. ${escapeHtmlBot(t.title)}${tag}`;
+      });
+      const header = scope === "team"
+        ? `📋 <b>Offene Team-Aufgaben (${tasks.length})</b>`
+        : scope === "alle"
+          ? `📋 <b>Offene Aufgaben (${tasks.length})</b>`
+          : `📋 <b>Deine offenen Aufgaben (${tasks.length})</b>`;
+      await sendTelegramMessage(chatId, `${header}\n\n${lines.join("\n")}\n\n<i>Antworte z.B. "Erledigt: &lt;Stichwort&gt;" um eine abzuhaken.</i>`);
+      break;
+    }
+
+    case "aufgabe_erledigen": {
+      if (!advisorId) {
+        await sendTelegramMessage(chatId, "⚠️ Verknüpfe zuerst dein Telegram-Konto in der App (Profil → Telegram-Benachrichtigungen).");
+        break;
+      }
+      const search = (action.such_text || "").trim();
+      if (!search) {
+        await sendTelegramMessage(chatId, "⚠️ Bitte sag mir, welche Aufgabe du abhaken willst.");
+        break;
+      }
+      // Suche nur in Tasks die der User sieht (eigene + team) und noch offen sind.
+      const { data: candidates } = await supabase
+        .from("advisor_tasks")
+        .select("id, scope, title, owner_advisor_id")
+        .is("completed_at", null)
+        .ilike("title", `%${search}%`);
+
+      const visible = (candidates || []).filter((t: any) =>
+        t.scope === "team" || t.owner_advisor_id === advisorId
+      );
+
+      if (visible.length === 0) {
+        await sendTelegramMessage(chatId, `🤔 Keine offene Aufgabe gefunden, die zu "${escapeHtmlBot(search)}" passt.`);
+        break;
+      }
+      if (visible.length > 1) {
+        const list = visible.slice(0, 6).map((t: any, i: number) => `${i + 1}. ${escapeHtmlBot(t.title)}${t.scope === "team" ? " (Team)" : ""}`).join("\n");
+        await sendTelegramMessage(chatId, `🔍 Mehrere passende Aufgaben gefunden — bitte präziser:\n\n${list}`);
+        break;
+      }
+      const task = visible[0];
+      const { error: updErr } = await supabase
+        .from("advisor_tasks")
+        .update({ completed_at: new Date().toISOString(), completed_by: advisorId })
+        .eq("id", task.id);
+      if (updErr) {
+        await sendTelegramMessage(chatId, `❌ Fehler beim Abhaken: ${updErr.message}`);
+        break;
+      }
+      await sendTelegramMessage(chatId, `✅ Erledigt: <b>${escapeHtmlBot(task.title)}</b>${task.scope === "team" ? " <i>(Team)</i>" : ""}`);
+      break;
+    }
+
+    case "aufgabe_anlegen": {
+      if (!advisorId) {
+        await sendTelegramMessage(chatId, "⚠️ Verknüpfe zuerst dein Telegram-Konto in der App (Profil → Telegram-Benachrichtigungen).");
+        break;
+      }
+      const title = (action.titel || "").trim();
+      if (!title) {
+        await sendTelegramMessage(chatId, "⚠️ Bitte gib einen Titel für die neue Aufgabe an.");
+        break;
+      }
+      const isTeam = action.scope === "team";
+      const payload: any = {
+        scope: isTeam ? "team" : "personal",
+        title,
+        created_by: advisorId,
+        owner_advisor_id: isTeam ? null : advisorId,
+      };
+      const { error: insErr } = await supabase.from("advisor_tasks").insert(payload);
+      if (insErr) {
+        await sendTelegramMessage(chatId, `❌ Fehler beim Anlegen: ${insErr.message}`);
+        break;
+      }
+      await sendTelegramMessage(chatId, `📝 Neue ${isTeam ? "Team-Aufgabe" : "persönliche Aufgabe"}: <b>${escapeHtmlBot(title)}</b>`);
+      break;
+    }
+
     default: {
       await sendTelegramMessage(chatId,
         "❓ Ich konnte die Nachricht nicht zuordnen. Versuche es nochmal mit einer klareren Beschreibung."
@@ -420,7 +558,9 @@ serve(async (req: Request) => {
     const action = await parseWithClaude(text);
     console.log("Claude parsed action:", JSON.stringify(action));
 
-    await handleAction(supabase, action, chatId);
+    // Advisor-ID aus dem Mapping holen (für tasks-/aufgabe-Aktionen — sonst null)
+    const advisorId = userId ? await getAdvisorIdFromTelegram(supabase, userId) : null;
+    await handleAction(supabase, action, chatId, advisorId);
 
     return new Response(JSON.stringify({ ok: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
