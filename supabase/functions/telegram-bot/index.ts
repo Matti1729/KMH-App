@@ -322,6 +322,65 @@ serve(async (req: Request) => {
     const userId = message.from?.id;
     const text = message.text;
 
+    // /link <CODE> ist auch für Nicht-gewhitelistete erlaubt — der Code selbst
+    // ist die Auth (kurzlebig, einmalig). Erfolgreiches Linken speichert die
+    // telegram_user_id, sodass künftige Nachrichten dieses Users gegen
+    // advisor_telegram_links statt gegen die ENV-Whitelist geprüft werden könnten.
+    const linkMatch = text.match(/^\/link(?:@\w+)?\s+([A-Z2-9]{4,16})\s*$/i);
+    if (linkMatch) {
+      const code = linkMatch[1].toUpperCase();
+      const sb = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+      const { data: codeRow } = await sb
+        .from("telegram_link_codes")
+        .select("code, advisor_id, expires_at, used_at")
+        .eq("code", code)
+        .maybeSingle();
+
+      if (!codeRow || codeRow.used_at || new Date(codeRow.expires_at).getTime() < Date.now()) {
+        await sendTelegramMessage(chatId, "❌ Code ungültig oder abgelaufen. Erzeuge in der App einen neuen.");
+        return new Response(JSON.stringify({ ok: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Mapping upserten + Code als verbraucht markieren
+      const { error: linkErr } = await sb
+        .from("advisor_telegram_links")
+        .upsert(
+          {
+            advisor_id: codeRow.advisor_id,
+            telegram_user_id: userId,
+            telegram_chat_id: chatId,
+            linked_at: new Date().toISOString(),
+          },
+          { onConflict: "advisor_id" }
+        );
+      if (linkErr) {
+        console.error("link upsert error:", linkErr);
+        await sendTelegramMessage(chatId, "❌ Fehler beim Verknüpfen. Bitte später nochmal versuchen.");
+        return new Response(JSON.stringify({ ok: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      await sb.from("telegram_link_codes").update({ used_at: new Date().toISOString() }).eq("code", code);
+
+      const { data: advisorRow } = await sb
+        .from("advisors")
+        .select("first_name, last_name")
+        .eq("id", codeRow.advisor_id)
+        .maybeSingle();
+      const who = advisorRow ? `${advisorRow.first_name ?? ""} ${advisorRow.last_name ?? ""}`.trim() : "Berater";
+      await sendTelegramMessage(
+        chatId,
+        `✅ <b>Verknüpft</b> mit ${who}.\n\nDu erhältst ab jetzt Push-Benachrichtigungen zu Geburtstagen, Vereinswechseln und neuen Spielern in der Agentur.`
+      );
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Whitelist prüfen
     if (ALLOWED_USER_IDS.length > 0 && !ALLOWED_USER_IDS.includes(userId)) {
       console.log(`Unauthorized user: ${userId}`);

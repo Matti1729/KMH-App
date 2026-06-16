@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../config/supabase';
 import { useTheme } from '../../contexts/ThemeContext';
 import { AdvisorBackground } from '../../components/AdvisorBackground';
+import { useDialog } from '../../components/DialogProvider';
 
 const COUNTRY_CODES = [
   { code: '+49', country: 'DE' }, { code: '+43', country: 'AT' }, { code: '+41', country: 'CH' },
@@ -48,9 +49,63 @@ export function MyProfileScreen({ navigation }: any) {
 
   const [originalEmail, setOriginalEmail] = useState('');
 
+  const { confirm: confirmDialog, alert: alertDialog } = useDialog();
+  const [tgLinked, setTgLinked] = useState<null | { linked_at: string }>(null);
+  const [tgLinkLoading, setTgLinkLoading] = useState(false);
+  const [tgCode, setTgCode] = useState<string | null>(null);
+
   useEffect(() => {
     fetchProfile();
+    fetchTgLinkStatus();
   }, []);
+
+  const fetchTgLinkStatus = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase
+      .from('advisor_telegram_links')
+      .select('linked_at')
+      .eq('advisor_id', user.id)
+      .maybeSingle();
+    setTgLinked(data ? { linked_at: data.linked_at } : null);
+  };
+
+  const generateTgLinkCode = async () => {
+    setTgLinkLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('telegram-link-code', { body: {} });
+      if (error) {
+        alertDialog({ title: 'Fehler', message: error.message || 'Code konnte nicht erzeugt werden.' });
+        return;
+      }
+      if (data?.code) {
+        setTgCode(data.code);
+      } else {
+        alertDialog({ title: 'Fehler', message: data?.error || 'Code konnte nicht erzeugt werden.' });
+      }
+    } finally {
+      setTgLinkLoading(false);
+    }
+  };
+
+  const unlinkTelegram = async () => {
+    const ok = await confirmDialog({
+      title: 'Telegram-Verknüpfung lösen',
+      message: 'Du erhältst dann keine Push-Benachrichtigungen mehr. Sicher?',
+      danger: true,
+      confirmLabel: 'Verknüpfung lösen',
+    });
+    if (!ok) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase.from('advisor_telegram_links').delete().eq('advisor_id', user.id);
+    if (error) {
+      alertDialog({ title: 'Fehler', message: error.message });
+      return;
+    }
+    setTgLinked(null);
+    setTgCode(null);
+  };
 
   const fetchProfile = async () => {
     setLoading(true);
@@ -432,6 +487,63 @@ export function MyProfileScreen({ navigation }: any) {
               </TouchableOpacity>
             )}
           </View>
+        </View>
+
+        {/* Telegram-Benachrichtigungen */}
+        <View style={[styles.card, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Telegram-Benachrichtigungen</Text>
+          <Text style={[styles.label, { color: colors.textMuted, marginBottom: 12 }]}>
+            Verknüpfe deinen Telegram-Account, um Push-Benachrichtigungen für Geburtstage, Vereinswechsel und neue Spieler zu erhalten.
+          </Text>
+
+          {tgLinked ? (
+            <View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <Text style={{ fontSize: 14, color: '#22c55e', fontWeight: '600' }}>✓ Verknüpft</Text>
+                <Text style={[styles.label, { color: colors.textMuted }]}>seit {new Date(tgLinked.linked_at).toLocaleDateString('de-DE')}</Text>
+              </View>
+              <TouchableOpacity
+                style={{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, alignSelf: 'flex-start', backgroundColor: 'rgba(239,68,68,0.12)', borderWidth: 1, borderColor: '#ef4444' }}
+                onPress={unlinkTelegram}
+              >
+                <Text style={{ color: '#ef4444', fontSize: 13, fontWeight: '600' }}>Verknüpfung lösen</Text>
+              </TouchableOpacity>
+            </View>
+          ) : tgCode ? (
+            <View>
+              <Text style={[styles.label, { color: colors.text, marginBottom: 6 }]}>Schicke folgenden Befehl an den Bot:</Text>
+              <View style={{ backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 8, padding: 12, marginBottom: 12 }}>
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 1, fontFamily: 'monospace' }}>
+                  /link {tgCode}
+                </Text>
+              </View>
+              <Text style={[styles.label, { color: colors.textMuted, marginBottom: 12 }]}>
+                Öffne den KMH-Telegram-Bot und sende diesen Befehl als Nachricht. Der Code ist 15 Minuten gültig.
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TouchableOpacity
+                  style={{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)' }}
+                  onPress={() => setTgCode(null)}
+                >
+                  <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 13, fontWeight: '600' }}>Abbrechen</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: 'rgba(34,197,94,0.15)', borderWidth: 1, borderColor: '#22c55e' }}
+                  onPress={async () => { await fetchTgLinkStatus(); if (tgLinked) setTgCode(null); }}
+                >
+                  <Text style={{ color: '#22c55e', fontSize: 13, fontWeight: '600' }}>Status prüfen</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={{ paddingVertical: 12, paddingHorizontal: 16, borderRadius: 8, alignSelf: 'flex-start', backgroundColor: '#22c55e', borderWidth: 1, borderColor: '#22c55e', opacity: tgLinkLoading ? 0.5 : 1 }}
+              onPress={generateTgLinkCode}
+              disabled={tgLinkLoading}
+            >
+              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>{tgLinkLoading ? 'Lade…' : 'Mit Telegram verknüpfen'}</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
       </ScrollView>
