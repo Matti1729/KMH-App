@@ -18,7 +18,7 @@ const corsHeaders = {
 
 type OutboxRow = {
   id: string;
-  event_type: "birthday" | "club_change" | "new_player";
+  event_type: "birthday" | "club_change" | "new_player" | "player_deleted";
   payload: any;
 };
 
@@ -42,6 +42,10 @@ function formatMessage(row: OutboxRow): string {
     case "new_player": {
       const club = p.club ? ` (${escapeHtml(p.club)})` : "";
       return `➕ <b>Neuer Spieler</b>\n${fullName}${club}`;
+    }
+    case "player_deleted": {
+      const club = p.club ? ` (${escapeHtml(p.club)})` : "";
+      return `🗑 <b>Spieler gelöscht</b>\n${fullName}${club}`;
     }
     default:
       return `ℹ️ ${fullName}`;
