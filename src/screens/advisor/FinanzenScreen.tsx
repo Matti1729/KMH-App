@@ -86,7 +86,7 @@ const DOCUMENT_COLUMNS: ColumnDef[] = [
   { key: 'doc_type', label: 'Art', defaultFlex: 1.2, minWidth: 130 },
   { key: 'created', label: 'Datum', defaultFlex: 0.9, minWidth: 100 },
   { key: 'signed', label: 'Signiert', defaultFlex: 0.7, minWidth: 80 },
-  { key: 'actions', label: '', defaultFlex: 0.3, minWidth: 60, fixedWidth: 60 },
+  { key: 'actions', label: '', defaultFlex: 0.3, minWidth: 50 },
 ];
 
 type DocsSortField = 'name' | 'vorname' | 'club' | 'doc_type' | 'created' | 'signed';
@@ -215,7 +215,9 @@ export function FinanzenScreen({ navigation }: any) {
   // feuert (passiert auf manchen RN-Web-Builds), bekommt useTableColumns
   // trotzdem direkt sinnvolle Spaltenbreiten und der Header wird gerendert.
   const [docsTableWidth, setDocsTableWidth] = useState(1000);
-  const docsTable = useTableColumns(DOCUMENT_COLUMNS, docsTableWidth, 'finanzen_dokumente');
+  // _v2 invalidiert die alten gespeicherten Breiten/Reihenfolgen aus localStorage,
+  // damit die neuen Defaults greifen (insb. schmale Actions-Spalte).
+  const docsTable = useTableColumns(DOCUMENT_COLUMNS, docsTableWidth, 'finanzen_dokumente_v2');
 
   // Upload-Modal (PDF + Spieler-Pick + Art)
   const [showDocUploadModal, setShowDocUploadModal] = useState(false);
