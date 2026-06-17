@@ -1671,7 +1671,7 @@ export function FinanzenScreen({ navigation }: any) {
           </View>
 
           <View
-            style={[styles.tableWrapper, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}
+            style={[styles.tableWrapper, { backgroundColor: 'rgba(0,0,0,0.55)', borderColor: 'rgba(255,255,255,0.15)' }]}
             onLayout={(e) => setDocsTableWidth(e.nativeEvent.layout.width - 32)}
           >
             {docsTableWidth > 0 && (
@@ -1687,7 +1687,7 @@ export function FinanzenScreen({ navigation }: any) {
                 dragOverKey={docsTable.dragOverKey}
                 colors={colors}
                 setHeaderRef={docsTable.setHeaderRef}
-                style={{ paddingHorizontal: 16 }}
+                style={{ backgroundColor: 'rgba(0,0,0,0.45)', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 16 }}
               />
             )}
 
