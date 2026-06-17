@@ -4,6 +4,7 @@ import {
   Modal, TextInput, Alert, Platform, Linking,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
+import { Ionicons } from '@expo/vector-icons';
 import { Sidebar } from '../../components/Sidebar';
 import { AdvisorBackground } from '../../components/AdvisorBackground';
 import { AdvisorHeroHeader } from '../../components/AdvisorHeroHeader';
@@ -85,8 +86,10 @@ const DOCUMENT_COLUMNS: ColumnDef[] = [
   { key: 'doc_type', label: 'Art', defaultFlex: 1.2, minWidth: 130 },
   { key: 'created', label: 'Datum', defaultFlex: 0.9, minWidth: 100 },
   { key: 'signed', label: 'Signiert', defaultFlex: 0.7, minWidth: 80 },
-  { key: 'actions', label: '', defaultFlex: 0.7, minWidth: 110 },
+  { key: 'actions', label: '', defaultFlex: 0.3, minWidth: 60, fixedWidth: 60 },
 ];
+
+type DocsSortField = 'name' | 'vorname' | 'club' | 'doc_type' | 'created' | 'signed';
 
 type DocType = 'Provisionsvereinbarung' | 'Wegvermittlung';
 
@@ -221,6 +224,41 @@ export function FinanzenScreen({ navigation }: any) {
   const [docSelectedPlayer, setDocSelectedPlayer] = useState<PlayerLite | null>(null);
   const [docSelectedType, setDocSelectedType] = useState<DocType | null>(null);
   const [allPlayersLite, setAllPlayersLite] = useState<PlayerLite[]>([]);
+
+  // Sortierung
+  const [docsSortField, setDocsSortField] = useState<DocsSortField>('created');
+  const [docsSortDirection, setDocsSortDirection] = useState<SortDirection>('desc');
+  const handleDocsSort = (field: DocsSortField) => {
+    if (docsSortField === field) {
+      setDocsSortDirection(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setDocsSortField(field);
+      setDocsSortDirection('asc');
+    }
+  };
+  const sortedDocuments = useMemo(() => {
+    const arr = [...documents];
+    const dir = docsSortDirection === 'asc' ? 1 : -1;
+    const cmp = (a: any, b: any): number => {
+      if (a == null && b == null) return 0;
+      if (a == null) return 1;
+      if (b == null) return -1;
+      if (typeof a === 'number' && typeof b === 'number') return (a - b) * dir;
+      return String(a).localeCompare(String(b), 'de') * dir;
+    };
+    arr.sort((a, b) => {
+      switch (docsSortField) {
+        case 'name': return cmp(a.player_last_name, b.player_last_name);
+        case 'vorname': return cmp(a.player_first_name, b.player_first_name);
+        case 'club': return cmp(a.player_club, b.player_club);
+        case 'doc_type': return cmp(a.doc_type, b.doc_type);
+        case 'created': return cmp(a.created_at, b.created_at);
+        case 'signed': return cmp(a.signed ? 1 : 0, b.signed ? 1 : 0);
+        default: return 0;
+      }
+    });
+    return arr;
+  }, [documents, docsSortField, docsSortDirection]);
 
   // Lite-Spielerliste einmalig laden (für Autocomplete im Upload-Modal)
   useEffect(() => {
@@ -1690,6 +1728,9 @@ export function FinanzenScreen({ navigation }: any) {
               resizingKey={docsTable.resizingKey}
               draggingKey={docsTable.draggingKey}
               dragOverKey={docsTable.dragOverKey}
+              onSort={(key) => { if (key !== 'actions') handleDocsSort(key as DocsSortField); }}
+              sortKey={docsSortField}
+              sortAsc={docsSortDirection === 'asc'}
               colors={colors}
               setHeaderRef={docsTable.setHeaderRef}
               style={{ backgroundColor: 'rgba(0,0,0,0.45)', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 16 }}
@@ -1699,10 +1740,10 @@ export function FinanzenScreen({ navigation }: any) {
             <ScrollView style={styles.tableBody}>
               {documentsLoading ? (
                 <Text style={[styles.emptyText, { color: colors.textMuted }]}>Laden…</Text>
-              ) : documents.length === 0 ? (
+              ) : sortedDocuments.length === 0 ? (
                 <Text style={[styles.emptyText, { color: colors.textMuted }]}>Noch keine Dokumente. Lade oben rechts dein erstes PDF hoch.</Text>
               ) : (
-                documents.map((doc) => {
+                sortedDocuments.map((doc) => {
                   const myId = session?.user?.id;
                   const isMine = !!myId && doc.uploaded_by === myId;
                   return (
@@ -1744,13 +1785,13 @@ export function FinanzenScreen({ navigation }: any) {
                             );
                           case 'actions':
                             return (
-                              <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-                                <TouchableOpacity onPress={(e: any) => { e?.stopPropagation?.(); downloadDocument(doc); }} style={styles.docActionBtn}>
-                                  <Text style={styles.docActionText}>⬇</Text>
+                              <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}>
+                                <TouchableOpacity onPress={(e: any) => { e?.stopPropagation?.(); downloadDocument(doc); }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                                  <Ionicons name="download-outline" size={13} color="rgba(255,255,255,0.85)" />
                                 </TouchableOpacity>
                                 {isMine ? (
-                                  <TouchableOpacity onPress={(e: any) => { e?.stopPropagation?.(); deleteDocument(doc); }} style={[styles.docActionBtn, styles.docActionBtnDanger]}>
-                                    <Text style={[styles.docActionText, { color: '#ef4444' }]}>✕</Text>
+                                  <TouchableOpacity onPress={(e: any) => { e?.stopPropagation?.(); deleteDocument(doc); }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} style={{ marginLeft: 8 }}>
+                                    <Ionicons name="trash-outline" size={13} color="#ef4444" />
                                   </TouchableOpacity>
                                 ) : null}
                               </View>
