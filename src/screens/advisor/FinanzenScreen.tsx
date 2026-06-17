@@ -78,6 +78,24 @@ const FINANZEN_COLUMNS: ColumnDef[] = [
   { key: 'due', label: 'Fälligkeit', defaultFlex: 0.9, minWidth: 90 },
 ];
 
+const DOCUMENT_COLUMNS: ColumnDef[] = [
+  { key: 'filename', label: 'Dateiname', defaultFlex: 2.4, minWidth: 200 },
+  { key: 'uploader', label: 'Hochgeladen von', defaultFlex: 1.2, minWidth: 120 },
+  { key: 'created', label: 'Datum', defaultFlex: 0.9, minWidth: 100 },
+  { key: 'size', label: 'Größe', defaultFlex: 0.7, minWidth: 80 },
+  { key: 'actions', label: '', defaultFlex: 0.6, minWidth: 110 },
+];
+
+interface FinanceDocument {
+  id: string;
+  filename: string;
+  storage_path: string;
+  size_bytes: number | null;
+  created_at: string;
+  uploaded_by: string | null;
+  uploader_name?: string;
+}
+
 // --- Constants ---
 
 const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
@@ -166,6 +184,167 @@ export function FinanzenScreen({ navigation }: any) {
   // Table columns (drag & drop + resize)
   const [tableWidth, setTableWidth] = useState(0);
   const table = useTableColumns(FINANZEN_COLUMNS, tableWidth, 'finanzen');
+
+  // --- Dokumente-Tab ---
+  type FinanzenTab = 'finanzen' | 'dokumente';
+  const [activeTab, setActiveTab] = useState<FinanzenTab>('finanzen');
+  const [documents, setDocuments] = useState<FinanceDocument[]>([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [docsTableWidth, setDocsTableWidth] = useState(0);
+  const docsTable = useTableColumns(DOCUMENT_COLUMNS, docsTableWidth, 'finanzen_dokumente');
+
+  const fetchDocuments = useCallback(async () => {
+    setDocumentsLoading(true);
+    const { data, error } = await supabase
+      .from('finance_documents')
+      .select('id, filename, storage_path, size_bytes, created_at, uploaded_by')
+      .order('created_at', { ascending: false });
+    if (error) {
+      console.error('fetchDocuments error:', error);
+      setDocumentsLoading(false);
+      return;
+    }
+    const advisorIds = Array.from(new Set((data || []).map((d: any) => d.uploaded_by).filter(Boolean))) as string[];
+    let nameMap = new Map<string, string>();
+    if (advisorIds.length > 0) {
+      const { data: advisors } = await supabase
+        .from('advisors')
+        .select('id, first_name, last_name')
+        .in('id', advisorIds);
+      for (const a of advisors || []) {
+        nameMap.set(a.id, `${a.first_name ?? ''} ${a.last_name ?? ''}`.trim() || '—');
+      }
+    }
+    const enriched: FinanceDocument[] = (data || []).map((d: any) => ({
+      ...d,
+      uploader_name: d.uploaded_by ? (nameMap.get(d.uploaded_by) || '—') : '—',
+    }));
+    setDocuments(enriched);
+    setDocumentsLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'dokumente') {
+      fetchDocuments();
+    }
+  }, [activeTab, fetchDocuments]);
+
+  const uploadDocument = async () => {
+    if (uploadingDoc) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      alertDialog({ title: 'Nicht eingeloggt', message: 'Bitte erneut anmelden.' });
+      return;
+    }
+    try {
+      const result = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true });
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+      setUploadingDoc(true);
+
+      const ext = (asset.name?.split('.').pop() || 'pdf').toLowerCase();
+      const id = (globalThis.crypto as any)?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const storagePath = `finance/${id}.${ext}`;
+
+      let fileData: any;
+      if (Platform.OS === 'web') {
+        const resp = await fetch(asset.uri);
+        fileData = await resp.blob();
+      } else {
+        fileData = { uri: asset.uri, name: asset.name, type: asset.mimeType || 'application/pdf' };
+      }
+
+      const { error: upErr } = await supabase.storage.from('documents').upload(storagePath, fileData, {
+        contentType: asset.mimeType || 'application/pdf',
+        upsert: false,
+      });
+      if (upErr) {
+        alertDialog({ title: 'Upload fehlgeschlagen', message: upErr.message });
+        setUploadingDoc(false);
+        return;
+      }
+
+      const { error: insErr } = await supabase.from('finance_documents').insert({
+        uploaded_by: user.id,
+        filename: asset.name || 'Dokument.pdf',
+        storage_path: storagePath,
+        size_bytes: asset.size || null,
+        mime_type: asset.mimeType || 'application/pdf',
+      });
+      if (insErr) {
+        // Storage-Upload rückgängig machen, damit kein Orphan zurückbleibt
+        await supabase.storage.from('documents').remove([storagePath]);
+        alertDialog({ title: 'Fehler beim Speichern', message: insErr.message });
+        setUploadingDoc(false);
+        return;
+      }
+
+      await fetchDocuments();
+    } catch (e: any) {
+      console.error('uploadDocument error:', e);
+      alertDialog({ title: 'Fehler', message: e?.message || 'Unbekannter Fehler beim Upload.' });
+    } finally {
+      setUploadingDoc(false);
+    }
+  };
+
+  const openDocument = async (doc: FinanceDocument) => {
+    const { data, error } = await supabase.storage.from('documents').createSignedUrl(doc.storage_path, 60 * 10);
+    if (error || !data?.signedUrl) {
+      alertDialog({ title: 'Fehler', message: error?.message || 'Link konnte nicht erzeugt werden.' });
+      return;
+    }
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.open(data.signedUrl, '_blank');
+    } else {
+      Linking.openURL(data.signedUrl);
+    }
+  };
+
+  const downloadDocument = async (doc: FinanceDocument) => {
+    const { data, error } = await supabase.storage.from('documents').createSignedUrl(
+      doc.storage_path,
+      60 * 10,
+      { download: doc.filename }
+    );
+    if (error || !data?.signedUrl) {
+      alertDialog({ title: 'Fehler', message: error?.message || 'Link konnte nicht erzeugt werden.' });
+      return;
+    }
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.open(data.signedUrl, '_blank');
+    } else {
+      Linking.openURL(data.signedUrl);
+    }
+  };
+
+  const deleteDocument = async (doc: FinanceDocument) => {
+    const ok = await confirmDialog({
+      title: 'Dokument löschen',
+      message: `"${doc.filename}" wirklich löschen?`,
+      danger: true,
+      confirmLabel: 'Löschen',
+    });
+    if (!ok) return;
+    const prev = documents;
+    setDocuments(prev.filter(d => d.id !== doc.id));
+    const { error } = await supabase.from('finance_documents').delete().eq('id', doc.id);
+    if (error) {
+      setDocuments(prev);
+      alertDialog({ title: 'Fehler beim Löschen', message: error.message });
+      return;
+    }
+    // Storage-Datei mit weg (best-effort; falls fehlschlägt, ist's nur ein Orphan)
+    await supabase.storage.from('documents').remove([doc.storage_path]);
+  };
+
+  const formatBytes = (b: number | null): string => {
+    if (!b || b <= 0) return '—';
+    if (b < 1024) return `${b} B`;
+    if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+    return `${(b / (1024 * 1024)).toFixed(1)} MB`;
+  };
 
   // Inline status toggle
   const cycleStatus = async (provId: string, currentStatus: string) => {
@@ -1266,8 +1445,40 @@ export function FinanzenScreen({ navigation }: any) {
       {renderDetailModal()}
 
       <View style={styles.mainContent}>
-        <AdvisorHeroHeader title="FINANZEN" subtitle="PROVISIONEN · ABRECHNUNGEN · EINNAHMEN" backgroundImage={require('../../../assets/scouting-header-bg.jpg')} backgroundImageOpacity={0.45} />
+        <AdvisorHeroHeader
+          title="FINANZEN"
+          subtitle="PROVISIONEN · ABRECHNUNGEN · DOKUMENTE"
+          backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
+          backgroundImageOpacity={0.45}
+        >
+          <View style={styles.segmentedAlignRight}>
+            <View style={styles.segmentedWrap}>
+              {(['finanzen', 'dokumente'] as const).map((tab, idx) => {
+                const isActive = activeTab === tab;
+                const label = tab === 'finanzen' ? 'Provisionen' : 'Dokumente';
+                const count = tab === 'dokumente' ? documents.length : null;
+                return (
+                  <React.Fragment key={tab}>
+                    {idx > 0 ? <View style={styles.segmentedDivider} /> : null}
+                    <TouchableOpacity
+                      onPress={() => setActiveTab(tab)}
+                      style={[styles.segmentedBtn, isActive && styles.segmentedBtnActive]}
+                    >
+                      <Text style={[styles.segmentedLabel, isActive && styles.segmentedLabelActive]}>{label}</Text>
+                      {count !== null && count > 0 ? (
+                        <View style={[styles.segmentedCountPill, isActive && styles.segmentedCountPillActive]}>
+                          <Text style={[styles.segmentedCountText, isActive && styles.segmentedCountTextActive]}>{count}</Text>
+                        </View>
+                      ) : null}
+                    </TouchableOpacity>
+                  </React.Fragment>
+                );
+              })}
+            </View>
+          </View>
+        </AdvisorHeroHeader>
 
+        {activeTab === 'finanzen' ? (
         <View style={styles.content}>
           <View style={styles.seasonRow}>
             <Pressable onPress={() => changeSeason(-1)} style={styles.seasonArrow}><Text style={{ color: colors.text, fontSize: 20 }}>◀</Text></Pressable>
@@ -1356,6 +1567,97 @@ export function FinanzenScreen({ navigation }: any) {
             </ScrollView>
           </View>
         </View>
+        ) : (
+        <View style={styles.content}>
+          <View style={styles.docsToolbarRow}>
+            <Text style={[styles.rowCount, { color: colors.textMuted, flex: 1 }]}>
+              {documents.length} {documents.length === 1 ? 'Dokument' : 'Dokumente'}
+            </Text>
+            <TouchableOpacity
+              style={[styles.docUploadBtn, uploadingDoc && { opacity: 0.5 }]}
+              onPress={uploadDocument}
+              disabled={uploadingDoc}
+            >
+              <Text style={styles.docUploadBtnText}>{uploadingDoc ? 'Lade hoch…' : '+ PDF hochladen'}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View
+            style={[styles.tableWrapper, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}
+            onLayout={(e) => setDocsTableWidth(e.nativeEvent.layout.width - 32)}
+          >
+            {docsTableWidth > 0 && (
+              <TableHeader
+                columnDefs={DOCUMENT_COLUMNS}
+                backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
+                columnOrder={docsTable.columnOrder}
+                getColumnWidth={docsTable.getColumnWidth}
+                onResizeStart={docsTable.onResizeStart}
+                onDragStart={docsTable.onDragStart}
+                resizingKey={docsTable.resizingKey}
+                draggingKey={docsTable.draggingKey}
+                dragOverKey={docsTable.dragOverKey}
+                colors={colors}
+                setHeaderRef={docsTable.setHeaderRef}
+                style={{ paddingHorizontal: 16 }}
+              />
+            )}
+
+            <ScrollView style={styles.tableBody}>
+              {documentsLoading ? (
+                <Text style={[styles.emptyText, { color: colors.textMuted }]}>Laden…</Text>
+              ) : documents.length === 0 ? (
+                <Text style={[styles.emptyText, { color: colors.textMuted }]}>Noch keine Dokumente. Lade oben rechts dein erstes PDF hoch.</Text>
+              ) : (
+                documents.map((doc) => {
+                  const myId = session?.user?.id;
+                  const isMine = !!myId && doc.uploaded_by === myId;
+                  return (
+                    <TableRow
+                      key={doc.id}
+                      columnOrder={docsTable.columnOrder}
+                      getColumnWidth={docsTable.getColumnWidth}
+                      onPress={() => openDocument(doc)}
+                      style={[styles.tableRow, { borderBottomColor: colors.border }]}
+                      renderCell={(key) => {
+                        switch (key) {
+                          case 'filename':
+                            return (
+                              <Text style={[styles.tableCell, { color: colors.text, fontWeight: '500' }]} numberOfLines={1}>
+                                📄  {doc.filename}
+                              </Text>
+                            );
+                          case 'uploader':
+                            return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{doc.uploader_name || '—'}</Text>;
+                          case 'created':
+                            return <Text style={[styles.tableCell, { color: colors.text }]}>{new Date(doc.created_at).toLocaleDateString('de-DE')}</Text>;
+                          case 'size':
+                            return <Text style={[styles.tableCell, { color: colors.textMuted, fontSize: 12 }]}>{formatBytes(doc.size_bytes)}</Text>;
+                          case 'actions':
+                            return (
+                              <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                                <TouchableOpacity onPress={(e: any) => { e?.stopPropagation?.(); downloadDocument(doc); }} style={styles.docActionBtn}>
+                                  <Text style={styles.docActionText}>⬇</Text>
+                                </TouchableOpacity>
+                                {isMine ? (
+                                  <TouchableOpacity onPress={(e: any) => { e?.stopPropagation?.(); deleteDocument(doc); }} style={[styles.docActionBtn, styles.docActionBtnDanger]}>
+                                    <Text style={[styles.docActionText, { color: '#ef4444' }]}>✕</Text>
+                                  </TouchableOpacity>
+                                ) : null}
+                              </View>
+                            );
+                          default:
+                            return null;
+                        }
+                      }}
+                    />
+                  );
+                })
+              )}
+            </ScrollView>
+          </View>
+        </View>
+        )}
       </View>
     </View>
   );
@@ -1367,6 +1669,54 @@ const styles = StyleSheet.create({
   container: { flex: 1, flexDirection: 'row' },
   containerMobile: { flex: 1 },
   mainContent: { flex: 1 },
+
+  // Segmented Pill (Tabs im AdvisorHeroHeader, rechtsbündig — wie AufgabenScreen)
+  segmentedAlignRight: { flex: 1, flexDirection: 'row', justifyContent: 'flex-end' },
+  segmentedWrap: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    height: 28,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  segmentedDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.25)' },
+  segmentedBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, justifyContent: 'center' },
+  segmentedBtnActive: { backgroundColor: 'rgba(34,197,94,0.15)' },
+  segmentedLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)' },
+  segmentedLabelActive: { color: '#fff' },
+  segmentedCountPill: { backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 8, paddingHorizontal: 5, minWidth: 16, height: 16, alignItems: 'center', justifyContent: 'center' },
+  segmentedCountPillActive: { backgroundColor: '#22c55e' },
+  segmentedCountText: { color: 'rgba(255,255,255,0.6)', fontSize: 9, fontWeight: '700' },
+  segmentedCountTextActive: { color: '#fff' },
+
+  // Dokumente-Tab
+  docsToolbarRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
+  docUploadBtn: {
+    height: 32,
+    paddingHorizontal: 14,
+    borderRadius: 6,
+    backgroundColor: '#22c55e',
+    borderWidth: 1,
+    borderColor: '#22c55e',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  docUploadBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  docActionBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  docActionBtnDanger: { backgroundColor: 'rgba(239,68,68,0.12)', borderColor: 'rgba(239,68,68,0.4)' },
+  docActionText: { color: 'rgba(255,255,255,0.85)', fontSize: 13, fontWeight: '600' },
   header: { padding: 20, paddingBottom: 16, borderBottomWidth: 1 },
   title: { fontSize: 18, fontWeight: '700' },
   content: { flex: 1, padding: 24 },
