@@ -79,12 +79,16 @@ const FINANZEN_COLUMNS: ColumnDef[] = [
 ];
 
 const DOCUMENT_COLUMNS: ColumnDef[] = [
-  { key: 'filename', label: 'Dateiname', defaultFlex: 2.4, minWidth: 200 },
-  { key: 'uploader', label: 'Hochgeladen von', defaultFlex: 1.2, minWidth: 120 },
+  { key: 'name', label: 'Name', defaultFlex: 1, minWidth: 90 },
+  { key: 'vorname', label: 'Vorname', defaultFlex: 1, minWidth: 80 },
+  { key: 'club', label: 'Verein', defaultFlex: 1.4, minWidth: 130 },
+  { key: 'doc_type', label: 'Art', defaultFlex: 1.2, minWidth: 130 },
   { key: 'created', label: 'Datum', defaultFlex: 0.9, minWidth: 100 },
-  { key: 'size', label: 'Größe', defaultFlex: 0.7, minWidth: 80 },
-  { key: 'actions', label: '', defaultFlex: 0.6, minWidth: 110 },
+  { key: 'signed', label: 'Signiert', defaultFlex: 0.7, minWidth: 80 },
+  { key: 'actions', label: '', defaultFlex: 0.7, minWidth: 110 },
 ];
+
+type DocType = 'Provisionsvereinbarung' | 'Wegvermittlung';
 
 interface FinanceDocument {
   id: string;
@@ -93,7 +97,20 @@ interface FinanceDocument {
   size_bytes: number | null;
   created_at: string;
   uploaded_by: string | null;
+  player_id: string | null;
+  doc_type: DocType | null;
+  signed: boolean;
   uploader_name?: string;
+  player_first_name?: string | null;
+  player_last_name?: string | null;
+  player_club?: string | null;
+}
+
+interface PlayerLite {
+  id: string;
+  first_name: string;
+  last_name: string;
+  club: string | null;
 }
 
 // --- Constants ---
@@ -194,11 +211,31 @@ export function FinanzenScreen({ navigation }: any) {
   const [docsTableWidth, setDocsTableWidth] = useState(0);
   const docsTable = useTableColumns(DOCUMENT_COLUMNS, docsTableWidth, 'finanzen_dokumente');
 
+  // Upload-Modal (PDF + Spieler-Pick + Art)
+  const [showDocUploadModal, setShowDocUploadModal] = useState(false);
+  const [pendingPickedFile, setPendingPickedFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
+  const [docPlayerSearch, setDocPlayerSearch] = useState('');
+  const [docSelectedPlayer, setDocSelectedPlayer] = useState<PlayerLite | null>(null);
+  const [docSelectedType, setDocSelectedType] = useState<DocType | null>(null);
+  const [allPlayersLite, setAllPlayersLite] = useState<PlayerLite[]>([]);
+
+  // Lite-Spielerliste einmalig laden (für Autocomplete im Upload-Modal)
+  useEffect(() => {
+    if (activeTab !== 'dokumente' || allPlayersLite.length > 0) return;
+    (async () => {
+      const { data } = await supabase
+        .from('player_details')
+        .select('id, first_name, last_name, club')
+        .order('last_name', { ascending: true });
+      setAllPlayersLite((data || []) as any);
+    })();
+  }, [activeTab, allPlayersLite.length]);
+
   const fetchDocuments = useCallback(async () => {
     setDocumentsLoading(true);
     const { data, error } = await supabase
       .from('finance_documents')
-      .select('id, filename, storage_path, size_bytes, created_at, uploaded_by')
+      .select('id, filename, storage_path, size_bytes, created_at, uploaded_by, player_id, doc_type, signed')
       .order('created_at', { ascending: false });
     if (error) {
       console.error('fetchDocuments error:', error);
@@ -206,6 +243,8 @@ export function FinanzenScreen({ navigation }: any) {
       return;
     }
     const advisorIds = Array.from(new Set((data || []).map((d: any) => d.uploaded_by).filter(Boolean))) as string[];
+    const playerIds = Array.from(new Set((data || []).map((d: any) => d.player_id).filter(Boolean))) as string[];
+
     let nameMap = new Map<string, string>();
     if (advisorIds.length > 0) {
       const { data: advisors } = await supabase
@@ -216,10 +255,26 @@ export function FinanzenScreen({ navigation }: any) {
         nameMap.set(a.id, `${a.first_name ?? ''} ${a.last_name ?? ''}`.trim() || '—');
       }
     }
-    const enriched: FinanceDocument[] = (data || []).map((d: any) => ({
-      ...d,
-      uploader_name: d.uploaded_by ? (nameMap.get(d.uploaded_by) || '—') : '—',
-    }));
+
+    let playerMap = new Map<string, PlayerLite>();
+    if (playerIds.length > 0) {
+      const { data: players } = await supabase
+        .from('player_details')
+        .select('id, first_name, last_name, club')
+        .in('id', playerIds);
+      for (const p of players || []) playerMap.set(p.id, p as any);
+    }
+
+    const enriched: FinanceDocument[] = (data || []).map((d: any) => {
+      const player = d.player_id ? playerMap.get(d.player_id) : null;
+      return {
+        ...d,
+        uploader_name: d.uploaded_by ? (nameMap.get(d.uploaded_by) || '—') : '—',
+        player_first_name: player?.first_name || null,
+        player_last_name: player?.last_name || null,
+        player_club: player?.club || null,
+      };
+    });
     setDocuments(enriched);
     setDocumentsLoading(false);
   }, []);
@@ -230,19 +285,36 @@ export function FinanzenScreen({ navigation }: any) {
     }
   }, [activeTab, fetchDocuments]);
 
-  const uploadDocument = async () => {
+  // Schritt 1: File-Picker. Bei Erfolg → Upload-Modal öffnen, in dem
+  // Spieler + Art gewählt werden, bevor wir wirklich hochladen.
+  const startDocumentUpload = async () => {
     if (uploadingDoc) return;
+    try {
+      const result = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true });
+      if (result.canceled || !result.assets?.[0]) return;
+      setPendingPickedFile(result.assets[0]);
+      setDocPlayerSearch('');
+      setDocSelectedPlayer(null);
+      setDocSelectedType(null);
+      setShowDocUploadModal(true);
+    } catch (e: any) {
+      alertDialog({ title: 'Fehler', message: e?.message || 'Datei konnte nicht ausgewählt werden.' });
+    }
+  };
+
+  const confirmDocumentUpload = async () => {
+    if (!pendingPickedFile || !docSelectedPlayer || !docSelectedType) {
+      alertDialog({ title: 'Eingabe fehlt', message: 'Bitte Spieler und Art auswählen.' });
+      return;
+    }
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       alertDialog({ title: 'Nicht eingeloggt', message: 'Bitte erneut anmelden.' });
       return;
     }
+    setUploadingDoc(true);
     try {
-      const result = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true });
-      if (result.canceled || !result.assets?.[0]) return;
-      const asset = result.assets[0];
-      setUploadingDoc(true);
-
+      const asset = pendingPickedFile;
       const ext = (asset.name?.split('.').pop() || 'pdf').toLowerCase();
       const id = (globalThis.crypto as any)?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const storagePath = `finance/${id}.${ext}`;
@@ -267,25 +339,41 @@ export function FinanzenScreen({ navigation }: any) {
 
       const { error: insErr } = await supabase.from('finance_documents').insert({
         uploaded_by: user.id,
+        player_id: docSelectedPlayer.id,
+        doc_type: docSelectedType,
         filename: asset.name || 'Dokument.pdf',
         storage_path: storagePath,
         size_bytes: asset.size || null,
         mime_type: asset.mimeType || 'application/pdf',
       });
       if (insErr) {
-        // Storage-Upload rückgängig machen, damit kein Orphan zurückbleibt
         await supabase.storage.from('documents').remove([storagePath]);
         alertDialog({ title: 'Fehler beim Speichern', message: insErr.message });
         setUploadingDoc(false);
         return;
       }
 
+      setShowDocUploadModal(false);
+      setPendingPickedFile(null);
+      setDocSelectedPlayer(null);
+      setDocSelectedType(null);
+      setDocPlayerSearch('');
       await fetchDocuments();
     } catch (e: any) {
       console.error('uploadDocument error:', e);
       alertDialog({ title: 'Fehler', message: e?.message || 'Unbekannter Fehler beim Upload.' });
     } finally {
       setUploadingDoc(false);
+    }
+  };
+
+  const toggleDocSigned = async (doc: FinanceDocument) => {
+    const next = !doc.signed;
+    setDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, signed: next } : d));
+    const { error } = await supabase.from('finance_documents').update({ signed: next }).eq('id', doc.id);
+    if (error) {
+      setDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, signed: !next } : d));
+      alertDialog({ title: 'Fehler', message: error.message });
     }
   };
 
@@ -1575,7 +1663,7 @@ export function FinanzenScreen({ navigation }: any) {
             </Text>
             <TouchableOpacity
               style={[styles.docUploadBtn, uploadingDoc && { opacity: 0.5 }]}
-              onPress={uploadDocument}
+              onPress={startDocumentUpload}
               disabled={uploadingDoc}
             >
               <Text style={styles.docUploadBtnText}>{uploadingDoc ? 'Lade hoch…' : '+ PDF hochladen'}</Text>
@@ -1621,18 +1709,34 @@ export function FinanzenScreen({ navigation }: any) {
                       style={[styles.tableRow, { borderBottomColor: colors.border }]}
                       renderCell={(key) => {
                         switch (key) {
-                          case 'filename':
+                          case 'name':
                             return (
-                              <Text style={[styles.tableCell, { color: colors.text, fontWeight: '500' }]} numberOfLines={1}>
-                                📄  {doc.filename}
+                              <Text style={[styles.tableCell, styles.nameCell, { color: colors.text }]} numberOfLines={1}>
+                                {doc.player_last_name || '—'}
                               </Text>
                             );
-                          case 'uploader':
-                            return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{doc.uploader_name || '—'}</Text>;
+                          case 'vorname':
+                            return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{doc.player_first_name || '—'}</Text>;
+                          case 'club':
+                            return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{doc.player_club || '—'}</Text>;
+                          case 'doc_type':
+                            return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{doc.doc_type || '—'}</Text>;
                           case 'created':
                             return <Text style={[styles.tableCell, { color: colors.text }]}>{new Date(doc.created_at).toLocaleDateString('de-DE')}</Text>;
-                          case 'size':
-                            return <Text style={[styles.tableCell, { color: colors.textMuted, fontSize: 12 }]}>{formatBytes(doc.size_bytes)}</Text>;
+                          case 'signed':
+                            return (
+                              <TouchableOpacity onPress={(e: any) => { e?.stopPropagation?.(); toggleDocSigned(doc); }}>
+                                {doc.signed ? (
+                                  <View style={[styles.signedPill, { backgroundColor: 'rgba(34,197,94,0.2)', borderColor: '#22c55e' }]}>
+                                    <Text style={[styles.signedPillText, { color: '#22c55e' }]}>✓ Ja</Text>
+                                  </View>
+                                ) : (
+                                  <View style={[styles.signedPill, { backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.2)' }]}>
+                                    <Text style={[styles.signedPillText, { color: colors.textMuted }]}>Nein</Text>
+                                  </View>
+                                )}
+                              </TouchableOpacity>
+                            );
                           case 'actions':
                             return (
                               <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
@@ -1659,6 +1763,98 @@ export function FinanzenScreen({ navigation }: any) {
         </View>
         )}
       </View>
+
+      {/* Upload-Modal: Spieler + Art wählen */}
+      {showDocUploadModal ? (
+        <View style={styles.docModalOverlay} pointerEvents="auto">
+          <Pressable style={StyleSheet.absoluteFillObject} onPress={() => { if (!uploadingDoc) setShowDocUploadModal(false); }} />
+          <View style={styles.docModalBox}>
+            <Text style={styles.docModalTitle}>Dokument zuordnen</Text>
+            <Text style={styles.docModalSubtitle} numberOfLines={1}>{pendingPickedFile?.name || ''}</Text>
+
+            {/* Spieler-Auswahl mit Autocomplete */}
+            <Text style={styles.docModalLabel}>Spieler</Text>
+            {docSelectedPlayer ? (
+              <View style={styles.docSelectedPlayerRow}>
+                <Text style={styles.docSelectedPlayerText}>
+                  {docSelectedPlayer.last_name}, {docSelectedPlayer.first_name}
+                  {docSelectedPlayer.club ? `  ·  ${docSelectedPlayer.club}` : ''}
+                </Text>
+                <TouchableOpacity onPress={() => { setDocSelectedPlayer(null); setDocPlayerSearch(''); }}>
+                  <Text style={{ color: '#ef4444', fontSize: 18, paddingHorizontal: 8 }}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                <TextInput
+                  style={styles.docPillInput}
+                  value={docPlayerSearch}
+                  onChangeText={setDocPlayerSearch}
+                  placeholder="Spieler suchen (Name oder Verein)…"
+                  placeholderTextColor="rgba(255,255,255,0.4)"
+                />
+                {docPlayerSearch.trim().length > 0 ? (
+                  <View style={styles.docSuggestList}>
+                    {allPlayersLite
+                      .filter(p => {
+                        const q = docPlayerSearch.trim().toLowerCase();
+                        return `${p.first_name ?? ''} ${p.last_name ?? ''} ${p.club ?? ''}`.toLowerCase().includes(q);
+                      })
+                      .slice(0, 8)
+                      .map(p => (
+                        <TouchableOpacity
+                          key={p.id}
+                          style={styles.docSuggestItem}
+                          onPress={() => { setDocSelectedPlayer(p); setDocPlayerSearch(''); }}
+                        >
+                          <Text style={{ color: '#fff', fontSize: 13 }} numberOfLines={1}>
+                            {p.last_name}, {p.first_name}
+                            {p.club ? <Text style={{ color: 'rgba(255,255,255,0.5)' }}>  ·  {p.club}</Text> : null}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                  </View>
+                ) : null}
+              </>
+            )}
+
+            {/* Art-Auswahl */}
+            <Text style={[styles.docModalLabel, { marginTop: 16 }]}>Art</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {(['Provisionsvereinbarung', 'Wegvermittlung'] as const).map(t => {
+                const isActive = docSelectedType === t;
+                return (
+                  <TouchableOpacity
+                    key={t}
+                    style={[styles.docTypePill, isActive && styles.docTypePillActive]}
+                    onPress={() => setDocSelectedType(t)}
+                  >
+                    <Text style={[styles.docTypePillText, isActive && styles.docTypePillTextActive]}>{t}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Footer */}
+            <View style={styles.docModalFooter}>
+              <TouchableOpacity
+                style={styles.docModalCancel}
+                onPress={() => { if (!uploadingDoc) setShowDocUploadModal(false); }}
+                disabled={uploadingDoc}
+              >
+                <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12, fontWeight: '600' }}>Abbrechen</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.docModalConfirm, (uploadingDoc || !docSelectedPlayer || !docSelectedType) && { opacity: 0.5 }]}
+                onPress={confirmDocumentUpload}
+                disabled={uploadingDoc || !docSelectedPlayer || !docSelectedType}
+              >
+                <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>{uploadingDoc ? 'Lade hoch…' : 'Hochladen'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -1717,6 +1913,104 @@ const styles = StyleSheet.create({
   },
   docActionBtnDanger: { backgroundColor: 'rgba(239,68,68,0.12)', borderColor: 'rgba(239,68,68,0.4)' },
   docActionText: { color: 'rgba(255,255,255,0.85)', fontSize: 13, fontWeight: '600' },
+
+  signedPill: { paddingVertical: 2, paddingHorizontal: 8, borderRadius: 10, borderWidth: 1, alignSelf: 'flex-start' },
+  signedPillText: { fontSize: 11, fontWeight: '600' },
+
+  // Upload-Modal (Spieler + Art)
+  docModalOverlay: {
+    position: Platform.OS === 'web' ? ('fixed' as any) : 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    zIndex: 9999,
+  },
+  docModalBox: {
+    backgroundColor: '#000',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 480,
+  },
+  docModalTitle: {
+    fontFamily: 'Josefin Sans',
+    fontSize: 16,
+    fontWeight: '400',
+    letterSpacing: 3,
+    textTransform: 'uppercase',
+    color: 'rgba(255,255,255,0.85)',
+    marginBottom: 4,
+  },
+  docModalSubtitle: { fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 16 },
+  docModalLabel: { fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 },
+  docPillInput: {
+    backgroundColor: '#000',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    color: '#fff',
+    fontSize: 13,
+  },
+  docSuggestList: {
+    marginTop: 6,
+    backgroundColor: '#1e293b',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 8,
+    maxHeight: 220,
+  },
+  docSuggestItem: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+  docSelectedPlayerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(34,197,94,0.12)',
+    borderWidth: 1,
+    borderColor: '#22c55e',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  docSelectedPlayerText: { color: '#fff', fontSize: 13, fontWeight: '500', flex: 1 },
+  docTypePill: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  docTypePillActive: { backgroundColor: 'rgba(34,197,94,0.15)', borderColor: '#22c55e' },
+  docTypePillText: { color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: '600' },
+  docTypePillTextActive: { color: '#fff' },
+  docModalFooter: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 24 },
+  docModalCancel: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: 'transparent',
+  },
+  docModalConfirm: {
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#22c55e',
+    backgroundColor: '#22c55e',
+  },
   header: { padding: 20, paddingBottom: 16, borderBottomWidth: 1 },
   title: { fontSize: 18, fontWeight: '700' },
   content: { flex: 1, padding: 24 },
