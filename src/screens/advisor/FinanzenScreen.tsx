@@ -208,7 +208,10 @@ export function FinanzenScreen({ navigation }: any) {
   const [documents, setDocuments] = useState<FinanceDocument[]>([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
-  const [docsTableWidth, setDocsTableWidth] = useState(0);
+  // Fallback-Width 1000 — falls onLayout beim Tab-Switch nicht zuverlässig
+  // feuert (passiert auf manchen RN-Web-Builds), bekommt useTableColumns
+  // trotzdem direkt sinnvolle Spaltenbreiten und der Header wird gerendert.
+  const [docsTableWidth, setDocsTableWidth] = useState(1000);
   const docsTable = useTableColumns(DOCUMENT_COLUMNS, docsTableWidth, 'finanzen_dokumente');
 
   // Upload-Modal (PDF + Spieler-Pick + Art)
@@ -1672,24 +1675,26 @@ export function FinanzenScreen({ navigation }: any) {
 
           <View
             style={[styles.tableWrapper, { backgroundColor: 'rgba(0,0,0,0.55)', borderColor: 'rgba(255,255,255,0.15)' }]}
-            onLayout={(e) => setDocsTableWidth(e.nativeEvent.layout.width - 32)}
+            onLayout={(e) => {
+              const w = e.nativeEvent.layout.width - 32;
+              if (w > 0) setDocsTableWidth(w);
+            }}
           >
-            {docsTableWidth > 0 && (
-              <TableHeader
-                columnDefs={DOCUMENT_COLUMNS}
-                backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
-                columnOrder={docsTable.columnOrder}
-                getColumnWidth={docsTable.getColumnWidth}
-                onResizeStart={docsTable.onResizeStart}
-                onDragStart={docsTable.onDragStart}
-                resizingKey={docsTable.resizingKey}
-                draggingKey={docsTable.draggingKey}
-                dragOverKey={docsTable.dragOverKey}
-                colors={colors}
-                setHeaderRef={docsTable.setHeaderRef}
-                style={{ backgroundColor: 'rgba(0,0,0,0.45)', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 16 }}
-              />
-            )}
+            <TableHeader
+              columnDefs={DOCUMENT_COLUMNS}
+              backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
+              columnOrder={docsTable.columnOrder}
+              getColumnWidth={docsTable.getColumnWidth}
+              onResizeStart={docsTable.onResizeStart}
+              onDragStart={docsTable.onDragStart}
+              resizingKey={docsTable.resizingKey}
+              draggingKey={docsTable.draggingKey}
+              dragOverKey={docsTable.dragOverKey}
+              colors={colors}
+              setHeaderRef={docsTable.setHeaderRef}
+              style={{ backgroundColor: 'rgba(0,0,0,0.45)', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 16 }}
+            />
+
 
             <ScrollView style={styles.tableBody}>
               {documentsLoading ? (
