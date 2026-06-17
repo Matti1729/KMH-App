@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable,
-  Modal, TextInput, Alert, Platform, Linking,
+  Modal, TextInput, Alert, Platform, Linking, Image,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -227,6 +227,32 @@ export function FinanzenScreen({ navigation }: any) {
   const [docSelectedType, setDocSelectedType] = useState<DocType | null>(null);
   const [allPlayersLite, setAllPlayersLite] = useState<PlayerLite[]>([]);
 
+  // Vereinslogos für die Verein-Spalte
+  const [clubLogos, setClubLogos] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (activeTab !== 'dokumente' || Object.keys(clubLogos).length > 0) return;
+    (async () => {
+      const { data } = await supabase.from('club_logos').select('club_name, logo_url');
+      if (data) {
+        const map: Record<string, string> = {};
+        for (const c of data as any[]) map[c.club_name] = c.logo_url;
+        setClubLogos(map);
+      }
+    })();
+  }, [activeTab, clubLogos]);
+
+  const getClubLogo = (clubName: string | null | undefined): string | null => {
+    if (!clubName) return null;
+    if (clubLogos[clubName]) return clubLogos[clubName];
+    for (const [k, v] of Object.entries(clubLogos)) {
+      if (clubName.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(clubName.toLowerCase())) return v;
+    }
+    return null;
+  };
+
+  // Suche
+  const [docSearchText, setDocSearchText] = useState('');
+
   // Sortierung
   const [docsSortField, setDocsSortField] = useState<DocsSortField>('created');
   const [docsSortDirection, setDocsSortDirection] = useState<SortDirection>('desc');
@@ -239,7 +265,16 @@ export function FinanzenScreen({ navigation }: any) {
     }
   };
   const sortedDocuments = useMemo(() => {
-    const arr = [...documents];
+    const q = docSearchText.trim().toLowerCase();
+    const filtered = q
+      ? documents.filter(d => {
+          const hay = [d.player_first_name, d.player_last_name, d.player_club, d.doc_type, d.filename]
+            .map(s => (s ?? '').toString().toLowerCase())
+            .join(' ');
+          return hay.includes(q);
+        })
+      : documents;
+    const arr = [...filtered];
     const dir = docsSortDirection === 'asc' ? 1 : -1;
     const cmp = (a: any, b: any): number => {
       if (a == null && b == null) return 0;
@@ -260,7 +295,7 @@ export function FinanzenScreen({ navigation }: any) {
       }
     });
     return arr;
-  }, [documents, docsSortField, docsSortDirection]);
+  }, [documents, docsSortField, docsSortDirection, docSearchText]);
 
   // Lite-Spielerliste einmalig laden (für Autocomplete im Upload-Modal)
   useEffect(() => {
@@ -1582,7 +1617,34 @@ export function FinanzenScreen({ navigation }: any) {
           backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
           backgroundImageOpacity={0.45}
         >
-          <View style={styles.segmentedAlignRight}>
+          {activeTab === 'dokumente' ? (
+            <View style={styles.docsHeroSearchRow}>
+              <Ionicons name="search" size={12} color="rgba(255,255,255,0.5)" style={{ marginRight: 6 }} />
+              <TextInput
+                style={styles.docsHeroSearchInput}
+                value={docSearchText}
+                onChangeText={setDocSearchText}
+                placeholder="Spieler, Verein, Art suchen…"
+                placeholderTextColor="rgba(255,255,255,0.4)"
+              />
+              {docSearchText ? (
+                <TouchableOpacity onPress={() => setDocSearchText('')} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                  <Ionicons name="close-circle" size={14} color="rgba(255,255,255,0.4)" />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ) : null}
+          {activeTab === 'dokumente' ? (
+            <TouchableOpacity
+              style={[styles.heroUploadBtn, uploadingDoc && { opacity: 0.5 }]}
+              onPress={startDocumentUpload}
+              disabled={uploadingDoc}
+            >
+              <Ionicons name="add" size={12} color="#fff" />
+              <Text style={styles.heroUploadBtnText}>{uploadingDoc ? 'Lade…' : 'PDF hochladen'}</Text>
+            </TouchableOpacity>
+          ) : null}
+          <View style={[styles.segmentedAlignRight, activeTab === 'dokumente' && { flex: 0 }]}>
             <View style={styles.segmentedWrap}>
               {(['finanzen', 'dokumente'] as const).map((tab, idx) => {
                 const isActive = activeTab === tab;
@@ -1700,19 +1762,9 @@ export function FinanzenScreen({ navigation }: any) {
         </View>
         ) : (
         <View style={styles.content}>
-          <View style={styles.docsToolbarRow}>
-            <Text style={[styles.rowCount, { color: colors.textMuted, flex: 1 }]}>
-              {documents.length} {documents.length === 1 ? 'Dokument' : 'Dokumente'}
-            </Text>
-            <TouchableOpacity
-              style={[styles.docUploadBtn, uploadingDoc && { opacity: 0.5 }]}
-              onPress={startDocumentUpload}
-              disabled={uploadingDoc}
-            >
-              <Text style={styles.docUploadBtnText}>{uploadingDoc ? 'Lade hoch…' : '+ PDF hochladen'}</Text>
-            </TouchableOpacity>
-          </View>
-
+          <Text style={[styles.rowCount, { color: colors.textMuted, marginBottom: 8 }]}>
+            {sortedDocuments.length} {sortedDocuments.length === 1 ? 'Dokument' : 'Dokumente'}{docSearchText ? ` (gefiltert)` : ''}
+          </Text>
           <View
             style={[styles.tableWrapper, { backgroundColor: 'rgba(0,0,0,0.55)', borderColor: 'rgba(255,255,255,0.15)' }]}
             onLayout={(e) => {
@@ -1765,8 +1817,15 @@ export function FinanzenScreen({ navigation }: any) {
                             );
                           case 'vorname':
                             return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{doc.player_first_name || '—'}</Text>;
-                          case 'club':
-                            return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{doc.player_club || '—'}</Text>;
+                          case 'club': {
+                            const logo = getClubLogo(doc.player_club);
+                            return (
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
+                                {logo ? <Image source={{ uri: logo }} style={{ width: 18, height: 18 }} resizeMode="contain" /> : null}
+                                <Text style={[styles.tableCell, { color: colors.text, flex: 1 }]} numberOfLines={1}>{doc.player_club || '—'}</Text>
+                              </View>
+                            );
+                          }
                           case 'doc_type':
                             return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{doc.doc_type || '—'}</Text>;
                           case 'created':
@@ -1787,12 +1846,12 @@ export function FinanzenScreen({ navigation }: any) {
                             );
                           case 'actions':
                             return (
-                              <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}>
+                              <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', justifyContent: 'flex-end', flex: 1 }}>
                                 <TouchableOpacity onPress={(e: any) => { e?.stopPropagation?.(); downloadDocument(doc); }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                                   <Ionicons name="download-outline" size={13} color="rgba(255,255,255,0.85)" />
                                 </TouchableOpacity>
                                 {isMine ? (
-                                  <TouchableOpacity onPress={(e: any) => { e?.stopPropagation?.(); deleteDocument(doc); }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} style={{ marginLeft: 8 }}>
+                                  <TouchableOpacity onPress={(e: any) => { e?.stopPropagation?.(); deleteDocument(doc); }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                                     <Ionicons name="trash-outline" size={13} color="#ef4444" />
                                   </TouchableOpacity>
                                 ) : null}
@@ -1913,6 +1972,40 @@ const styles = StyleSheet.create({
   container: { flex: 1, flexDirection: 'row' },
   containerMobile: { flex: 1 },
   mainContent: { flex: 1 },
+
+  // Hero-Search-Input für die Dokumente-Suche
+  docsHeroSearchRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 28,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    borderWidth: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderColor: 'rgba(255,255,255,0.25)',
+    maxWidth: 320,
+  },
+  docsHeroSearchInput: {
+    flex: 1,
+    fontSize: 12,
+    color: '#fff',
+    paddingVertical: 0,
+    ...(Platform.OS === 'web' ? { outlineStyle: 'none' as any } : {}),
+  },
+  // "+ PDF hochladen"-Button im Header (Hero-Stil, grün/Primary)
+  heroUploadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    height: 28,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    backgroundColor: '#22c55e',
+    borderWidth: 1,
+    borderColor: '#22c55e',
+  },
+  heroUploadBtnText: { color: '#fff', fontSize: 11, fontWeight: '700' },
 
   // Segmented Pill (Tabs im AdvisorHeroHeader, rechtsbündig — wie AufgabenScreen)
   segmentedAlignRight: { flex: 1, flexDirection: 'row', justifyContent: 'flex-end' },
