@@ -11,14 +11,12 @@ import { useTheme } from '../../contexts/ThemeContext';
 
 export function WissenswertesScreen({ navigation }: { navigation: any }) {
   const isMobile = useIsMobile();
-  const { session, profile } = useAuth();
+  const { profile } = useAuth();
   const { colors } = useTheme();
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const { width: windowWidth } = useWindowDimensions();
   const uniformCardWidth = Math.max(160, Math.floor((windowWidth - (isMobile ? 0 : 240) - 48 - 32) / 3));
-
-  const isMatti = session?.user?.id === '892d4dbc-3c5b-4908-9735-ac0ca3794dfc';
 
   const tools = [
     {
@@ -42,13 +40,13 @@ export function WissenswertesScreen({ navigation }: { navigation: any }) {
       subtitle: 'AE-Rechner nach DFL/DFB 2024',
       screen: 'AECalculator',
     },
-    ...(isMatti ? [{
+    {
       id: 'finanzen',
       icon: '💰',
       title: 'Finanzen',
       subtitle: 'Provisionen & Rechnungen',
       screen: 'Finanzen',
-    }] : []),
+    },
   ];
 
   // --- Mobile View ---

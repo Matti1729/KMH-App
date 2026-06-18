@@ -461,7 +461,6 @@ export function AdvisorHomeScreen({ navigation }: any) {
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContentUniform}>
           {(() => {
             const isAdmin = profile?.role === 'admin';
-            const isMatti = session?.user?.id === '892d4dbc-3c5b-4908-9735-ac0ca3794dfc';
             const allCards = [
               { id: 'players', icon: '👤', title: 'KMH-Spieler', subtitle: 'Verwaltung aller Spieler', count: playerCount, screen: 'PlayerOverview' },
               { id: 'transfers', icon: '🔄', title: 'Transfers', subtitle: 'Auslaufende Verträge & Wechsel', count: transferCount, screen: 'Transfers' },
