@@ -693,6 +693,11 @@ export function FinanzenScreen({ navigation }: any) {
           y_pt: yPt,
           width_pt: sigWPt,
           height_pt: sigHPt,
+          // Viewport-Maße vom Client mitschicken, damit die Edge-Function
+          // verifizieren kann, ob ihre cropBox/Rotation-Annahmen zur tatsächlich
+          // gerenderten Page passen.
+          viewport_w_pt: signPagePtSize.w,
+          viewport_h_pt: signPagePtSize.h,
         },
       });
       if (error || data?.error) {

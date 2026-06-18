@@ -5,7 +5,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
-import { PDFDocument } from "https://esm.sh/pdf-lib@1.17.1";
+import { PDFDocument, degrees } from "https://esm.sh/pdf-lib@1.17.1";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -50,7 +50,7 @@ serve(async (req: Request) => {
     // page ist 1-basiert; x_pt/y_pt vom bottom-left origin (pdf-lib-Konvention).
     // width_pt + height_pt liefern die exakte Größe wie im Modal angezeigt;
     // ohne diese Angaben Fallback: letzte Seite, unten rechts (Padding 50pt, Breite 140pt).
-    const { document_id, page, x_pt, y_pt, width_pt, height_pt } = await req.json();
+    const { document_id, page, x_pt, y_pt, width_pt, height_pt, viewport_w_pt, viewport_h_pt } = await req.json();
     if (!document_id) {
       return new Response(JSON.stringify({ error: "document_id required" }), {
         status: 400,
@@ -140,38 +140,72 @@ serve(async (req: Request) => {
       : pages.length - 1;
     const targetPage = pages[pageIdx];
 
-    // pdf.js rendert die Seite anhand der CropBox; pdf-libs drawImage zeichnet
-    // dagegen in MediaBox-Koordinaten. Wenn CropBox != MediaBox (z.B. bei
-    // gescannten PDFs mit Crop) gäbe es einen konstanten X/Y-Versatz. Wir
-    // arbeiten daher konsequent mit cropBox und rechnen ggf. den Offset zur
-    // MediaBox dazu. Außerdem nutzen wir cropBox-Breite/Höhe fürs Clamping.
+    // Seiten-Metadaten holen: Rotation + CropBox/MediaBox.
+    // pdf.js rendert die rotierte Ansicht der CropBox; pdf-libs drawImage
+    // arbeitet jedoch in MediaBox-Koordinaten ohne Rotation. Wir müssen den
+    // CropBox-Offset addieren UND bei nicht-null Rotation die Koordinaten
+    // entsprechend transformieren.
+    const rotation = ((targetPage.getRotation().angle % 360) + 360) % 360; // normalisieren auf 0/90/180/270
     const cropBox = targetPage.getCropBox();
+    const mediaBox = targetPage.getMediaBox();
     const cropW = cropBox.width;
     const cropH = cropBox.height;
 
+    // Aus Sicht des Clients (rotierte Ansicht): viewport-Größe ist je nach
+    // Rotation gegen die CropBox vertauscht.
+    const viewW = (rotation === 90 || rotation === 270) ? cropH : cropW;
+    const viewH = (rotation === 90 || rotation === 270) ? cropW : cropH;
+
     const drawWidth = typeof width_pt === "number" && width_pt > 0
-      ? Math.min(width_pt, cropW)
-      : Math.min(140, cropW - 100);
-    // Höhe: bevorzugt vom Client (entspricht 1:1 dem Preview im Modal),
-    // sonst aus Image-Aspect-Ratio. Damit landet die Signatur genau dort,
-    // wo der User sie hingezogen hat.
+      ? Math.min(width_pt, viewW)
+      : Math.min(140, viewW - 100);
     const drawHeight = typeof height_pt === "number" && height_pt > 0
-      ? Math.min(height_pt, cropH)
+      ? Math.min(height_pt, viewH)
       : drawWidth * imgRatio;
 
+    // x_pt/y_pt: bottom-left der Signatur in viewport-Koordinaten (bottom-left
+    // origin), also genau das, was der Client aus seiner Preview ausgerechnet hat.
+    let viewX: number;
+    let viewY: number;
+    if (typeof x_pt === "number" && typeof y_pt === "number") {
+      viewX = Math.max(0, Math.min(x_pt, viewW - drawWidth));
+      viewY = Math.max(0, Math.min(y_pt, viewH - drawHeight));
+    } else {
+      viewX = viewW - drawWidth - 50;
+      viewY = 50;
+    }
+
+    // Rotation-Mapping: viewport-Koordinaten (bottom-left origin) auf MediaBox
+    // (bottom-left origin) umrechnen. Beim Drawing wird die Signatur ebenfalls
+    // um -rotation gedreht (mit drawImage `rotate`), damit sie nach Anwenden
+    // der Page-Rotation im Viewer aufrecht steht.
     let drawX: number;
     let drawY: number;
-    if (typeof x_pt === "number" && typeof y_pt === "number") {
-      // Client liefert bottom-left-Koordinate im CropBox-Koordinatensystem.
-      // Auf MediaBox umrechnen durch Addition des CropBox-Offsets.
-      const cropX = Math.max(0, Math.min(x_pt, cropW - drawWidth));
-      const cropY = Math.max(0, Math.min(y_pt, cropH - drawHeight));
-      drawX = cropBox.x + cropX;
-      drawY = cropBox.y + cropY;
+    let drawRotateDeg = 0;
+    // pdf-libs drawImage(x, y, w, h, rotate=R): die Image-Bottom-Left bleibt
+    // bei (x, y) liegen, dann wird das Image um diesen Punkt um R Grad CCW
+    // rotiert und um (w × h) skaliert. Die folgenden Formeln berechnen
+    // (x, y) so, dass nach der Page-Rotation die Bottom-Left der Signatur im
+    // Viewer auf (viewX, viewY) (bottom-left-Origin in viewport) liegt.
+    if (rotation === 0) {
+      drawX = cropBox.x + viewX;
+      drawY = cropBox.y + viewY;
+      drawRotateDeg = 0;
+    } else if (rotation === 90) {
+      drawX = cropBox.x + cropW - viewY;
+      drawY = cropBox.y + viewX;
+      drawRotateDeg = 90;
+    } else if (rotation === 180) {
+      drawX = cropBox.x + cropW - viewX;
+      drawY = cropBox.y + cropH - viewY;
+      drawRotateDeg = 180;
+    } else if (rotation === 270) {
+      drawX = cropBox.x + viewY;
+      drawY = cropBox.y + cropH - viewX;
+      drawRotateDeg = 270;
     } else {
-      // Fallback: unten rechts mit 50pt Padding (relativ zur CropBox)
-      drawX = cropBox.x + cropW - drawWidth - 50;
-      drawY = cropBox.y + 50;
+      drawX = cropBox.x + viewX;
+      drawY = cropBox.y + viewY;
     }
 
     targetPage.drawImage(pngImage, {
@@ -179,7 +213,20 @@ serve(async (req: Request) => {
       y: drawY,
       width: drawWidth,
       height: drawHeight,
+      rotate: degrees(drawRotateDeg),
     });
+
+    console.log("sign-document debug:", JSON.stringify({
+      rotation,
+      cropBox,
+      mediaBox,
+      derivedView: { viewW, viewH },
+      clientView: { viewport_w_pt, viewport_h_pt },
+      mismatch: (viewport_w_pt && Math.abs(viewport_w_pt - viewW) > 0.5) ||
+                (viewport_h_pt && Math.abs(viewport_h_pt - viewH) > 0.5),
+      received: { x_pt, y_pt, width_pt, height_pt },
+      computed: { drawX, drawY, drawWidth, drawHeight, drawRotateDeg },
+    }));
 
     const signedBytes = await pdfDoc.save();
 
