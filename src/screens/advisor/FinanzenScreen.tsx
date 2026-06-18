@@ -1619,12 +1619,12 @@ export function FinanzenScreen({ navigation }: any) {
         >
           {activeTab === 'dokumente' ? (
             <View style={styles.docsHeroSearchRow}>
-              <Ionicons name="search" size={12} color="rgba(255,255,255,0.5)" style={{ marginRight: 6 }} />
+              <Text style={styles.docsHeroSearchIcon}>🔍</Text>
               <TextInput
                 style={styles.docsHeroSearchInput}
                 value={docSearchText}
                 onChangeText={setDocSearchText}
-                placeholder="Spieler, Verein, Art suchen…"
+                placeholder="Spieler, Verein, Art suchen..."
                 placeholderTextColor="rgba(255,255,255,0.4)"
               />
               {docSearchText ? (
@@ -1846,7 +1846,7 @@ export function FinanzenScreen({ navigation }: any) {
                             );
                           case 'actions':
                             return (
-                              <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', justifyContent: 'flex-end', flex: 1 }}>
+                              <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', justifyContent: 'flex-end', alignSelf: 'stretch' }}>
                                 <TouchableOpacity onPress={(e: any) => { e?.stopPropagation?.(); downloadDocument(doc); }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                                   <Ionicons name="download-outline" size={13} color="rgba(255,255,255,0.85)" />
                                 </TouchableOpacity>
@@ -1986,6 +1986,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.25)',
     maxWidth: 320,
   },
+  docsHeroSearchIcon: { fontSize: 12, marginRight: 6, color: 'rgba(255,255,255,0.5)' },
   docsHeroSearchInput: {
     flex: 1,
     fontSize: 12,
