@@ -249,8 +249,8 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
           ))}
         </View>
 
-        {/* Wissenswertes — TEMPORÄR nur für Matti (Feature noch in Bearbeitung) */}
-        {!playerMode && user?.id === '892d4dbc-3c5b-4908-9735-ac0ca3794dfc' && (
+        {/* Wissenswertes — Tools & Informationen für alle Berater */}
+        {!playerMode && (
           <View style={{ marginTop: 4 }}>
             <Pressable
               onHoverIn={() => setHoveredNav('wissenswertes')}

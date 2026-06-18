@@ -371,8 +371,8 @@ export function AdvisorHomeScreen({ navigation }: any) {
                 </View>
               </DashboardCard>
 
-              {/* Wissenswertes — TEMPORÄR nur für Matti (Feature in Bearbeitung) */}
-              {session?.user?.id === '892d4dbc-3c5b-4908-9735-ac0ca3794dfc' && (
+              {/* Wissenswertes — Tools & Informationen, sichtbar für alle Berater */}
+              {(
                 <DashboardCard
                   id="wissenswertes"
                   style={[styles.mobileCard, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}
@@ -469,8 +469,8 @@ export function AdvisorHomeScreen({ navigation }: any) {
               { id: 'network', icon: '💼', title: 'Football Network', subtitle: 'Kontakte zu Vereinen & Entscheidern', count: networkContactsCount, screen: 'FootballNetwork' },
               { id: 'termine', icon: '📅', title: 'Spieltage', subtitle: 'Lehrgänge, Spiele & Turniere', badge: todayGamesCount, screen: 'Calendar' },
               { id: 'aufgaben', icon: '📋', title: 'Aufgaben', subtitle: 'Team & persönliche To-Dos', count: openTasksCount, screen: 'Aufgaben' },
-              // Wissenswertes TEMPORÄR nur für Matti (Feature in Bearbeitung)
-              ...(isMatti ? [{ id: 'wissenswertes', icon: '💡', title: 'Wissenswertes', subtitle: 'Tools & Informationen', screen: 'Wissenswertes' }] : []),
+              // Wissenswertes ist für alle Berater sichtbar (Tools & Informationen)
+              { id: 'wissenswertes', icon: '💡', title: 'Wissenswertes', subtitle: 'Tools & Informationen', screen: 'Wissenswertes' },
               ...(isAdmin ? [{ id: 'admin', icon: '⚙️', title: 'Administration', subtitle: 'Benutzer & Rechte verwalten', badge: pendingRequestsCount + openFeedbackCount, screen: 'AdminPanel' }] : []),
             ] as Array<{ id: string; icon: string; title: string; subtitle: string; count?: number; badge?: number; screen: string }>;
 
