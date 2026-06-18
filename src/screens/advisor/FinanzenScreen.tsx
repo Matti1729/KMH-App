@@ -222,10 +222,12 @@ export function FinanzenScreen({ navigation }: any) {
   const { width: windowWidth } = useWindowDimensions();
   const estimatedDocsWidth = Math.max(800, windowWidth - (isMobile ? 32 : 320));
   const [docsTableWidth, setDocsTableWidth] = useState(estimatedDocsWidth);
-  // Estimated-Width updaten, wenn das Fenster sich ändert UND noch nichts gemessen wurde
-  // (sobald onLayout sauber feuert, behält der gemessene Wert die Hand).
+  // Bei jedem Window-Resize die Tabellenbreite anpassen. onLayout würde auf
+  // RN-Web nicht zuverlässig auf Resize feuern, deshalb übersteuern wir hier
+  // bewusst sofort — onLayout kann danach ggf. mit der präzisen Messung
+  // nachjustieren.
   useEffect(() => {
-    setDocsTableWidth((prev) => (prev <= estimatedDocsWidth + 50 ? estimatedDocsWidth : prev));
+    setDocsTableWidth(estimatedDocsWidth);
   }, [estimatedDocsWidth]);
   // _v4 invalidiert die alten gespeicherten Breiten/Reihenfolgen aus localStorage.
   const docsTable = useTableColumns(DOCUMENT_COLUMNS, docsTableWidth, 'finanzen_dokumente_v4');
