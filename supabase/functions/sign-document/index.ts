@@ -61,10 +61,10 @@ serve(async (req: Request) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // Dokument laden
+    // Dokument laden (inkl. alter signed_path für Cleanup beim Re-Sign)
     const { data: doc, error: docErr } = await sb
       .from("finance_documents")
-      .select("id, storage_path, filename, signed")
+      .select("id, storage_path, filename, signed, signed_path")
       .eq("id", document_id)
       .single();
     if (docErr || !doc) {
@@ -166,16 +166,27 @@ serve(async (req: Request) => {
 
     const signedBytes = await pdfDoc.save();
 
-    // Signiertes PDF in Storage hochladen
-    const signedPath = `signed/${doc.id}.pdf`;
+    // Signiertes PDF unter eindeutigem Pfad ablegen — Supabase Storage/CDN
+    // cached aggressiv, deshalb verwendet jeder Re-Sign einen frischen Dateinamen.
+    const signedPath = `signed/${doc.id}_${Date.now()}.pdf`;
     const { error: upErr } = await sb.storage
       .from("documents")
-      .upload(signedPath, signedBytes, { contentType: "application/pdf", upsert: true });
+      .upload(signedPath, signedBytes, {
+        contentType: "application/pdf",
+        upsert: false,
+        cacheControl: "no-cache, no-store, max-age=0, must-revalidate",
+      });
     if (upErr) {
       return new Response(JSON.stringify({ error: `Upload-Fehler: ${upErr.message}` }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Alte signierte PDF aufräumen (falls vorhanden und nicht versehentlich
+    // identisch — verhindert Storage-Orphans bei wiederholtem Signieren).
+    if (doc.signed_path && doc.signed_path !== signedPath) {
+      await sb.storage.from("documents").remove([doc.signed_path]);
     }
 
     // DB-Update

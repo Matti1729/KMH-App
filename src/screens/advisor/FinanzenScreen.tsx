@@ -455,11 +455,19 @@ export function FinanzenScreen({ navigation }: any) {
 
   const toggleDocSigned = async (doc: FinanceDocument) => {
     const next = !doc.signed;
-    setDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, signed: next } : d));
-    const { error } = await supabase.from('finance_documents').update({ signed: next }).eq('id', doc.id);
+    // Beim Zurücksetzen auf "unsigniert" auch die alte signierte PDF aufräumen,
+    // damit beim erneuten Signieren nichts Altes mehr im Storage hängt.
+    const update: any = { signed: next };
+    if (!next) update.signed_path = null;
+    setDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, signed: next, signed_path: next ? d.signed_path : null } : d));
+    const { error } = await supabase.from('finance_documents').update(update).eq('id', doc.id);
     if (error) {
-      setDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, signed: !next } : d));
+      setDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, signed: !next, signed_path: doc.signed_path } : d));
       alertDialog({ title: 'Fehler', message: error.message });
+      return;
+    }
+    if (!next && doc.signed_path) {
+      await supabase.storage.from('documents').remove([doc.signed_path]);
     }
   };
 
