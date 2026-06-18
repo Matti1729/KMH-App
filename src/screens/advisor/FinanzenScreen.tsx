@@ -2413,6 +2413,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.25)',
     borderRadius: 6,
     overflow: 'hidden',
+    marginLeft: 'auto',
   },
   segmentedDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.25)' },
   segmentedBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, justifyContent: 'center' },
