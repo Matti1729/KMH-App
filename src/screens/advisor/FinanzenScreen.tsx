@@ -86,7 +86,7 @@ const DOCUMENT_COLUMNS: ColumnDef[] = [
   { key: 'doc_type', label: 'Art', defaultFlex: 1.2, minWidth: 130 },
   { key: 'created', label: 'Datum', defaultFlex: 0.9, minWidth: 100 },
   { key: 'signed', label: 'Signiert', defaultFlex: 0.7, minWidth: 80 },
-  { key: 'actions', label: '', defaultFlex: 0.3, minWidth: 50 },
+  { key: 'actions', label: '', defaultFlex: 0.3, minWidth: 60, fixedWidth: 60 },
 ];
 
 type DocsSortField = 'name' | 'vorname' | 'club' | 'doc_type' | 'created' | 'signed';
@@ -215,9 +215,9 @@ export function FinanzenScreen({ navigation }: any) {
   // feuert (passiert auf manchen RN-Web-Builds), bekommt useTableColumns
   // trotzdem direkt sinnvolle Spaltenbreiten und der Header wird gerendert.
   const [docsTableWidth, setDocsTableWidth] = useState(1000);
-  // _v2 invalidiert die alten gespeicherten Breiten/Reihenfolgen aus localStorage,
-  // damit die neuen Defaults greifen (insb. schmale Actions-Spalte).
-  const docsTable = useTableColumns(DOCUMENT_COLUMNS, docsTableWidth, 'finanzen_dokumente_v2');
+  // _v3 invalidiert die alten gespeicherten Breiten/Reihenfolgen aus localStorage,
+  // damit die neuen Defaults greifen (Actions jetzt fix 60 px).
+  const docsTable = useTableColumns(DOCUMENT_COLUMNS, docsTableWidth, 'finanzen_dokumente_v3');
 
   // Upload-Modal (PDF + Spieler-Pick + Art)
   const [showDocUploadModal, setShowDocUploadModal] = useState(false);
@@ -1644,7 +1644,7 @@ export function FinanzenScreen({ navigation }: any) {
               <Text style={styles.heroUploadBtnText}>{uploadingDoc ? 'Lade…' : 'PDF hochladen'}</Text>
             </TouchableOpacity>
           ) : null}
-          <View style={[styles.segmentedAlignRight, activeTab === 'dokumente' && { flex: 0 }]}>
+          <View style={styles.segmentedAlignRight}>
             <View style={styles.segmentedWrap}>
               {(['finanzen', 'dokumente'] as const).map((tab, idx) => {
                 const isActive = activeTab === tab;
@@ -1984,7 +1984,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     backgroundColor: 'rgba(0,0,0,0.7)',
     borderColor: 'rgba(255,255,255,0.25)',
-    maxWidth: 320,
   },
   docsHeroSearchIcon: { fontSize: 12, marginRight: 6, color: 'rgba(255,255,255,0.5)' },
   docsHeroSearchInput: {
