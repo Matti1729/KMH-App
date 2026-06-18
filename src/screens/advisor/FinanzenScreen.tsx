@@ -504,6 +504,7 @@ export function FinanzenScreen({ navigation }: any) {
   const [signSubmitting, setSignSubmitting] = useState(false);
   const signDragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
   const signResizeRef = useRef<{ startX: number; startW: number; startH: number; aspect: number } | null>(null);
+  const signPageDivRef = useRef<any>(null); // Page-Container, um die tatsächliche Render-Größe abzulesen
 
   // pdf.js dynamisch laden (Web-only Modal)
   const loadPdfJs = async (): Promise<any> => {
@@ -679,12 +680,36 @@ export function FinanzenScreen({ navigation }: any) {
     if (!signModalDoc || !signPagePtSize || signSubmitting) return;
     setSignSubmitting(true);
     try {
-      const xPt = signSigPx.x / SIGN_RENDER_SCALE;
-      // pdf.js: top-left origin; pdf-lib: bottom-left origin. Flip Y.
-      const sigHPt = signSigSizePx.h / SIGN_RENDER_SCALE;
-      const sigWPt = signSigSizePx.w / SIGN_RENDER_SCALE;
-      const yPt = signPagePtSize.h - (signSigPx.y / SIGN_RENDER_SCALE) - sigHPt;
+      // Effektive Render-Skala aus der tatsächlich gerenderten Container-Breite
+      // ableiten — falls der Modal kleiner ist als die natürliche Page und
+      // CSS das div geschrumpft hat (sollte mit dem flexShrink-Fix nicht mehr
+      // passieren, aber zur Sicherheit messen wir hier real).
+      let effectiveScale = SIGN_RENDER_SCALE;
+      try {
+        const rect = signPageDivRef.current?.getBoundingClientRect?.();
+        if (rect && rect.width > 0) {
+          effectiveScale = rect.width / signPagePtSize.w;
+        }
+      } catch {}
 
+      const xPt = signSigPx.x / effectiveScale;
+      // pdf.js: top-left origin; pdf-lib: bottom-left origin. Flip Y.
+      const sigHPt = signSigSizePx.h / effectiveScale;
+      const sigWPt = signSigSizePx.w / effectiveScale;
+      const yPt = signPagePtSize.h - (signSigPx.y / effectiveScale) - sigHPt;
+
+      const debugInfo = {
+        SIGN_RENDER_SCALE,
+        effectiveScale,
+        signSigPx,
+        signSigSizePx,
+        signPagePtSize,
+        derived: { xPt, yPt, sigWPt, sigHPt },
+        signCurrentPage,
+        signTotalPages,
+      };
+      // eslint-disable-next-line no-console
+      console.log('[sign-document client debug]', debugInfo);
       const { data, error } = await supabase.functions.invoke('sign-document', {
         body: {
           document_id: signModalDoc.id,
@@ -700,6 +725,8 @@ export function FinanzenScreen({ navigation }: any) {
           viewport_h_pt: signPagePtSize.h,
         },
       });
+      // eslint-disable-next-line no-console
+      console.log('[sign-document server response]', data, error);
       if (error || data?.error) {
         alertDialog({ title: 'Fehler beim Signieren', message: error?.message || data?.error || 'Unbekannter Fehler' });
         return;
@@ -2189,13 +2216,14 @@ export function FinanzenScreen({ navigation }: any) {
               ) : signPageImage && signaturePngUrl && signPagePtSize ? (
                 Platform.OS === 'web' ? (
                   <div
+                    ref={signPageDivRef}
                     style={{
                       position: 'relative',
                       width: signPagePtSize.w * SIGN_RENDER_SCALE,
                       height: signPagePtSize.h * SIGN_RENDER_SCALE,
-                      maxWidth: '100%',
                       backgroundColor: '#fff',
                       boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                      flexShrink: 0,
                     }}
                   >
                     <img

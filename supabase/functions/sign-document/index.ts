@@ -216,17 +216,18 @@ serve(async (req: Request) => {
       rotate: degrees(drawRotateDeg),
     });
 
-    console.log("sign-document debug:", JSON.stringify({
+    const debug = {
       rotation,
       cropBox,
       mediaBox,
       derivedView: { viewW, viewH },
       clientView: { viewport_w_pt, viewport_h_pt },
-      mismatch: (viewport_w_pt && Math.abs(viewport_w_pt - viewW) > 0.5) ||
-                (viewport_h_pt && Math.abs(viewport_h_pt - viewH) > 0.5),
+      mismatch: !!((viewport_w_pt && Math.abs(viewport_w_pt - viewW) > 0.5) ||
+                   (viewport_h_pt && Math.abs(viewport_h_pt - viewH) > 0.5)),
       received: { x_pt, y_pt, width_pt, height_pt },
       computed: { drawX, drawY, drawWidth, drawHeight, drawRotateDeg },
-    }));
+    };
+    console.log("sign-document debug:", JSON.stringify(debug));
 
     const signedBytes = await pdfDoc.save();
 
@@ -270,7 +271,7 @@ serve(async (req: Request) => {
       });
     }
 
-    return new Response(JSON.stringify({ ok: true, signed_path: signedPath }), {
+    return new Response(JSON.stringify({ ok: true, signed_path: signedPath, debug }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e: any) {
