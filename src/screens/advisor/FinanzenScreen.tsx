@@ -1648,7 +1648,7 @@ export function FinanzenScreen({ navigation }: any) {
               disabled={uploadingDoc}
               accessibilityLabel="PDF hochladen"
             >
-              <Ionicons name="cloud-upload-outline" size={14} color="#fff" />
+              <Ionicons name="add" size={18} color="#fff" />
             </TouchableOpacity>
           ) : null}
           <View style={styles.segmentedWrap}>
@@ -1998,9 +1998,9 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
     ...(Platform.OS === 'web' ? { outlineStyle: 'none' as any } : {}),
   },
-  // Upload-Icon-Button im Header (klein, quadratisch, neben den Tabs)
+  // Upload-Icon-Button im Header (identische Höhe wie die Tabs-Pille = 28 px)
   heroUploadIconBtn: {
-    width: 28,
+    width: 32,
     height: 28,
     borderRadius: 6,
     borderWidth: 1,
