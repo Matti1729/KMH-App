@@ -482,6 +482,7 @@ export function FinanzenScreen({ navigation }: any) {
   const [signaturePngUrl, setSignaturePngUrl] = useState<string | null>(null);
   const [signSubmitting, setSignSubmitting] = useState(false);
   const signDragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+  const signResizeRef = useRef<{ startX: number; startW: number; startH: number; aspect: number } | null>(null);
 
   // pdf.js dynamisch laden (Web-only Modal)
   const loadPdfJs = async (): Promise<any> => {
@@ -611,6 +612,41 @@ export function FinanzenScreen({ navigation }: any) {
     };
     const onUp = () => {
       signDragRef.current = null;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
+  // Resize via Eck-Handle. Aspect Ratio bleibt erhalten, damit die Signatur
+  // sich nicht verzerrt. Begrenzt durch Page-Ränder ab der aktuellen Position.
+  const onSignResizeStart = (e: any) => {
+    e.preventDefault?.();
+    e.stopPropagation?.();
+    if (!signPagePtSize) return;
+    const clientX = e.clientX ?? 0;
+    const startW = signSigSizePx.w;
+    const startH = signSigSizePx.h;
+    const aspect = startW > 0 ? startH / startW : 0.4;
+    signResizeRef.current = { startX: clientX, startW, startH, aspect };
+    const onMove = (ev: any) => {
+      if (!signResizeRef.current || !signPagePtSize) return;
+      const dx = ev.clientX - signResizeRef.current.startX;
+      const pageWidthPx = signPagePtSize.w * SIGN_RENDER_SCALE;
+      const pageHeightPx = signPagePtSize.h * SIGN_RENDER_SCALE;
+      const minW = 40;
+      const maxWByX = pageWidthPx - signSigPx.x;
+      let newW = Math.max(minW, Math.min(maxWByX, signResizeRef.current.startW + dx));
+      let newH = newW * signResizeRef.current.aspect;
+      if (signSigPx.y + newH > pageHeightPx) {
+        newH = pageHeightPx - signSigPx.y;
+        newW = signResizeRef.current.aspect > 0 ? newH / signResizeRef.current.aspect : newW;
+      }
+      setSignSigSizePx({ w: newW, h: newH });
+    };
+    const onUp = () => {
+      signResizeRef.current = null;
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
     };
@@ -2158,7 +2194,25 @@ export function FinanzenScreen({ navigation }: any) {
                         userSelect: 'none',
                       }}
                       title="Signatur verschieben"
-                    />
+                    >
+                      {/* Resize-Griff in der unteren rechten Ecke */}
+                      <div
+                        onMouseDown={onSignResizeStart}
+                        style={{
+                          position: 'absolute',
+                          right: -7,
+                          bottom: -7,
+                          width: 14,
+                          height: 14,
+                          backgroundColor: '#22c55e',
+                          border: '2px solid #fff',
+                          borderRadius: '50%',
+                          cursor: 'nwse-resize',
+                          boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
+                        }}
+                        title="Größe ändern"
+                      />
+                    </div>
                   </div>
                 ) : (
                   <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, padding: 24 }}>Signieren ist aktuell nur auf Web verfügbar.</Text>
@@ -2169,7 +2223,7 @@ export function FinanzenScreen({ navigation }: any) {
             {/* Footer */}
             <View style={styles.docModalFooter}>
               <Text style={{ flex: 1, color: 'rgba(255,255,255,0.5)', fontSize: 11, alignSelf: 'center' }} numberOfLines={1}>
-                Tipp: Signatur mit der Maus an die gewünschte Stelle ziehen.
+                Tipp: Signatur ziehen zum Verschieben · grüner Punkt = Größe ändern.
               </Text>
               <TouchableOpacity
                 style={styles.docModalCancel}
