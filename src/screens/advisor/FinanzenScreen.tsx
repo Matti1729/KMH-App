@@ -1985,16 +1985,111 @@ export function FinanzenScreen({ navigation }: any) {
         <MobileSidebar visible={showMobileSidebar} onClose={() => setShowMobileSidebar(false)} navigation={navigation} activeScreen="finanzen" />
         {renderDetailModal()}
 
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 12, paddingBottom: 80 }}>
-          <View style={styles.seasonRow}>
-            <Pressable onPress={() => changeSeason(-1)} style={styles.seasonArrow}><Text style={{ color: colors.text, fontSize: 18 }}>◀</Text></Pressable>
-            <Text style={[styles.seasonText, { color: colors.text }]}>{season}</Text>
-            <Pressable onPress={() => changeSeason(1)} style={styles.seasonArrow}><Text style={{ color: colors.text, fontSize: 18 }}>▶</Text></Pressable>
+        {/* Tab-Leiste — gleiche Reihenfolge + Default wie Desktop: Dokumente zuerst */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6 }}>
+          <View style={[styles.segmentedWrap, { flex: 1 }]}>
+            {(['dokumente', 'finanzen'] as const).map((tab, idx) => {
+              const isActive = activeTab === tab;
+              const label = tab === 'finanzen' ? 'Provisionen' : 'Dokumente';
+              const count = tab === 'dokumente' ? documents.length : null;
+              return (
+                <React.Fragment key={tab}>
+                  {idx > 0 ? <View style={styles.segmentedDivider} /> : null}
+                  <TouchableOpacity
+                    onPress={() => setActiveTab(tab)}
+                    style={[styles.segmentedBtn, isActive && styles.segmentedBtnActive, { flex: 1 }]}
+                  >
+                    <Text style={[styles.segmentedLabel, isActive && styles.segmentedLabelActive]}>{label}</Text>
+                    {count !== null && count > 0 ? (
+                      <View style={[styles.segmentedCountPill, isActive && styles.segmentedCountPillActive]}>
+                        <Text style={[styles.segmentedCountText, isActive && styles.segmentedCountTextActive]}>{count}</Text>
+                      </View>
+                    ) : null}
+                  </TouchableOpacity>
+                </React.Fragment>
+              );
+            })}
           </View>
-          {renderSummary()}
-          <Text style={[styles.rowCount, { color: colors.textMuted }]}>{provisionCount} Provisionen · {playerOnlyCount} ohne Einträge</Text>
-          {loading ? <Text style={[styles.emptyText, { color: colors.textMuted }]}>Laden...</Text> : sortedRows.map(renderCard)}
-        </ScrollView>
+          {activeTab === 'dokumente' ? (
+            <TouchableOpacity
+              style={[styles.heroUploadIconBtn, uploadingDoc && { opacity: 0.5 }]}
+              onPress={startDocumentUpload}
+              disabled={uploadingDoc}
+              accessibilityLabel="PDF hochladen"
+            >
+              <MaterialCommunityIcons name="file-upload-outline" size={16} color="#fff" />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+        {activeTab === 'finanzen' ? (
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 12, paddingBottom: 80 }}>
+            <View style={styles.seasonRow}>
+              <Pressable onPress={() => changeSeason(-1)} style={styles.seasonArrow}><Text style={{ color: colors.text, fontSize: 18 }}>◀</Text></Pressable>
+              <Text style={[styles.seasonText, { color: colors.text }]}>{season}</Text>
+              <Pressable onPress={() => changeSeason(1)} style={styles.seasonArrow}><Text style={{ color: colors.text, fontSize: 18 }}>▶</Text></Pressable>
+            </View>
+            {renderSummary()}
+            <Text style={[styles.rowCount, { color: colors.textMuted }]}>{provisionCount} Provisionen · {playerOnlyCount} ohne Einträge</Text>
+            {loading ? <Text style={[styles.emptyText, { color: colors.textMuted }]}>Laden...</Text> : sortedRows.map(renderCard)}
+          </ScrollView>
+        ) : (
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 12, paddingBottom: 80, gap: 10 }}>
+            {documentsLoading ? (
+              <Text style={[styles.emptyText, { color: colors.textMuted }]}>Laden...</Text>
+            ) : sortedDocuments.length === 0 ? (
+              <Text style={[styles.emptyText, { color: colors.textMuted, textAlign: 'center', paddingTop: 24 }]}>Noch keine Dokumente. Lade oben rechts dein erstes PDF hoch.</Text>
+            ) : (
+              sortedDocuments.map((doc) => {
+                const isMine = !!doc.uploaded_by && doc.uploaded_by === authProfile?.id;
+                const displayClub = doc.target_club || doc.player_club;
+                const isDifferent = !!doc.target_club && doc.target_club !== doc.player_club;
+                const logo = getClubLogo(displayClub);
+                return (
+                  <View key={doc.id} style={styles.mobileDocCard}>
+                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={styles.mobileDocName} numberOfLines={1}>
+                          {(doc.player_last_name || '—')}{doc.player_first_name ? `, ${doc.player_first_name}` : ''}
+                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                          {logo ? <Image source={{ uri: logo }} style={{ width: 14, height: 14 }} resizeMode="contain" /> : null}
+                          <Text style={styles.mobileDocClub} numberOfLines={1}>{displayClub || '—'}</Text>
+                          {isDifferent ? (
+                            <Ionicons name="arrow-forward" size={10} color="#22c55e" />
+                          ) : null}
+                        </View>
+                        <Text style={styles.mobileDocMeta} numberOfLines={1}>
+                          {doc.doc_type || '—'} · {new Date(doc.created_at).toLocaleDateString('de-DE')}
+                        </Text>
+                      </View>
+                      <TouchableOpacity onPress={() => toggleDocSigned(doc)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                        {doc.signed ? (
+                          <Ionicons name="checkmark-circle" size={22} color="#22c55e" />
+                        ) : (
+                          <Ionicons name="close-circle" size={22} color="#ef4444" />
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 10, justifyContent: 'flex-end' }}>
+                      <TouchableOpacity onPress={() => signDocument(doc)} disabled={signingDocId === doc.id} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                        <MaterialCommunityIcons name="file-document-edit-outline" size={18} color={signingDocId === doc.id ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.85)'} />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => downloadDocument(doc)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                        <Ionicons name="download-outline" size={18} color="rgba(255,255,255,0.85)" />
+                      </TouchableOpacity>
+                      {isMine ? (
+                        <TouchableOpacity onPress={() => deleteDocument(doc)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                          <Ionicons name="trash-outline" size={18} color="#ef4444" />
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </ScrollView>
+        )}
       </View>
     );
   }
@@ -2867,5 +2962,17 @@ const styles = StyleSheet.create({
   playerCardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
 
   emptyText: { textAlign: 'center', marginTop: 40, fontSize: 11 },
+
+  // Dokumente Mobile Cards
+  mobileDocCard: {
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  mobileDocName: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  mobileDocClub: { color: 'rgba(255,255,255,0.7)', fontSize: 12, flexShrink: 1 },
+  mobileDocMeta: { color: 'rgba(255,255,255,0.5)', fontSize: 11, marginTop: 4 },
 });
 
