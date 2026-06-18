@@ -2008,7 +2008,11 @@ export function FinanzenScreen({ navigation }: any) {
       <View style={styles.mainContent}>
         <AdvisorHeroHeader
           title="FINANZEN"
-          subtitle="PROVISIONEN · ABRECHNUNGEN · DOKUMENTE"
+          subtitle={
+            activeTab === 'dokumente'
+              ? `${sortedDocuments.length} ${sortedDocuments.length === 1 ? 'DOKUMENT' : 'DOKUMENTE'}${docSearchText ? ' (GEFILTERT)' : ''}`
+              : 'PROVISIONEN · ABRECHNUNGEN · DOKUMENTE'
+          }
           backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
           backgroundImageOpacity={0.45}
         >
@@ -2155,9 +2159,6 @@ export function FinanzenScreen({ navigation }: any) {
         </View>
         ) : (
         <View style={styles.content}>
-          <Text style={[styles.rowCount, { color: colors.textMuted, marginBottom: 8 }]}>
-            {sortedDocuments.length} {sortedDocuments.length === 1 ? 'Dokument' : 'Dokumente'}{docSearchText ? ` (gefiltert)` : ''}
-          </Text>
           <View
             style={[styles.tableWrapper, { backgroundColor: 'rgba(0,0,0,0.55)', borderColor: 'rgba(255,255,255,0.15)' }]}
             onLayout={(e) => {
