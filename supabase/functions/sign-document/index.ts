@@ -87,30 +87,49 @@ serve(async (req: Request) => {
       });
     }
 
-    // PDF + Signatur-PNG aus Storage laden
-    const [pdfRes, pngRes] = await Promise.all([
-      sb.storage.from("documents").download(doc.storage_path),
-      sb.storage.from("documents").download(sig.storage_path),
-    ]);
+    // PDF + Signatur-PNG aus Storage laden — Fehler je Datei separat melden,
+    // damit der Client weiß, ob das Original-PDF oder die Signatur fehlt.
+    const pdfRes = await sb.storage.from("documents").download(doc.storage_path);
     if (pdfRes.error || !pdfRes.data) {
-      return new Response(JSON.stringify({ error: "PDF konnte nicht geladen werden" }), {
+      return new Response(JSON.stringify({
+        error: `Original-PDF nicht in Storage gefunden (Pfad: ${doc.storage_path}). Bitte das Dokument löschen und neu hochladen.`,
+      }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const pngRes = await sb.storage.from("documents").download(sig.storage_path);
     if (pngRes.error || !pngRes.data) {
-      return new Response(JSON.stringify({ error: "Signatur konnte nicht geladen werden" }), {
+      return new Response(JSON.stringify({
+        error: `Signatur nicht in Storage gefunden (Pfad: ${sig.storage_path}). Bitte die Signatur im Profil neu hochladen.`,
+      }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const pdfBytes = new Uint8Array(await pdfRes.data.arrayBuffer());
-    const pngBytes = new Uint8Array(await pngRes.data.arrayBuffer());
+    const sigBytes = new Uint8Array(await pngRes.data.arrayBuffer());
 
     // pdf-lib: PNG einbetten und an gewünschter Position platzieren.
+    // Falls die Signatur als JPEG abgelegt wurde (alte Uploads vor der Canvas-Konvertierung),
+    // fallback auf embedJpg.
     const pdfDoc = await PDFDocument.load(pdfBytes);
-    const pngImage = await pdfDoc.embedPng(pngBytes);
+    let pngImage;
+    try {
+      pngImage = await pdfDoc.embedPng(sigBytes);
+    } catch (pngErr: any) {
+      try {
+        pngImage = await pdfDoc.embedJpg(sigBytes);
+      } catch (jpgErr: any) {
+        return new Response(JSON.stringify({
+          error: `Signatur-Bild konnte nicht eingebettet werden (kein gültiges PNG oder JPG). Bitte im Profil neu hochladen.`,
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
     const pages = pdfDoc.getPages();
     const ratio = pngImage.height / pngImage.width;
 

@@ -79,21 +79,65 @@ export function MyProfileScreen({ navigation }: any) {
     }
   };
 
+  // Konvertiert jedes gängige Bildformat (PNG, JPG, WEBP, GIF, HEIC/HEIF) zu PNG-Blob.
+  // HEIC wird über das lazy-geladene heic2any vom CDN dekodiert (Chrome decodiert HEIC
+  // nicht nativ); alle anderen Formate gehen über Canvas.
+  const convertSignatureToPng = async (file: File): Promise<Blob> => {
+    const isHeic = file.type === 'image/heic' || file.type === 'image/heif' || /\.(heic|heif)$/i.test(file.name);
+    if (isHeic) {
+      if (!(window as any).heic2any) {
+        await new Promise<void>((resolve, reject) => {
+          const s = (document as any).createElement('script');
+          s.src = 'https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js';
+          s.onload = () => resolve();
+          s.onerror = () => reject(new Error('HEIC-Konverter konnte nicht geladen werden'));
+          (document as any).head.appendChild(s);
+        });
+      }
+      const heic2any = (window as any).heic2any;
+      const result = await heic2any({ blob: file, toType: 'image/png' });
+      return Array.isArray(result) ? result[0] : result;
+    }
+    // Canvas-Pfad für andere Bildformate
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new (window as any).Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error('Bild konnte nicht geladen werden'));
+      i.src = dataUrl;
+    });
+    const canvas = (document as any).createElement('canvas');
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    return new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((b: Blob | null) => b ? resolve(b) : reject(new Error('Canvas-Konvertierung fehlgeschlagen')), 'image/png');
+    });
+  };
+
   const uploadSignature = async () => {
     if (signatureUploading) return;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     if (typeof document === 'undefined') return;
-    const input = document.createElement('input');
+    const input = (document as any).createElement('input');
     input.type = 'file';
-    input.accept = 'image/png';
+    input.accept = 'image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif';
     input.onchange = async (e: any) => {
       const file = e.target.files?.[0];
       if (!file) return;
       setSignatureUploading(true);
       try {
+        // Immer als PNG ablegen, egal welches Format hochgeladen wurde
+        const pngBlob = await convertSignatureToPng(file);
         const path = `signatures/${user.id}.png`;
-        const { error: upErr } = await supabase.storage.from('documents').upload(path, file, {
+        const { error: upErr } = await supabase.storage.from('documents').upload(path, pngBlob, {
           contentType: 'image/png',
           upsert: true,
         });
@@ -111,6 +155,8 @@ export function MyProfileScreen({ navigation }: any) {
           return;
         }
         await fetchSignature();
+      } catch (err: any) {
+        alertDialog({ title: 'Konvertierungs-Fehler', message: err?.message || 'Bild konnte nicht verarbeitet werden.' });
       } finally {
         setSignatureUploading(false);
       }
