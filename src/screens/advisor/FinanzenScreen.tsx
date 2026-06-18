@@ -104,10 +104,12 @@ interface FinanceDocument {
   doc_type: DocType | null;
   signed: boolean;
   signed_path: string | null;
+  target_club: string | null;
   uploader_name?: string;
   player_first_name?: string | null;
   player_last_name?: string | null;
   player_club?: string | null;
+  player_future_club?: string | null;
 }
 
 interface PlayerLite {
@@ -115,6 +117,7 @@ interface PlayerLite {
   first_name: string;
   last_name: string;
   club: string | null;
+  future_club?: string | null;
 }
 
 // --- Constants ---
@@ -233,7 +236,24 @@ export function FinanzenScreen({ navigation }: any) {
   const [docPlayerSearch, setDocPlayerSearch] = useState('');
   const [docSelectedPlayer, setDocSelectedPlayer] = useState<PlayerLite | null>(null);
   const [docSelectedType, setDocSelectedType] = useState<DocType | null>(null);
+  // Ziel-Verein: 'current' = aktueller Verein, 'future' = bereits gesetzter future_club,
+  // 'new' = Berater hat im Dialog einen neuen Verein eingegeben (wird ins Spielerprofil übernommen)
+  const [docTargetClubChoice, setDocTargetClubChoice] = useState<'current' | 'future' | 'new'>('current');
+  const [docNewFutureClubInput, setDocNewFutureClubInput] = useState('');
   const [allPlayersLite, setAllPlayersLite] = useState<PlayerLite[]>([]);
+
+  // Default für Ziel-Verein neu setzen, wenn sich Spieler oder Art im Modal ändert:
+  // - bei Provisionsvereinbarung + gesetztem future_club → Default = future_club
+  // - sonst → Default = aktueller Verein
+  useEffect(() => {
+    if (!docSelectedPlayer) return;
+    if (docSelectedPlayer.future_club && docSelectedType === 'Provisionsvereinbarung') {
+      setDocTargetClubChoice('future');
+    } else {
+      setDocTargetClubChoice('current');
+    }
+    setDocNewFutureClubInput('');
+  }, [docSelectedPlayer?.id, docSelectedType]);
 
   // Vereinslogos für die Verein-Spalte
   const [clubLogos, setClubLogos] = useState<Record<string, string>>({});
@@ -276,7 +296,7 @@ export function FinanzenScreen({ navigation }: any) {
     const q = docSearchText.trim().toLowerCase();
     const filtered = q
       ? documents.filter(d => {
-          const hay = [d.player_first_name, d.player_last_name, d.player_club, d.doc_type, d.filename]
+          const hay = [d.player_first_name, d.player_last_name, d.target_club || d.player_club, d.doc_type, d.filename]
             .map(s => (s ?? '').toString().toLowerCase())
             .join(' ');
           return hay.includes(q);
@@ -295,7 +315,7 @@ export function FinanzenScreen({ navigation }: any) {
       switch (docsSortField) {
         case 'name': return cmp(a.player_last_name, b.player_last_name);
         case 'vorname': return cmp(a.player_first_name, b.player_first_name);
-        case 'club': return cmp(a.player_club, b.player_club);
+        case 'club': return cmp(a.target_club || a.player_club, b.target_club || b.player_club);
         case 'doc_type': return cmp(a.doc_type, b.doc_type);
         case 'created': return cmp(a.created_at, b.created_at);
         case 'signed': return cmp(a.signed ? 1 : 0, b.signed ? 1 : 0);
@@ -311,7 +331,7 @@ export function FinanzenScreen({ navigation }: any) {
     (async () => {
       const { data } = await supabase
         .from('player_details')
-        .select('id, first_name, last_name, club')
+        .select('id, first_name, last_name, club, future_club')
         .order('last_name', { ascending: true });
       setAllPlayersLite((data || []) as any);
     })();
@@ -321,7 +341,7 @@ export function FinanzenScreen({ navigation }: any) {
     setDocumentsLoading(true);
     const { data, error } = await supabase
       .from('finance_documents')
-      .select('id, filename, storage_path, size_bytes, created_at, uploaded_by, player_id, doc_type, signed, signed_path')
+      .select('id, filename, storage_path, size_bytes, created_at, uploaded_by, player_id, doc_type, signed, signed_path, target_club')
       .order('created_at', { ascending: false });
     if (error) {
       console.error('fetchDocuments error:', error);
@@ -346,7 +366,7 @@ export function FinanzenScreen({ navigation }: any) {
     if (playerIds.length > 0) {
       const { data: players } = await supabase
         .from('player_details')
-        .select('id, first_name, last_name, club')
+        .select('id, first_name, last_name, club, future_club')
         .in('id', playerIds);
       for (const p of players || []) playerMap.set(p.id, p as any);
     }
@@ -359,6 +379,7 @@ export function FinanzenScreen({ navigation }: any) {
         player_first_name: player?.first_name || null,
         player_last_name: player?.last_name || null,
         player_club: player?.club || null,
+        player_future_club: (player as any)?.future_club || null,
       };
     });
     setDocuments(enriched);
@@ -423,6 +444,25 @@ export function FinanzenScreen({ navigation }: any) {
         return;
       }
 
+      // Ziel-Verein bestimmen: bei 'new' wird der eingegebene Verein zusätzlich
+      // im Spielerprofil als future_club gespeichert (gewünschter Sync-Effekt).
+      let targetClub: string | null = null;
+      if (docTargetClubChoice === 'future') {
+        targetClub = docSelectedPlayer.future_club ?? null;
+      } else if (docTargetClubChoice === 'new' && docNewFutureClubInput.trim()) {
+        const newClub = docNewFutureClubInput.trim();
+        targetClub = newClub;
+        const { error: updErr } = await supabase
+          .from('player_details')
+          .update({ future_club: newClub })
+          .eq('id', docSelectedPlayer.id);
+        if (updErr) {
+          console.warn('future_club update fehlgeschlagen:', updErr.message);
+        }
+      } else {
+        targetClub = docSelectedPlayer.club ?? null;
+      }
+
       const { error: insErr } = await supabase.from('finance_documents').insert({
         uploaded_by: user.id,
         player_id: docSelectedPlayer.id,
@@ -431,6 +471,7 @@ export function FinanzenScreen({ navigation }: any) {
         storage_path: storagePath,
         size_bytes: asset.size || null,
         mime_type: asset.mimeType || 'application/pdf',
+        target_club: targetClub,
       });
       if (insErr) {
         await supabase.storage.from('documents').remove([storagePath]);
@@ -444,6 +485,8 @@ export function FinanzenScreen({ navigation }: any) {
       setDocSelectedPlayer(null);
       setDocSelectedType(null);
       setDocPlayerSearch('');
+      setDocTargetClubChoice('current');
+      setDocNewFutureClubInput('');
       await fetchDocuments();
     } catch (e: any) {
       console.error('uploadDocument error:', e);
@@ -2109,11 +2152,19 @@ export function FinanzenScreen({ navigation }: any) {
                           case 'vorname':
                             return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{doc.player_first_name || '—'}</Text>;
                           case 'club': {
-                            const logo = getClubLogo(doc.player_club);
+                            // target_club > player.club: bei Transfer-Vereinbarungen weicht der
+                            // Bezug vom aktuellen Verein ab. Kleines Hint-Icon zeigt, dass es
+                            // sich um einen anderen Verein als den aktuellen handelt.
+                            const displayClub = doc.target_club || doc.player_club;
+                            const isDifferent = !!doc.target_club && doc.target_club !== doc.player_club;
+                            const logo = getClubLogo(displayClub);
                             return (
                               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
                                 {logo ? <Image source={{ uri: logo }} style={{ width: 18, height: 18 }} resizeMode="contain" /> : null}
-                                <Text style={[styles.tableCell, { color: colors.text, flex: 1 }]} numberOfLines={1}>{doc.player_club || '—'}</Text>
+                                <Text style={[styles.tableCell, { color: colors.text, flex: 1 }]} numberOfLines={1}>{displayClub || '—'}</Text>
+                                {isDifferent ? (
+                                  <Ionicons name="arrow-forward" size={11} color="#22c55e" />
+                                ) : null}
                               </View>
                             );
                           }
@@ -2368,6 +2419,49 @@ export function FinanzenScreen({ navigation }: any) {
                 );
               })}
             </View>
+
+            {/* Ziel-Verein: zeigt sich erst, wenn Spieler gewählt ist. */}
+            {docSelectedPlayer ? (
+              docSelectedPlayer.future_club ? (
+                <>
+                  <Text style={[styles.docModalLabel, { marginTop: 16 }]}>Vereinbarung bezieht sich auf</Text>
+                  <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                    <TouchableOpacity
+                      style={[styles.docTypePill, docTargetClubChoice === 'current' && styles.docTypePillActive]}
+                      onPress={() => setDocTargetClubChoice('current')}
+                    >
+                      <Text style={[styles.docTypePillText, docTargetClubChoice === 'current' && styles.docTypePillTextActive]}>
+                        Aktueller Verein · {docSelectedPlayer.club || '—'}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.docTypePill, docTargetClubChoice === 'future' && styles.docTypePillActive]}
+                      onPress={() => setDocTargetClubChoice('future')}
+                    >
+                      <Text style={[styles.docTypePillText, docTargetClubChoice === 'future' && styles.docTypePillTextActive]}>
+                        Neuer Verein · {docSelectedPlayer.future_club}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <Text style={[styles.docModalLabel, { marginTop: 16 }]}>
+                    Falls die Vereinbarung sich auf einen neuen Verein bezieht (wird auch ins Spielerprofil eingetragen)
+                  </Text>
+                  <TextInput
+                    style={styles.docPlayerSearchInput}
+                    value={docNewFutureClubInput}
+                    onChangeText={(v) => {
+                      setDocNewFutureClubInput(v);
+                      setDocTargetClubChoice(v.trim() ? 'new' : 'current');
+                    }}
+                    placeholder={`Optional — sonst: ${docSelectedPlayer.club || 'aktueller Verein'}`}
+                    placeholderTextColor="rgba(255,255,255,0.35)"
+                  />
+                </>
+              )
+            ) : null}
 
             {/* Footer */}
             <View style={styles.docModalFooter}>
