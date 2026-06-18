@@ -287,9 +287,7 @@ export function FinanzenScreen({ navigation }: any) {
     }
   };
 
-  // Default für Ziel-Verein neu setzen, wenn sich Spieler oder Art im Modal ändert:
-  // - bei Provisionsvereinbarung + gesetztem future_club → Default = future_club
-  // - sonst → Default = aktueller Verein
+  // Reset bei Spielerwechsel (input leeren, Default neu setzen).
   useEffect(() => {
     if (!docSelectedPlayer) return;
     if (docSelectedPlayer.future_club && docSelectedType === 'Provisionsvereinbarung') {
@@ -298,7 +296,21 @@ export function FinanzenScreen({ navigation }: any) {
       setDocTargetClubChoice('current');
     }
     setDocNewFutureClubInput('');
-  }, [docSelectedPlayer?.id, docSelectedType]);
+    setDocClubSearchResults([]);
+    setDocShowClubDropdown(false);
+  }, [docSelectedPlayer?.id]);
+
+  // Beim Typ-Wechsel nur den Default zwischen current/future anpassen — aber
+  // niemals einen vom User bereits eingegebenen "neuen Verein" überschreiben.
+  useEffect(() => {
+    if (!docSelectedPlayer) return;
+    if (docNewFutureClubInput.trim()) return; // User hat manuell was getippt → in Ruhe lassen
+    if (docSelectedPlayer.future_club && docSelectedType === 'Provisionsvereinbarung') {
+      setDocTargetClubChoice('future');
+    } else {
+      setDocTargetClubChoice('current');
+    }
+  }, [docSelectedType]);
 
   // Vereinslogos für die Verein-Spalte
   const [clubLogos, setClubLogos] = useState<Record<string, string>>({});
