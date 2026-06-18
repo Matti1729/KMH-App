@@ -1851,7 +1851,7 @@ export function FinanzenScreen({ navigation }: any) {
                             );
                           case 'actions':
                             return (
-                              <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', justifyContent: 'flex-end', alignSelf: 'stretch' }}>
+                              <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
                                 <TouchableOpacity onPress={(e: any) => { e?.stopPropagation?.(); downloadDocument(doc); }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                                   <Ionicons name="download-outline" size={13} color="rgba(255,255,255,0.85)" />
                                 </TouchableOpacity>
