@@ -240,7 +240,52 @@ export function FinanzenScreen({ navigation }: any) {
   // 'new' = Berater hat im Dialog einen neuen Verein eingegeben (wird ins Spielerprofil übernommen)
   const [docTargetClubChoice, setDocTargetClubChoice] = useState<'current' | 'future' | 'new'>('current');
   const [docNewFutureClubInput, setDocNewFutureClubInput] = useState('');
+  // Transfermarkt-Club-Suche fürs "Neuer Verein"-Input
+  const [docClubSearchResults, setDocClubSearchResults] = useState<Array<{ name: string; logoUrl?: string; liga?: string; country?: string }>>([]);
+  const [docClubSearching, setDocClubSearching] = useState(false);
+  const [docShowClubDropdown, setDocShowClubDropdown] = useState(false);
+  const docClubSearchTimeout = useRef<any>(null);
   const [allPlayersLite, setAllPlayersLite] = useState<PlayerLite[]>([]);
+
+  // Transfermarkt-Suche für Vereine (analog zu TransfersScreen.searchClubsRemote)
+  const searchClubsRemote = useCallback(async (query: string) => {
+    if (query.trim().length < 2) { setDocClubSearchResults([]); return; }
+    setDocClubSearching(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('search-club', { body: { query } });
+      if (error) { setDocClubSearchResults([]); return; }
+      const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+      if (parsed?.results && Array.isArray(parsed.results)) {
+        setDocClubSearchResults(parsed.results);
+      } else {
+        setDocClubSearchResults([]);
+      }
+    } catch (e) {
+      console.error('Club search exception:', e);
+      setDocClubSearchResults([]);
+    } finally {
+      setDocClubSearching(false);
+    }
+  }, []);
+
+  const handleDocClubSearchChange = (text: string) => {
+    setDocNewFutureClubInput(text);
+    setDocTargetClubChoice(text.trim() ? 'new' : 'current');
+    setDocShowClubDropdown(true);
+    if (docClubSearchTimeout.current) clearTimeout(docClubSearchTimeout.current);
+    docClubSearchTimeout.current = setTimeout(() => searchClubsRemote(text), 400);
+  };
+
+  const selectDocClub = (club: { name: string; logoUrl?: string }) => {
+    setDocNewFutureClubInput(club.name);
+    setDocTargetClubChoice('new');
+    setDocShowClubDropdown(false);
+    setDocClubSearchResults([]);
+    if (club.name && club.logoUrl) {
+      // Logo direkt cachen, damit die Liste das Logo nach dem Upload sofort hat
+      setClubLogos(prev => ({ ...prev, [club.name]: club.logoUrl! }));
+    }
+  };
 
   // Default für Ziel-Verein neu setzen, wenn sich Spieler oder Art im Modal ändert:
   // - bei Provisionsvereinbarung + gesetztem future_club → Default = future_club
@@ -487,6 +532,8 @@ export function FinanzenScreen({ navigation }: any) {
       setDocPlayerSearch('');
       setDocTargetClubChoice('current');
       setDocNewFutureClubInput('');
+      setDocClubSearchResults([]);
+      setDocShowClubDropdown(false);
       await fetchDocuments();
     } catch (e: any) {
       console.error('uploadDocument error:', e);
@@ -2450,15 +2497,62 @@ export function FinanzenScreen({ navigation }: any) {
                     Falls die Vereinbarung sich auf einen neuen Verein bezieht (wird auch ins Spielerprofil eingetragen)
                   </Text>
                   <TextInput
-                    style={styles.docPlayerSearchInput}
+                    style={styles.docPillInput}
                     value={docNewFutureClubInput}
-                    onChangeText={(v) => {
-                      setDocNewFutureClubInput(v);
-                      setDocTargetClubChoice(v.trim() ? 'new' : 'current');
-                    }}
+                    onChangeText={handleDocClubSearchChange}
+                    onFocus={() => setDocShowClubDropdown(true)}
                     placeholder={`Optional — sonst: ${docSelectedPlayer.club || 'aktueller Verein'}`}
                     placeholderTextColor="rgba(255,255,255,0.35)"
                   />
+                  {docShowClubDropdown && docNewFutureClubInput.trim().length > 0 ? (
+                    <View style={styles.docSuggestList}>
+                      <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                        {docClubSearching ? (
+                          <View style={styles.docSuggestItem}>
+                            <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>Suche auf Transfermarkt…</Text>
+                          </View>
+                        ) : null}
+                        {docClubSearchResults.length > 0 ? (
+                          <>
+                            <View style={[styles.docSuggestItem, { backgroundColor: 'rgba(59,130,246,0.1)' }]}>
+                              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 10, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' }}>Transfermarkt-Ergebnisse</Text>
+                            </View>
+                            {docClubSearchResults.map((club) => (
+                              <TouchableOpacity
+                                key={club.name}
+                                style={styles.docSuggestItem}
+                                onPress={() => selectDocClub(club)}
+                              >
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                  {club.logoUrl ? (
+                                    <Image source={{ uri: club.logoUrl }} style={{ width: 18, height: 18 }} resizeMode="contain" />
+                                  ) : null}
+                                  <View style={{ flex: 1 }}>
+                                    <Text style={{ color: '#fff', fontSize: 13 }}>{club.name}</Text>
+                                    {club.liga ? (
+                                      <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10 }}>{club.liga}{club.country ? ` · ${club.country}` : ''}</Text>
+                                    ) : null}
+                                  </View>
+                                </View>
+                              </TouchableOpacity>
+                            ))}
+                          </>
+                        ) : null}
+                        {/* Freitext-Option, falls TM keinen passenden Treffer hat */}
+                        {!docClubSearching && docNewFutureClubInput.trim() &&
+                          !docClubSearchResults.some(c => c.name.toLowerCase() === docNewFutureClubInput.trim().toLowerCase()) ? (
+                          <TouchableOpacity
+                            style={[styles.docSuggestItem, { backgroundColor: 'rgba(34,197,94,0.12)' }]}
+                            onPress={() => { setDocShowClubDropdown(false); }}
+                          >
+                            <Text style={{ color: '#22c55e', fontSize: 12, fontWeight: '600' }}>
+                              + "{docNewFutureClubInput.trim()}" als Freitext übernehmen
+                            </Text>
+                          </TouchableOpacity>
+                        ) : null}
+                      </ScrollView>
+                    </View>
+                  ) : null}
                 </>
               )
             ) : null}
