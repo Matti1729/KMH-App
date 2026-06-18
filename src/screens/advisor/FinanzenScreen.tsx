@@ -1980,14 +1980,21 @@ export function FinanzenScreen({ navigation }: any) {
   if (isMobile) {
     return (
       <View style={[styles.containerMobile, { backgroundColor: 'transparent' }]}>
-        <MobileHeader title="Finanzen" backgroundImage={require('../../../assets/scouting-header-bg.jpg')} onMenuPress={() => setShowMobileSidebar(true)} />
         <AdvisorBackground />
         <MobileSidebar visible={showMobileSidebar} onClose={() => setShowMobileSidebar(false)} navigation={navigation} activeScreen="finanzen" />
         {renderDetailModal()}
 
-        {/* Tab-Leiste — gleiche Reihenfolge + Default wie Desktop: Dokumente zuerst */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6 }}>
-          <View style={[styles.segmentedWrap, { flex: 1 }]}>
+        <MobileHeader
+          title="Finanzen"
+          subtitle={
+            activeTab === 'dokumente'
+              ? `${sortedDocuments.length} ${sortedDocuments.length === 1 ? 'Dokument' : 'Dokumente'}`
+              : 'Provisionen · Abrechnungen · Dokumente'
+          }
+          backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
+          onMenuPress={() => setShowMobileSidebar(true)}
+        >
+          <View style={[styles.segmentedWrap, { flex: 1, marginLeft: 0 }]}>
             {(['dokumente', 'finanzen'] as const).map((tab, idx) => {
               const isActive = activeTab === tab;
               const label = tab === 'finanzen' ? 'Provisionen' : 'Dokumente';
@@ -2020,7 +2027,7 @@ export function FinanzenScreen({ navigation }: any) {
               <MaterialCommunityIcons name="file-upload-outline" size={16} color="#fff" />
             </TouchableOpacity>
           ) : null}
-        </View>
+        </MobileHeader>
 
         {activeTab === 'finanzen' ? (
           <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 12, paddingBottom: 80 }}>
