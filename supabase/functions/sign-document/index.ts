@@ -48,8 +48,9 @@ serve(async (req: Request) => {
     const advisorId = userData.user.id;
 
     // page ist 1-basiert; x_pt/y_pt vom bottom-left origin (pdf-lib-Konvention).
-    // Ohne Angaben Fallback: letzte Seite, unten rechts (Padding 50pt, Breite 140pt).
-    const { document_id, page, x_pt, y_pt, width_pt } = await req.json();
+    // width_pt + height_pt liefern die exakte Größe wie im Modal angezeigt;
+    // ohne diese Angaben Fallback: letzte Seite, unten rechts (Padding 50pt, Breite 140pt).
+    const { document_id, page, x_pt, y_pt, width_pt, height_pt } = await req.json();
     if (!document_id) {
       return new Response(JSON.stringify({ error: "document_id required" }), {
         status: 400,
@@ -131,7 +132,7 @@ serve(async (req: Request) => {
       }
     }
     const pages = pdfDoc.getPages();
-    const ratio = pngImage.height / pngImage.width;
+    const imgRatio = pngImage.height / pngImage.width;
 
     // Vom Client gewünschte Seite (1-basiert) oder Fallback letzte Seite
     const pageIdx = typeof page === "number" && page >= 1 && page <= pages.length
@@ -143,7 +144,12 @@ serve(async (req: Request) => {
     const drawWidth = typeof width_pt === "number" && width_pt > 0
       ? Math.min(width_pt, pageW)
       : Math.min(140, pageW - 100);
-    const drawHeight = drawWidth * ratio;
+    // Höhe: bevorzugt vom Client (entspricht 1:1 dem Preview im Modal),
+    // sonst aus Image-Aspect-Ratio. Damit landet die Signatur genau dort,
+    // wo der User sie hingezogen hat.
+    const drawHeight = typeof height_pt === "number" && height_pt > 0
+      ? Math.min(height_pt, pageH)
+      : drawWidth * imgRatio;
 
     let drawX: number;
     let drawY: number;

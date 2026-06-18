@@ -692,6 +692,7 @@ export function FinanzenScreen({ navigation }: any) {
           x_pt: xPt,
           y_pt: yPt,
           width_pt: sigWPt,
+          height_pt: sigHPt,
         },
       });
       if (error || data?.error) {
