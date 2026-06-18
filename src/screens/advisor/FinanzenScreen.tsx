@@ -4,7 +4,7 @@ import {
   Modal, TextInput, Alert, Platform, Linking, Image, useWindowDimensions,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Sidebar } from '../../components/Sidebar';
 import { AdvisorBackground } from '../../components/AdvisorBackground';
 import { AdvisorHeroHeader } from '../../components/AdvisorHeroHeader';
@@ -1648,7 +1648,7 @@ export function FinanzenScreen({ navigation }: any) {
               disabled={uploadingDoc}
               accessibilityLabel="PDF hochladen"
             >
-              <Ionicons name="add" size={18} color="#fff" />
+              <MaterialCommunityIcons name="file-upload-outline" size={16} color="#fff" />
             </TouchableOpacity>
           ) : null}
           <View style={styles.segmentedWrap}>
