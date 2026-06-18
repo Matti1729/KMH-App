@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable,
-  Modal, TextInput, Alert, Platform, Linking, Image,
+  Modal, TextInput, Alert, Platform, Linking, Image, useWindowDimensions,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -211,13 +211,20 @@ export function FinanzenScreen({ navigation }: any) {
   const [documents, setDocuments] = useState<FinanceDocument[]>([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
-  // Fallback-Width 1000 — falls onLayout beim Tab-Switch nicht zuverlässig
-  // feuert (passiert auf manchen RN-Web-Builds), bekommt useTableColumns
-  // trotzdem direkt sinnvolle Spaltenbreiten und der Header wird gerendert.
-  const [docsTableWidth, setDocsTableWidth] = useState(1000);
-  // _v3 invalidiert die alten gespeicherten Breiten/Reihenfolgen aus localStorage,
-  // damit die neuen Defaults greifen (Actions jetzt fix 60 px).
-  const docsTable = useTableColumns(DOCUMENT_COLUMNS, docsTableWidth, 'finanzen_dokumente_v3');
+  // Fenstergröße abzgl. Sidebar (240) + Content-Padding (48) + Wrapper-Padding (32).
+  // Wir nutzen das als Fallback falls onLayout des Wrappers beim Tab-Switch nicht
+  // zuverlässig feuert — passiert auf manchen RN-Web-Builds, dann zog der
+  // Default-Wert von 1000 die Spalten so klein, dass rechts massiv Platz blieb.
+  const { width: windowWidth } = useWindowDimensions();
+  const estimatedDocsWidth = Math.max(800, windowWidth - (isMobile ? 32 : 320));
+  const [docsTableWidth, setDocsTableWidth] = useState(estimatedDocsWidth);
+  // Estimated-Width updaten, wenn das Fenster sich ändert UND noch nichts gemessen wurde
+  // (sobald onLayout sauber feuert, behält der gemessene Wert die Hand).
+  useEffect(() => {
+    setDocsTableWidth((prev) => (prev <= estimatedDocsWidth + 50 ? estimatedDocsWidth : prev));
+  }, [estimatedDocsWidth]);
+  // _v4 invalidiert die alten gespeicherten Breiten/Reihenfolgen aus localStorage.
+  const docsTable = useTableColumns(DOCUMENT_COLUMNS, docsTableWidth, 'finanzen_dokumente_v4');
 
   // Upload-Modal (PDF + Spieler-Pick + Art)
   const [showDocUploadModal, setShowDocUploadModal] = useState(false);
@@ -1636,38 +1643,36 @@ export function FinanzenScreen({ navigation }: any) {
           ) : null}
           {activeTab === 'dokumente' ? (
             <TouchableOpacity
-              style={[styles.heroUploadBtn, uploadingDoc && { opacity: 0.5 }]}
+              style={[styles.heroUploadIconBtn, uploadingDoc && { opacity: 0.5 }]}
               onPress={startDocumentUpload}
               disabled={uploadingDoc}
+              accessibilityLabel="PDF hochladen"
             >
-              <Ionicons name="add" size={12} color="#fff" />
-              <Text style={styles.heroUploadBtnText}>{uploadingDoc ? 'Lade…' : 'PDF hochladen'}</Text>
+              <Ionicons name="cloud-upload-outline" size={14} color="#fff" />
             </TouchableOpacity>
           ) : null}
-          <View style={styles.segmentedAlignRight}>
-            <View style={styles.segmentedWrap}>
-              {(['finanzen', 'dokumente'] as const).map((tab, idx) => {
-                const isActive = activeTab === tab;
-                const label = tab === 'finanzen' ? 'Provisionen' : 'Dokumente';
-                const count = tab === 'dokumente' ? documents.length : null;
-                return (
-                  <React.Fragment key={tab}>
-                    {idx > 0 ? <View style={styles.segmentedDivider} /> : null}
-                    <TouchableOpacity
-                      onPress={() => setActiveTab(tab)}
-                      style={[styles.segmentedBtn, isActive && styles.segmentedBtnActive]}
-                    >
-                      <Text style={[styles.segmentedLabel, isActive && styles.segmentedLabelActive]}>{label}</Text>
-                      {count !== null && count > 0 ? (
-                        <View style={[styles.segmentedCountPill, isActive && styles.segmentedCountPillActive]}>
-                          <Text style={[styles.segmentedCountText, isActive && styles.segmentedCountTextActive]}>{count}</Text>
-                        </View>
-                      ) : null}
-                    </TouchableOpacity>
-                  </React.Fragment>
-                );
-              })}
-            </View>
+          <View style={styles.segmentedWrap}>
+            {(['finanzen', 'dokumente'] as const).map((tab, idx) => {
+              const isActive = activeTab === tab;
+              const label = tab === 'finanzen' ? 'Provisionen' : 'Dokumente';
+              const count = tab === 'dokumente' ? documents.length : null;
+              return (
+                <React.Fragment key={tab}>
+                  {idx > 0 ? <View style={styles.segmentedDivider} /> : null}
+                  <TouchableOpacity
+                    onPress={() => setActiveTab(tab)}
+                    style={[styles.segmentedBtn, isActive && styles.segmentedBtnActive]}
+                  >
+                    <Text style={[styles.segmentedLabel, isActive && styles.segmentedLabelActive]}>{label}</Text>
+                    {count !== null && count > 0 ? (
+                      <View style={[styles.segmentedCountPill, isActive && styles.segmentedCountPillActive]}>
+                        <Text style={[styles.segmentedCountText, isActive && styles.segmentedCountTextActive]}>{count}</Text>
+                      </View>
+                    ) : null}
+                  </TouchableOpacity>
+                </React.Fragment>
+              );
+            })}
           </View>
         </AdvisorHeroHeader>
 
@@ -1993,19 +1998,17 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
     ...(Platform.OS === 'web' ? { outlineStyle: 'none' as any } : {}),
   },
-  // "+ PDF hochladen"-Button im Header (Hero-Stil, grün/Primary)
-  heroUploadBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
+  // Upload-Icon-Button im Header (klein, quadratisch, neben den Tabs)
+  heroUploadIconBtn: {
+    width: 28,
     height: 28,
-    paddingHorizontal: 10,
     borderRadius: 6,
-    backgroundColor: '#22c55e',
     borderWidth: 1,
     borderColor: '#22c55e',
+    backgroundColor: '#22c55e',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  heroUploadBtnText: { color: '#fff', fontSize: 11, fontWeight: '700' },
 
   // Segmented Pill (Tabs im AdvisorHeroHeader, rechtsbündig — wie AufgabenScreen)
   segmentedAlignRight: { flex: 1, flexDirection: 'row', justifyContent: 'flex-end' },
