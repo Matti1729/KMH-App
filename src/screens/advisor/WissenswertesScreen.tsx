@@ -57,31 +57,33 @@ export function WissenswertesScreen({ navigation }: { navigation: any }) {
         <MobileSidebar visible={showMobileSidebar} onClose={() => setShowMobileSidebar(false)} navigation={navigation} activeScreen="wissenswertes" />
         <MobileHeader title="Wissenswertes" subtitle="Tools & Informationen" backgroundImage={require('../../../assets/scouting-header-bg.jpg')} onMenuPress={() => setShowMobileSidebar(true)} />
 
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 80 }}>
-          {tools.map((tool) => (
-            <Pressable
-              key={tool.id}
-              onPress={() => navigation.navigate(tool.screen)}
-              onHoverIn={() => setHoveredCard(tool.id)}
-              onHoverOut={() => setHoveredCard(null)}
-              style={[
-                styles.toolCard,
-                { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' },
-                hoveredCard === tool.id && { backgroundColor: colors.surfaceSecondary },
-              ]}
-            >
-              <View style={styles.toolCardContent}>
-                <View style={[styles.toolCardIcon, { backgroundColor: colors.surfaceSecondary }]}>
-                  <Text style={styles.toolCardIconText}>{tool.icon}</Text>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 80, gap: 14 }}>
+          {tools.map((tool) => {
+            const isHovered = hoveredCard === tool.id;
+            return (
+              <Pressable
+                key={tool.id}
+                onPress={() => navigation.navigate(tool.screen)}
+                onHoverIn={() => setHoveredCard(tool.id)}
+                onHoverOut={() => setHoveredCard(null)}
+                style={[
+                  styles.card,
+                  styles.uniformCard,
+                  { width: '100%', backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' },
+                  isHovered ? { backgroundColor: 'transparent' } : null,
+                ]}
+              >
+                <View style={styles.uniformCardHeader}>
+                  <View style={{ flex: 1 }} />
+                  <Text style={styles.uniformCardIcon}>{tool.icon}</Text>
                 </View>
-                <View style={styles.toolCardText}>
-                  <Text style={[styles.toolCardTitle, { color: colors.text }]}>{tool.title}</Text>
-                  <Text style={[styles.toolCardSubtitle, { color: colors.textSecondary }]}>{tool.subtitle}</Text>
+                <View style={styles.uniformCardFooter}>
+                  <Text style={styles.uniformCardTitle}>{tool.title}</Text>
+                  <Text style={styles.uniformCardSubtitle}>{tool.subtitle}</Text>
                 </View>
-                <Text style={{ color: colors.textMuted, fontSize: 18 }}>›</Text>
-              </View>
-            </Pressable>
-          ))}
+              </Pressable>
+            );
+          })}
         </ScrollView>
       </View>
     );
