@@ -455,6 +455,19 @@ export function FinanzenScreen({ navigation }: any) {
 
   const toggleDocSigned = async (doc: FinanceDocument) => {
     const next = !doc.signed;
+    // Aktives Un-Signieren ist destruktiv (signierte PDF wird gelöscht) — daher
+    // Confirm-Dialog. Vom unsigniert → signiert ist kein Dialog nötig, weil das
+    // bisher nur den Status-Flag setzt (das eigentliche Signieren läuft über
+    // das Drag-and-Drop-Modal).
+    if (!next) {
+      const ok = await confirmDialog({
+        title: 'Signatur entfernen?',
+        message: 'Die hinterlegte Signatur wird aus dem Dokument gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.',
+        danger: true,
+        confirmLabel: 'Signatur entfernen',
+      });
+      if (!ok) return;
+    }
     // Beim Zurücksetzen auf "unsigniert" auch die alte signierte PDF aufräumen,
     // damit beim erneuten Signieren nichts Altes mehr im Storage hängt.
     const update: any = { signed: next };
