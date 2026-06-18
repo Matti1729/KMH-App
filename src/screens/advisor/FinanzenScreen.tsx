@@ -211,7 +211,7 @@ export function FinanzenScreen({ navigation }: any) {
 
   // --- Dokumente-Tab ---
   type FinanzenTab = 'finanzen' | 'dokumente';
-  const [activeTab, setActiveTab] = useState<FinanzenTab>('finanzen');
+  const [activeTab, setActiveTab] = useState<FinanzenTab>('dokumente');
   const [documents, setDocuments] = useState<FinanceDocument[]>([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
@@ -2044,7 +2044,7 @@ export function FinanzenScreen({ navigation }: any) {
             </TouchableOpacity>
           ) : null}
           <View style={styles.segmentedWrap}>
-            {(['finanzen', 'dokumente'] as const).map((tab, idx) => {
+            {(['dokumente', 'finanzen'] as const).map((tab, idx) => {
               const isActive = activeTab === tab;
               const label = tab === 'finanzen' ? 'Provisionen' : 'Dokumente';
               const count = tab === 'dokumente' ? documents.length : null;
