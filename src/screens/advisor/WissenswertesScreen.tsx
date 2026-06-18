@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Platform, useWindowDimensions } from 'react-native';
 import { Sidebar } from '../../components/Sidebar';
 import { AdvisorBackground } from '../../components/AdvisorBackground';
 import { AdvisorHeroHeader } from '../../components/AdvisorHeroHeader';
@@ -15,6 +15,8 @@ export function WissenswertesScreen({ navigation }: { navigation: any }) {
   const { colors } = useTheme();
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
+  const { width: windowWidth } = useWindowDimensions();
+  const uniformCardWidth = Math.max(160, Math.floor((windowWidth - (isMobile ? 0 : 240) - 48 - 32) / 3));
 
   const isMatti = session?.user?.id === '892d4dbc-3c5b-4908-9735-ac0ca3794dfc';
 
@@ -96,29 +98,48 @@ export function WissenswertesScreen({ navigation }: { navigation: any }) {
       <View style={styles.mainContent}>
         <AdvisorHeroHeader title="WISSENSWERTES" subtitle="TOOLS · RECHNER · INFORMATIONEN" backgroundImage={require('../../../assets/scouting-header-bg.jpg')} backgroundImageOpacity={0.45} />
 
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 32 }}>
-          <Text style={[styles.sectionTitleDesktop, { color: colors.text }]}>Tools & Informationen</Text>
-          <View style={styles.toolsGrid}>
-            {tools.map((tool) => (
-              <Pressable
-                key={tool.id}
-                onPress={() => navigation.navigate(tool.screen)}
-                onHoverIn={() => setHoveredCard(tool.id)}
-                onHoverOut={() => setHoveredCard(null)}
-                style={[
-                  styles.toolCardDesktop,
-                  { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' },
-                  hoveredCard === tool.id && { backgroundColor: colors.surfaceSecondary },
-                ]}
-              >
-                <View style={[styles.toolCardIconLarge, { backgroundColor: colors.surfaceSecondary }]}>
-                  <Text style={{ fontSize: 32 }}>{tool.icon}</Text>
-                </View>
-                <Text style={[styles.toolCardTitleDesktop, { color: colors.text }]}>{tool.title}</Text>
-                <Text style={[styles.toolCardSubtitleDesktop, { color: colors.textSecondary }]}>{tool.subtitle}</Text>
-              </Pressable>
-            ))}
-          </View>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContentUniform}>
+          {(() => {
+            const rows: typeof tools[] = [];
+            for (let i = 0; i < tools.length; i += 3) {
+              rows.push(tools.slice(i, i + 3));
+            }
+            return (
+              <View style={styles.uniformGrid}>
+                {rows.map((rowCards, rowIdx) => (
+                  <View key={rowIdx} style={styles.uniformGridRow}>
+                    {rowCards.map((tool) => {
+                      const isHovered = hoveredCard === tool.id;
+                      return (
+                        <Pressable
+                          key={tool.id}
+                          onPress={() => navigation.navigate(tool.screen)}
+                          onHoverIn={() => setHoveredCard(tool.id)}
+                          onHoverOut={() => setHoveredCard(null)}
+                          style={[
+                            styles.card,
+                            styles.uniformCard,
+                            { width: uniformCardWidth, backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' },
+                            isHovered ? { backgroundColor: 'transparent' } : null,
+                            isHovered && Platform.OS === 'web' ? ({ backdropFilter: 'none', WebkitBackdropFilter: 'none' } as any) : null,
+                          ]}
+                        >
+                          <View style={styles.uniformCardHeader}>
+                            <View style={{ flex: 1 }} />
+                            <Text style={styles.uniformCardIcon}>{tool.icon}</Text>
+                          </View>
+                          <View style={styles.uniformCardFooter}>
+                            <Text style={styles.uniformCardTitle}>{tool.title}</Text>
+                            <Text style={styles.uniformCardSubtitle}>{tool.subtitle}</Text>
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ))}
+              </View>
+            );
+          })()}
         </ScrollView>
       </View>
     </View>
@@ -215,5 +236,75 @@ const styles = StyleSheet.create({
   toolCardSubtitleDesktop: {
     fontSize: 13,
     textAlign: 'center',
+  },
+
+  // Dashboard-style Cards (gleiche Werte wie in AdvisorHomeScreen)
+  scrollContentUniform: { padding: 24 },
+  uniformGrid: { gap: 16 },
+  uniformGridRow: { flexDirection: 'row', gap: 16 },
+  card: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    // @ts-ignore
+    cursor: 'pointer',
+    // @ts-ignore
+    transition: 'all 0.2s ease',
+    borderWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.22)',
+    borderLeftColor: 'rgba(255,255,255,0.12)',
+    borderRightColor: 'rgba(255,255,255,0.12)',
+    borderBottomColor: 'rgba(0,0,0,0.5)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.55,
+    shadowRadius: 24,
+    elevation: 12,
+    // @ts-ignore
+    ...(Platform.OS === 'web' ? {
+      boxShadow: '0 22px 44px rgba(0,0,0,0.6), 0 6px 16px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1), inset 0 -1px 0 rgba(0,0,0,0.3)',
+    } : {}),
+  },
+  uniformCard: {
+    height: 160,
+    borderRadius: 12,
+    padding: 20,
+    borderWidth: 1,
+    justifyContent: 'space-between',
+    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' } as any : {}),
+  },
+  uniformCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  uniformCardIcon: {
+    fontSize: 32,
+    lineHeight: 38,
+  },
+  uniformCardFooter: {
+    position: 'absolute',
+    bottom: 14,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  uniformCardTitle: {
+    fontFamily: 'Josefin Sans',
+    fontSize: 14,
+    fontWeight: '400',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    color: '#fff',
+  },
+  uniformCardSubtitle: {
+    fontFamily: 'Josefin Sans',
+    fontSize: 12,
+    fontWeight: '300',
+    letterSpacing: 1,
+    marginTop: 4,
+    lineHeight: 18,
+    color: 'rgba(255,255,255,0.7)',
   },
 });
