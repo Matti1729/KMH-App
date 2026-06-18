@@ -2024,16 +2024,21 @@ export function FinanzenScreen({ navigation }: any) {
           <View style={styles.segmentedWrap}>
             {(['dokumente', 'finanzen'] as const).map((tab, idx) => {
               const isActive = activeTab === tab;
-              const label = tab === 'finanzen' ? 'Provisionen' : 'Dokumente';
+              const iconName = tab === 'dokumente' ? 'file-document-outline' : 'cash-multiple';
               const count = tab === 'dokumente' ? documents.length : null;
               return (
                 <React.Fragment key={tab}>
                   {idx > 0 ? <View style={styles.segmentedDivider} /> : null}
                   <TouchableOpacity
                     onPress={() => setActiveTab(tab)}
-                    style={[styles.segmentedBtn, isActive && styles.segmentedBtnActive]}
+                    style={[styles.segmentedBtn, isActive && styles.segmentedBtnActive, { paddingHorizontal: 10 }]}
+                    accessibilityLabel={tab === 'dokumente' ? 'Dokumente' : 'Provisionen'}
                   >
-                    <Text style={[styles.segmentedLabel, isActive && styles.segmentedLabelActive]}>{label}</Text>
+                    <MaterialCommunityIcons
+                      name={iconName as any}
+                      size={14}
+                      color={isActive ? '#fff' : 'rgba(255,255,255,0.6)'}
+                    />
                     {count !== null && count > 0 ? (
                       <View style={[styles.segmentedCountPill, isActive && styles.segmentedCountPillActive]}>
                         <Text style={[styles.segmentedCountText, isActive && styles.segmentedCountTextActive]}>{count}</Text>
