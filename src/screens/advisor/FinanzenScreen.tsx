@@ -2041,7 +2041,26 @@ export function FinanzenScreen({ navigation }: any) {
             {loading ? <Text style={[styles.emptyText, { color: colors.textMuted }]}>Laden...</Text> : sortedRows.map(renderCard)}
           </ScrollView>
         ) : (
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 12, paddingBottom: 80, gap: 10 }}>
+          <>
+            {/* Suchleiste — analog Desktop */}
+            <View style={{ paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4 }}>
+              <View style={styles.docsHeroSearchRow}>
+                <Text style={styles.docsHeroSearchIcon}>🔍</Text>
+                <TextInput
+                  style={styles.docsHeroSearchInput}
+                  value={docSearchText}
+                  onChangeText={setDocSearchText}
+                  placeholder="Spieler, Verein, Art suchen..."
+                  placeholderTextColor="rgba(255,255,255,0.4)"
+                />
+                {docSearchText ? (
+                  <TouchableOpacity onPress={() => setDocSearchText('')} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                    <Ionicons name="close-circle" size={14} color="rgba(255,255,255,0.4)" />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            </View>
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 12, paddingBottom: 80, gap: 10 }}>
             {documentsLoading ? (
               <Text style={[styles.emptyText, { color: colors.textMuted }]}>Laden...</Text>
             ) : sortedDocuments.length === 0 ? (
@@ -2095,7 +2114,8 @@ export function FinanzenScreen({ navigation }: any) {
                 );
               })
             )}
-          </ScrollView>
+            </ScrollView>
+          </>
         )}
       </View>
     );
