@@ -2071,31 +2071,27 @@ export function FinanzenScreen({ navigation }: any) {
                 const logo = getClubLogo(displayClub);
                 return (
                   <View key={doc.id} style={styles.mobileDocCard}>
-                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
-                      <View style={{ flex: 1, minWidth: 0 }}>
-                        <Text style={styles.mobileDocName} numberOfLines={1}>
-                          {(doc.player_last_name || '—')}{doc.player_first_name ? `, ${doc.player_first_name}` : ''}
-                        </Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                          {logo ? <Image source={{ uri: logo }} style={{ width: 14, height: 14 }} resizeMode="contain" /> : null}
-                          <Text style={styles.mobileDocClub} numberOfLines={1}>{displayClub || '—'}</Text>
-                          {isDifferent ? (
-                            <Ionicons name="arrow-forward" size={10} color="#22c55e" />
-                          ) : null}
-                        </View>
-                        <Text style={styles.mobileDocMeta} numberOfLines={1}>
-                          {doc.doc_type || '—'} · {new Date(doc.created_at).toLocaleDateString('de-DE')}
-                        </Text>
-                      </View>
+                    <Text style={styles.mobileDocName} numberOfLines={1}>
+                      {(doc.player_last_name || '—')}{doc.player_first_name ? `, ${doc.player_first_name}` : ''}
+                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                      {logo ? <Image source={{ uri: logo }} style={{ width: 16, height: 16 }} resizeMode="contain" /> : null}
+                      <Text style={styles.mobileDocClub} numberOfLines={1}>{displayClub || '—'}</Text>
+                      {isDifferent ? (
+                        <Ionicons name="arrow-forward" size={11} color="#22c55e" />
+                      ) : null}
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 14 }}>
+                      <Text style={[styles.mobileDocMeta, { flex: 1 }]} numberOfLines={1}>
+                        {doc.doc_type || '—'} · {new Date(doc.created_at).toLocaleDateString('de-DE')}
+                      </Text>
                       <TouchableOpacity onPress={() => toggleDocSigned(doc)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                         {doc.signed ? (
-                          <Ionicons name="checkmark-circle" size={22} color="#22c55e" />
+                          <Ionicons name="checkmark-circle" size={18} color="#22c55e" />
                         ) : (
-                          <Ionicons name="close-circle" size={22} color="#ef4444" />
+                          <Ionicons name="close-circle" size={18} color="#ef4444" />
                         )}
                       </TouchableOpacity>
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 10, justifyContent: 'flex-end' }}>
                       <TouchableOpacity onPress={() => signDocument(doc)} disabled={signingDocId === doc.id} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                         <MaterialCommunityIcons name="file-document-edit-outline" size={18} color={signingDocId === doc.id ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.85)'} />
                       </TouchableOpacity>
