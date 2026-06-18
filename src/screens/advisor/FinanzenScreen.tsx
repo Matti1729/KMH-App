@@ -1837,15 +1837,14 @@ export function FinanzenScreen({ navigation }: any) {
                             return <Text style={[styles.tableCell, { color: colors.text }]}>{new Date(doc.created_at).toLocaleDateString('de-DE')}</Text>;
                           case 'signed':
                             return (
-                              <TouchableOpacity onPress={(e: any) => { e?.stopPropagation?.(); toggleDocSigned(doc); }}>
+                              <TouchableOpacity
+                                onPress={(e: any) => { e?.stopPropagation?.(); toggleDocSigned(doc); }}
+                                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                              >
                                 {doc.signed ? (
-                                  <View style={[styles.signedPill, { backgroundColor: 'rgba(34,197,94,0.2)', borderColor: '#22c55e' }]}>
-                                    <Text style={[styles.signedPillText, { color: '#22c55e' }]}>✓ Ja</Text>
-                                  </View>
+                                  <Ionicons name="checkmark-circle" size={20} color="#22c55e" />
                                 ) : (
-                                  <View style={[styles.signedPill, { backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.2)' }]}>
-                                    <Text style={[styles.signedPillText, { color: colors.textMuted }]}>Nein</Text>
-                                  </View>
+                                  <Ionicons name="close-circle" size={20} color="#ef4444" />
                                 )}
                               </TouchableOpacity>
                             );
