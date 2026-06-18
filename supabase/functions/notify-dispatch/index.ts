@@ -18,7 +18,7 @@ const corsHeaders = {
 
 type OutboxRow = {
   id: string;
-  event_type: "birthday" | "club_change" | "new_player" | "player_deleted" | "new_document";
+  event_type: "birthday" | "club_change" | "new_player" | "player_deleted" | "new_document" | "document_signed";
   payload: any;
 };
 
@@ -52,6 +52,14 @@ function formatMessage(row: OutboxRow): string {
       const playerName = `${escapeHtml(p.first_name || "")} ${escapeHtml(p.last_name || "")}`.trim() || "—";
       const club = p.club ? ` (${escapeHtml(p.club)})` : "";
       return `📄 <b>Neue Vereinbarung</b>\n+${docType} ${playerName}${club}`;
+    }
+    case "document_signed": {
+      const docType = escapeHtml(p.doc_type || "Dokument");
+      const playerName = `${escapeHtml(p.first_name || "")} ${escapeHtml(p.last_name || "")}`.trim() || "—";
+      const club = p.club ? ` (${escapeHtml(p.club)})` : "";
+      const advisor = `${escapeHtml(p.advisor_first_name || "")} ${escapeHtml(p.advisor_last_name || "")}`.trim();
+      const by = advisor ? `\nvon ${advisor}` : "";
+      return `✍️ <b>Dokument signiert</b>\n${docType} · ${playerName}${club}${by}`;
     }
     default:
       return `ℹ️ ${fullName}`;
