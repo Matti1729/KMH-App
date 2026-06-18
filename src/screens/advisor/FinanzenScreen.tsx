@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable,
   Modal, TextInput, Alert, Platform, Linking, Image, useWindowDimensions,
@@ -464,27 +464,195 @@ export function FinanzenScreen({ navigation }: any) {
   };
 
   const [signingDocId, setSigningDocId] = useState<string | null>(null);
-  const signDocument = async (doc: FinanceDocument) => {
-    if (signingDocId) return;
-    const ok = await confirmDialog({
-      title: 'Dokument signieren',
-      message: `"${doc.filename}" mit deiner hinterlegten Signatur versehen?\n\nDie Signatur wird unten rechts auf der letzten Seite eingefügt. Das Original-PDF bleibt unverändert; das signierte PDF wird separat gespeichert.`,
-      confirmLabel: 'Signieren',
+
+  // --- Signier-Modal mit Drag-and-Drop ---
+  const SIGN_RENDER_SCALE = 1.5;       // PDF-Punkte → CSS-Pixel
+  const SIGN_DEFAULT_WIDTH_PT = 140;   // Standardbreite der Signatur in PDF-Pt
+  const [signModalDoc, setSignModalDoc] = useState<FinanceDocument | null>(null);
+  const [signLoading, setSignLoading] = useState(false);
+  const [signError, setSignError] = useState<string | null>(null);
+  const [signPdfDoc, setSignPdfDoc] = useState<any>(null);
+  const [signTotalPages, setSignTotalPages] = useState(0);
+  const [signCurrentPage, setSignCurrentPage] = useState(1);
+  const [signPageImage, setSignPageImage] = useState<string | null>(null);
+  const [signPagePtSize, setSignPagePtSize] = useState<{ w: number; h: number } | null>(null);
+  // Pixel-Top-Left der Signatur im aktuellen Page-Canvas
+  const [signSigPx, setSignSigPx] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [signSigSizePx, setSignSigSizePx] = useState<{ w: number; h: number }>({ w: SIGN_DEFAULT_WIDTH_PT * SIGN_RENDER_SCALE, h: 60 });
+  const [signaturePngUrl, setSignaturePngUrl] = useState<string | null>(null);
+  const [signSubmitting, setSignSubmitting] = useState(false);
+  const signDragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+
+  // pdf.js dynamisch laden (Web-only Modal)
+  const loadPdfJs = async (): Promise<any> => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return null;
+    if ((window as any).pdfjsLib) return (window as any).pdfjsLib;
+    return new Promise<any>((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      s.onload = () => {
+        const lib = (window as any).pdfjsLib;
+        if (lib) {
+          lib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          resolve(lib);
+        } else {
+          reject(new Error('pdfjsLib nicht verfügbar'));
+        }
+      };
+      s.onerror = () => reject(new Error('pdf.js konnte nicht geladen werden'));
+      document.head.appendChild(s);
     });
-    if (!ok) return;
-    setSigningDocId(doc.id);
+  };
+
+  const renderSignPage = async (pdfDoc: any, pageNum: number, sigAspectRatio = 0.4) => {
+    const page = await pdfDoc.getPage(pageNum);
+    const viewport = page.getViewport({ scale: SIGN_RENDER_SCALE });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext('2d')!;
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    const dataUrl = canvas.toDataURL('image/png');
+    setSignPageImage(dataUrl);
+    setSignPagePtSize({ w: viewport.width / SIGN_RENDER_SCALE, h: viewport.height / SIGN_RENDER_SCALE });
+    // Signatur initial: unten rechts mit etwas Padding
+    const sigWPx = SIGN_DEFAULT_WIDTH_PT * SIGN_RENDER_SCALE;
+    const sigHPx = sigWPx * sigAspectRatio;
+    setSignSigSizePx({ w: sigWPx, h: sigHPx });
+    setSignSigPx({
+      x: viewport.width - sigWPx - 50 * SIGN_RENDER_SCALE,
+      y: viewport.height - sigHPx - 50 * SIGN_RENDER_SCALE,
+    });
+  };
+
+  const openSignModal = async (doc: FinanceDocument) => {
+    setSignModalDoc(doc);
+    setSignLoading(true);
+    setSignError(null);
+    setSignPageImage(null);
     try {
-      const { data, error } = await supabase.functions.invoke('sign-document', { body: { document_id: doc.id } });
+      // Signatur des Beraters laden (Aspect Ratio für Default-Größe)
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setSignError('Nicht eingeloggt.');
+        return;
+      }
+      const { data: sig } = await supabase.from('advisor_signatures').select('storage_path').eq('advisor_id', user.id).maybeSingle();
+      if (!sig?.storage_path) {
+        setSignError('Du musst erst im Profil eine Signatur hochladen.');
+        return;
+      }
+      const { data: sigUrl } = await supabase.storage.from('documents').createSignedUrl(sig.storage_path, 60 * 10);
+      setSignaturePngUrl(sigUrl?.signedUrl || null);
+
+      // Aspect Ratio des PNGs für Default-Höhe
+      const aspectRatio = await new Promise<number>((resolve) => {
+        if (!sigUrl?.signedUrl) { resolve(0.4); return; }
+        const img = new (window as any).Image();
+        img.onload = () => resolve(img.naturalHeight / img.naturalWidth);
+        img.onerror = () => resolve(0.4);
+        img.src = sigUrl.signedUrl;
+      });
+
+      // PDF laden
+      const pdfJs = await loadPdfJs();
+      if (!pdfJs) {
+        setSignError('PDF-Viewer konnte nicht geladen werden.');
+        return;
+      }
+      const { data: docUrl } = await supabase.storage.from('documents').createSignedUrl(doc.storage_path, 60 * 10);
+      if (!docUrl?.signedUrl) {
+        setSignError('PDF konnte nicht geladen werden.');
+        return;
+      }
+      const pdfDoc = await pdfJs.getDocument(docUrl.signedUrl).promise;
+      setSignPdfDoc(pdfDoc);
+      setSignTotalPages(pdfDoc.numPages);
+      const lastPage = pdfDoc.numPages;
+      setSignCurrentPage(lastPage);
+      await renderSignPage(pdfDoc, lastPage, aspectRatio);
+    } catch (e: any) {
+      setSignError(e?.message || 'Fehler beim Laden des PDFs.');
+    } finally {
+      setSignLoading(false);
+    }
+  };
+
+  const goToSignPage = async (pageNum: number) => {
+    if (!signPdfDoc || pageNum < 1 || pageNum > signTotalPages) return;
+    setSignCurrentPage(pageNum);
+    const ratio = signSigSizePx.w > 0 ? signSigSizePx.h / signSigSizePx.w : 0.4;
+    await renderSignPage(signPdfDoc, pageNum, ratio);
+  };
+
+  const closeSignModal = () => {
+    setSignModalDoc(null);
+    setSignPdfDoc(null);
+    setSignPageImage(null);
+    setSignPagePtSize(null);
+    setSignError(null);
+    setSignaturePngUrl(null);
+  };
+
+  const onSignDragStart = (e: any) => {
+    e.preventDefault?.();
+    const clientX = e.clientX ?? e.nativeEvent?.pageX ?? 0;
+    const clientY = e.clientY ?? e.nativeEvent?.pageY ?? 0;
+    signDragRef.current = { startX: clientX, startY: clientY, origX: signSigPx.x, origY: signSigPx.y };
+    const onMove = (ev: any) => {
+      if (!signDragRef.current || !signPagePtSize) return;
+      const dx = ev.clientX - signDragRef.current.startX;
+      const dy = ev.clientY - signDragRef.current.startY;
+      const pageWidthPx = signPagePtSize.w * SIGN_RENDER_SCALE;
+      const pageHeightPx = signPagePtSize.h * SIGN_RENDER_SCALE;
+      const newX = Math.max(0, Math.min(pageWidthPx - signSigSizePx.w, signDragRef.current.origX + dx));
+      const newY = Math.max(0, Math.min(pageHeightPx - signSigSizePx.h, signDragRef.current.origY + dy));
+      setSignSigPx({ x: newX, y: newY });
+    };
+    const onUp = () => {
+      signDragRef.current = null;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
+  const submitSignDocument = async () => {
+    if (!signModalDoc || !signPagePtSize || signSubmitting) return;
+    setSignSubmitting(true);
+    try {
+      const xPt = signSigPx.x / SIGN_RENDER_SCALE;
+      // pdf.js: top-left origin; pdf-lib: bottom-left origin. Flip Y.
+      const sigHPt = signSigSizePx.h / SIGN_RENDER_SCALE;
+      const sigWPt = signSigSizePx.w / SIGN_RENDER_SCALE;
+      const yPt = signPagePtSize.h - (signSigPx.y / SIGN_RENDER_SCALE) - sigHPt;
+
+      const { data, error } = await supabase.functions.invoke('sign-document', {
+        body: {
+          document_id: signModalDoc.id,
+          page: signCurrentPage,
+          x_pt: xPt,
+          y_pt: yPt,
+          width_pt: sigWPt,
+        },
+      });
       if (error || data?.error) {
         alertDialog({ title: 'Fehler beim Signieren', message: error?.message || data?.error || 'Unbekannter Fehler' });
         return;
       }
+      closeSignModal();
       await fetchDocuments();
     } catch (e: any) {
       alertDialog({ title: 'Fehler', message: e?.message || String(e) });
     } finally {
-      setSigningDocId(null);
+      setSignSubmitting(false);
     }
+  };
+
+  const signDocument = (doc: FinanceDocument) => {
+    if (signingDocId) return;
+    openSignModal(doc);
   };
 
   const openDocument = async (doc: FinanceDocument) => {
@@ -1913,6 +2081,115 @@ export function FinanzenScreen({ navigation }: any) {
       </View>
 
       {/* Upload-Modal: Spieler + Art wählen */}
+      {/* Signier-Modal mit Drag-and-Drop der Signatur auf das PDF */}
+      {signModalDoc ? (
+        <View style={styles.docModalOverlay} pointerEvents="auto">
+          <Pressable style={StyleSheet.absoluteFillObject} onPress={() => { if (!signSubmitting) closeSignModal(); }} />
+          <View style={[styles.docModalBox, { maxWidth: 900, width: '95%', maxHeight: '92%', padding: 16 }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.docModalTitle}>Signieren</Text>
+                <Text style={styles.docModalSubtitle} numberOfLines={1}>{signModalDoc.filename}</Text>
+              </View>
+              <TouchableOpacity onPress={() => { if (!signSubmitting) closeSignModal(); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 20, paddingHorizontal: 8 }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Page-Navigation */}
+            {signTotalPages > 1 && signPageImage ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 8 }}>
+                <TouchableOpacity
+                  onPress={() => goToSignPage(signCurrentPage - 1)}
+                  disabled={signCurrentPage <= 1}
+                  style={{ paddingVertical: 4, paddingHorizontal: 10, opacity: signCurrentPage <= 1 ? 0.3 : 1 }}
+                >
+                  <Text style={{ color: '#fff', fontSize: 16 }}>‹</Text>
+                </TouchableOpacity>
+                <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>Seite {signCurrentPage} / {signTotalPages}</Text>
+                <TouchableOpacity
+                  onPress={() => goToSignPage(signCurrentPage + 1)}
+                  disabled={signCurrentPage >= signTotalPages}
+                  style={{ paddingVertical: 4, paddingHorizontal: 10, opacity: signCurrentPage >= signTotalPages ? 0.3 : 1 }}
+                >
+                  <Text style={{ color: '#fff', fontSize: 16 }}>›</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+
+            {/* PDF-Vorschau + Signatur-Overlay */}
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-start', overflow: 'auto' as any }}>
+              {signLoading ? (
+                <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, padding: 24 }}>PDF wird geladen…</Text>
+              ) : signError ? (
+                <Text style={{ color: '#ef4444', fontSize: 13, padding: 24 }}>{signError}</Text>
+              ) : signPageImage && signaturePngUrl && signPagePtSize ? (
+                Platform.OS === 'web' ? (
+                  <div
+                    style={{
+                      position: 'relative',
+                      width: signPagePtSize.w * SIGN_RENDER_SCALE,
+                      height: signPagePtSize.h * SIGN_RENDER_SCALE,
+                      maxWidth: '100%',
+                      backgroundColor: '#fff',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                    }}
+                  >
+                    <img
+                      src={signPageImage}
+                      alt="PDF Seite"
+                      style={{ width: '100%', height: '100%', display: 'block', userSelect: 'none', pointerEvents: 'none' }}
+                      draggable={false}
+                    />
+                    <div
+                      onMouseDown={onSignDragStart}
+                      style={{
+                        position: 'absolute',
+                        left: signSigPx.x,
+                        top: signSigPx.y,
+                        width: signSigSizePx.w,
+                        height: signSigSizePx.h,
+                        cursor: 'move',
+                        border: '1px dashed rgba(34, 197, 94, 0.7)',
+                        backgroundImage: `url(${signaturePngUrl})`,
+                        backgroundSize: 'contain',
+                        backgroundRepeat: 'no-repeat',
+                        backgroundPosition: 'center',
+                        userSelect: 'none',
+                      }}
+                      title="Signatur verschieben"
+                    />
+                  </div>
+                ) : (
+                  <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, padding: 24 }}>Signieren ist aktuell nur auf Web verfügbar.</Text>
+                )
+              ) : null}
+            </View>
+
+            {/* Footer */}
+            <View style={styles.docModalFooter}>
+              <Text style={{ flex: 1, color: 'rgba(255,255,255,0.5)', fontSize: 11, alignSelf: 'center' }} numberOfLines={1}>
+                Tipp: Signatur mit der Maus an die gewünschte Stelle ziehen.
+              </Text>
+              <TouchableOpacity
+                style={styles.docModalCancel}
+                onPress={() => { if (!signSubmitting) closeSignModal(); }}
+                disabled={signSubmitting}
+              >
+                <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12, fontWeight: '600' }}>Abbrechen</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.docModalConfirm, (signSubmitting || !signPageImage || !signaturePngUrl) && { opacity: 0.5 }]}
+                onPress={submitSignDocument}
+                disabled={signSubmitting || !signPageImage || !signaturePngUrl}
+              >
+                <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>{signSubmitting ? 'Signiere…' : 'Hier signieren'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      ) : null}
+
       {showDocUploadModal ? (
         <View style={styles.docModalOverlay} pointerEvents="auto">
           <Pressable style={StyleSheet.absoluteFillObject} onPress={() => { if (!uploadingDoc) setShowDocUploadModal(false); }} />

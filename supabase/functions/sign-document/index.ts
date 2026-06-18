@@ -47,7 +47,9 @@ serve(async (req: Request) => {
     }
     const advisorId = userData.user.id;
 
-    const { document_id } = await req.json();
+    // page ist 1-basiert; x_pt/y_pt vom bottom-left origin (pdf-lib-Konvention).
+    // Ohne Angaben Fallback: letzte Seite, unten rechts (Padding 50pt, Breite 140pt).
+    const { document_id, page, x_pt, y_pt, width_pt } = await req.json();
     if (!document_id) {
       return new Response(JSON.stringify({ error: "document_id required" }), {
         status: 400,
@@ -106,23 +108,39 @@ serve(async (req: Request) => {
     const pdfBytes = new Uint8Array(await pdfRes.data.arrayBuffer());
     const pngBytes = new Uint8Array(await pngRes.data.arrayBuffer());
 
-    // pdf-lib: PNG einbetten und auf letzter Seite unten rechts platzieren
+    // pdf-lib: PNG einbetten und an gewünschter Position platzieren.
     const pdfDoc = await PDFDocument.load(pdfBytes);
     const pngImage = await pdfDoc.embedPng(pngBytes);
-
-    // Ziel-Breite ~140 pt; Höhe proportional. Padding 50pt vom rechten/unteren Rand.
-    const TARGET_WIDTH = 140;
-    const PADDING = 50;
     const pages = pdfDoc.getPages();
-    const lastPage = pages[pages.length - 1];
-    const { width: pageW, height: _pageH } = lastPage.getSize();
     const ratio = pngImage.height / pngImage.width;
-    const drawWidth = Math.min(TARGET_WIDTH, pageW - PADDING * 2);
+
+    // Vom Client gewünschte Seite (1-basiert) oder Fallback letzte Seite
+    const pageIdx = typeof page === "number" && page >= 1 && page <= pages.length
+      ? page - 1
+      : pages.length - 1;
+    const targetPage = pages[pageIdx];
+    const { width: pageW, height: pageH } = targetPage.getSize();
+
+    const drawWidth = typeof width_pt === "number" && width_pt > 0
+      ? Math.min(width_pt, pageW)
+      : Math.min(140, pageW - 100);
     const drawHeight = drawWidth * ratio;
 
-    lastPage.drawImage(pngImage, {
-      x: pageW - drawWidth - PADDING,
-      y: PADDING,
+    let drawX: number;
+    let drawY: number;
+    if (typeof x_pt === "number" && typeof y_pt === "number") {
+      // Client liefert bottom-left-Koordinate des Signatur-Rechtecks
+      drawX = Math.max(0, Math.min(x_pt, pageW - drawWidth));
+      drawY = Math.max(0, Math.min(y_pt, pageH - drawHeight));
+    } else {
+      // Fallback: unten rechts mit 50pt Padding
+      drawX = pageW - drawWidth - 50;
+      drawY = 50;
+    }
+
+    targetPage.drawImage(pngImage, {
+      x: drawX,
+      y: drawY,
       width: drawWidth,
       height: drawHeight,
     });
