@@ -139,28 +139,39 @@ serve(async (req: Request) => {
       ? page - 1
       : pages.length - 1;
     const targetPage = pages[pageIdx];
-    const { width: pageW, height: pageH } = targetPage.getSize();
+
+    // pdf.js rendert die Seite anhand der CropBox; pdf-libs drawImage zeichnet
+    // dagegen in MediaBox-Koordinaten. Wenn CropBox != MediaBox (z.B. bei
+    // gescannten PDFs mit Crop) gäbe es einen konstanten X/Y-Versatz. Wir
+    // arbeiten daher konsequent mit cropBox und rechnen ggf. den Offset zur
+    // MediaBox dazu. Außerdem nutzen wir cropBox-Breite/Höhe fürs Clamping.
+    const cropBox = targetPage.getCropBox();
+    const cropW = cropBox.width;
+    const cropH = cropBox.height;
 
     const drawWidth = typeof width_pt === "number" && width_pt > 0
-      ? Math.min(width_pt, pageW)
-      : Math.min(140, pageW - 100);
+      ? Math.min(width_pt, cropW)
+      : Math.min(140, cropW - 100);
     // Höhe: bevorzugt vom Client (entspricht 1:1 dem Preview im Modal),
     // sonst aus Image-Aspect-Ratio. Damit landet die Signatur genau dort,
     // wo der User sie hingezogen hat.
     const drawHeight = typeof height_pt === "number" && height_pt > 0
-      ? Math.min(height_pt, pageH)
+      ? Math.min(height_pt, cropH)
       : drawWidth * imgRatio;
 
     let drawX: number;
     let drawY: number;
     if (typeof x_pt === "number" && typeof y_pt === "number") {
-      // Client liefert bottom-left-Koordinate des Signatur-Rechtecks
-      drawX = Math.max(0, Math.min(x_pt, pageW - drawWidth));
-      drawY = Math.max(0, Math.min(y_pt, pageH - drawHeight));
+      // Client liefert bottom-left-Koordinate im CropBox-Koordinatensystem.
+      // Auf MediaBox umrechnen durch Addition des CropBox-Offsets.
+      const cropX = Math.max(0, Math.min(x_pt, cropW - drawWidth));
+      const cropY = Math.max(0, Math.min(y_pt, cropH - drawHeight));
+      drawX = cropBox.x + cropX;
+      drawY = cropBox.y + cropY;
     } else {
-      // Fallback: unten rechts mit 50pt Padding
-      drawX = pageW - drawWidth - 50;
-      drawY = 50;
+      // Fallback: unten rechts mit 50pt Padding (relativ zur CropBox)
+      drawX = cropBox.x + cropW - drawWidth - 50;
+      drawY = cropBox.y + 50;
     }
 
     targetPage.drawImage(pngImage, {
