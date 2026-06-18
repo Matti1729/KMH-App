@@ -51,7 +51,7 @@ function formatMessage(row: OutboxRow): string {
       const docType = escapeHtml(p.doc_type || "Dokument");
       const playerName = `${escapeHtml(p.first_name || "")} ${escapeHtml(p.last_name || "")}`.trim() || "—";
       const club = p.club ? ` (${escapeHtml(p.club)})` : "";
-      return `📄 <b>Neue Vereinbarung</b>\n+${docType} ${playerName}${club}`;
+      return `📄 <b>Neue Vereinbarung</b>\n${docType} ${playerName}${club}`;
     }
     case "document_signed": {
       const docType = escapeHtml(p.doc_type || "Dokument");

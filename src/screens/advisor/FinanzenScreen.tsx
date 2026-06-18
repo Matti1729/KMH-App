@@ -2143,7 +2143,7 @@ export function FinanzenScreen({ navigation }: any) {
                                     hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                                     disabled={signingDocId === doc.id}
                                   >
-                                    <Ionicons name="create-outline" size={13} color={signingDocId === doc.id ? 'rgba(255,255,255,0.3)' : '#22c55e'} />
+                                    <MaterialCommunityIcons name="fountain-pen-tip" size={13} color={signingDocId === doc.id ? 'rgba(255,255,255,0.3)' : '#22c55e'} />
                                   </TouchableOpacity>
                                 ) : null}
                                 <TouchableOpacity onPress={(e: any) => { e?.stopPropagation?.(); downloadDocument(doc); }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
