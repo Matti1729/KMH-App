@@ -438,3 +438,9 @@ enabled = true
 verify_jwt = true
 import_map = "./functions/telegram-link-code/deno.json"
 entrypoint = "./functions/telegram-link-code/index.ts"
+
+[functions.sign-document]
+enabled = true
+verify_jwt = true
+import_map = "./functions/sign-document/deno.json"
+entrypoint = "./functions/sign-document/index.ts"

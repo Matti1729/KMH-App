@@ -54,10 +54,84 @@ export function MyProfileScreen({ navigation }: any) {
   const [tgLinkLoading, setTgLinkLoading] = useState(false);
   const [tgCode, setTgCode] = useState<string | null>(null);
 
+  const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
+  const [signatureUploading, setSignatureUploading] = useState(false);
+
   useEffect(() => {
     fetchProfile();
     fetchTgLinkStatus();
+    fetchSignature();
   }, []);
+
+  const fetchSignature = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase
+      .from('advisor_signatures')
+      .select('storage_path')
+      .eq('advisor_id', user.id)
+      .maybeSingle();
+    if (data?.storage_path) {
+      const { data: urlData } = await supabase.storage.from('documents').createSignedUrl(data.storage_path, 60 * 60);
+      setSignatureUrl(urlData?.signedUrl || null);
+    } else {
+      setSignatureUrl(null);
+    }
+  };
+
+  const uploadSignature = async () => {
+    if (signatureUploading) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    if (typeof document === 'undefined') return;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/png';
+    input.onchange = async (e: any) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      setSignatureUploading(true);
+      try {
+        const path = `signatures/${user.id}.png`;
+        const { error: upErr } = await supabase.storage.from('documents').upload(path, file, {
+          contentType: 'image/png',
+          upsert: true,
+        });
+        if (upErr) {
+          alertDialog({ title: 'Fehler beim Hochladen', message: upErr.message });
+          return;
+        }
+        const { error: dbErr } = await supabase.from('advisor_signatures').upsert({
+          advisor_id: user.id,
+          storage_path: path,
+          uploaded_at: new Date().toISOString(),
+        }, { onConflict: 'advisor_id' });
+        if (dbErr) {
+          alertDialog({ title: 'Fehler', message: dbErr.message });
+          return;
+        }
+        await fetchSignature();
+      } finally {
+        setSignatureUploading(false);
+      }
+    };
+    input.click();
+  };
+
+  const deleteSignature = async () => {
+    const ok = await confirmDialog({
+      title: 'Signatur löschen',
+      message: 'Die hinterlegte Signatur wird entfernt. Bestehende signierte Dokumente bleiben unverändert.',
+      danger: true,
+      confirmLabel: 'Löschen',
+    });
+    if (!ok) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.storage.from('documents').remove([`signatures/${user.id}.png`]);
+    await supabase.from('advisor_signatures').delete().eq('advisor_id', user.id);
+    setSignatureUrl(null);
+  };
 
   const fetchTgLinkStatus = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -487,6 +561,44 @@ export function MyProfileScreen({ navigation }: any) {
               </TouchableOpacity>
             )}
           </View>
+        </View>
+
+        {/* Signatur (für Dokument-Signierung im Finanzen-Tab) */}
+        <View style={[styles.card, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Signatur</Text>
+          <Text style={[styles.label, { color: colors.textMuted, marginBottom: 12 }]}>
+            Hinterlege deine Unterschrift als PNG mit transparentem Hintergrund. Sie wird beim Signieren von PDFs automatisch unten rechts auf der letzten Seite eingefügt.
+          </Text>
+          {signatureUrl ? (
+            <View>
+              <View style={{ backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: 8, padding: 12, marginBottom: 12, alignSelf: 'flex-start' }}>
+                <Image source={{ uri: signatureUrl }} style={{ width: 200, height: 80, resizeMode: 'contain' }} />
+              </View>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TouchableOpacity
+                  style={{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)' }}
+                  onPress={uploadSignature}
+                  disabled={signatureUploading}
+                >
+                  <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 13, fontWeight: '600' }}>{signatureUploading ? 'Lade hoch…' : 'Neu hochladen'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: 'rgba(239,68,68,0.12)', borderWidth: 1, borderColor: '#ef4444' }}
+                  onPress={deleteSignature}
+                >
+                  <Text style={{ color: '#ef4444', fontSize: 13, fontWeight: '600' }}>Löschen</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={{ paddingVertical: 12, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#22c55e', borderWidth: 1, borderColor: '#22c55e', opacity: signatureUploading ? 0.5 : 1, alignSelf: 'flex-start' }}
+              onPress={uploadSignature}
+              disabled={signatureUploading}
+            >
+              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>{signatureUploading ? 'Lade hoch…' : 'Signatur hochladen (PNG)'}</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Telegram-Benachrichtigungen */}

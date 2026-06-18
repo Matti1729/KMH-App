@@ -103,6 +103,7 @@ interface FinanceDocument {
   player_id: string | null;
   doc_type: DocType | null;
   signed: boolean;
+  signed_path: string | null;
   uploader_name?: string;
   player_first_name?: string | null;
   player_last_name?: string | null;
@@ -320,7 +321,7 @@ export function FinanzenScreen({ navigation }: any) {
     setDocumentsLoading(true);
     const { data, error } = await supabase
       .from('finance_documents')
-      .select('id, filename, storage_path, size_bytes, created_at, uploaded_by, player_id, doc_type, signed')
+      .select('id, filename, storage_path, size_bytes, created_at, uploaded_by, player_id, doc_type, signed, signed_path')
       .order('created_at', { ascending: false });
     if (error) {
       console.error('fetchDocuments error:', error);
@@ -462,8 +463,34 @@ export function FinanzenScreen({ navigation }: any) {
     }
   };
 
+  const [signingDocId, setSigningDocId] = useState<string | null>(null);
+  const signDocument = async (doc: FinanceDocument) => {
+    if (signingDocId) return;
+    const ok = await confirmDialog({
+      title: 'Dokument signieren',
+      message: `"${doc.filename}" mit deiner hinterlegten Signatur versehen?\n\nDie Signatur wird unten rechts auf der letzten Seite eingefügt. Das Original-PDF bleibt unverändert; das signierte PDF wird separat gespeichert.`,
+      confirmLabel: 'Signieren',
+    });
+    if (!ok) return;
+    setSigningDocId(doc.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('sign-document', { body: { document_id: doc.id } });
+      if (error || data?.error) {
+        alertDialog({ title: 'Fehler beim Signieren', message: error?.message || data?.error || 'Unbekannter Fehler' });
+        return;
+      }
+      await fetchDocuments();
+    } catch (e: any) {
+      alertDialog({ title: 'Fehler', message: e?.message || String(e) });
+    } finally {
+      setSigningDocId(null);
+    }
+  };
+
   const openDocument = async (doc: FinanceDocument) => {
-    const { data, error } = await supabase.storage.from('documents').createSignedUrl(doc.storage_path, 60 * 10);
+    // Falls signiert: signiertes PDF zeigen, sonst Original
+    const path = doc.signed && doc.signed_path ? doc.signed_path : doc.storage_path;
+    const { data, error } = await supabase.storage.from('documents').createSignedUrl(path, 60 * 10);
     if (error || !data?.signedUrl) {
       alertDialog({ title: 'Fehler', message: error?.message || 'Link konnte nicht erzeugt werden.' });
       return;
@@ -476,8 +503,9 @@ export function FinanzenScreen({ navigation }: any) {
   };
 
   const downloadDocument = async (doc: FinanceDocument) => {
+    const path = doc.signed && doc.signed_path ? doc.signed_path : doc.storage_path;
     const { data, error } = await supabase.storage.from('documents').createSignedUrl(
-      doc.storage_path,
+      path,
       60 * 10,
       { download: doc.filename }
     );
@@ -1851,6 +1879,15 @@ export function FinanzenScreen({ navigation }: any) {
                           case 'actions':
                             return (
                               <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+                                {!doc.signed ? (
+                                  <TouchableOpacity
+                                    onPress={(e: any) => { e?.stopPropagation?.(); signDocument(doc); }}
+                                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                                    disabled={signingDocId === doc.id}
+                                  >
+                                    <Ionicons name="create-outline" size={13} color={signingDocId === doc.id ? 'rgba(255,255,255,0.3)' : '#22c55e'} />
+                                  </TouchableOpacity>
+                                ) : null}
                                 <TouchableOpacity onPress={(e: any) => { e?.stopPropagation?.(); downloadDocument(doc); }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                                   <Ionicons name="download-outline" size={13} color="rgba(255,255,255,0.85)" />
                                 </TouchableOpacity>
