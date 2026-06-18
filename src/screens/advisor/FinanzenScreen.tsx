@@ -86,7 +86,7 @@ const DOCUMENT_COLUMNS: ColumnDef[] = [
   { key: 'doc_type', label: 'Art', defaultFlex: 1.2, minWidth: 130 },
   { key: 'created', label: 'Datum', defaultFlex: 0.9, minWidth: 100 },
   { key: 'signed', label: 'Signiert', defaultFlex: 0.7, minWidth: 80 },
-  { key: 'actions', label: '', defaultFlex: 0.3, minWidth: 60, fixedWidth: 60 },
+  { key: 'actions', label: 'Aktionen', defaultFlex: 0.3, minWidth: 60, fixedWidth: 60 },
 ];
 
 type DocsSortField = 'name' | 'vorname' | 'club' | 'doc_type' | 'created' | 'signed';
@@ -1998,7 +1998,8 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
     ...(Platform.OS === 'web' ? { outlineStyle: 'none' as any } : {}),
   },
-  // Upload-Icon-Button im Header (identische Höhe wie die Tabs-Pille = 28 px)
+  // Upload-Icon-Button im Header — exakt 28 px hoch wie Tabs + Suche.
+  // overflow:hidden + box-sizing border-box damit der 1px-Border nicht draufaddiert.
   heroUploadIconBtn: {
     width: 32,
     height: 28,
@@ -2008,6 +2009,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#22c55e',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+    ...(Platform.OS === 'web' ? ({ boxSizing: 'border-box' } as any) : {}),
   },
 
   // Segmented Pill (Tabs im AdvisorHeroHeader, rechtsbündig — wie AufgabenScreen)
