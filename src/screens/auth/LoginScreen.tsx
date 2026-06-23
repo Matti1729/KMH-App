@@ -146,7 +146,7 @@ export function LoginScreen({ navigation }: any) {
 
             <TextInput
               style={[styles.modalInput, opts.error ? styles.modalInputError : null]}
-              placeholder="z.B. KMH-VF7K"
+              placeholder=""
               placeholderTextColor="rgba(255,255,255,0.3)"
               value={opts.value}
               onChangeText={opts.onChange}
