@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Modal, Pressable, Platform } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Modal, Pressable, Platform, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -8,7 +8,7 @@ import { useDialog } from '../../components/DialogProvider';
 
 export function LoginScreen({ navigation }: any) {
   const { signIn } = useAuth();
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const { alert: alertDialog } = useDialog();
   const showAlert = (title: string, message: string, onOk?: () => void) => {
     alertDialog({ title, message }).then(() => { if (onOk) onOk(); });
@@ -18,35 +18,12 @@ export function LoginScreen({ navigation }: any) {
   const [loading, setLoading] = useState(false);
   const [showAdvisorModal, setShowAdvisorModal] = useState(false);
   const [advisorCode, setAdvisorCode] = useState('');
-  const [validCode, setValidCode] = useState<string>('');
-  const [codeLoaded, setCodeLoaded] = useState(false);
+  const [advisorCodeLoading, setAdvisorCodeLoading] = useState(false);
   const [codeError, setCodeError] = useState<string | null>(null);
   const [showPlayerCodeModal, setShowPlayerCodeModal] = useState(false);
   const [playerCode, setPlayerCode] = useState('');
   const [playerCodeError, setPlayerCodeError] = useState<string | null>(null);
   const [playerCodeLoading, setPlayerCodeLoading] = useState(false);
-
-  useEffect(() => {
-    fetchInvitationCode();
-  }, []);
-
-  const fetchInvitationCode = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('settings')
-        .select('key, value')
-        .eq('key', 'invitation_code')
-        .single();
-
-      if (data && data.value) {
-        setValidCode(data.value);
-        setCodeLoaded(true);
-      }
-    } catch (e) {
-      console.log('Could not fetch invitation code');
-      setCodeLoaded(false);
-    }
-  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -59,20 +36,24 @@ export function LoginScreen({ navigation }: any) {
     if (error) showAlert('Fehler', error.message);
   };
 
-  const handleAdvisorCode = () => {
+  const handleAdvisorCode = async () => {
     setCodeError(null);
-
-    if (!codeLoaded || !validCode) {
-      setCodeError('Einladungscode konnte nicht geladen werden. Bitte versuche es später erneut.');
-      return;
-    }
 
     if (!advisorCode.trim()) {
       setCodeError('Bitte gib einen Einladungscode ein.');
       return;
     }
-    
-    if (advisorCode.trim() === validCode) {
+
+    setAdvisorCodeLoading(true);
+    const { data, error } = await supabase.rpc('verify_advisor_invitation_code', { p_code: advisorCode.trim() });
+    setAdvisorCodeLoading(false);
+
+    if (error) {
+      setCodeError('Code konnte nicht geprüft werden. Bitte versuche es später erneut.');
+      return;
+    }
+
+    if (data === true) {
       setShowAdvisorModal(false);
       setAdvisorCode('');
       setCodeError(null);
@@ -98,10 +79,7 @@ export function LoginScreen({ navigation }: any) {
 
     try {
       const { data, error } = await supabase
-        .from('player_details')
-        .select('id, first_name, last_name, linked_user_id')
-        .eq('invitation_code', playerCode.trim().toUpperCase())
-        .single();
+        .rpc('verify_player_invitation_code', { p_code: playerCode.trim() });
 
       if (error || !data) {
         setPlayerCodeError('Ungültiger Code');
@@ -109,7 +87,7 @@ export function LoginScreen({ navigation }: any) {
         return;
       }
 
-      if (data.linked_user_id) {
+      if (data.already_linked) {
         setPlayerCodeError('Code wurde bereits verwendet.');
         setPlayerCodeLoading(false);
         return;
@@ -129,6 +107,68 @@ export function LoginScreen({ navigation }: any) {
       setPlayerCodeLoading(false);
     }
   };
+
+  // Einheitliches Code-Zugang-Modal (Design-System: Skyline-BG, Josefin-Titel,
+  // plain ✕-Close, Pill-Input, grüner Footer-Button).
+  const renderCodeModal = (opts: {
+    visible: boolean;
+    onClose: () => void;
+    title: string;
+    value: string;
+    onChange: (text: string) => void;
+    error: string | null;
+    loading: boolean;
+    onSubmit: () => void;
+  }) => (
+    <Modal visible={opts.visible} transparent animationType="fade" onRequestClose={opts.onClose}>
+      <View style={styles.modalOverlay}>
+        {/* Backdrop — schließt bei Klick daneben */}
+        <Pressable style={StyleSheet.absoluteFillObject} onPress={opts.onClose} />
+        <View style={styles.modalContent}>
+          {/* Skyline-Hintergrund */}
+          <View style={styles.modalBgWrap} pointerEvents="none">
+            <Image
+              source={require('../../../assets/scouting-header-bg.jpg')}
+              style={styles.modalBgImage}
+              resizeMode="cover"
+            />
+            <View style={styles.modalBgOverlay} />
+          </View>
+
+          <View style={styles.modalInner}>
+            <View style={styles.modalTitleRow}>
+              <Text style={styles.modalTitle}>{opts.title}</Text>
+              <TouchableOpacity onPress={opts.onClose} style={styles.modalClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalSubtitle}>Bitte Einladungscode eingeben</Text>
+
+            <TextInput
+              style={[styles.modalInput, opts.error ? styles.modalInputError : null]}
+              placeholder="z.B. KMH-VF7K"
+              placeholderTextColor="rgba(255,255,255,0.3)"
+              value={opts.value}
+              onChangeText={opts.onChange}
+              autoCapitalize="none"
+              autoCorrect={false}
+              onSubmitEditing={opts.onSubmit}
+            />
+
+            {opts.error ? <Text style={styles.errorText}>{opts.error}</Text> : null}
+
+            <TouchableOpacity
+              style={[styles.modalButton, opts.loading && { opacity: 0.6 }]}
+              onPress={opts.onSubmit}
+              disabled={opts.loading}
+            >
+              <Text style={styles.modalButtonText}>{opts.loading ? 'Prüfen…' : 'Weiter'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -167,56 +207,28 @@ export function LoginScreen({ navigation }: any) {
       </View>
 
       {/* Berater-Zugang Modal */}
-      <Modal visible={showAdvisorModal} transparent animationType="fade">
-        <Pressable style={styles.modalOverlay} onPress={() => setShowAdvisorModal(false)}>
-          <Pressable style={[styles.modalContent, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
-            <TouchableOpacity style={[styles.modalClose, { backgroundColor: isDark ? colors.inputBackground : '#f1f5f9' }]} onPress={() => setShowAdvisorModal(false)}>
-              <Text style={[styles.modalCloseText, { color: colors.textSecondary }]}>✕</Text>
-            </TouchableOpacity>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Berater-Zugang</Text>
-            <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>Bitte Einladungscode eingeben</Text>
-            <TextInput
-              style={[styles.modalInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }, codeError && styles.modalInputError]}
-              placeholder="Einladungscode" placeholderTextColor={colors.textMuted}
-              value={advisorCode}
-              onChangeText={(text) => { setAdvisorCode(text); setCodeError(null); }}
-              autoCapitalize="none"
-            />
-            {codeError && (
-              <Text style={styles.errorText}>{codeError}</Text>
-            )}
-            <TouchableOpacity style={[styles.modalButton, { backgroundColor: colors.primary }]} onPress={handleAdvisorCode}>
-              <Text style={[styles.modalButtonText, { color: colors.primaryText }]}>Weiter</Text>
-            </TouchableOpacity>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      {renderCodeModal({
+        visible: showAdvisorModal,
+        onClose: () => setShowAdvisorModal(false),
+        title: 'Berater-Zugang',
+        value: advisorCode,
+        onChange: (text) => { setAdvisorCode(text); setCodeError(null); },
+        error: codeError,
+        loading: advisorCodeLoading,
+        onSubmit: handleAdvisorCode,
+      })}
 
       {/* Spieler-Zugang Modal */}
-      <Modal visible={showPlayerCodeModal} transparent animationType="fade">
-        <Pressable style={styles.modalOverlay} onPress={() => setShowPlayerCodeModal(false)}>
-          <Pressable style={[styles.modalContent, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
-            <TouchableOpacity style={[styles.modalClose, { backgroundColor: isDark ? colors.inputBackground : '#f1f5f9' }]} onPress={() => setShowPlayerCodeModal(false)}>
-              <Text style={[styles.modalCloseText, { color: colors.textSecondary }]}>✕</Text>
-            </TouchableOpacity>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Spieler-Zugang</Text>
-            <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>Bitte Einladungscode eingeben</Text>
-            <TextInput
-              style={[styles.modalInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }, playerCodeError && styles.modalInputError]}
-              placeholder="Einladungscode" placeholderTextColor={colors.textMuted}
-              value={playerCode}
-              onChangeText={(text) => { setPlayerCode(text); setPlayerCodeError(null); }}
-              autoCapitalize="none"
-            />
-            {playerCodeError && (
-              <Text style={styles.errorText}>{playerCodeError}</Text>
-            )}
-            <TouchableOpacity style={[styles.modalButton, { backgroundColor: '#16a34a' }]} onPress={handlePlayerCode} disabled={playerCodeLoading}>
-              <Text style={[styles.modalButtonText, { color: '#fff' }]}>{playerCodeLoading ? 'Prüfen...' : 'Weiter'}</Text>
-            </TouchableOpacity>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      {renderCodeModal({
+        visible: showPlayerCodeModal,
+        onClose: () => setShowPlayerCodeModal(false),
+        title: 'Spieler-Zugang',
+        value: playerCode,
+        onChange: (text) => { setPlayerCode(text); setPlayerCodeError(null); },
+        error: playerCodeError,
+        loading: playerCodeLoading,
+        onSubmit: handlePlayerCode,
+      })}
     </SafeAreaView>
   );
 }
@@ -235,41 +247,90 @@ const styles = StyleSheet.create({
   advisorLink: { marginTop: 16 },
   advisorText: { color: '#666', textAlign: 'center' as const, fontSize: 14 },
   
-  // Modal Styles - zentriert und kompakt
-  modalOverlay: { 
-    flex: 1, 
-    backgroundColor: 'rgba(0,0,0,0.5)', 
-    justifyContent: 'center', 
+  // Modal Styles — Design-System (Skyline-BG, dunkel, Josefin-Titel, Pill-Input)
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 24,
   },
-  modalContent: { 
-    backgroundColor: '#fff', 
-    borderRadius: 16, 
+  modalContent: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: '#000',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    overflow: 'hidden',
+  },
+  modalBgWrap: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  modalBgImage: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    width: '100%',
+    height: '100%',
+    opacity: 0.85,
+    ...(Platform.OS === 'web'
+      ? ({ objectFit: 'cover', objectPosition: 'center', backgroundSize: 'cover', backgroundPosition: 'center' } as any)
+      : {}),
+  },
+  modalBgOverlay: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  modalInner: {
     padding: 24,
-    width: '90%',
-    maxWidth: 340,
+    zIndex: 1,
+  },
+  modalTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
     position: 'relative',
+  },
+  modalTitle: {
+    fontFamily: 'Josefin Sans',
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '300',
+    letterSpacing: 4,
+    textTransform: 'uppercase',
+    color: 'rgba(255,255,255,0.7)',
+    textAlign: 'center',
   },
   modalClose: {
     position: 'absolute',
-    top: 12,
-    right: 12,
+    right: 0,
     width: 32,
     height: 32,
-    borderRadius: 16,
-    backgroundColor: '#f1f5f9',
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  modalCloseText: { fontSize: 16, color: '#64748b' },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' },
-  modalSubtitle: { fontSize: 14, color: '#666', marginBottom: 20, textAlign: 'center' },
-  modalInput: { 
-    borderWidth: 1, 
-    borderColor: '#ddd', 
-    borderRadius: 12, 
-    padding: 16, 
-    fontSize: 16, 
+  modalCloseText: { fontSize: 20, color: 'rgba(255,255,255,0.7)' },
+  modalSubtitle: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.5)',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  modalInput: {
+    backgroundColor: '#000',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    fontSize: 15,
+    letterSpacing: 2,
+    color: '#fff',
     marginBottom: 8,
     textAlign: 'center',
   },
@@ -283,11 +344,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 12,
   },
-  modalButton: { 
-    backgroundColor: '#000', 
-    padding: 16, 
-    borderRadius: 12, 
+  modalButton: {
+    backgroundColor: '#22c55e',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 6,
     alignItems: 'center',
+    marginTop: 4,
   },
-  modalButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  modalButtonText: { color: '#fff', fontSize: 14, fontWeight: '600' },
 });

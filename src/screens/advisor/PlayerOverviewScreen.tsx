@@ -2975,32 +2975,34 @@ export function PlayerOverviewScreen({ navigation }: any) {
                 </View>
               </View>
 
-            {/* Invite-Code Overlay innerhalb des Modals (vermeidet Z-Index-Probleme) */}
-            {showInviteCodeModal ? (
-              <View style={styles.detailInviteOverlay}>
-                <Pressable style={StyleSheet.absoluteFillObject} onPress={() => { setShowInviteCodeModal(false); setInviteCode(null); }} />
-                <View style={styles.detailInviteCodeBox}>
-                  <Text style={styles.detailInviteCodeTitle}>Einladungs-Code</Text>
-                  <Text style={styles.detailInviteCodeSubtitle}>
-                    Gib diesen Code an {selectedPlayer?.first_name} {selectedPlayer?.last_name} weiter
-                  </Text>
-                  <View style={styles.detailInviteCodePill}>
-                    <Text style={styles.detailInviteCodeText}>{inviteCode || '—'}</Text>
-                  </View>
-                  <Text style={styles.detailInviteCodeHint}>Gültig bis zur Registrierung</Text>
-                  <TouchableOpacity
-                    style={styles.detailInviteCodeCloseBtn}
-                    onPress={() => { setShowInviteCodeModal(false); setInviteCode(null); }}
-                  >
-                    <Text style={styles.detailInviteCodeCloseText}>Schließen</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ) : null}
             </View>
           )}
 
         </ScrollView>
+
+        {/* Invite-Code Overlay — als Geschwister der ScrollView, damit es am Viewport
+            (Modal-Höhe) zentriert wird und nicht innerhalb des langen Scroll-Inhalts. */}
+        {showInviteCodeModal ? (
+          <View style={styles.detailInviteOverlay}>
+            <Pressable style={StyleSheet.absoluteFillObject} onPress={() => { setShowInviteCodeModal(false); setInviteCode(null); }} />
+            <View style={styles.detailInviteCodeBox}>
+              <Text style={styles.detailInviteCodeTitle}>Einladungs-Code</Text>
+              <Text style={styles.detailInviteCodeSubtitle}>
+                Gib diesen Code an {selectedPlayer?.first_name} {selectedPlayer?.last_name} weiter
+              </Text>
+              <View style={styles.detailInviteCodePill}>
+                <Text style={styles.detailInviteCodeText}>{inviteCode || '—'}</Text>
+              </View>
+              <Text style={styles.detailInviteCodeHint}>Gültig bis zur Registrierung</Text>
+              <TouchableOpacity
+                style={styles.detailInviteCodeCloseBtn}
+                onPress={() => { setShowInviteCodeModal(false); setInviteCode(null); }}
+              >
+                <Text style={styles.detailInviteCodeCloseText}>Schließen</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : null}
         </View>
 
         {/* PDF Vorschau-Overlay (innerhalb Spielerprofil-Modal, damit es darüberliegt) */}
