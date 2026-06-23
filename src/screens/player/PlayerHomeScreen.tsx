@@ -118,13 +118,15 @@ export function PlayerHomeScreen() {
     try {
       let playerDetailsId = viewAsPlayerId || null;
 
+      // Kanonische Verknüpfung: player_details.linked_user_id == eingeloggter User.
       if (!playerDetailsId) {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('player_details_id')
-          .eq('id', session.user.id)
-          .single();
-        playerDetailsId = profileData?.player_details_id;
+        const { data: linkedRow } = await supabase
+          .from('player_details')
+          .select('id')
+          .eq('linked_user_id', session.user.id)
+          .limit(1)
+          .maybeSingle();
+        playerDetailsId = linkedRow?.id || null;
       }
 
       if (!playerDetailsId && profile?.first_name && profile?.last_name) {

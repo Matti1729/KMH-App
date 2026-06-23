@@ -3,7 +3,6 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Platform, Image, S
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { supabase } from '../../config/supabase';
 import { useDialog } from '../../components/DialogProvider';
 
 export function RegisterScreen({ navigation, route }: any) {
@@ -39,31 +38,19 @@ export function RegisterScreen({ navigation, route }: any) {
     }
 
     setLoading(true);
-    const { data: signUpData, error: signUpError } = await signUp(email.trim(), password, firstName.trim(), lastName.trim(), 'player');
+    // Die Verknüpfung player_details.linked_user_id übernimmt der DB-Trigger
+    // handle_player_account_link anhand der mitgegebenen playerDetailsId.
+    const { error: signUpError } = await signUp(email.trim(), password, firstName.trim(), lastName.trim(), 'player', playerDetailsId);
     if (signUpError) {
       setLoading(false);
       setError(signUpError.message);
       return;
     }
 
-    // Link player_details to the new user
-    if (playerDetailsId && signUpData?.user?.id) {
-      const userId = signUpData.user.id;
-
-      await supabase
-        .from('player_details')
-        .update({ linked_user_id: userId })
-        .eq('id', playerDetailsId);
-
-      await supabase
-        .from('profiles')
-        .update({ player_details_id: playerDetailsId })
-        .eq('id', userId);
-    }
-
     setLoading(false);
-    await alertDialog({ title: 'Erfolg', message: 'Bitte bestätige deine E-Mail-Adresse.' });
-    navigation.navigate('Login');
+    // Keine E-Mail-Bestätigung — nach signUp besteht bereits eine Session,
+    // der RootNavigator wechselt automatisch in die Spieler-Ansicht.
+    await alertDialog({ title: 'Willkommen!', message: 'Dein Konto wurde erstellt — du bist jetzt eingeloggt.' });
   };
 
   const renderField = (

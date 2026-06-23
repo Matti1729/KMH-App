@@ -24,7 +24,7 @@ interface AuthContextType {
   setViewAsPlayer: (v: boolean) => void;
   setViewAsPlayerId: (id: string | null) => void;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, firstName: string, lastName: string, role?: UserRole) => Promise<{ data: any; error: any }>;
+  signUp: (email: string, password: string, firstName: string, lastName: string, role?: UserRole, playerDetailsId?: string) => Promise<{ data: any; error: any }>;
   signOut: () => Promise<void>;
 }
 
@@ -261,12 +261,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error };
   };
 
-  const signUp = async (email: string, password: string, firstName: string, lastName: string, role: UserRole = 'player') => {
+  const signUp = async (email: string, password: string, firstName: string, lastName: string, role: UserRole = 'player', playerDetailsId?: string) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { first_name: firstName, last_name: lastName, role }
+        // player_details_id wird vom DB-Trigger handle_player_account_link genutzt,
+        // um player_details.linked_user_id server-seitig zu setzen.
+        data: { first_name: firstName, last_name: lastName, role, ...(playerDetailsId ? { player_details_id: playerDetailsId } : {}) }
       }
     });
 

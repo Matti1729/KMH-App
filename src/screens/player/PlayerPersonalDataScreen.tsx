@@ -306,18 +306,20 @@ export function PlayerPersonalDataScreen() {
     try {
       let playerDetailsId = viewAsPlayerId || null;
 
+      // Kanonische Verknüpfung: player_details.linked_user_id == eingeloggter User.
       if (!playerDetailsId) {
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('player_details_id')
-          .eq('id', session.user.id)
-          .single();
+        const { data: linkedRow, error: linkedError } = await supabase
+          .from('player_details')
+          .select('id')
+          .eq('linked_user_id', session.user.id)
+          .limit(1)
+          .maybeSingle();
 
-        if (profileError && profileError.code !== 'PGRST116') {
-          console.warn('Profile fetch error:', profileError);
+        if (linkedError) {
+          console.warn('Linked player_details fetch error:', linkedError);
         }
 
-        playerDetailsId = profileData?.player_details_id;
+        playerDetailsId = linkedRow?.id || null;
       }
 
       if (!playerDetailsId && profile?.first_name && profile?.last_name) {
@@ -335,11 +337,14 @@ export function PlayerPersonalDataScreen() {
       }
 
       if (!playerDetailsId) {
+        // Letzter Fallback: noch kein verknüpfter Datensatz → neuen anlegen und
+        // direkt über linked_user_id mit dem User verbinden.
         const { data: newRow, error: createError } = await supabase
           .from('player_details')
           .insert({
             first_name: profile?.first_name || '',
             last_name: profile?.last_name || '',
+            linked_user_id: session.user.id,
           })
           .select('id')
           .single();
@@ -351,11 +356,6 @@ export function PlayerPersonalDataScreen() {
         }
 
         playerDetailsId = newRow.id;
-
-        await supabase
-          .from('profiles')
-          .update({ player_details_id: playerDetailsId })
-          .eq('id', session.user.id);
       }
 
       const { data: rawData, error: playerError } = await supabase
