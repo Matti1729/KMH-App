@@ -1,31 +1,48 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Platform, Image, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { supabase } from '../../config/supabase';
+import { useDialog } from '../../components/DialogProvider';
 
 export function RegisterScreen({ navigation, route }: any) {
   const { signUp } = useAuth();
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
+  const { alert: alertDialog } = useDialog();
   const playerDetailsId = route?.params?.playerDetailsId;
-  const playerName = route?.params?.playerName || '';
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+
+  // Vor-/Nachname aus dem Spielerprofil übernehmen — bleibt editierbar,
+  // falls der Spieler z.B. noch einen zweiten Vornamen ergänzen möchte.
+  const [firstName, setFirstName] = useState(route?.params?.playerFirstName || '');
+  const [lastName, setLastName] = useState(route?.params?.playerLastName || '');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordConfirm, setPasswordConfirm] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
-    if (!firstName || !lastName || !email || !password) {
-      Alert.alert('Fehler', 'Bitte alle Felder ausfüllen');
+    setError(null);
+
+    if (!firstName.trim() || !lastName.trim() || !email.trim() || !password || !passwordConfirm) {
+      setError('Bitte alle Felder ausfüllen.');
       return;
     }
+    if (password.length < 6) {
+      setError('Das Passwort muss mindestens 6 Zeichen lang sein.');
+      return;
+    }
+    if (password !== passwordConfirm) {
+      setError('Die Passwörter stimmen nicht überein.');
+      return;
+    }
+
     setLoading(true);
-    const { data: signUpData, error } = await signUp(email, password, firstName, lastName, 'player');
-    if (error) {
+    const { data: signUpData, error: signUpError } = await signUp(email.trim(), password, firstName.trim(), lastName.trim(), 'player');
+    if (signUpError) {
       setLoading(false);
-      Alert.alert('Fehler', error.message);
+      setError(signUpError.message);
       return;
     }
 
@@ -45,72 +62,179 @@ export function RegisterScreen({ navigation, route }: any) {
     }
 
     setLoading(false);
-    Alert.alert('Erfolg', 'Bitte bestätige deine E-Mail', [
-      { text: 'OK', onPress: () => navigation.navigate('Login') }
-    ]);
+    await alertDialog({ title: 'Erfolg', message: 'Bitte bestätige deine E-Mail-Adresse.' });
+    navigation.navigate('Login');
   };
+
+  const renderField = (
+    label: string,
+    value: string,
+    onChange: (t: string) => void,
+    extra?: object,
+  ) => (
+    <View style={styles.fieldWrap}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <TextInput
+        style={styles.input}
+        value={value}
+        onChangeText={(t) => { onChange(t); setError(null); }}
+        placeholderTextColor="rgba(255,255,255,0.3)"
+        {...extra}
+      />
+    </View>
+  );
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.content, { backgroundColor: colors.surface }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={[styles.back, { color: colors.textMuted }]}>← Zurück</Text>
-        </TouchableOpacity>
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <View style={styles.card}>
+          {/* Skyline-Hintergrund */}
+          <View style={styles.bgWrap} pointerEvents="none">
+            <Image
+              source={require('../../../assets/scouting-header-bg.jpg')}
+              style={styles.bgImage}
+              resizeMode="cover"
+            />
+            <View style={styles.bgOverlay} />
+          </View>
 
-        <Text style={[styles.title, { color: colors.text }]}>Registrieren</Text>
+          <View style={styles.inner}>
+            <View style={styles.titleRow}>
+              <Text style={styles.title}>Registrieren</Text>
+              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.close} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={styles.closeText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.subtitle}>Erstelle deinen persönlichen Zugang</Text>
 
-        {playerName ? (
-          <Text style={[styles.playerName, { color: colors.textSecondary }]}>
-            Spielerprofil: {playerName}
-          </Text>
-        ) : null}
+            {renderField('Vorname', firstName, setFirstName, { autoCapitalize: 'words' })}
+            {renderField('Nachname', lastName, setLastName, { autoCapitalize: 'words' })}
+            {renderField('E-Mail', email, setEmail, { keyboardType: 'email-address', autoCapitalize: 'none', autoCorrect: false })}
+            {renderField('Passwort', password, setPassword, { secureTextEntry: true })}
+            {renderField('Passwort bestätigen', passwordConfirm, setPasswordConfirm, { secureTextEntry: true, onSubmitEditing: handleRegister })}
 
-        <TextInput
-          style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
-          placeholder="Vorname" placeholderTextColor={colors.textSecondary}
-          value={firstName}
-          onChangeText={setFirstName}
-        />
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        <TextInput
-          style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
-          placeholder="Nachname" placeholderTextColor={colors.textSecondary}
-          value={lastName}
-          onChangeText={setLastName}
-        />
-
-        <TextInput
-          style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
-          placeholder="E-Mail" placeholderTextColor={colors.textSecondary}
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-
-        <TextInput
-          style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
-          placeholder="Passwort" placeholderTextColor={colors.textSecondary}
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
-
-        <TouchableOpacity style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleRegister} disabled={loading}>
-          <Text style={[styles.buttonText, { color: colors.primaryText }]}>{loading ? 'Laden...' : 'Konto erstellen'}</Text>
-        </TouchableOpacity>
-      </View>
+            <TouchableOpacity
+              style={[styles.button, loading && { opacity: 0.6 }]}
+              onPress={handleRegister}
+              disabled={loading}
+            >
+              <Text style={styles.buttonText}>{loading ? 'Wird erstellt…' : 'Konto erstellen'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  content: { flex: 1, padding: 24, maxWidth: 400, width: '100%', alignSelf: 'center' },
-  back: { fontSize: 16, color: '#666', marginBottom: 24 },
-  title: { fontSize: 28, fontWeight: 'bold', marginBottom: 32 },
-  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 12, padding: 16, fontSize: 16, marginBottom: 16 },
-  playerName: { fontSize: 15, marginBottom: 20, textAlign: 'center' as const, fontWeight: '500' as const },
-  button: { backgroundColor: '#000', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 8 },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  container: { flex: 1 },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  card: {
+    width: '100%',
+    maxWidth: 440,
+    backgroundColor: '#000',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    overflow: 'hidden',
+  },
+  bgWrap: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  bgImage: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    width: '100%',
+    height: '100%',
+    opacity: 0.85,
+    ...(Platform.OS === 'web'
+      ? ({ objectFit: 'cover', objectPosition: 'center', backgroundSize: 'cover', backgroundPosition: 'center' } as any)
+      : {}),
+  },
+  bgOverlay: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  inner: {
+    padding: 28,
+    zIndex: 1,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+    position: 'relative',
+  },
+  title: {
+    fontFamily: 'Josefin Sans',
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: '300',
+    letterSpacing: 4,
+    textTransform: 'uppercase',
+    color: 'rgba(255,255,255,0.7)',
+    textAlign: 'center',
+  },
+  close: {
+    position: 'absolute',
+    right: 0,
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeText: { fontSize: 20, color: 'rgba(255,255,255,0.7)' },
+  subtitle: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.5)',
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  fieldWrap: { marginBottom: 14 },
+  fieldLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: 'rgba(255,255,255,0.5)',
+    marginBottom: 6,
+  },
+  input: {
+    backgroundColor: '#000',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#fff',
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  button: {
+    backgroundColor: '#22c55e',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  buttonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
 });

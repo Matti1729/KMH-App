@@ -100,7 +100,7 @@ export function LoginScreen({ navigation }: any) {
       showAlert(
         'Code bestätigt',
         `Willkommen ${data.first_name} ${data.last_name}! Du wirst jetzt zur Registrierung weitergeleitet. Nach der Registrierung erhältst du eine E-Mail zur Bestätigung deiner Adresse.`,
-        () => navigation.navigate('Register', { playerDetailsId: data.id, playerName: `${data.first_name} ${data.last_name}` })
+        () => navigation.navigate('Register', { playerDetailsId: data.id, playerFirstName: data.first_name, playerLastName: data.last_name })
       );
     } catch (e) {
       setPlayerCodeError('Fehler bei der Code-Überprüfung. Bitte versuche es erneut.');

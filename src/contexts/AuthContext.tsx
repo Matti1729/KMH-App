@@ -24,7 +24,7 @@ interface AuthContextType {
   setViewAsPlayer: (v: boolean) => void;
   setViewAsPlayerId: (id: string | null) => void;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, firstName: string, lastName: string, role?: UserRole) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, firstName: string, lastName: string, role?: UserRole) => Promise<{ data: any; error: any }>;
   signOut: () => Promise<void>;
 }
 
@@ -270,7 +270,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    if (error) return { error };
+    if (error) return { data: null, error };
 
     if (role === 'advisor' && data.user) {
       const { error: advisorError } = await supabase
@@ -287,7 +287,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (advisorError) {
         console.log('Advisor insert error:', advisorError);
-        return { error: advisorError };
+        return { data: null, error: advisorError };
       }
 
       setProfile({
@@ -301,7 +301,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
     }
 
-    return { error: null };
+    return { data, error: null };
   };
 
   const signOut = async () => {
