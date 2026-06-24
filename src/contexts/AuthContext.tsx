@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useRef } from 'r
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../config/supabase';
 
-type UserRole = 'player' | 'advisor' | 'admin';
+type UserRole = 'player' | 'advisor' | 'admin' | 'athletiktrainer';
 
 interface Profile {
   id: string;
@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.warn('Advisor fetch error:', advisorError);
       }
 
-      if (advisorData && (advisorData.role === 'advisor' || advisorData.role === 'admin' || advisorData.role === 'berater')) {
+      if (advisorData && (advisorData.role === 'advisor' || advisorData.role === 'admin' || advisorData.role === 'berater' || advisorData.role === 'athletiktrainer')) {
         const normalizedRole = advisorData.role === 'berater' ? 'advisor' : advisorData.role;
         setProfile({
           id: advisorData.id,
@@ -274,7 +274,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (error) return { data: null, error };
 
-    if (role === 'advisor' && data.user) {
+    // Berater und Athletiktrainer werden beide in der advisors-Tabelle gespeichert
+    // (mit ihrer jeweiligen role). fetchProfile/RootNavigator unterscheiden danach.
+    if ((role === 'advisor' || role === 'athletiktrainer') && data.user) {
       const { error: advisorError } = await supabase
         .from('advisors')
         .insert({
@@ -282,7 +284,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           email: email,
           first_name: firstName,
           last_name: lastName,
-          role: 'advisor',
+          role: role,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         });
@@ -296,7 +298,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         id: data.user.id,
         first_name: firstName,
         last_name: lastName,
-        role: 'advisor',
+        role: role,
         email: email,
         phone: null,
         phone_country_code: null

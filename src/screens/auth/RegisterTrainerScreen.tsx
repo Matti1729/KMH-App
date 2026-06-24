@@ -1,0 +1,134 @@
+import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useDialog } from '../../components/DialogProvider';
+
+export function RegisterTrainerScreen({ navigation }: any) {
+  const { signUp } = useAuth();
+  const { colors } = useTheme();
+  const { alert: alertDialog } = useDialog();
+  const showAlert = (title: string, message: string, onOk?: () => void) => {
+    alertDialog({ title, message }).then(() => { if (onOk) onOk(); });
+  };
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleRegister = async () => {
+    if (!firstName || !lastName || !email || !password || !confirmPassword) {
+      showAlert('Fehler', 'Bitte alle Felder ausfüllen');
+      return;
+    }
+    if (password.length < 6) {
+      showAlert('Fehler', 'Das Passwort muss mindestens 6 Zeichen haben');
+      return;
+    }
+    if (password !== confirmPassword) {
+      showAlert('Fehler', 'Die Passwörter stimmen nicht überein');
+      return;
+    }
+
+    setLoading(true);
+    const { error } = await signUp(email, password, firstName, lastName, 'athletiktrainer');
+    setLoading(false);
+
+    if (error) {
+      showAlert('Fehler', error.message);
+    } else {
+      showAlert(
+        'Registrierung erfolgreich!',
+        'Dein Konto wurde erstellt. Du kannst dich jetzt anmelden.',
+        () => navigation.navigate('Login')
+      );
+    }
+  };
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.content, { backgroundColor: colors.surface }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Text style={[styles.back, { color: colors.textMuted }]}>← Zurück</Text>
+        </TouchableOpacity>
+
+        <Text style={[styles.title, { color: colors.text }]}>Athletiktrainer-Registrierung</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Erstelle dein Athletiktrainer-Konto</Text>
+
+        <TextInput
+          style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+          placeholder="Vorname" placeholderTextColor={colors.textMuted}
+          value={firstName}
+          onChangeText={setFirstName}
+        />
+
+        <TextInput
+          style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+          placeholder="Nachname" placeholderTextColor={colors.textMuted}
+          value={lastName}
+          onChangeText={setLastName}
+        />
+
+        <TextInput
+          style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+          placeholder="E-Mail" placeholderTextColor={colors.textMuted}
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
+
+        <View style={[styles.passwordContainer, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
+          <TextInput
+            style={[styles.passwordInput, { color: colors.text }]}
+            placeholder="Passwort (min. 6 Zeichen)" placeholderTextColor={colors.textMuted}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+          />
+          <TouchableOpacity
+            style={styles.showButton}
+            onPress={() => setShowPassword(!showPassword)}
+          >
+            <Text style={[styles.showButtonText, { color: colors.textMuted }]}>
+              {showPassword ? 'Verbergen' : 'Anzeigen'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={[styles.passwordContainer, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
+          <TextInput
+            style={[styles.passwordInput, { color: colors.text }]}
+            placeholder="Passwort wiederholen" placeholderTextColor={colors.textMuted}
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry={!showPassword}
+          />
+        </View>
+
+        <TouchableOpacity style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleRegister} disabled={loading}>
+          <Text style={[styles.buttonText, { color: colors.primaryText }]}>{loading ? 'Laden...' : 'Konto erstellen'}</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#fff' },
+  content: { flex: 1, padding: 24, maxWidth: 400, width: '100%', alignSelf: 'center' },
+  back: { fontSize: 16, color: '#666', marginBottom: 24 },
+  title: { fontSize: 28, fontWeight: 'bold', marginBottom: 8 },
+  subtitle: { fontSize: 16, color: '#666', marginBottom: 32 },
+  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 12, padding: 16, fontSize: 16, marginBottom: 16 },
+  passwordContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#ddd', borderRadius: 12, marginBottom: 16 },
+  passwordInput: { flex: 1, padding: 16, fontSize: 16 },
+  showButton: { paddingHorizontal: 16, paddingVertical: 16 },
+  showButtonText: { color: '#666', fontSize: 14 },
+  button: { backgroundColor: '#000', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 8 },
+  buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+});

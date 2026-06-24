@@ -3,7 +3,8 @@ import { ActivityIndicator, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../contexts/AuthContext';
-import { LoginScreen, RegisterScreen, RegisterAdvisorScreen } from '../screens/auth';
+import { LoginScreen, RegisterScreen, RegisterAdvisorScreen, RegisterTrainerScreen } from '../screens/auth';
+import { TrainerHomeScreen } from '../screens/trainer';
 import { PlayerHomeScreen, PlayerPersonalDataScreen, PerformanceScreen, KmhTeamScreen, NewsScreen, BeratungScreen } from '../screens/player';
 import { AdvisorHomeScreen, PlayerOverviewScreen, MyProfileScreen, AdminPanelScreen } from '../screens/advisor';
 import { PlayerDetailScreen } from '../screens/advisor/PlayerDetailScreen';
@@ -40,6 +41,11 @@ export function RootNavigator() {
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Register" component={RegisterScreen} />
             <Stack.Screen name="RegisterAdvisor" component={RegisterAdvisorScreen} />
+            <Stack.Screen name="RegisterTrainer" component={RegisterTrainerScreen} />
+          </>
+        ) : profile?.role === 'athletiktrainer' ? (
+          <>
+            <Stack.Screen name="TrainerHome" component={TrainerHomeScreen} />
           </>
         ) : (profile?.role === 'advisor' || profile?.role === 'admin') && !viewAsPlayer ? (
           <>

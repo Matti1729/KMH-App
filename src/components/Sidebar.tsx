@@ -23,12 +23,13 @@ interface SidebarProps {
   embedded?: boolean; // Wenn true, wird nur der Inhalt ohne Mobile-Header/Modal gerendert
   onFeedbackModalChange?: (isOpen: boolean) => void; // Callback für Feedback-Modal Status
   playerMode?: boolean; // Wenn true, wird die Spieler-Navigation verwendet
+  trainerMode?: boolean; // Wenn true, Athletiktrainer-Navigation (eigene Spielerliste)
 }
 
 // Breakpoint für Mobile
 const MOBILE_BREAKPOINT = 768;
 
-export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedded, onFeedbackModalChange, playerMode }: SidebarProps) {
+export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedded, onFeedbackModalChange, playerMode, trainerMode }: SidebarProps) {
   const { alert: alertDialog } = useDialog();
   const [hoveredNav, setHoveredNav] = useState<string | null>(null);
   const [showFeedbackModal, setShowFeedbackModalState] = useState(false);
@@ -172,7 +173,7 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
   };
 
   const goToDashboard = () => {
-    navigation.navigate(playerMode ? 'PlayerHome' : 'AdvisorDashboard');
+    navigation.navigate(trainerMode ? 'TrainerHome' : playerMode ? 'PlayerHome' : 'AdvisorDashboard');
     onNavigate?.();
   };
 
@@ -186,7 +187,11 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
   };
 
   // Sidebar Navigation - alle Bereiche
-  const navItems = playerMode
+  const navItems = trainerMode
+    ? [
+        { id: 'trainerPlayers', label: 'Meine Spieler', icon: '👤', screen: 'TrainerHome' },
+      ]
+    : playerMode
     ? [
         { id: 'personalData', label: 'Persönliche Daten', icon: '👤', screen: 'PersonalData' },
         { id: 'performance', label: 'Performance', icon: '📈', screen: 'Performance' },
@@ -253,7 +258,7 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
         </View>
 
         {/* Wissenswertes — Tools & Informationen für alle Berater */}
-        {!playerMode && (
+        {!playerMode && !trainerMode && (
           <View style={{ marginTop: 4 }}>
             <Pressable
               onHoverIn={() => setHoveredNav('wissenswertes')}

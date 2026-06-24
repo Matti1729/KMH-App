@@ -15,11 +15,12 @@ interface MobileSidebarProps {
     role?: string;
   } | null;
   playerMode?: boolean;
+  trainerMode?: boolean;
 }
 
 const SIDEBAR_WIDTH = 280;
 
-export function MobileSidebar({ visible, onClose, navigation, activeScreen, profile, playerMode }: MobileSidebarProps) {
+export function MobileSidebar({ visible, onClose, navigation, activeScreen, profile, playerMode, trainerMode }: MobileSidebarProps) {
   const slideAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [shouldRender, setShouldRender] = useState(false);
@@ -87,6 +88,7 @@ export function MobileSidebar({ visible, onClose, navigation, activeScreen, prof
           embedded
           onFeedbackModalChange={setFeedbackModalOpen}
           playerMode={playerMode}
+          trainerMode={trainerMode}
         />
       </Animated.View>
     </View>
