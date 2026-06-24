@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Pressable, RefreshControl, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Pressable, RefreshControl, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../config/supabase';
@@ -360,6 +360,7 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
   const [showTrainerAssignModal, setShowTrainerAssignModal] = useState(false);
   const [trainerList, setTrainerList] = useState<Array<{ id: string; first_name: string; last_name: string }>>([]);
   const [assignedTrainerIds, setAssignedTrainerIds] = useState<string[]>([]);
+  const [pendingTrainerIds, setPendingTrainerIds] = useState<string[]>([]); // Auswahl vor Bestätigung
   const [trainerBusy, setTrainerBusy] = useState(false);
   const [transferBusy, setTransferBusy] = useState(false);
   const [inviteCodeLoading, setInviteCodeLoading] = useState(false);
@@ -744,26 +745,36 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
         supabase.from('player_trainer_assignments').select('trainer_id').eq('player_id', pid),
       ]);
       setTrainerList(trainers || []);
-      setAssignedTrainerIds((assigns || []).map((a: any) => a.trainer_id));
+      const current = (assigns || []).map((a: any) => a.trainer_id);
+      setAssignedTrainerIds(current);
+      setPendingTrainerIds(current);
     } catch (err) {
       console.error('Trainer assign load error:', err);
     }
     setTrainerBusy(false);
   };
 
-  const toggleTrainerAssignment = async (trainerId: string) => {
+  // Auswahl nur lokal umschalten (noch kein DB-Write).
+  const toggleTrainerPending = (trainerId: string) => {
+    setPendingTrainerIds(prev => prev.includes(trainerId) ? prev.filter(id => id !== trainerId) : [...prev, trainerId]);
+  };
+
+  // Bestätigen: Differenz zwischen Auswahl und Ist-Zuweisung schreiben.
+  const confirmTrainerAssignments = async () => {
     const pid = selectedPlayer?.id;
     if (!pid) return;
-    const isAssigned = assignedTrainerIds.includes(trainerId);
+    const toAdd = pendingTrainerIds.filter(id => !assignedTrainerIds.includes(id));
+    const toRemove = assignedTrainerIds.filter(id => !pendingTrainerIds.includes(id));
     setTrainerBusy(true);
     try {
-      if (isAssigned) {
-        await supabase.from('player_trainer_assignments').delete().eq('player_id', pid).eq('trainer_id', trainerId);
-        setAssignedTrainerIds(prev => prev.filter(id => id !== trainerId));
-      } else {
-        await supabase.from('player_trainer_assignments').insert({ player_id: pid, trainer_id: trainerId, assigned_by: session?.user?.id || null });
-        setAssignedTrainerIds(prev => [...prev, trainerId]);
+      for (const tid of toRemove) {
+        await supabase.from('player_trainer_assignments').delete().eq('player_id', pid).eq('trainer_id', tid);
       }
+      for (const tid of toAdd) {
+        await supabase.from('player_trainer_assignments').insert({ player_id: pid, trainer_id: tid, assigned_by: session?.user?.id || null });
+      }
+      setAssignedTrainerIds(pendingTrainerIds);
+      setShowTrainerAssignModal(false);
     } catch (err: any) {
       alertDialog({ title: 'Fehler', message: 'Zuweisung fehlgeschlagen: ' + (err?.message || String(err)) });
     }
@@ -2191,12 +2202,12 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
   const trainerAssignOverlay = showTrainerAssignModal ? (
     <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 100 }}>
       <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setShowTrainerAssignModal(false)} />
-      <View style={{ width: '100%', maxWidth: 440, backgroundColor: '#000', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', overflow: 'hidden' }}>
+      <View style={{ width: '100%', maxWidth: 520, backgroundColor: '#000', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', overflow: 'hidden' }}>
         <Image source={require('../../../assets/scouting-header-bg.jpg')} style={[StyleSheet.absoluteFillObject, { opacity: 0.85, ...({ objectFit: 'cover', objectPosition: 'center' } as any) }]} resizeMode="cover" />
         <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.55)' }]} />
         <View style={{ padding: 22 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-            <Text numberOfLines={1} style={{ flex: 1, fontFamily: 'Josefin Sans', fontSize: 15, lineHeight: 22, fontWeight: '300', letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(255,255,255,0.85)', textAlign: 'center', paddingLeft: 28 }}>An Athletiktrainer übergeben</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4 }}>
+            <Text style={{ flex: 1, fontFamily: 'Josefin Sans', fontSize: 15, lineHeight: 22, fontWeight: '300', letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.85)', textAlign: 'center', paddingLeft: 28 }}>An Athletiktrainer übergeben</Text>
             <TouchableOpacity onPress={() => setShowTrainerAssignModal(false)} style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center' }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Text style={{ fontSize: 20, color: 'rgba(255,255,255,0.7)' }}>✕</Text>
             </TouchableOpacity>
@@ -2207,17 +2218,24 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
               {trainerBusy ? 'Lädt …' : 'Noch kein Athletiktrainer registriert.'}
             </Text>
           ) : (
-            trainerList.map(t => {
-              const assigned = assignedTrainerIds.includes(t.id);
-              return (
-                <TouchableOpacity key={t.id} onPress={() => toggleTrainerAssignment(t.id)} disabled={trainerBusy}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 10, marginBottom: 6, borderWidth: 1, borderColor: assigned ? 'rgba(34,197,94,0.5)' : 'rgba(255,255,255,0.15)', backgroundColor: assigned ? 'rgba(34,197,94,0.15)' : 'rgba(0,0,0,0.4)' }}>
-                  <Ionicons name={assigned ? 'checkmark-circle' : 'ellipse-outline'} size={20} color={assigned ? '#22c55e' : 'rgba(255,255,255,0.4)'} />
-                  <Text style={{ flex: 1, fontSize: 14, color: '#fff' }}>{t.first_name} {t.last_name}</Text>
-                  <Text style={{ fontSize: 11, color: assigned ? '#22c55e' : 'rgba(255,255,255,0.4)' }}>{assigned ? 'zugewiesen' : 'zuweisen'}</Text>
-                </TouchableOpacity>
-              );
-            })
+            <>
+              {trainerList.map(t => {
+                const selected = pendingTrainerIds.includes(t.id);
+                return (
+                  <TouchableOpacity key={t.id} onPress={() => toggleTrainerPending(t.id)} disabled={trainerBusy}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 10, marginBottom: 6, borderWidth: 1, borderColor: selected ? 'rgba(34,197,94,0.5)' : 'rgba(255,255,255,0.15)', backgroundColor: selected ? 'rgba(34,197,94,0.15)' : 'rgba(0,0,0,0.4)' }}>
+                    <Ionicons name={selected ? 'checkmark-circle' : 'ellipse-outline'} size={20} color={selected ? '#22c55e' : 'rgba(255,255,255,0.4)'} />
+                    <Text style={{ flex: 1, fontSize: 14, color: '#fff' }}>{t.first_name} {t.last_name}</Text>
+                    <Text style={{ fontSize: 11, color: selected ? '#22c55e' : 'rgba(255,255,255,0.4)' }}>{selected ? 'ausgewählt' : 'auswählen'}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+              <TouchableOpacity onPress={confirmTrainerAssignments} disabled={trainerBusy}
+                style={{ marginTop: 10, backgroundColor: '#22c55e', borderRadius: 8, paddingVertical: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, opacity: trainerBusy ? 0.6 : 1 }}>
+                {trainerBusy && <ActivityIndicator size="small" color="#fff" />}
+                <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>Bestätigen</Text>
+              </TouchableOpacity>
+            </>
           )}
         </View>
       </View>
