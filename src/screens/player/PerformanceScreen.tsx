@@ -750,6 +750,16 @@ export function PerformanceScreen() {
     return [];
   };
 
+  // Sprünge werden – wie das Sprintprofil – als EIN Block dargestellt: alle
+  // Sprung-Graphen + Einträge untereinander, egal welcher Sprung links gewählt ist.
+  // (Die Eingabe neuer Werte bleibt je Sprung über die linke Auswahl.)
+  const JUMP_METRICS = ['cmj', 'sj', 'dj', 'ht'];
+  const JUMP_TYPES = ['cmj', 'sj', 'dj', 'dj_rsi', 'ht', 'ht_rsi'];
+  const getDisplayTypes = (metric: string | null): string[] => {
+    if (metric && JUMP_METRICS.includes(metric)) return JUMP_TYPES;
+    return metric ? getTypesForMetric(metric) : [];
+  };
+
   const parseNum = (v: string) => parseFloat(v.replace(',', '.'));
 
   const saveMeasurement = async () => {
@@ -790,7 +800,7 @@ export function PerformanceScreen() {
 
   const saveEditedValues = async (groupDate: string, items: typeof measurements) => {
     if (!player?.id || !selectedMetric) return;
-    const types = getTypesForMetric(selectedMetric);
+    const types = getDisplayTypes(selectedMetric);
     for (const type of types) {
       const existing = items.find(e => e.type === type);
       const rawVal = editValues[type];
@@ -1421,7 +1431,7 @@ export function PerformanceScreen() {
                       <View style={{ minHeight: 120, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
                         <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 13 }}>Klicke links auf eine Kategorie</Text>
                       </View>
-                    ) : getChartData(selectedMetric).length === 0 ? (
+                    ) : !measurements.some(m => getDisplayTypes(selectedMetric).includes(m.type)) ? (
                       <View style={{ minHeight: 120, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
                         <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 13 }}>Noch keine Daten vorhanden</Text>
                         <TouchableOpacity onPress={() => { const t = new Date(); setAddDay(String(t.getDate())); setAddMonth(String(t.getMonth()+1)); setAddYear(String(t.getFullYear())); setAddValue(''); setAddValue2(''); setAddValue3(''); setAddValue4(''); setAddNote(''); setShowAddForm(true); }} style={{ marginTop: 12, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}>
@@ -1430,13 +1440,13 @@ export function PerformanceScreen() {
                       </View>
                     ) : (
                       <View>
-                        {getTypesForMetric(selectedMetric).map(t => renderCategoryChart(t))}
+                        {getDisplayTypes(selectedMetric).map(t => renderCategoryChart(t))}
                       </View>
                     )}
 
                     {/* Einträge-Liste (gruppiert nach Datum) */}
                     {selectedMetric && (() => {
-                      const types = getTypesForMetric(selectedMetric);
+                      const types = getDisplayTypes(selectedMetric);
                       const entries = measurements.filter(m => types.includes(m.type)).sort((a, b) => b.measured_at.localeCompare(a.measured_at));
                       if (entries.length === 0 && !showAddForm) return null;
                       const typeLabels: Record<string, string> = { height: 'Größe', weight: 'Gewicht', sprint_10m: '10m', sprint_20m: '20m', sprint_30m: '30m', vmax: 'Vmax', cmj: 'CMJ', sj: 'SJ', dj: 'DJ', dj_rsi: 'DJ RSI', ht: 'HT', ht_rsi: 'HT RSI' };
