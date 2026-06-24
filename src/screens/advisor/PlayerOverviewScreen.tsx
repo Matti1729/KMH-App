@@ -2186,15 +2186,24 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
   // EditableValue ist jetzt außerhalb des Component-Scopes definiert (siehe oben),
   // damit der TextInput beim Tippen nicht unmounted wird.
 
-  const trainerAssignModalJsx = (
-    <Modal visible={showTrainerAssignModal} transparent animationType="fade" onRequestClose={() => setShowTrainerAssignModal(false)}>
-      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 16 }}>
-        <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setShowTrainerAssignModal(false)} />
-        <View style={{ backgroundColor: colors.surface, borderRadius: 16, padding: 20, width: '100%', maxWidth: 420 }}>
-          <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: 2 }}>An Athletiktrainer übergeben</Text>
-          <Text style={{ fontSize: 11, color: colors.textSecondary, marginBottom: 16 }}>{selectedPlayer?.first_name} {selectedPlayer?.last_name} — wähle, wer diesen Spieler in seiner Liste sieht.</Text>
+  // Overlay-Inhalt der Trainer-Zuweisung (wird INNERHALB des Detail-Modals gerendert,
+  // damit es zuverlässig über dem Spielerprofil liegt — RN-Web-Modal-Stacking ist sonst unzuverlässig).
+  const trainerAssignOverlay = showTrainerAssignModal ? (
+    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 100 }}>
+      <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setShowTrainerAssignModal(false)} />
+      <View style={{ width: '100%', maxWidth: 440, backgroundColor: '#000', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', overflow: 'hidden' }}>
+        <Image source={require('../../../assets/scouting-header-bg.jpg')} style={[StyleSheet.absoluteFillObject, { opacity: 0.85, ...({ objectFit: 'cover', objectPosition: 'center' } as any) }]} resizeMode="cover" />
+        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.55)' }]} />
+        <View style={{ padding: 22 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 4 }}>
+            <Text style={{ fontFamily: 'Josefin Sans', fontSize: 16, lineHeight: 22, fontWeight: '300', letterSpacing: 4, textTransform: 'uppercase', color: 'rgba(255,255,255,0.85)', textAlign: 'center' }}>An Athletiktrainer übergeben</Text>
+            <TouchableOpacity onPress={() => setShowTrainerAssignModal(false)} style={{ position: 'absolute', right: 0, width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={{ fontSize: 20, color: 'rgba(255,255,255,0.7)' }}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', marginBottom: 18, textAlign: 'center' }}>{selectedPlayer?.first_name} {selectedPlayer?.last_name}</Text>
           {trainerList.length === 0 ? (
-            <Text style={{ fontSize: 13, color: colors.textMuted, paddingVertical: 12, textAlign: 'center' }}>
+            <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', paddingVertical: 14, textAlign: 'center' }}>
               {trainerBusy ? 'Lädt …' : 'Noch kein Athletiktrainer registriert.'}
             </Text>
           ) : (
@@ -2202,21 +2211,18 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
               const assigned = assignedTrainerIds.includes(t.id);
               return (
                 <TouchableOpacity key={t.id} onPress={() => toggleTrainerAssignment(t.id)} disabled={trainerBusy}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11, paddingHorizontal: 8, borderRadius: 8, marginBottom: 4, backgroundColor: assigned ? 'rgba(34,197,94,0.12)' : colors.surfaceSecondary }}>
-                  <Text style={{ fontSize: 18 }}>{assigned ? '✅' : '⬜'}</Text>
-                  <Text style={{ flex: 1, fontSize: 14, color: colors.text }}>{t.first_name} {t.last_name}</Text>
-                  <Text style={{ fontSize: 11, color: assigned ? '#22c55e' : colors.textMuted }}>{assigned ? 'zugewiesen' : 'tippen zum Zuweisen'}</Text>
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 10, marginBottom: 6, borderWidth: 1, borderColor: assigned ? 'rgba(34,197,94,0.5)' : 'rgba(255,255,255,0.15)', backgroundColor: assigned ? 'rgba(34,197,94,0.15)' : 'rgba(0,0,0,0.4)' }}>
+                  <Ionicons name={assigned ? 'checkmark-circle' : 'ellipse-outline'} size={20} color={assigned ? '#22c55e' : 'rgba(255,255,255,0.4)'} />
+                  <Text style={{ flex: 1, fontSize: 14, color: '#fff' }}>{t.first_name} {t.last_name}</Text>
+                  <Text style={{ fontSize: 11, color: assigned ? '#22c55e' : 'rgba(255,255,255,0.4)' }}>{assigned ? 'zugewiesen' : 'zuweisen'}</Text>
                 </TouchableOpacity>
               );
             })
           )}
-          <TouchableOpacity onPress={() => setShowTrainerAssignModal(false)} style={{ marginTop: 12, alignSelf: 'center' }}>
-            <Text style={{ fontSize: 12, color: colors.textSecondary }}>Schließen</Text>
-          </TouchableOpacity>
         </View>
       </View>
-    </Modal>
-  );
+    </View>
+  ) : null;
 
   const playerDetailModalJsx = selectedPlayer && (
     <Modal visible={showPlayerDetailModal} transparent animationType={isMobile ? 'slide' : 'fade'} onRequestClose={closePlayerDetailModal}>
@@ -3330,6 +3336,7 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
             </View>
           </View>
         )}
+        {trainerAssignOverlay}
       </View>
     </Modal>
   );
@@ -3637,7 +3644,6 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
           </Modal>
 
           {playerDetailModalJsx}
-          {trainerAssignModalJsx}
         </View>
       </View>
     );
@@ -4085,7 +4091,6 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
         </Modal>
 
         {playerDetailModalJsx}
-        {trainerAssignModalJsx}
       </View>
     </View>
   );
