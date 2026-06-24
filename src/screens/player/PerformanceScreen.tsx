@@ -13,7 +13,7 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Sidebar } from '../../components/Sidebar';
 import { MobileSidebar } from '../../components/MobileSidebar';
@@ -667,6 +667,10 @@ const portraitStyles = StyleSheet.create({
 
 export function PerformanceScreen() {
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  // Athletiktrainer öffnet einen zugewiesenen Spieler per Route-Param (ohne globalen viewAsPlayer-Switch).
+  const routePlayerId: string | undefined = route.params?.playerId;
+  const isTrainerView: boolean = route.params?.trainerMode === true;
   const { session, profile, viewAsPlayerId } = useAuth();
   const { colors, isDark } = useTheme();
   const { confirm: confirmDialog } = useDialog();
@@ -1063,7 +1067,7 @@ export function PerformanceScreen() {
   const fetchPlayer = useCallback(async () => {
     if (!session?.user?.id) { setLoading(false); return; }
     try {
-      let playerDetailsId = viewAsPlayerId || null;
+      let playerDetailsId = routePlayerId || viewAsPlayerId || null;
 
       // Kanonische Verknüpfung: player_details.linked_user_id == eingeloggter User.
       if (!playerDetailsId) {
@@ -1100,7 +1104,7 @@ export function PerformanceScreen() {
     } finally {
       setLoading(false);
     }
-  }, [session?.user?.id, profile?.first_name, profile?.last_name, viewAsPlayerId]);
+  }, [session?.user?.id, profile?.first_name, profile?.last_name, viewAsPlayerId, routePlayerId]);
 
   const fetchClubLogos = useCallback(async () => {
     const { data } = await supabase.from('club_logos').select('club_name, logo_url');
@@ -2374,9 +2378,10 @@ export function PerformanceScreen() {
           visible={showMobileSidebar}
           onClose={() => setShowMobileSidebar(false)}
           navigation={navigation}
-          activeScreen="performance"
+          activeScreen={isTrainerView ? 'trainerPlayers' : 'performance'}
           profile={profile as any}
-          playerMode
+          playerMode={!isTrainerView}
+          trainerMode={isTrainerView}
         />
         <MobileHeader title="Performance" onMenuPress={() => setShowMobileSidebar(true)} />
         <View style={{ flex: 1, position: 'relative' }}>
@@ -2390,7 +2395,7 @@ export function PerformanceScreen() {
 
   return (
     <View style={[styles.containerDesktop, { backgroundColor: colors.background }]}>
-      <Sidebar navigation={navigation} activeScreen="performance" profile={profile as any} playerMode />
+      <Sidebar navigation={navigation} activeScreen={isTrainerView ? 'trainerPlayers' : 'performance'} profile={profile as any} playerMode={!isTrainerView} trainerMode={isTrainerView} />
       <View style={[styles.mainContent, { position: 'relative' }]}>
         <Image source={BACKGROUND_IMAGE} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectPosition: 'center 75%' } as any} resizeMode="cover" />
         <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.7)' }]} />

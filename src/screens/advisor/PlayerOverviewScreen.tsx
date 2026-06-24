@@ -312,8 +312,10 @@ const EditableValue = React.memo(({ field, displayValue, playerValue, placeholde
   );
 });
 
-export function PlayerOverviewScreen({ navigation }: any) {
+export function PlayerOverviewScreen({ navigation, route }: any) {
   const isMobile = useIsMobile();
+  // Athletiktrainer-Modus: gleiche Liste, aber nur zugewiesene Spieler + ohne Berater-Aktionen.
+  const trainerMode = route?.params?.trainerMode === true;
   const { session, loading: authLoading } = useAuth();
   const { colors, isDark } = useTheme();
   const { confirm: confirmDialog, alert: alertDialog } = useDialog();
@@ -726,6 +728,11 @@ export function PlayerOverviewScreen({ navigation }: any) {
   };
 
   const handlePlayerClick = (player: Player) => {
+    // Trainer: eingegrenzte Profilansicht statt der Berater-Detailmaske.
+    if (trainerMode) {
+      navigation.navigate('TrainerPlayerDetail', { playerId: player.id });
+      return;
+    }
     if (hasAccessToPlayer(player.id)) {
       setSelectedPlayer(player);
       setShowPlayerDetailModal(true);
@@ -1000,10 +1007,23 @@ export function PlayerOverviewScreen({ navigation }: any) {
     }
 
     try {
-      const { data, error: queryError } = await supabase
+      let query = supabase
         .from('player_details')
         .select('id, first_name, last_name, birth_date, position, club, league, contract_end, listing, responsibility, future_club')
         .order('last_name', { ascending: true });
+
+      // Trainer sieht nur die ihm zugewiesenen Spieler.
+      if (trainerMode) {
+        const { data: assigns } = await supabase
+          .from('player_trainer_assignments')
+          .select('player_id')
+          .eq('trainer_id', session?.user?.id || '');
+        const ids = (assigns || []).map((a: any) => a.player_id);
+        if (ids.length === 0) { setPlayers([]); setError(null); setLoading(false); return; }
+        query = query.in('id', ids);
+      }
+
+      const { data, error: queryError } = await query;
 
       if (queryError) {
         console.warn(`Spieler laden fehlgeschlagen (Versuch ${retryCount + 1}/${MAX_RETRIES}):`, queryError);
@@ -3240,14 +3260,15 @@ export function PlayerOverviewScreen({ navigation }: any) {
           visible={showMobileSidebar}
           onClose={() => setShowMobileSidebar(false)}
           navigation={navigation}
-          activeScreen="players"
+          activeScreen={trainerMode ? 'trainerPlayers' : 'players'}
           profile={profile}
+          trainerMode={trainerMode}
         />
 
         <View style={[styles.mainContentMobile, { backgroundColor: 'transparent' }]}>
           {/* Mobile Header (Hero-Card-Stil wie Desktop) */}
           <MobileHeader
-            title="KMH-Spieler"
+            title={trainerMode ? 'Meine Spieler' : 'KMH-Spieler'}
             subtitle={`${filteredPlayers.length} aktive Profile`}
             backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
             backgroundImageOpacity={0.45}
@@ -3306,9 +3327,11 @@ export function PlayerOverviewScreen({ navigation }: any) {
           </ScrollView>
 
           {/* FAB Button */}
-          <TouchableOpacity style={[styles.fab, { backgroundColor: colors.primary }]} onPress={() => setShowAddModal(true)}>
-            <Text style={[styles.fabText, { color: colors.primaryText }]}>+</Text>
-          </TouchableOpacity>
+          {!trainerMode && (
+            <TouchableOpacity style={[styles.fab, { backgroundColor: colors.primary }]} onPress={() => setShowAddModal(true)}>
+              <Text style={[styles.fabText, { color: colors.primaryText }]}>+</Text>
+            </TouchableOpacity>
+          )}
 
           {/* Mobile Filter Modal */}
           <Modal visible={showMobileFilters} transparent animationType="slide">
@@ -3541,7 +3564,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
     <View style={[styles.container, { backgroundColor: 'transparent' }]}>
       {/* Sidebar / Mobile Header */}
       <AdvisorBackground />
-      <Sidebar navigation={navigation} activeScreen="players" profile={profile} />
+      <Sidebar navigation={navigation} activeScreen={trainerMode ? 'trainerPlayers' : 'players'} profile={profile} trainerMode={trainerMode} />
 
       {/* Main Content */}
       <View style={[styles.mainContent, { backgroundColor: 'transparent' }]}>
@@ -3731,7 +3754,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
             </View>
           </View>
           
-          <TouchableOpacity style={[styles.filterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }]} onPress={() => setShowAddModal(true)}><Ionicons name="person-add-outline" size={12} color={colors.textSecondary} /></TouchableOpacity>
+          {!trainerMode && <TouchableOpacity style={[styles.filterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }]} onPress={() => setShowAddModal(true)}><Ionicons name="person-add-outline" size={12} color={colors.textSecondary} /></TouchableOpacity>}
           </Pressable>
         </View>
 

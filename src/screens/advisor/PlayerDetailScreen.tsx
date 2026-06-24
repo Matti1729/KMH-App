@@ -437,6 +437,11 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   const [showInviteCodeModal, setShowInviteCodeModal] = useState(false);
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [inviteCodeLoading, setInviteCodeLoading] = useState(false);
+  // Athletiktrainer-Zuweisung
+  const [showTrainerModal, setShowTrainerModal] = useState(false);
+  const [trainerList, setTrainerList] = useState<Array<{ id: string; first_name: string; last_name: string }>>([]);
+  const [assignedTrainerIds, setAssignedTrainerIds] = useState<string[]>([]);
+  const [trainerBusy, setTrainerBusy] = useState(false);
   const [leagueSearch, setLeagueSearch] = useState('');
   const [parsingContract, setParsingContract] = useState(false);
   const [selectedPositions, setSelectedPositions] = useState<string[]>([]);
@@ -2330,6 +2335,43 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     setInviteCodeLoading(false);
   };
 
+  // Athletiktrainer-Zuweisung öffnen: Trainerliste + aktuelle Zuweisungen laden.
+  const openTrainerAssign = async () => {
+    if (!player) return;
+    setTrainerBusy(true);
+    setShowTrainerModal(true);
+    try {
+      const [{ data: trainers }, { data: assigns }] = await Promise.all([
+        supabase.from('advisors').select('id, first_name, last_name').eq('role', 'athletiktrainer').order('last_name', { ascending: true }),
+        supabase.from('player_trainer_assignments').select('trainer_id').eq('player_id', player.id),
+      ]);
+      setTrainerList(trainers || []);
+      setAssignedTrainerIds((assigns || []).map((a: any) => a.trainer_id));
+    } catch (err) {
+      console.error('Trainer assign load error:', err);
+    }
+    setTrainerBusy(false);
+  };
+
+  const toggleTrainerAssignment = async (trainerId: string) => {
+    if (!player) return;
+    const isAssigned = assignedTrainerIds.includes(trainerId);
+    setTrainerBusy(true);
+    try {
+      if (isAssigned) {
+        await supabase.from('player_trainer_assignments').delete().eq('player_id', player.id).eq('trainer_id', trainerId);
+        setAssignedTrainerIds(prev => prev.filter(id => id !== trainerId));
+      } else {
+        const { data: userData } = await supabase.auth.getUser();
+        await supabase.from('player_trainer_assignments').insert({ player_id: player.id, trainer_id: trainerId, assigned_by: userData?.user?.id || null });
+        setAssignedTrainerIds(prev => [...prev, trainerId]);
+      }
+    } catch (err: any) {
+      alertDialog({ title: 'Fehler', message: 'Zuweisung fehlgeschlagen: ' + (err?.message || String(err)) });
+    }
+    setTrainerBusy(false);
+  };
+
   const startEditing = () => {
     if (editData && !editData.contract_end) {
       setEditData({ ...editData, contract_end: `${new Date().getFullYear()}-06-30` });
@@ -3888,6 +3930,9 @@ export function PlayerDetailScreen({ route, navigation }: any) {
               <TouchableOpacity style={[styles.editButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, marginRight: 8 }]} onPress={handleInviteCode} disabled={inviteCodeLoading}>
                 <Text style={[styles.editButtonText, { color: '#3b82f6' }]}>{inviteCodeLoading ? '...' : '🔑 Code'}</Text>
               </TouchableOpacity>
+              <TouchableOpacity style={[styles.editButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, marginRight: 8 }]} onPress={openTrainerAssign}>
+                <Text style={[styles.editButtonText, { color: '#22c55e' }]}>🏋️ Trainer</Text>
+              </TouchableOpacity>
               <TouchableOpacity style={[styles.editButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]} onPress={startEditing}>
                 <Text style={[styles.editButtonText, { color: colors.textSecondary }]}>Bearbeiten</Text>
               </TouchableOpacity>
@@ -3918,6 +3963,37 @@ export function PlayerDetailScreen({ route, navigation }: any) {
             <Text style={{ fontSize: 10, color: colors.textMuted, marginBottom: 16 }}>Gültig bis zur Registrierung</Text>
             <TouchableOpacity onPress={() => setShowInviteCodeModal(false)}>
               <Text style={{ fontSize: 11, color: colors.textSecondary }}>Schließen</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Athletiktrainer-Zuweisung Modal */}
+      <Modal visible={showTrainerModal} transparent animationType="fade" onRequestClose={() => setShowTrainerModal(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 16 }}>
+          <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setShowTrainerModal(false)} />
+          <View style={{ backgroundColor: colors.surface, borderRadius: 16, padding: 20, width: '100%', maxWidth: 420 }}>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: 2 }}>An Athletiktrainer übergeben</Text>
+            <Text style={{ fontSize: 11, color: colors.textSecondary, marginBottom: 16 }}>{player?.first_name} {player?.last_name} — wähle, wer diesen Spieler in seiner Liste sieht.</Text>
+            {trainerList.length === 0 ? (
+              <Text style={{ fontSize: 13, color: colors.textMuted, paddingVertical: 12, textAlign: 'center' }}>
+                {trainerBusy ? 'Lädt …' : 'Noch kein Athletiktrainer registriert.'}
+              </Text>
+            ) : (
+              trainerList.map(t => {
+                const assigned = assignedTrainerIds.includes(t.id);
+                return (
+                  <TouchableOpacity key={t.id} onPress={() => toggleTrainerAssignment(t.id)} disabled={trainerBusy}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11, paddingHorizontal: 8, borderRadius: 8, marginBottom: 4, backgroundColor: assigned ? 'rgba(34,197,94,0.12)' : colors.surfaceSecondary }}>
+                    <Text style={{ fontSize: 18 }}>{assigned ? '✅' : '⬜'}</Text>
+                    <Text style={{ flex: 1, fontSize: 14, color: colors.text }}>{t.first_name} {t.last_name}</Text>
+                    <Text style={{ fontSize: 11, color: assigned ? '#22c55e' : colors.textMuted }}>{assigned ? 'zugewiesen' : 'tippen zum Zuweisen'}</Text>
+                  </TouchableOpacity>
+                );
+              })
+            )}
+            <TouchableOpacity onPress={() => setShowTrainerModal(false)} style={{ marginTop: 12, alignSelf: 'center' }}>
+              <Text style={{ fontSize: 12, color: colors.textSecondary }}>Schließen</Text>
             </TouchableOpacity>
           </View>
         </View>
