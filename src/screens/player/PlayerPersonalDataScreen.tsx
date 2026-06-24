@@ -261,6 +261,20 @@ export function PlayerPersonalDataScreen() {
   const [editInstagram, setEditInstagram] = useState('');
   const [editTiktok, setEditTiktok] = useState('');
   const [editLinkedin, setEditLinkedin] = useState('');
+  const [editInternat, setEditInternat] = useState(false);
+  const [internatOpen, setInternatOpen] = useState(false);
+
+  // Click-Outside schließt das Internat-Dropdown (nur Web).
+  useEffect(() => {
+    if (!internatOpen || typeof document === 'undefined') return;
+    const handler = (e: any) => {
+      const t = e.target;
+      if (t && t.closest && t.closest('[data-kmhdropdown]')) return;
+      setInternatOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [internatOpen]);
 
   const populateForm = (p: PlayerDetails) => {
     if (p.birth_date) {
@@ -298,6 +312,7 @@ export function PlayerPersonalDataScreen() {
     setEditInstagram(p.instagram || '');
     setEditTiktok(p.tiktok || '');
     setEditLinkedin(p.linkedin || '');
+    setEditInternat((p as any).internat === true);
   };
 
   const fetchPlayerDetails = useCallback(async () => {
@@ -520,6 +535,12 @@ export function PlayerPersonalDataScreen() {
     }
   };
 
+  // Die Spieler-E-Mail wird automatisch auf die Registrierungs-E-Mail gesetzt
+  // (= Login-E-Mail des Accounts). Im "Als Spieler ansehen"-Modus (Berater)
+  // ist session.user.email der Berater — dann den gespeicherten Wert behalten.
+  const getRegistrationEmail = (): string =>
+    (!viewAsPlayerId && session?.user?.email) ? session.user.email : (player?.email || '');
+
   const saveAll = async () => {
     if (!player) return;
     setSaving(true);
@@ -532,7 +553,7 @@ export function PlayerPersonalDataScreen() {
         birth_date_player: editBirthDate || null,
         phone_player: editPhone || null,
         phone_country_code_player: editPhoneCountryCode || null,
-        email_player: editEmail || null,
+        email_player: getRegistrationEmail() || null,
         street_player: editStreet || null,
         postal_code_player: editPostalCode || null,
         city_player: editCity || null,
@@ -551,6 +572,7 @@ export function PlayerPersonalDataScreen() {
         instagram_player: editInstagram || null,
         tiktok_player: editTiktok || null,
         linkedin_player: editLinkedin || null,
+        internat_player: editInternat,
         additional_info_player: additionalInfo || null,
       };
 
@@ -569,7 +591,7 @@ export function PlayerPersonalDataScreen() {
           birth_date: editBirthDate,
           phone: editPhone,
           phone_country_code: editPhoneCountryCode,
-          email: editEmail,
+          email: getRegistrationEmail(),
           street: editStreet,
           postal_code: editPostalCode,
           city: editCity,
@@ -588,6 +610,7 @@ export function PlayerPersonalDataScreen() {
           instagram: editInstagram,
           tiktok: editTiktok,
           linkedin: editLinkedin,
+          internat: editInternat,
           interests: additionalInfo,
           other_notes: '',
         };
@@ -754,7 +777,11 @@ export function PlayerPersonalDataScreen() {
                       <TextInput style={styles.editInput} value={editPhone} onChangeText={setEditPhone} placeholder="1701234567" placeholderTextColor={colors.textMuted} keyboardType="phone-pad" />
                     </View>
                   </View>
-                  <EditField label="E-Mail" value={editEmail} onChangeText={setEditEmail} colors={colors} keyboardType="email-address" placeholder="max.mustermann@example.com" />
+                  <View style={styles.editFieldContainer}>
+                    <Text style={styles.editFieldLabel}>E-Mail</Text>
+                    <Text style={{ fontSize: 13, color: '#fff', paddingVertical: 4 }}>{getRegistrationEmail() || '-'}</Text>
+                    <Text style={{ fontSize: 10, color: colors.textMuted, marginTop: 2 }}>Automatisch aus deiner Registrierung</Text>
+                  </View>
                   <EditField label="Straße" value={editStreet} onChangeText={setEditStreet} colors={colors} placeholder="Musterstraße 12" />
                   <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>PLZ / Ort</Text>
                   <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
@@ -765,13 +792,41 @@ export function PlayerPersonalDataScreen() {
                       <TextInput style={styles.editInput} value={editCity} onChangeText={setEditCity} placeholder="Musterstadt" placeholderTextColor={colors.textMuted} />
                     </View>
                   </View>
+                  <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>Internat</Text>
+                  <View
+                    style={{ position: 'relative', marginBottom: 10, zIndex: internatOpen ? 1000 : 1 }}
+                    {...({ dataSet: { kmhdropdown: 'true' } } as any)}
+                  >
+                    <TouchableOpacity
+                      style={[styles.editInput, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
+                      onPress={() => setInternatOpen(o => !o)}
+                    >
+                      <Text style={{ color: '#fff', fontSize: 13 }}>{editInternat ? 'Ja' : 'Nein'}</Text>
+                      <Ionicons name={internatOpen ? 'chevron-up' : 'chevron-down'} size={14} color="rgba(255,255,255,0.5)" />
+                    </TouchableOpacity>
+                    {internatOpen && (
+                      <View style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 2, backgroundColor: '#1e293b', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, overflow: 'hidden', zIndex: 1000, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12 }}>
+                        {[{ label: 'Ja', val: true }, { label: 'Nein', val: false }].map((opt, i) => (
+                          <TouchableOpacity
+                            key={opt.label}
+                            style={{ paddingVertical: 10, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8, borderBottomWidth: i === 0 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.08)' }}
+                            onPress={() => { setEditInternat(opt.val); setInternatOpen(false); }}
+                          >
+                            <Ionicons name={editInternat === opt.val ? 'checkmark-circle' : 'ellipse-outline'} size={16} color={editInternat === opt.val ? '#22c55e' : 'rgba(255,255,255,0.4)'} />
+                            <Text style={{ color: '#fff', fontSize: 13 }}>{opt.label}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+                  </View>
                 </>
               ) : (
                 <>
 
                   <InfoRow label="Telefon" value={formatPhone(player?.phone, player?.phone_country_code)} colors={colors} />
-                  <InfoRow label="E-Mail" value={player?.email || '-'} colors={colors} />
+                  <InfoRow label="E-Mail" value={getRegistrationEmail() || '-'} colors={colors} />
                   <InfoRow label="Adresse" value={formatAddress(player?.street, player?.postal_code, player?.city)} colors={colors} />
+                  <InfoRow label="Internat" value={(player as any)?.internat ? 'Ja' : 'Nein'} colors={colors} />
                 </>
               )}
             </View>
