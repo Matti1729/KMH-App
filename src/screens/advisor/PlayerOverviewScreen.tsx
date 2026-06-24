@@ -2395,13 +2395,13 @@ export function PlayerOverviewScreen({ navigation }: any) {
                   // (z.B. unmittelbar nach dem Öffnen, vor der Detail-Fetch).
                   const primary = (fullPlayer?.position ?? selectedPlayer.position ?? '').toString().trim();
                   return (
-                    <Text style={styles.detailStatValue}>{primary || '-'}</Text>
+                    <Text style={[styles.detailStatValue, isMobile && isEditing && { textAlign: 'left' }]}>{primary || '-'}</Text>
                   );
                 })()}
               </View>
               <View style={[styles.detailStatCol, isMobile && isEditing && { flexBasis: '100%', minWidth: 0, alignItems: 'stretch' }]}>
                 <Text style={styles.detailStatLabel}>Vertragsende</Text>
-                <Text style={[styles.detailStatValue, isContractInCurrentSeason(selectedPlayer.contract_end || '') && { color: '#ef4444' }]}>
+                <Text style={[styles.detailStatValue, isMobile && isEditing && { textAlign: 'left' }, isContractInCurrentSeason(selectedPlayer.contract_end || '') && { color: '#ef4444' }]}>
                   {formatDate(selectedPlayer.contract_end)}
                 </Text>
               </View>
