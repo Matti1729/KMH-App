@@ -2312,14 +2312,16 @@ export function PlayerOverviewScreen({ navigation }: any) {
                 ) : null}
               </View>
 
-              {/* Name + Club */}
-              <View style={styles.detailHeaderCenter}>
-                <Text style={[styles.detailHeaderName, { fontSize: isMobile ? 34 : 72, lineHeight: isMobile ? 44 : 92 }]}>
-                  {selectedPlayer.first_name}
-                </Text>
-                <Text style={[styles.detailHeaderName, { fontSize: isMobile ? 34 : 72, lineHeight: isMobile ? 44 : 92 }]}>
-                  {selectedPlayer.last_name}
-                </Text>
+              {/* Name + Club — über die Foto-Höhe verteilt (Name oben, Verein unten) */}
+              <View style={[styles.detailHeaderCenter, { minHeight: isMobile ? 120 : 190, justifyContent: 'space-between' }]}>
+                <View>
+                  <Text style={[styles.detailHeaderName, { fontSize: isMobile ? 34 : 72, lineHeight: isMobile ? 44 : 76 }]}>
+                    {selectedPlayer.first_name}
+                  </Text>
+                  <Text style={[styles.detailHeaderName, { fontSize: isMobile ? 34 : 72, lineHeight: isMobile ? 44 : 76 }]}>
+                    {selectedPlayer.last_name}
+                  </Text>
+                </View>
                 <View style={styles.detailHeaderClubRow}>
                   {getClubLogo(selectedPlayer.club) && (
                     <Image source={{ uri: getClubLogo(selectedPlayer.club)! }} style={{ width: isMobile ? 32 : 44, height: isMobile ? 32 : 44 }} resizeMode="contain" />

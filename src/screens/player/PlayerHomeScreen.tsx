@@ -251,6 +251,7 @@ export function PlayerHomeScreen() {
               lines={[firstName, lastName]}
               maxFontSize={isMobile ? 34 : 72}
               letterSpacing={2}
+              lineHeightRatio={1.06}
               textStyle={styles.playerNameHuge}
             />
             {!isMobile && <Text style={[styles.headerScreenLabel, { textAlign: 'left' }]}>Karl Herzog Sportmanagement</Text>}

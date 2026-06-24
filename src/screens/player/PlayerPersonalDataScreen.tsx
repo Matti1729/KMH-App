@@ -708,6 +708,7 @@ export function PlayerPersonalDataScreen() {
                     lines={[firstName, lastName]}
                     maxFontSize={isMobile ? 34 : 72}
                     letterSpacing={2}
+                    lineHeightRatio={1.06}
                     textStyle={styles.headerName}
                   />
                   {!isMobile && (
