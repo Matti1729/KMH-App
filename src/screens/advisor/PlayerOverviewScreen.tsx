@@ -2157,7 +2157,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
                     if (!fullPlayer) return;
                     const ok = await confirmDialog({
                       title: 'Spieler löschen',
-                      message: `"${fullPlayer.first_name} ${fullPlayer.last_name}" wirklich endgültig löschen? Diese Aktion kann nicht rückgängig gemacht werden.`,
+                      message: `"${fullPlayer.first_name} ${fullPlayer.last_name}" wirklich endgültig löschen? Der Spieler verliert damit auch seinen App-Zugang (Account wird gelöscht). Diese Aktion kann nicht rückgängig gemacht werden.`,
                       danger: true,
                       confirmLabel: 'Endgültig löschen',
                     });
