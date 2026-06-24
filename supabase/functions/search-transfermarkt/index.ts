@@ -52,9 +52,31 @@ serve(async (req: Request) => {
       const posMatch = html.match(/data-header__label">Position:\s*<span[^>]*>\s*([^<]+)/);
       if (posMatch) profile.position = posMatch[1].trim().replace(/\s+/g, ' ');
 
-      // Nationalität
-      const natMatch = html.match(/Staatsbürgerschaft:[\s\S]*?&nbsp;&nbsp;([^<\n]+)/);
-      if (natMatch) profile.nationality = natMatch[1].trim();
+      // Nationalität — kann MEHRERE sein (z.B. Deutschland + Ghana). TM rendert je
+      // Staatsbürgerschaft eine Flagge mit class="flaggenrahmen" title="Land".
+      {
+        let natBlock = "";
+        const nbBounded = html.match(/Staatsbürgerschaft:([\s\S]{0,600}?)(?:Position:|Fuß:|Spielerberater|Aktueller Verein)/);
+        if (nbBounded) {
+          natBlock = nbBounded[1];
+        } else {
+          const nbWindow = html.match(/Staatsbürgerschaft:([\s\S]{0,400})/);
+          natBlock = nbWindow ? nbWindow[1] : "";
+        }
+        const nats: string[] = [];
+        const flagRe = /title="([^"]+)"[^>]*class="flaggenrahmen"|class="flaggenrahmen"[^>]*title="([^"]+)"/g;
+        let fm: RegExpExecArray | null;
+        while ((fm = flagRe.exec(natBlock)) !== null) {
+          const t = (fm[1] || fm[2] || "").trim();
+          if (t && !nats.includes(t)) nats.push(t);
+        }
+        if (nats.length === 0) {
+          // Fallback: alte Text-Logik (eine Nationalität als Text nach &nbsp;&nbsp;)
+          const fallback = natBlock.match(/&nbsp;&nbsp;([^<\n]+)/);
+          if (fallback) nats.push(fallback[1].trim());
+        }
+        if (nats.length) profile.nationality = nats.join(", ");
+      }
 
       // Verein
       const clubMatch = html.match(/Aktueller Verein:[\s\S]*?title="([^"]+)"[^>]*href="[^"]*\/startseite\/verein/);
