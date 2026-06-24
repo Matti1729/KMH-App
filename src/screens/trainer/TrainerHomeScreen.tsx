@@ -5,11 +5,12 @@ import { supabase } from '../../config/supabase';
 import { Sidebar } from '../../components/Sidebar';
 import { MobileSidebar } from '../../components/MobileSidebar';
 import { MobileHeader } from '../../components/MobileHeader';
+import { AdvisorBackground } from '../../components/AdvisorBackground';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useIsMobile } from '../../hooks/useIsMobile';
 
-const BACKGROUND_IMAGE = require('../../../assets/scouting-header-bg.jpg');
+const HEADER_IMAGE = require('../../../assets/scouting-header-bg.jpg');
 const WEEKDAYS_DE = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
 
 // Dashboard-Startseite für den Athletiktrainer (wie das Berater-Dashboard),
@@ -40,20 +41,27 @@ export function TrainerHomeScreen() {
     })();
   }, [session?.user?.id, viewAsTrainerId]);
 
+  const isHovered = hoveredCard === 'players';
   const MeineSpielerCard = (
     <Pressable
       onPress={() => navigation.navigate('TrainerPlayers')}
       onHoverIn={() => setHoveredCard('players')}
       onHoverOut={() => setHoveredCard(null)}
-      style={[styles.card, { width: isMobile ? '100%' : cardWidth, backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}
+      style={[
+        styles.card,
+        styles.uniformCard,
+        { width: isMobile ? '100%' : cardWidth, backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' },
+        isHovered && Platform.OS === 'web' ? ({ backdropFilter: 'none', WebkitBackdropFilter: 'none' } as any) : null,
+        isHovered && { backgroundColor: 'transparent' },
+      ]}
     >
-      <View style={styles.cardHeader}>
+      <View style={styles.uniformCardHeader}>
         <View style={{ flex: 1 }} />
-        <Text style={styles.cardCount}>{playerCount}</Text>
+        <Text style={styles.uniformCardCount}>{playerCount}</Text>
       </View>
-      <View style={styles.cardFooter}>
-        <Text style={styles.cardTitle}>Meine Spieler</Text>
-        <Text style={styles.cardSubtitle}>Zugewiesene Spieler & Performance</Text>
+      <View style={[styles.uniformCardFooter, isHovered && { backgroundColor: 'transparent' }]}>
+        <Text style={styles.uniformCardTitle}>Meine Spieler</Text>
+        <Text style={styles.uniformCardSubtitle}>Zugewiesene Spieler & Performance</Text>
       </View>
     </Pressable>
   );
@@ -70,11 +78,10 @@ export function TrainerHomeScreen() {
 
   if (isMobile) {
     return (
-      <View style={[styles.containerMobile, { backgroundColor: colors.background }]}>
-        <Image source={BACKGROUND_IMAGE} style={StyleSheet.absoluteFillObject as any} resizeMode="cover" />
-        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.7)' }]} />
+      <View style={[styles.containerMobile, { backgroundColor: 'transparent' }]}>
+        <AdvisorBackground />
         <MobileSidebar visible={showMobileSidebar} onClose={() => setShowMobileSidebar(false)} navigation={navigation} activeScreen="dashboard" profile={profile as any} trainerMode />
-        <MobileHeader title="Dashboard" backgroundImage={BACKGROUND_IMAGE} onMenuPress={() => setShowMobileSidebar(true)}>
+        <MobileHeader title="Dashboard" backgroundImage={HEADER_IMAGE} onMenuPress={() => setShowMobileSidebar(true)}>
           <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: '500' }}>Schönen {currentWeekday}, {profile?.first_name || 'Trainer'}!</Text>
         </MobileHeader>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
@@ -85,13 +92,12 @@ export function TrainerHomeScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Image source={BACKGROUND_IMAGE} style={StyleSheet.absoluteFillObject as any} resizeMode="cover" />
-      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.7)' }]} />
+    <View style={[styles.container, { backgroundColor: 'transparent' }]}>
+      <AdvisorBackground />
       <Sidebar navigation={navigation} activeScreen="dashboard" profile={profile as any} trainerMode />
       <View style={styles.mainContent}>
         <View style={styles.header}>
-          <Image source={BACKGROUND_IMAGE} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.85 }} resizeMode="cover" />
+          <Image source={HEADER_IMAGE} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.85 }} resizeMode="cover" />
           <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.3)' }} />
           <View style={styles.headerTopRow}>
             <View style={{ flex: 1 }} />
@@ -120,13 +126,39 @@ const styles = StyleSheet.create({
   greeting: { fontFamily: 'Josefin Sans', fontSize: 22, fontWeight: '300', letterSpacing: 1, color: '#fff' },
   uniformGrid: { gap: 16 },
   uniformGridRow: { flexDirection: 'row', gap: 16 },
+  // 3D-Lift-Basis (identisch zum Berater-Dashboard)
   card: {
-    height: 160, borderRadius: 12, padding: 20, borderWidth: 1, justifyContent: 'space-between', overflow: 'hidden',
+    borderRadius: 20,
+    overflow: 'hidden',
+    // @ts-ignore
+    cursor: 'pointer',
+    // @ts-ignore
+    transition: 'all 0.2s ease',
+    borderWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.22)',
+    borderLeftColor: 'rgba(255,255,255,0.12)',
+    borderRightColor: 'rgba(255,255,255,0.12)',
+    borderBottomColor: 'rgba(0,0,0,0.5)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.55,
+    shadowRadius: 24,
+    elevation: 12,
+    ...(Platform.OS === 'web' ? {
+      boxShadow: '0 22px 44px rgba(0,0,0,0.6), 0 6px 16px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1), inset 0 -1px 0 rgba(0,0,0,0.3)',
+    } as any : {}),
+  },
+  uniformCard: {
+    height: 160,
+    borderRadius: 12,
+    padding: 20,
+    borderWidth: 1,
+    justifyContent: 'space-between',
     ...(Platform.OS === 'web' ? { backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' } as any : {}),
   },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  cardCount: { fontFamily: 'Josefin Sans', fontSize: 32, fontWeight: '300', letterSpacing: 2, color: '#fff' },
-  cardFooter: { position: 'absolute', bottom: 14, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.45)', paddingHorizontal: 20, paddingVertical: 12 },
-  cardTitle: { fontFamily: 'Josefin Sans', fontSize: 14, fontWeight: '400', letterSpacing: 2, textTransform: 'uppercase', color: '#fff' },
-  cardSubtitle: { fontFamily: 'Josefin Sans', fontSize: 12, fontWeight: '300', letterSpacing: 1, marginTop: 4, lineHeight: 18, color: 'rgba(255,255,255,0.7)' },
+  uniformCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  uniformCardCount: { fontFamily: 'Josefin Sans', fontSize: 32, fontWeight: '300', letterSpacing: 2, color: '#fff' },
+  uniformCardFooter: { position: 'absolute', bottom: 14, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.45)', paddingHorizontal: 20, paddingVertical: 12 },
+  uniformCardTitle: { fontFamily: 'Josefin Sans', fontSize: 14, fontWeight: '400', letterSpacing: 2, textTransform: 'uppercase', color: '#fff' },
+  uniformCardSubtitle: { fontFamily: 'Josefin Sans', fontSize: 12, fontWeight: '300', letterSpacing: 1, marginTop: 4, lineHeight: 18, color: 'rgba(255,255,255,0.7)' },
 });
