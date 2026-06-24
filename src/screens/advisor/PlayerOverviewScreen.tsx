@@ -2017,7 +2017,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
     </View>
   );
 
-  const DateDropdown = ({ field, dropdownKeyPrefix }: { field: string; dropdownKeyPrefix: string }) => {
+  const DateDropdown = ({ field, dropdownKeyPrefix, birthMode = false }: { field: string; dropdownKeyPrefix: string; birthMode?: boolean }) => {
     const raw: string = editData[field] || '';
     const today = new Date();
     const parts = raw.length >= 10 ? raw.substring(0, 10).split('-') : ['', '', ''];
@@ -2028,7 +2028,11 @@ export function PlayerOverviewScreen({ navigation }: any) {
     const DAYS = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'));
     const MONTHS = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
     const currentYear = today.getFullYear();
-    const YEARS = Array.from({ length: 40 }, (_, i) => String(currentYear - 10 + i));
+    // Geburtsdatum: 1980 … heute (Vergangenheit). Sonst (Vertragsende etc.):
+    // zukunftsorientiertes Fenster currentYear-10 … +29.
+    const YEARS = birthMode
+      ? Array.from({ length: currentYear - 1980 + 1 }, (_, i) => String(1980 + i))
+      : Array.from({ length: 40 }, (_, i) => String(currentYear - 10 + i));
 
     const todayY = String(today.getFullYear());
     const todayM = String(today.getMonth() + 1).padStart(2, '0');
@@ -2077,7 +2081,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
             placeholder="Jahr"
             dropdownKey={`${dropdownKeyPrefix}_year`}
             minWidth={110}
-            defaultScrollValue={String(currentYear)}
+            defaultScrollValue={birthMode ? (year || '2008') : String(currentYear)}
           />
         </View>
       </View>
@@ -2371,7 +2375,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
               <View style={[styles.detailStatCol, isEditing && { zIndex: 50, position: 'relative' }]}>
                 <Text style={styles.detailStatLabel}>Geburtsdatum</Text>
                 {isEditing ? (
-                  <DateDropdown field="birth_date_advisor" dropdownKeyPrefix="birth_date" />
+                  <DateDropdown field="birth_date_advisor" dropdownKeyPrefix="birth_date" birthMode />
                 ) : (() => {
                   const bd = fullPlayer?.birth_date_player || fullPlayer?.birth_date_advisor || selectedPlayer.birth_date;
                   return (
