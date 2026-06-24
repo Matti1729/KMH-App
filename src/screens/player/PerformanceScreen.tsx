@@ -1533,13 +1533,6 @@ export function PerformanceScreen() {
 
                 {/* Unten: Chart + Einträge */}
                 <View style={{ marginTop: 20 }}>
-                    {/* Datei-Import (CSV/Excel/PDF/Bild) — füllt Werte aller Kategorien nach Bestätigung */}
-                    <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 12 }}>
-                      <TouchableOpacity onPress={handleImportFile} disabled={importExtracting} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.04)' }}>
-                        {importExtracting ? <ActivityIndicator size="small" color="rgba(255,255,255,0.7)" /> : <Ionicons name="cloud-upload-outline" size={14} color="rgba(255,255,255,0.7)" />}
-                        <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>{importExtracting ? 'Datei wird ausgelesen …' : 'Datei importieren'}</Text>
-                      </TouchableOpacity>
-                    </View>
                     {/* Charts — pro Kategorie ein eigener Graph (X = Datum, ein Punkt je Messung) */}
                     {!selectedMetric ? (
                       <View style={{ minHeight: 120, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -1548,9 +1541,15 @@ export function PerformanceScreen() {
                     ) : !measurements.some(m => getDisplayTypes(selectedMetric).includes(m.type)) ? (
                       <View style={{ minHeight: 120, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
                         <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 13 }}>Noch keine Daten vorhanden</Text>
-                        <TouchableOpacity onPress={() => { const t = new Date(); setAddDay(String(t.getDate())); setAddMonth(String(t.getMonth()+1)); setAddYear(String(t.getFullYear())); setAddValue(''); setAddValue2(''); setAddValue3(''); setAddValue4(''); setAddValue5(''); setAddValue6(''); setAddNote(''); setShowAddForm(true); }} style={{ marginTop: 12, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}>
-                          <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Ersten Eintrag hinzufügen</Text>
-                        </TouchableOpacity>
+                        <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                          <TouchableOpacity onPress={() => { const t = new Date(); setAddDay(String(t.getDate())); setAddMonth(String(t.getMonth()+1)); setAddYear(String(t.getFullYear())); setAddValue(''); setAddValue2(''); setAddValue3(''); setAddValue4(''); setAddValue5(''); setAddValue6(''); setAddNote(''); setShowAddForm(true); }} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}>
+                            <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Ersten Eintrag hinzufügen</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={handleImportFile} disabled={importExtracting} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}>
+                            {importExtracting ? <ActivityIndicator size="small" color="rgba(255,255,255,0.6)" /> : <Ionicons name="cloud-upload-outline" size={13} color="rgba(255,255,255,0.6)" />}
+                            <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{importExtracting ? 'Liest …' : 'Datei importieren'}</Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
                     ) : (
                       <View>
@@ -1585,10 +1584,16 @@ export function PerformanceScreen() {
                         <View style={{ marginTop: 12 }}>
                           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                             <Text style={styles.subLabel}>Einträge</Text>
-                            <TouchableOpacity onPress={() => { const t = new Date(); setAddDay(String(t.getDate())); setAddMonth(String(t.getMonth()+1)); setAddYear(String(t.getFullYear())); setAddValue(''); setAddValue2(''); setAddValue3(''); setAddValue4(''); setAddValue5(''); setAddValue6(''); setAddNote(''); setEditingMeasurement(null); setShowAddForm(true); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}>
-                              <Ionicons name="add" size={12} color="rgba(255,255,255,0.5)" />
-                              <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>Eintrag</Text>
-                            </TouchableOpacity>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <TouchableOpacity onPress={handleImportFile} disabled={importExtracting} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}>
+                                {importExtracting ? <ActivityIndicator size="small" color="rgba(255,255,255,0.5)" /> : <Ionicons name="cloud-upload-outline" size={12} color="rgba(255,255,255,0.5)" />}
+                                <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>{importExtracting ? 'Liest …' : 'Datei importieren'}</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity onPress={() => { const t = new Date(); setAddDay(String(t.getDate())); setAddMonth(String(t.getMonth()+1)); setAddYear(String(t.getFullYear())); setAddValue(''); setAddValue2(''); setAddValue3(''); setAddValue4(''); setAddValue5(''); setAddValue6(''); setAddNote(''); setEditingMeasurement(null); setShowAddForm(true); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}>
+                                <Ionicons name="add" size={12} color="rgba(255,255,255,0.5)" />
+                                <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>Eintrag</Text>
+                              </TouchableOpacity>
+                            </View>
                           </View>
 
                           {/* Inline-Formular (oben bei Einträgen) */}
