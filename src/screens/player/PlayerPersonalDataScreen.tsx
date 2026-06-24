@@ -656,12 +656,12 @@ export function PlayerPersonalDataScreen() {
         const firstName = ((player as any)?.first_name || profile?.first_name || '').toUpperCase();
         const lastName = ((player as any)?.last_name || profile?.last_name || '').toUpperCase();
         const clubLogo = (player as any)?.club ? resolveClubLogo((player as any).club, clubLogos) : null;
-        const photoW = isMobile ? 110 : 150;
-        const photoH = isMobile ? 140 : 190;
-        const nameSize = isMobile ? 32 : 72;
-        const nameLH = isMobile ? 36 : 76;
+        const photoW = isMobile ? 90 : 150;
+        const photoH = isMobile ? 120 : 190;
+        const nameSize = isMobile ? 34 : 72;
+        const nameLH = isMobile ? 38 : 76;
         return (
-          <View style={[styles.headerCard, { borderColor: colors.cardBorder }]}>
+          <View style={[styles.headerCard, { borderColor: colors.cardBorder }, isMobile && { paddingHorizontal: 16, paddingTop: 16 }]}>
             <View style={[styles.headerTopRow, isMobile && { gap: 12 }]}>
               {/* Foto wird ausschließlich vom Berater verwaltet — Spieler sieht es nur read-only. */}
               <TouchableOpacity onPress={undefined} disabled activeOpacity={1} style={{ position: 'relative' }}>
@@ -676,7 +676,7 @@ export function PlayerPersonalDataScreen() {
                     <Image source={{ uri: (player as any).photo_url }} style={{ width: photoW, height: photoH }} resizeMode="contain" />
                   ) : (
                     <View style={[styles.headerPhotoPlaceholder, { width: photoW, height: photoH, backgroundColor: colors.primary }]}>
-                      <Text style={[styles.headerInitials, { color: colors.primaryText }]}>{firstName[0] || ''}{lastName[0] || ''}</Text>
+                      <Text style={[styles.headerInitials, isMobile && { fontSize: 30 }, { color: colors.primaryText }]}>{firstName[0] || ''}{lastName[0] || ''}</Text>
                     </View>
                   )}
                 </View>
@@ -709,8 +709,8 @@ export function PlayerPersonalDataScreen() {
                 </View>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                   <View style={[styles.headerClubRow, { flex: 1, minWidth: 0 }, isMobile && { gap: 8 }]}>
-                    {clubLogo ? <Image source={{ uri: clubLogo }} style={[styles.headerClubLogo, isMobile && { width: 28, height: 28 }]} /> : null}
-                    <Text style={[styles.headerClubName, { flexShrink: 1 }, isMobile && { fontSize: 18, lineHeight: 24, marginTop: 0 }]} numberOfLines={1}>{normalizeGermanClubName((player as any)?.club || 'VEREINSLOS').toUpperCase()}</Text>
+                    {clubLogo ? <Image source={{ uri: clubLogo }} style={[styles.headerClubLogo, isMobile && { width: 32, height: 32 }]} /> : null}
+                    <Text style={[styles.headerClubName, { flexShrink: 1 }, isMobile && { fontSize: 15, lineHeight: 20, marginTop: 0 }]} numberOfLines={1}>{normalizeGermanClubName((player as any)?.club || 'VEREINSLOS').toUpperCase()}</Text>
                   </View>
                 </View>
               </View>
