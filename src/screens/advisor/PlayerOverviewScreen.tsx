@@ -1689,16 +1689,43 @@ export function PlayerOverviewScreen({ navigation }: any) {
     setFullPlayer({ ...fullPlayer, in_transfer_list: newValue });
   };
 
+  const generateInviteCode = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = 'KMH-';
+    for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+    return code;
+  };
+
   const handleInviteCode = async () => {
     if (!fullPlayer) return;
     setInviteCodeLoading(true);
     try {
       const { data } = await supabase.from('player_details').select('invitation_code, linked_user_id').eq('id', fullPlayer.id).single();
-      if (data?.linked_user_id) { alertDialog({ title: 'Bereits registriert', message: 'Dieser Spieler hat sich bereits registriert.' }); setInviteCodeLoading(false); return; }
+      // Bereits registriert → Zugang zurücksetzen anbieten (Recovery bei vergessenem Login).
+      if (data?.linked_user_id) {
+        setInviteCodeLoading(false);
+        const ok = await confirmDialog({
+          title: 'Zugang zurücksetzen',
+          message: `${fullPlayer.first_name} ${fullPlayer.last_name} ist bereits registriert. Zugang zurücksetzen? Der bisherige Login wird gelöscht und ein neuer Einladungscode erzeugt — die Profildaten bleiben erhalten. Der Spieler registriert sich anschließend mit dem neuen Code neu.`,
+          confirmLabel: 'Zugang zurücksetzen',
+          danger: true,
+        });
+        if (!ok) return;
+        setInviteCodeLoading(true);
+        const code = generateInviteCode();
+        const { error } = await supabase.rpc('reset_player_access', { p_player_id: fullPlayer.id, p_new_code: code });
+        setInviteCodeLoading(false);
+        if (error) {
+          alertDialog({ title: 'Fehler beim Zurücksetzen', message: error.message });
+          return;
+        }
+        setFullPlayer({ ...fullPlayer, linked_user_id: null, invitation_code: code } as any);
+        setInviteCode(code);
+        setShowInviteCodeModal(true);
+        return;
+      }
       if (data?.invitation_code) { setInviteCode(data.invitation_code); setShowInviteCodeModal(true); setInviteCodeLoading(false); return; }
-      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-      let code = 'KMH-';
-      for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+      const code = generateInviteCode();
       await supabase.from('player_details').update({ invitation_code: code }).eq('id', fullPlayer.id);
       setInviteCode(code);
       setShowInviteCodeModal(true);
