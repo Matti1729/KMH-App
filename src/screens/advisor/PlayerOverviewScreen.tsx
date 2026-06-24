@@ -2352,9 +2352,9 @@ export function PlayerOverviewScreen({ navigation }: any) {
             </View>
 
             <View style={styles.detailDivider} />
-            <View style={styles.detailStatsRow}>
+            <View style={[styles.detailStatsRow, isMobile && { paddingHorizontal: 16, gap: 14 }]}>
               <Pressable
-                style={[styles.detailStatCol, openDropdown === 'nationality_advisor' && { zIndex: 1000, position: 'relative' }]}
+                style={[styles.detailStatCol, isMobile && isEditing && { flexBasis: '100%', minWidth: 0, alignItems: 'stretch' }, openDropdown === 'nationality_advisor' && { zIndex: 1000, position: 'relative' }]}
                 onHoverIn={() => setShowNatTooltip(true)}
                 onHoverOut={() => setShowNatTooltip(false)}
               >
@@ -2374,7 +2374,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
                   </View>
                 ) : null}
               </Pressable>
-              <View style={[styles.detailStatCol, isEditing && { zIndex: 50, position: 'relative' }]}>
+              <View style={[styles.detailStatCol, isMobile && isEditing && { flexBasis: '100%', minWidth: 0, alignItems: 'stretch' }, isEditing && { zIndex: 50, position: 'relative' }]}>
                 <Text style={styles.detailStatLabel}>Geburtsdatum</Text>
                 {isEditing ? (
                   <DateDropdown field="birth_date_advisor" dropdownKeyPrefix="birth_date" birthMode />
@@ -2387,7 +2387,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
                   );
                 })()}
               </View>
-              <View style={styles.detailStatCol}>
+              <View style={[styles.detailStatCol, isMobile && isEditing && { flexBasis: '100%', minWidth: 0, alignItems: 'stretch' }]}>
                 <Text style={styles.detailStatLabel}>Position</Text>
                 {(() => {
                   // Nur die Hauptposition; Nebenpositionen werden hier bewusst nicht angezeigt.
@@ -2399,13 +2399,13 @@ export function PlayerOverviewScreen({ navigation }: any) {
                   );
                 })()}
               </View>
-              <View style={styles.detailStatCol}>
+              <View style={[styles.detailStatCol, isMobile && isEditing && { flexBasis: '100%', minWidth: 0, alignItems: 'stretch' }]}>
                 <Text style={styles.detailStatLabel}>Vertragsende</Text>
                 <Text style={[styles.detailStatValue, isContractInCurrentSeason(selectedPlayer.contract_end || '') && { color: '#ef4444' }]}>
                   {formatDate(selectedPlayer.contract_end)}
                 </Text>
               </View>
-              <View style={styles.detailStatCol}>
+              <View style={[styles.detailStatCol, isMobile && isEditing && { flexBasis: '100%', minWidth: 0, alignItems: 'stretch' }]}>
                 <Text style={styles.detailStatLabel}>Transfermarkt</Text>
                 {isEditing ? (
                   <TextInput
