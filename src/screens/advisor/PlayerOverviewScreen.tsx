@@ -2000,6 +2000,23 @@ export function PlayerOverviewScreen({ navigation }: any) {
     );
   };
 
+  // Effektiver Anzeigewert für Split-Felder im Lese-Modus: Spieler-Wert hat Vorrang,
+  // sonst der (vom Berater synchronisierte) unsuffixed-Wert. Spiegelt EditableValue —
+  // nötig für Felder mit Sonder-Render (Telefon, E-Mail, Adresse, Internat).
+  const sv = (f: string): string => {
+    const pv = fullPlayer?.[`${f}_player`];
+    if (pv !== null && pv !== undefined && String(pv).trim() !== '') return String(pv);
+    const uv = fullPlayer?.[f];
+    return uv !== null && uv !== undefined ? String(uv) : '';
+  };
+  const svIsPlayer = (...fs: string[]): boolean =>
+    fs.some(f => { const pv = fullPlayer?.[`${f}_player`]; return pv !== null && pv !== undefined && String(pv).trim() !== ''; });
+  const renderPlayerBadge = () => (
+    <View style={{ backgroundColor: 'rgba(34,197,94,0.15)', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 8 }}>
+      <Text style={{ color: '#22c55e', fontSize: 9, fontWeight: '600', letterSpacing: 0.5 }}>VOM SPIELER</Text>
+    </View>
+  );
+
   const DateDropdown = ({ field, dropdownKeyPrefix }: { field: string; dropdownKeyPrefix: string }) => {
     const raw: string = editData[field] || '';
     const today = new Date();
@@ -2764,23 +2781,32 @@ export function PlayerOverviewScreen({ navigation }: any) {
                             <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="phone" placeholder="Nummer" />
                           </View>
                         </View>
-                      ) : (
-                        <Text style={styles.detailFieldValue}>
-                          {fullPlayer?.phone ? `${fullPlayer.phone_country_code || ''} ${fullPlayer.phone}`.trim() : '-'}
-                        </Text>
-                      )}
+                      ) : (() => {
+                        const num = sv('phone'); const cc = sv('phone_country_code');
+                        return (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <Text style={styles.detailFieldValue}>{num ? `${cc} ${num}`.trim() : '-'}</Text>
+                            {svIsPlayer('phone', 'phone_country_code') ? renderPlayerBadge() : null}
+                          </View>
+                        );
+                      })()}
                     </View>
                     <View>
                       <Text style={styles.detailFieldLabel}>E-Mail</Text>
                       {isEditing ? (
                         <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="email" placeholder="name@example.com" />
-                      ) : fullPlayer?.email ? (
-                        <TouchableOpacity onPress={() => { if (typeof window !== 'undefined') window.open(`mailto:${fullPlayer.email}`, '_blank'); }}>
-                          <Text style={[styles.detailFieldValue, { textDecorationLine: 'underline' }]}>{fullPlayer.email}</Text>
-                        </TouchableOpacity>
-                      ) : (
-                        <Text style={styles.detailFieldValue}>-</Text>
-                      )}
+                      ) : (() => {
+                        const em = sv('email');
+                        if (!em) return <Text style={styles.detailFieldValue}>-</Text>;
+                        return (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <TouchableOpacity onPress={() => { if (typeof window !== 'undefined') window.open(`mailto:${em}`, '_blank'); }}>
+                              <Text style={[styles.detailFieldValue, { textDecorationLine: 'underline' }]}>{em}</Text>
+                            </TouchableOpacity>
+                            {svIsPlayer('email') ? renderPlayerBadge() : null}
+                          </View>
+                        );
+                      })()}
                     </View>
                   </View>
                   {/* Spalte 2: Adresse, Internat */}
@@ -2799,11 +2825,15 @@ export function PlayerOverviewScreen({ navigation }: any) {
                             </View>
                           </View>
                         </>
-                      ) : (
-                        <Text style={styles.detailFieldValue}>
-                          {[fullPlayer?.street, [fullPlayer?.postal_code, fullPlayer?.city].filter(Boolean).join(' ')].filter(Boolean).join(', ') || '-'}
-                        </Text>
-                      )}
+                      ) : (() => {
+                        const addr = [sv('street'), [sv('postal_code'), sv('city')].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+                        return (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <Text style={styles.detailFieldValue}>{addr || '-'}</Text>
+                            {svIsPlayer('street', 'postal_code', 'city') ? renderPlayerBadge() : null}
+                          </View>
+                        );
+                      })()}
                     </View>
                     <View style={{ zIndex: 20, position: 'relative' }}>
                       <Text style={styles.detailFieldLabel}>Internat</Text>
@@ -2829,11 +2859,15 @@ export function PlayerOverviewScreen({ navigation }: any) {
                             </View>
                           ) : null}
                         </>
-                      ) : (
-                        <Text style={styles.detailFieldValue}>
-                          {fullPlayer?.internat ? `Ja — ${fullPlayer.internat}` : 'Nein'}
-                        </Text>
-                      )}
+                      ) : (() => {
+                        const intern = sv('internat');
+                        return (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <Text style={styles.detailFieldValue}>{intern ? `Ja — ${intern}` : 'Nein'}</Text>
+                            {svIsPlayer('internat') ? renderPlayerBadge() : null}
+                          </View>
+                        );
+                      })()}
                     </View>
                   </View>
                 </View>
@@ -2929,11 +2963,15 @@ export function PlayerOverviewScreen({ navigation }: any) {
                             <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="father_phone" placeholder="Nummer" />
                           </View>
                         </View>
-                      ) : (
-                        <Text style={styles.detailFieldValue}>
-                          {fullPlayer?.father_phone ? `${fullPlayer.father_phone_country_code || ''} ${fullPlayer.father_phone}`.trim() : '-'}
-                        </Text>
-                      )}
+                      ) : (() => {
+                        const num = sv('father_phone'); const cc = sv('father_phone_country_code');
+                        return (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <Text style={styles.detailFieldValue}>{num ? `${cc} ${num}`.trim() : '-'}</Text>
+                            {svIsPlayer('father_phone', 'father_phone_country_code') ? renderPlayerBadge() : null}
+                          </View>
+                        );
+                      })()}
                     </View>
                     <View>
                       <Text style={styles.detailFieldLabel}>Job</Text>
@@ -2958,11 +2996,15 @@ export function PlayerOverviewScreen({ navigation }: any) {
                             <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="mother_phone" placeholder="Nummer" />
                           </View>
                         </View>
-                      ) : (
-                        <Text style={styles.detailFieldValue}>
-                          {fullPlayer?.mother_phone ? `${fullPlayer.mother_phone_country_code || ''} ${fullPlayer.mother_phone}`.trim() : '-'}
-                        </Text>
-                      )}
+                      ) : (() => {
+                        const num = sv('mother_phone'); const cc = sv('mother_phone_country_code');
+                        return (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <Text style={styles.detailFieldValue}>{num ? `${cc} ${num}`.trim() : '-'}</Text>
+                            {svIsPlayer('mother_phone', 'mother_phone_country_code') ? renderPlayerBadge() : null}
+                          </View>
+                        );
+                      })()}
                     </View>
                     <View>
                       <Text style={styles.detailFieldLabel}>Job</Text>
