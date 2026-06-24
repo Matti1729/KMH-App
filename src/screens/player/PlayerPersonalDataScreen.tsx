@@ -658,11 +658,11 @@ export function PlayerPersonalDataScreen() {
         const clubLogo = (player as any)?.club ? resolveClubLogo((player as any).club, clubLogos) : null;
         const photoW = isMobile ? 110 : 150;
         const photoH = isMobile ? 140 : 190;
-        const nameSize = isMobile ? 48 : 72;
-        const nameLH = isMobile ? 52 : 76;
+        const nameSize = isMobile ? 32 : 72;
+        const nameLH = isMobile ? 36 : 76;
         return (
           <View style={[styles.headerCard, { borderColor: colors.cardBorder }]}>
-            <View style={styles.headerTopRow}>
+            <View style={[styles.headerTopRow, isMobile && { gap: 12 }]}>
               {/* Foto wird ausschließlich vom Berater verwaltet — Spieler sieht es nur read-only. */}
               <TouchableOpacity onPress={undefined} disabled activeOpacity={1} style={{ position: 'relative' }}>
                 <View style={{ width: photoW, height: photoH, borderRadius: 8, overflow: 'hidden' }}>
@@ -688,13 +688,13 @@ export function PlayerPersonalDataScreen() {
                 {/* Foto-Bearbeitung-Indicator entfernt — Foto wird ausschließlich vom Berater verwaltet. */}
               </TouchableOpacity>
               <View style={[styles.headerNameWrap, { minHeight: photoH }]}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <View>
-                    {firstName ? <Text style={[styles.headerName, { fontSize: nameSize, lineHeight: nameLH }]}>{firstName}</Text> : null}
-                    {lastName ? <Text style={[styles.headerName, { fontSize: nameSize, lineHeight: nameLH }]}>{lastName}</Text> : null}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    {firstName ? <Text numberOfLines={1} style={[styles.headerName, { fontSize: nameSize, lineHeight: nameLH }]}>{firstName}</Text> : null}
+                    {lastName ? <Text numberOfLines={1} style={[styles.headerName, { fontSize: nameSize, lineHeight: nameLH }]}>{lastName}</Text> : null}
                   </View>
                   <View style={{ alignItems: 'flex-end', gap: 12 }}>
-                    <Text style={styles.headerScreenLabel}>Persönliche Daten</Text>
+                    {!isMobile && <Text style={styles.headerScreenLabel}>Persönliche Daten</Text>}
                     {editing ? (
                       <View style={{ flexDirection: 'row', gap: 8 }}>
                         <TouchableOpacity style={styles.cardCancelBtn} onPress={cancelEdit}><Text style={styles.cardCancelText}>Abbrechen</Text></TouchableOpacity>
@@ -708,9 +708,9 @@ export function PlayerPersonalDataScreen() {
                   </View>
                 </View>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <View style={styles.headerClubRow}>
-                    {clubLogo ? <Image source={{ uri: clubLogo }} style={styles.headerClubLogo} /> : null}
-                    <Text style={styles.headerClubName} numberOfLines={1}>{normalizeGermanClubName((player as any)?.club || 'VEREINSLOS').toUpperCase()}</Text>
+                  <View style={[styles.headerClubRow, { flex: 1, minWidth: 0 }, isMobile && { gap: 8 }]}>
+                    {clubLogo ? <Image source={{ uri: clubLogo }} style={[styles.headerClubLogo, isMobile && { width: 28, height: 28 }]} /> : null}
+                    <Text style={[styles.headerClubName, { flexShrink: 1 }, isMobile && { fontSize: 18, lineHeight: 24, marginTop: 0 }]} numberOfLines={1}>{normalizeGermanClubName((player as any)?.club || 'VEREINSLOS').toUpperCase()}</Text>
                   </View>
                 </View>
               </View>
