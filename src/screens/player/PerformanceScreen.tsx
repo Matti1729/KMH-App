@@ -867,19 +867,26 @@ export function PerformanceScreen() {
           <View style={{ height: 80, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
             <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12 }}>Noch keine Daten</Text>
           </View>
-        ) : (
-          <View style={{ borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 12 }}>
-            <ResponsiveContainer width="100%" height={180}>
-              <LineChart data={data}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                <XAxis dataKey="date" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} />
-                <YAxis tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} label={unit ? { value: unit, position: 'insideTopLeft', fill: 'rgba(255,255,255,0.4)', fontSize: 10 } : undefined} domain={['auto', 'auto']} />
-                <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.9)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, fontSize: 12, color: '#fff' }} />
-                <Line dataKey={type} name={CATEGORY_LABELS[type] || type} stroke={categoryColor(type)} strokeWidth={2} dot={{ r: 4 }} connectNulls />
-              </LineChart>
-            </ResponsiveContainer>
-          </View>
-        )}
+        ) : (() => {
+          // Fester Abstand zwischen Punkten (statt über die volle Breite zu strecken).
+          const POINT_SPACING = 80;
+          const Y_AXIS_W = 56;
+          const RIGHT_PAD = 24;
+          const chartWidth = Math.max(220, Y_AXIS_W + Math.max(1, data.length - 1) * POINT_SPACING + RIGHT_PAD);
+          return (
+            <View style={{ borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 12 }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <LineChart data={data} width={chartWidth} height={180}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                  <XAxis dataKey="date" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} padding={{ left: 12, right: 12 }} />
+                  <YAxis width={Y_AXIS_W} tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} label={unit ? { value: unit, position: 'insideTopLeft', fill: 'rgba(255,255,255,0.4)', fontSize: 10 } : undefined} domain={['auto', 'auto']} />
+                  <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.9)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, fontSize: 12, color: '#fff' }} />
+                  <Line dataKey={type} name={CATEGORY_LABELS[type] || type} stroke={categoryColor(type)} strokeWidth={2} dot={{ r: 4 }} connectNulls />
+                </LineChart>
+              </ScrollView>
+            </View>
+          );
+        })()}
       </View>
     );
   };
