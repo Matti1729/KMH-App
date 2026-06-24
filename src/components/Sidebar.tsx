@@ -219,7 +219,7 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
   // Sidebar Navigation - alle Bereiche
   const navItems = trainerMode
     ? [
-        { id: 'trainerPlayers', label: 'Meine Spieler', icon: '👤', screen: 'TrainerHome' },
+        { id: 'trainerPlayers', label: 'Meine Spieler', icon: '👤', screen: 'TrainerPlayers' },
       ]
     : playerMode
     ? [
@@ -317,7 +317,7 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
         <View style={styles.divider} />
 
         {/* Admin - only if admin */}
-        {!playerMode && profile?.role === 'admin' && (
+        {!playerMode && !trainerMode && profile?.role === 'admin' && (
           <Pressable
             onHoverIn={() => setHoveredNav('admin')}
             onHoverOut={() => setHoveredNav(null)}
