@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  Pressable,
   ScrollView,
   Image,
   Linking,
@@ -115,6 +116,7 @@ export function PlayerHomeScreen() {
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [player, setPlayer] = useState<PlayerHomeData | null>(null);
   const [clubLogos, setClubLogos] = useState<Record<string, string>>({});
+  const [hoveredCard, setHoveredCard] = useState<string | null>(null);
 
   const fetchPlayer = useCallback(async () => {
     if (!session?.user?.id) return;
@@ -182,29 +184,33 @@ export function PlayerHomeScreen() {
   const MOBILE_CARD_HEIGHT = 76;
   const mobileCanvasHeight = HEADER_HEIGHT + CARDS.length * MOBILE_CARD_HEIGHT;
 
-  const renderCard = (card: DashboardCardDef, colIdx: number, rowIdx: number) => (
-    <TouchableOpacity
-      key={card.id}
-      activeOpacity={0.85}
-      style={[styles.gridCard, { width: cardWidth }]}
-      onPress={() => navigation.navigate(card.screen)}
-    >
-      <Image
-        source={FIELD_IMAGE}
-        style={{
-          position: 'absolute',
-          width: canvasWidth,
-          height: canvasHeight,
-          left: -(colIdx * (cardWidth + GAP)),
-          top: -(HEADER_HEIGHT + HEADER_GAP + rowIdx * (CARD_HEIGHT + GAP)),
-        }}
-      />
-      <View style={styles.cardTextBand}>
-        <Text style={styles.cardTitle}>{card.title}</Text>
-        <Text style={styles.cardSubtitle}>{card.subtitle}</Text>
-      </View>
-    </TouchableOpacity>
-  );
+  const renderCard = (card: DashboardCardDef, colIdx: number, rowIdx: number) => {
+    const isHovered = hoveredCard === card.id;
+    return (
+      <Pressable
+        key={card.id}
+        onHoverIn={() => setHoveredCard(card.id)}
+        onHoverOut={() => setHoveredCard(null)}
+        style={[styles.gridCard, { width: cardWidth }]}
+        onPress={() => navigation.navigate(card.screen)}
+      >
+        <Image
+          source={FIELD_IMAGE}
+          style={{
+            position: 'absolute',
+            width: canvasWidth,
+            height: canvasHeight,
+            left: -(colIdx * (cardWidth + GAP)),
+            top: -(HEADER_HEIGHT + HEADER_GAP + rowIdx * (CARD_HEIGHT + GAP)),
+          }}
+        />
+        <View style={[styles.cardTextBand, isHovered && { backgroundColor: 'transparent' }]}>
+          <Text style={styles.cardTitle}>{card.title}</Text>
+          <Text style={styles.cardSubtitle}>{card.subtitle}</Text>
+        </View>
+      </Pressable>
+    );
+  };
 
   const firstName = (player?.first_name || profile?.first_name || '').toUpperCase();
   const lastName = (player?.last_name || profile?.last_name || '').toUpperCase();
