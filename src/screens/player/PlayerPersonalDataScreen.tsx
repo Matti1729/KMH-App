@@ -763,7 +763,7 @@ export function PlayerPersonalDataScreen() {
 
         <View style={styles.dataGrid}>
           {/* Karte: Allgemeine Angaben */}
-          <View style={[styles.dataGridCard, internatOpen && { zIndex: 1000, position: 'relative' }]}>
+          <View style={styles.dataGridCard}>
             <Text style={[styles.cardSectionLabel, { marginBottom: 12 }]}>Kontaktdaten</Text>
             <View style={{ flex: 1 }}>
               {editing ? (
@@ -793,10 +793,7 @@ export function PlayerPersonalDataScreen() {
                     </View>
                   </View>
                   <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>Internat</Text>
-                  <View
-                    style={{ position: 'relative', marginBottom: 10, zIndex: internatOpen ? 1000 : 1 }}
-                    {...({ dataSet: { kmhdropdown: 'true' } } as any)}
-                  >
+                  <View style={{ marginBottom: 10 }} {...({ dataSet: { kmhdropdown: 'true' } } as any)}>
                     <TouchableOpacity
                       style={[styles.editInput, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
                       onPress={() => setInternatOpen(o => !o)}
@@ -805,7 +802,7 @@ export function PlayerPersonalDataScreen() {
                       <Ionicons name={internatOpen ? 'chevron-up' : 'chevron-down'} size={14} color="rgba(255,255,255,0.5)" />
                     </TouchableOpacity>
                     {internatOpen && (
-                      <View style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 2, backgroundColor: '#1e293b', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, overflow: 'hidden', zIndex: 1000, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12 }}>
+                      <View style={{ marginTop: 4, backgroundColor: '#1e293b', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, overflow: 'hidden' }}>
                         {[{ label: 'Ja', val: true }, { label: 'Nein', val: false }].map((opt, i) => (
                           <TouchableOpacity
                             key={opt.label}
