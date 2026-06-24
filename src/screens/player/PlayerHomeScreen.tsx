@@ -194,10 +194,9 @@ export function PlayerHomeScreen() {
         style={[
           styles.gridCard,
           { width: cardWidth },
-          // Beim Hovern wird die Karte gläsern: Rasen-Bild blendet aus, der
-          // (verschwommene) Seitenhintergrund scheint durch — wie im Berater-View.
-          isHovered && { backgroundColor: 'rgba(255,255,255,0.05)' },
-          isHovered && Platform.OS === 'web' ? ({ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' } as any) : null,
+          // Beim Hovern wird die Karte durchsichtig: Rasen-Bild blendet aus, der
+          // Seitenhintergrund scheint klar durch — identisch zum Berater-View.
+          isHovered && { backgroundColor: 'transparent' },
         ]}
         onPress={() => navigation.navigate(card.screen)}
       >
