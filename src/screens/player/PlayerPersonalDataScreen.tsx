@@ -21,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Sidebar } from '../../components/Sidebar';
 import { MobileSidebar } from '../../components/MobileSidebar';
 import { MobileHeader } from '../../components/MobileHeader';
+import { AutoFitText } from '../../components/AutoFitText';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useIsMobile } from '../../hooks/useIsMobile';
@@ -662,6 +663,20 @@ export function PlayerPersonalDataScreen() {
         const nameLH = isMobile ? 38 : 76;
         return (
           <View style={[styles.headerCard, { borderColor: colors.cardBorder }, isMobile && { paddingHorizontal: 16, paddingTop: 16 }]}>
+            {isMobile && (
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 12 }}>
+                {editing ? (
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TouchableOpacity style={styles.cardCancelBtn} onPress={cancelEdit}><Text style={styles.cardCancelText}>Abbrechen</Text></TouchableOpacity>
+                    <TouchableOpacity style={styles.cardSaveBtn} onPress={saveAll} disabled={saving}>
+                      {saving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.cardSaveText}>Speichern</Text>}
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity style={styles.cardEditBtn} onPress={() => setEditingCard('all')}><Text style={styles.cardEditText}>Bearbeiten</Text></TouchableOpacity>
+                )}
+              </View>
+            )}
             <View style={[styles.headerTopRow, isMobile && { gap: 12 }]}>
               {/* Foto wird ausschließlich vom Berater verwaltet — Spieler sieht es nur read-only. */}
               <TouchableOpacity onPress={undefined} disabled activeOpacity={1} style={{ position: 'relative' }}>
@@ -689,28 +704,37 @@ export function PlayerPersonalDataScreen() {
               </TouchableOpacity>
               <View style={[styles.headerNameWrap, { minHeight: photoH }]}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    {firstName ? <Text numberOfLines={1} style={[styles.headerName, { fontSize: nameSize, lineHeight: nameLH }]}>{firstName}</Text> : null}
-                    {lastName ? <Text numberOfLines={1} style={[styles.headerName, { fontSize: nameSize, lineHeight: nameLH }]}>{lastName}</Text> : null}
-                  </View>
-                  <View style={{ alignItems: 'flex-end', gap: 12 }}>
-                    {!isMobile && <Text style={styles.headerScreenLabel}>Persönliche Daten</Text>}
-                    {editing ? (
-                      <View style={{ flexDirection: 'row', gap: 8 }}>
-                        <TouchableOpacity style={styles.cardCancelBtn} onPress={cancelEdit}><Text style={styles.cardCancelText}>Abbrechen</Text></TouchableOpacity>
-                        <TouchableOpacity style={styles.cardSaveBtn} onPress={saveAll} disabled={saving}>
-                          {saving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.cardSaveText}>Speichern</Text>}
-                        </TouchableOpacity>
-                      </View>
-                    ) : (
-                      <TouchableOpacity style={styles.cardEditBtn} onPress={() => setEditingCard('all')}><Text style={styles.cardEditText}>Bearbeiten</Text></TouchableOpacity>
-                    )}
-                  </View>
+                  <AutoFitText
+                    lines={[firstName, lastName]}
+                    maxFontSize={isMobile ? 34 : 72}
+                    letterSpacing={2}
+                    textStyle={styles.headerName}
+                  />
+                  {!isMobile && (
+                    <View style={{ alignItems: 'flex-end', gap: 12 }}>
+                      <Text style={styles.headerScreenLabel}>Persönliche Daten</Text>
+                      {editing ? (
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                          <TouchableOpacity style={styles.cardCancelBtn} onPress={cancelEdit}><Text style={styles.cardCancelText}>Abbrechen</Text></TouchableOpacity>
+                          <TouchableOpacity style={styles.cardSaveBtn} onPress={saveAll} disabled={saving}>
+                            {saving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.cardSaveText}>Speichern</Text>}
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <TouchableOpacity style={styles.cardEditBtn} onPress={() => setEditingCard('all')}><Text style={styles.cardEditText}>Bearbeiten</Text></TouchableOpacity>
+                      )}
+                    </View>
+                  )}
                 </View>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                   <View style={[styles.headerClubRow, { flex: 1, minWidth: 0 }, isMobile && { gap: 8 }]}>
                     {clubLogo ? <Image source={{ uri: clubLogo }} style={[styles.headerClubLogo, isMobile && { width: 32, height: 32 }]} /> : null}
-                    <Text style={[styles.headerClubName, { flexShrink: 1 }, isMobile && { fontSize: 15, lineHeight: 20, marginTop: 0 }]} numberOfLines={1}>{normalizeGermanClubName((player as any)?.club || 'VEREINSLOS').toUpperCase()}</Text>
+                    <AutoFitText
+                      lines={[normalizeGermanClubName((player as any)?.club || 'VEREINSLOS').toUpperCase()]}
+                      maxFontSize={isMobile ? 15 : 30}
+                      letterSpacing={3}
+                      textStyle={[styles.headerClubName, isMobile && { marginTop: 0 }]}
+                    />
                   </View>
                 </View>
               </View>

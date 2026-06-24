@@ -15,6 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Sidebar } from '../../components/Sidebar';
 import { MobileSidebar } from '../../components/MobileSidebar';
 import { MobileHeader } from '../../components/MobileHeader';
+import { AutoFitText } from '../../components/AutoFitText';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useIsMobile } from '../../hooks/useIsMobile';
@@ -206,8 +207,8 @@ export function PlayerHomeScreen() {
   const firstName = (player?.first_name || profile?.first_name || '').toUpperCase();
   const lastName = (player?.last_name || profile?.last_name || '').toUpperCase();
   const clubLogo = player?.club ? resolveClubLogo(player.club, clubLogos) : null;
-  const photoWidth = isMobile ? 110 : 150;
-  const photoHeight = isMobile ? 140 : 190;
+  const photoWidth = isMobile ? 90 : 150;
+  const photoHeight = isMobile ? 120 : 190;
   const nameFontSize = isMobile ? 48 : 72;
   const nameLineHeight = isMobile ? 52 : 76;
 
@@ -235,27 +236,32 @@ export function PlayerHomeScreen() {
           <Image source={{ uri: player.photo_url }} style={{ width: photoWidth, height: photoHeight, borderRadius: 8 }} />
         ) : (
           <View style={[styles.photoPlaceholder, { width: photoWidth, height: photoHeight, borderRadius: 8, backgroundColor: colors.primary }]}>
-            <Text style={[styles.photoInitials, { color: colors.primaryText }]}>
+            <Text style={[styles.photoInitials, isMobile && { fontSize: 30 }, { color: colors.primaryText }]}>
               {firstName[0] || ''}{lastName[0] || ''}
             </Text>
           </View>
         )}
         <View style={{ flex: 1, justifyContent: 'space-between', minHeight: photoHeight, paddingBottom: 8 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <View>
-              {firstName ? <Text style={[styles.playerNameHuge, { fontSize: nameFontSize, lineHeight: nameLineHeight }]}>{firstName}</Text> : null}
-              {lastName ? <Text style={[styles.playerNameHuge, { fontSize: nameFontSize, lineHeight: nameLineHeight }]}>{lastName}</Text> : null}
-            </View>
-            <Text style={[styles.headerScreenLabel, { textAlign: 'left' }]}>Karl Herzog Sportmanagement</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+            <AutoFitText
+              lines={[firstName, lastName]}
+              maxFontSize={isMobile ? 34 : 72}
+              letterSpacing={2}
+              textStyle={styles.playerNameHuge}
+            />
+            {!isMobile && <Text style={[styles.headerScreenLabel, { textAlign: 'left' }]}>Karl Herzog Sportmanagement</Text>}
           </View>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <View style={styles.clubRow}>
+            <View style={[styles.clubRow, { flex: 1, minWidth: 0 }, isMobile && { gap: 8 }]}>
               {clubLogo ? (
-                <Image source={{ uri: clubLogo }} style={styles.clubLogoLarge} />
+                <Image source={{ uri: clubLogo }} style={[styles.clubLogoLarge, isMobile && { width: 32, height: 32 }]} />
               ) : null}
-              <Text style={styles.clubName} numberOfLines={1}>
-                {player?.club || 'VEREINSLOS'}
-              </Text>
+              <AutoFitText
+                lines={[player?.club || 'VEREINSLOS']}
+                maxFontSize={isMobile ? 15 : 30}
+                letterSpacing={3}
+                textStyle={[styles.clubName, isMobile && { marginTop: 0 }]}
+              />
             </View>
           </View>
         </View>
