@@ -930,7 +930,7 @@ export function PerformanceScreen() {
                         <div style={{ backgroundColor: 'rgba(0,0,0,0.9)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, fontSize: 12, color: '#fff', padding: '6px 10px' } as any}>
                           {dateStr ? <div style={{ color: 'rgba(255,255,255,0.85)', marginBottom: 2 } as any}>Datum: {dateStr}</div> : null}
                           <div style={{ color: categoryColor(type) } as any}>{CATEGORY_LABELS[type] || type}: {valStr}</div>
-                          {p.note ? <div style={{ color: 'rgba(255,255,255,0.6)', marginTop: 3 } as any}>Ort: {p.note}</div> : null}
+                          {p.note ? <div style={{ color: 'rgba(255,255,255,0.6)', marginTop: 3 } as any}>Notiz: {p.note}</div> : null}
                         </div>
                       ) as any;
                     }}
