@@ -220,6 +220,7 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
   const navItems = trainerMode
     ? [
         { id: 'trainerPlayers', label: 'Meine Spieler', icon: '👤', screen: 'TrainerPlayers' },
+        { id: 'termine', label: 'Spieltage', icon: '📅', screen: 'Calendar' },
       ]
     : playerMode
     ? [

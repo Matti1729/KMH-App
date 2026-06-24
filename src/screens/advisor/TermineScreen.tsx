@@ -120,9 +120,11 @@ const TERMINE_COLUMNS: ColumnDef[] = [
 const TERMIN_ARTEN = ['Nationalmannschaft', 'Hallenturnier', 'Sonstiges'];
 const JAHRGAENGE = ['U13', 'U14', 'U15', 'U16', 'U17', 'U18', 'U19', 'U20', 'U21', 'U23', 'Herren', 'Sonstige'];
 
-export function TermineScreen({ navigation }: any) {
+export function TermineScreen({ navigation, route }: any) {
   const isMobile = useIsMobile();
-  const { session, loading: authLoading } = useAuth();
+  // Athletiktrainer sieht nur die Spiele seiner zugewiesenen Spieler.
+  const trainerMode = route?.params?.trainerMode === true;
+  const { session, loading: authLoading, viewAsTrainerId } = useAuth();
   const { colors, isDark } = useTheme();
   const dataLoadedRef = useRef(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
@@ -268,7 +270,14 @@ export function TermineScreen({ navigation }: any) {
 
   const fetchPlayerGames = async () => {
     try {
-      const games = await loadUpcomingGames(supabase);
+      let games = await loadUpcomingGames(supabase);
+      // Trainer: nur Spiele der ihm zugewiesenen Spieler.
+      if (trainerMode) {
+        const effId = viewAsTrainerId || session?.user?.id || '';
+        const { data: assigns } = await supabase.from('player_trainer_assignments').select('player_id').eq('trainer_id', effId);
+        const ids = new Set((assigns || []).map((a: any) => a.player_id));
+        games = games.filter((g: any) => ids.has(g.player_id));
+      }
       // Selection-State NICHT aus DB übernehmen — User soll bewusst auswählen pro Session
       setPlayerGames(games.map(g => ({
         ...g,
@@ -1404,7 +1413,7 @@ END:VEVENT
                 <Text style={[styles.mobileGamesEmptyTitle, { color: colors.textSecondary }]}>
                   {playerGames.length === 0 ? 'Noch keine Spiele geladen' : 'Keine Spiele gefunden'}
                 </Text>
-                {playerGames.length === 0 && (
+                {playerGames.length === 0 && !trainerMode && (
                   <TouchableOpacity style={[styles.mobileGamesEmptyButton, { backgroundColor: colors.primary }]} onPress={handleSyncGames}>
                     <Text style={[styles.mobileGamesEmptyButtonText, { color: colors.primaryText }]}>Jetzt aktualisieren</Text>
                   </TouchableOpacity>
@@ -1716,6 +1725,7 @@ END:VEVENT
                 <Text style={[styles.scoutingFilterButtonText, { color: colors.textSecondary }]}>📅 {getSelectedGamesCount()}</Text>
               </TouchableOpacity>
             )}
+            {!trainerMode && (
             <TouchableOpacity
               style={[styles.scoutingFilterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }, syncingGames && { opacity: 0.6 }]}
               onPress={handleSyncGames}
@@ -1723,6 +1733,7 @@ END:VEVENT
             >
               <Ionicons name="refresh-outline" size={13} color={syncingGames ? colors.textMuted : colors.textSecondary} />
             </TouchableOpacity>
+            )}
           </View>
             </AdvisorHeroHeader>
           </Pressable>
@@ -1777,9 +1788,9 @@ END:VEVENT
                       <Text style={[styles.scoutingEmptyText, { color: colors.textSecondary }]}>
                         Klicke auf "Aktualisieren" um die Spielpläne{'\n'}von fussball.de zu synchronisieren.
                       </Text>
-                      <TouchableOpacity style={styles.emptyStateButton} onPress={handleSyncGames}>
+                      {!trainerMode && <TouchableOpacity style={styles.emptyStateButton} onPress={handleSyncGames}>
                         <Text style={styles.emptyStateButtonText}>Jetzt aktualisieren</Text>
-                      </TouchableOpacity>
+                      </TouchableOpacity>}
                     </>
                   ) : (
                     <>
@@ -2246,9 +2257,9 @@ END:VEVENT
           )}
 
           {/* Floating Add Button */}
-          <TouchableOpacity style={[styles.mobileTermineAddBtn, { backgroundColor: colors.primary }, getSelectedTermineCount() > 0 && { bottom: 80 }]} onPress={openAddModal}>
+          {!trainerMode && <TouchableOpacity style={[styles.mobileTermineAddBtn, { backgroundColor: colors.primary }, getSelectedTermineCount() > 0 && { bottom: 80 }]} onPress={openAddModal}>
             <Text style={[styles.mobileTermineAddBtnText, { color: colors.primaryText }]}>+</Text>
-          </TouchableOpacity>
+          </TouchableOpacity>}
         </View>
       );
     }
@@ -2347,7 +2358,7 @@ END:VEVENT
                 Archiv ({archivTermine.length})
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={openAddModal} style={[styles.scoutingFilterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }]}><Ionicons name="add-outline" size={12} color={colors.textSecondary} /></TouchableOpacity>
+            {!trainerMode && <TouchableOpacity onPress={openAddModal} style={[styles.scoutingFilterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }]}><Ionicons name="add-outline" size={12} color={colors.textSecondary} /></TouchableOpacity>}
           </View>
         </Pressable>
 
@@ -2998,11 +3009,12 @@ END:VEVENT
           navigation={navigation}
           activeScreen="termine"
           profile={profile}
+          trainerMode={trainerMode}
         />
       )}
 
       {/* Desktop Sidebar */}
-      {!isMobile && <Sidebar navigation={navigation} activeScreen="termine" profile={profile} />}
+      {!isMobile && <Sidebar navigation={navigation} activeScreen="termine" profile={profile} trainerMode={trainerMode} />}
 
       <View style={[styles.mainContent, { backgroundColor: 'transparent' }]}>
         {/* Mobile Header */}
@@ -3046,6 +3058,7 @@ END:VEVENT
                     <Text style={styles.mobileGamesFilterCount}>{selectedPlayers.length + selectedResponsibilities.length}</Text>
                   )}
                 </TouchableOpacity>
+                {!trainerMode && (
                 <TouchableOpacity
                   style={[
                     { width: 28, height: 28, borderRadius: 6, borderWidth: 1, backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center' },
@@ -3056,6 +3069,7 @@ END:VEVENT
                 >
                   <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)' }}>{syncingGames ? '⏳' : '↻'}</Text>
                 </TouchableOpacity>
+                )}
               </>
             ) : null}
           </MobileHeader>

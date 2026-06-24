@@ -49,6 +49,7 @@ export function RootNavigator() {
             <Stack.Screen name="TrainerPlayers" component={PlayerOverviewScreen} initialParams={{ trainerMode: true }} />
             <Stack.Screen name="TrainerPlayerDetail" component={TrainerPlayerDetailScreen} />
             <Stack.Screen name="Performance" component={PerformanceScreen} />
+            <Stack.Screen name="Calendar" component={TermineScreen} initialParams={{ trainerMode: true }} />
           </>
         ) : (profile?.role === 'advisor' || profile?.role === 'admin') && !viewAsPlayer ? (
           <>

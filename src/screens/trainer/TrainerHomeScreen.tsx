@@ -41,36 +41,44 @@ export function TrainerHomeScreen() {
     })();
   }, [session?.user?.id, viewAsTrainerId]);
 
-  const isHovered = hoveredCard === 'players';
-  const MeineSpielerCard = (
-    <Pressable
-      onPress={() => navigation.navigate('TrainerPlayers')}
-      onHoverIn={() => setHoveredCard('players')}
-      onHoverOut={() => setHoveredCard(null)}
-      style={[
-        styles.card,
-        styles.uniformCard,
-        { width: isMobile ? '100%' : cardWidth, backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' },
-        isHovered && Platform.OS === 'web' ? ({ backdropFilter: 'none', WebkitBackdropFilter: 'none' } as any) : null,
-        isHovered && { backgroundColor: 'transparent' },
-      ]}
-    >
-      <View style={styles.uniformCardHeader}>
-        <View style={{ flex: 1 }} />
-        <Text style={styles.uniformCardCount}>{playerCount}</Text>
-      </View>
-      <View style={[styles.uniformCardFooter, isHovered && { backgroundColor: 'transparent' }]}>
-        <Text style={styles.uniformCardTitle}>Meine Spieler</Text>
-        <Text style={styles.uniformCardSubtitle}>Zugewiesene Spieler & Performance</Text>
-      </View>
-    </Pressable>
-  );
+  const renderDashCard = (id: string, title: string, subtitle: string, screen: string, count?: number) => {
+    const hov = hoveredCard === id;
+    return (
+      <Pressable
+        key={id}
+        onPress={() => navigation.navigate(screen)}
+        onHoverIn={() => setHoveredCard(id)}
+        onHoverOut={() => setHoveredCard(null)}
+        style={[
+          styles.card,
+          styles.uniformCard,
+          { width: isMobile ? '100%' : cardWidth, backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' },
+          hov && Platform.OS === 'web' ? ({ backdropFilter: 'none', WebkitBackdropFilter: 'none' } as any) : null,
+          hov && { backgroundColor: 'transparent' },
+        ]}
+      >
+        <View style={styles.uniformCardHeader}>
+          <View style={{ flex: 1 }} />
+          {typeof count === 'number' && <Text style={styles.uniformCardCount}>{count}</Text>}
+        </View>
+        <View style={[styles.uniformCardFooter, hov && { backgroundColor: 'transparent' }]}>
+          <Text style={styles.uniformCardTitle}>{title}</Text>
+          <Text style={styles.uniformCardSubtitle}>{subtitle}</Text>
+        </View>
+      </Pressable>
+    );
+  };
+
+  const cards = [
+    renderDashCard('players', 'Meine Spieler', 'Zugewiesene Spieler & Performance', 'TrainerPlayers', playerCount),
+    renderDashCard('termine', 'Spieltage', 'Spiele deiner Spieler', 'Calendar'),
+  ];
 
   const Content = (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24 }}>
       <View style={styles.uniformGrid}>
         <View style={styles.uniformGridRow}>
-          {MeineSpielerCard}
+          {cards}
         </View>
       </View>
     </ScrollView>
@@ -84,8 +92,8 @@ export function TrainerHomeScreen() {
         <MobileHeader title="Dashboard" backgroundImage={HEADER_IMAGE} onMenuPress={() => setShowMobileSidebar(true)}>
           <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: '500' }}>Schönen {currentWeekday}, {profile?.first_name || 'Trainer'}!</Text>
         </MobileHeader>
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
-          {MeineSpielerCard}
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 12 }}>
+          {cards}
         </ScrollView>
       </View>
     );
