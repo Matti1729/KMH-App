@@ -937,6 +937,16 @@ export function PerformanceScreen() {
     fetchMeasurements();
   };
 
+  // Ganzen Eintrag (alle Werte dieses Datums in der gewählten Kategorie) löschen.
+  const deleteEntryGroup = async (groupDate: string, items: typeof measurements) => {
+    const confirmed = await confirmDialog({ title: 'Eintrag löschen', message: `Den gesamten Eintrag vom ${groupDate.split('-').reverse().join('.')} wirklich löschen? Das kann nicht rückgängig gemacht werden.`, danger: true, confirmLabel: 'Löschen' });
+    if (!confirmed) return;
+    const ids = items.map(e => e.id);
+    if (ids.length) await supabase.from('player_measurements').delete().in('id', ids);
+    setEditingMeasurement(null);
+    fetchMeasurements();
+  };
+
   const deleteMeasurement = async (id: string) => {
     await supabase.from('player_measurements').delete().eq('id', id);
     fetchMeasurements();
@@ -1741,15 +1751,20 @@ export function PerformanceScreen() {
                                     )}
                                   </View>
                                   {!isEditing ? (
-                                    <TouchableOpacity onPress={() => {
-                                      const vals: Record<string, string> = {};
-                                      for (const e of group.items) vals[e.type] = String(e.value);
-                                      setEditValues(vals);
-                                      setEditNote(groupNote);
-                                      setEditingMeasurement(group.date);
-                                    }} style={{ padding: 4 }}>
-                                      <Ionicons name="pencil-outline" size={13} color="rgba(255,255,255,0.3)" />
-                                    </TouchableOpacity>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                                      <TouchableOpacity onPress={() => {
+                                        const vals: Record<string, string> = {};
+                                        for (const e of group.items) vals[e.type] = String(e.value);
+                                        setEditValues(vals);
+                                        setEditNote(groupNote);
+                                        setEditingMeasurement(group.date);
+                                      }} style={{ padding: 4 }}>
+                                        <Ionicons name="pencil-outline" size={13} color="rgba(255,255,255,0.3)" />
+                                      </TouchableOpacity>
+                                      <TouchableOpacity onPress={() => deleteEntryGroup(group.date, group.items)} style={{ padding: 4 }}>
+                                        <Ionicons name="trash-outline" size={13} color="rgba(239,68,68,0.55)" />
+                                      </TouchableOpacity>
+                                    </View>
                                   ) : (
                                     <TouchableOpacity onPress={() => saveEditedValues(group.date, group.items)} style={{ padding: 4 }}>
                                       <Ionicons name="checkmark" size={14} color="#22c55e" />
