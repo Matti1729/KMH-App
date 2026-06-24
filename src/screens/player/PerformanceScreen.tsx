@@ -686,6 +686,7 @@ export function PerformanceScreen() {
   const [addDay, setAddDay] = useState('');
   const [addMonth, setAddMonth] = useState('');
   const [addYear, setAddYear] = useState('');
+  const [dateOpen, setDateOpen] = useState<null | 'day' | 'month' | 'year'>(null);
   const [addValue, setAddValue] = useState('');
   const [addValue2, setAddValue2] = useState('');
   const [addValue3, setAddValue3] = useState('');
@@ -724,6 +725,18 @@ export function PerformanceScreen() {
 
   useEffect(() => { if (player?.id) fetchMeasurements(); }, [player?.id, fetchMeasurements]);
 
+  // Click-Outside schließt das Datums-Dropdown (nur Web).
+  useEffect(() => {
+    if (!dateOpen || typeof document === 'undefined') return;
+    const handler = (e: any) => {
+      const t = e.target;
+      if (t && t.closest && t.closest('[data-kmhdropdown]')) return;
+      setDateOpen(null);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [dateOpen]);
+
   const fetchAnalyses = useCallback(async () => {
     if (!player?.id) return;
     const { data, error } = await supabase
@@ -758,6 +771,9 @@ export function PerformanceScreen() {
   // (Die Eingabe neuer Werte bleibt je Sprung über die linke Auswahl.)
   const JUMP_METRICS = ['cmj', 'sj', 'dj', 'ht'];
   const JUMP_TYPES = ['cmj', 'sj', 'dj', 'dj_rsi', 'ht', 'ht_rsi'];
+  const DAY_OPTS = Array.from({ length: 31 }, (_, i) => String(i + 1));
+  const MONTH_OPTS = Array.from({ length: 12 }, (_, i) => String(i + 1));
+  const YEAR_OPTS = (() => { const cy = new Date().getFullYear(); return Array.from({ length: cy - 2015 + 1 }, (_, i) => String(cy - i)); })();
   const getDisplayTypes = (metric: string | null): string[] => {
     if (metric && JUMP_METRICS.includes(metric)) return JUMP_TYPES;
     return metric ? getTypesForMetric(metric) : [];
@@ -1482,19 +1498,35 @@ export function PerformanceScreen() {
                           {/* Inline-Formular (oben bei Einträgen) */}
                           {showAddForm && (
                             <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+                              {/* Datum als Dropdowns (Design-System) */}
+                              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10, zIndex: 20 }}>
+                                {([
+                                  { key: 'day' as const, label: 'TAG', value: addDay, set: setAddDay, opts: DAY_OPTS, w: 70 },
+                                  { key: 'month' as const, label: 'MONAT', value: addMonth, set: setAddMonth, opts: MONTH_OPTS, w: 80 },
+                                  { key: 'year' as const, label: 'JAHR', value: addYear, set: setAddYear, opts: YEAR_OPTS, w: 88 },
+                                ]).map(f => (
+                                  <View key={f.key} style={{ zIndex: dateOpen === f.key ? 30 : 1 }} {...({ dataSet: { kmhdropdown: 'true' } } as any)}>
+                                    <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>{f.label}</Text>
+                                    <Pressable onPress={() => setDateOpen(o => o === f.key ? null : f.key)} style={[styles.chartInput, { width: f.w, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+                                      <Text style={{ color: f.value ? '#fff' : 'rgba(255,255,255,0.3)', fontSize: 13 }}>{f.value || '–'}</Text>
+                                      <Ionicons name={dateOpen === f.key ? 'chevron-up' : 'chevron-down'} size={12} color="rgba(255,255,255,0.5)" />
+                                    </Pressable>
+                                    {dateOpen === f.key && (
+                                      <View style={{ position: 'absolute', top: 44, left: 0, width: Math.max(f.w, 70), maxHeight: 168, backgroundColor: '#1e293b', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, overflow: 'hidden', zIndex: 40 }}>
+                                        <ScrollView showsVerticalScrollIndicator nestedScrollEnabled>
+                                          {f.opts.map(opt => (
+                                            <TouchableOpacity key={opt} onPress={() => { f.set(opt); setDateOpen(null); }} style={{ paddingVertical: 8, paddingHorizontal: 10, backgroundColor: f.value === opt ? 'rgba(255,255,255,0.08)' : 'transparent' }}>
+                                              <Text style={{ color: '#fff', fontSize: 13 }}>{opt}</Text>
+                                            </TouchableOpacity>
+                                          ))}
+                                        </ScrollView>
+                                      </View>
+                                    )}
+                                  </View>
+                                ))}
+                              </View>
+
                               <View style={{ flexDirection: 'row', gap: 8, rowGap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                                <View>
-                                  <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>TAG</Text>
-                                  <TextInput style={styles.chartInput} value={addDay} onChangeText={setAddDay} placeholder="TT" placeholderTextColor="rgba(255,255,255,0.2)" keyboardType="numeric" />
-                                </View>
-                                <View>
-                                  <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>MONAT</Text>
-                                  <TextInput style={styles.chartInput} value={addMonth} onChangeText={setAddMonth} placeholder="MM" placeholderTextColor="rgba(255,255,255,0.2)" keyboardType="numeric" />
-                                </View>
-                                <View>
-                                  <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>JAHR</Text>
-                                  <TextInput style={[styles.chartInput, { width: 60 }]} value={addYear} onChangeText={setAddYear} placeholder="JJJJ" placeholderTextColor="rgba(255,255,255,0.2)" keyboardType="numeric" />
-                                </View>
                                 <View>
                                   <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>{selectedMetric === 'koerper' ? 'GEWICHT (KG)' : selectedMetric === 'sprint' ? '10M (SEK)' : selectedMetric === 'cmj' ? 'WERT (CM)' : selectedMetric === 'jumps' ? 'CMJ (CM)' : (selectedMetric === 'sj' || selectedMetric === 'dj' || selectedMetric === 'ht') ? 'HÖHE (CM)' : 'WERT'}</Text>
                                   <TextInput style={styles.chartInput} value={addValue} onChangeText={setAddValue} placeholder="-" placeholderTextColor="rgba(255,255,255,0.2)" keyboardType="numeric" />
