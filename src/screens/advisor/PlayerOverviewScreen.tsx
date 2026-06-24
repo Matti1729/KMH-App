@@ -2195,9 +2195,9 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
         <Image source={require('../../../assets/scouting-header-bg.jpg')} style={[StyleSheet.absoluteFillObject, { opacity: 0.85, ...({ objectFit: 'cover', objectPosition: 'center' } as any) }]} resizeMode="cover" />
         <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.55)' }]} />
         <View style={{ padding: 22 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 4 }}>
-            <Text style={{ fontFamily: 'Josefin Sans', fontSize: 16, lineHeight: 22, fontWeight: '300', letterSpacing: 4, textTransform: 'uppercase', color: 'rgba(255,255,255,0.85)', textAlign: 'center' }}>An Athletiktrainer übergeben</Text>
-            <TouchableOpacity onPress={() => setShowTrainerAssignModal(false)} style={{ position: 'absolute', right: 0, width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+            <Text numberOfLines={1} style={{ flex: 1, fontFamily: 'Josefin Sans', fontSize: 15, lineHeight: 22, fontWeight: '300', letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(255,255,255,0.85)', textAlign: 'center', paddingLeft: 28 }}>An Athletiktrainer übergeben</Text>
+            <TouchableOpacity onPress={() => setShowTrainerAssignModal(false)} style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center' }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Text style={{ fontSize: 20, color: 'rgba(255,255,255,0.7)' }}>✕</Text>
             </TouchableOpacity>
           </View>
