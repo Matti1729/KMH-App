@@ -28,7 +28,7 @@ export function AutoFitText({
   minFontSize = 11,
   letterSpacing = 0,
   charRatio = 0.62,
-  lineHeightRatio = 1.12,
+  lineHeightRatio = 1.28,
   textStyle,
   containerStyle,
 }: Props) {

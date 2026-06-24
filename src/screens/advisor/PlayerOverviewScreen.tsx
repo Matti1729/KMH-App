@@ -2314,17 +2314,17 @@ export function PlayerOverviewScreen({ navigation }: any) {
 
               {/* Name + Club */}
               <View style={styles.detailHeaderCenter}>
-                <Text style={[styles.detailHeaderName, { fontSize: isMobile ? 34 : 72, lineHeight: isMobile ? 38 : 76 }]}>
+                <Text style={[styles.detailHeaderName, { fontSize: isMobile ? 34 : 72, lineHeight: isMobile ? 44 : 92 }]}>
                   {selectedPlayer.first_name}
                 </Text>
-                <Text style={[styles.detailHeaderName, { fontSize: isMobile ? 34 : 72, lineHeight: isMobile ? 38 : 76 }]}>
+                <Text style={[styles.detailHeaderName, { fontSize: isMobile ? 34 : 72, lineHeight: isMobile ? 44 : 92 }]}>
                   {selectedPlayer.last_name}
                 </Text>
                 <View style={styles.detailHeaderClubRow}>
                   {getClubLogo(selectedPlayer.club) && (
                     <Image source={{ uri: getClubLogo(selectedPlayer.club)! }} style={{ width: isMobile ? 32 : 44, height: isMobile ? 32 : 44 }} resizeMode="contain" />
                   )}
-                  <Text numberOfLines={1} style={[styles.detailHeaderClubText, { fontSize: isMobile ? 15 : 30, flexShrink: 1 }]}>{normalizeGermanClubName(selectedPlayer.club) || '-'}</Text>
+                  <Text numberOfLines={1} style={[styles.detailHeaderClubText, { fontSize: isMobile ? 15 : 30, lineHeight: isMobile ? 20 : 39, flexShrink: 1 }]}>{normalizeGermanClubName(selectedPlayer.club) || '-'}</Text>
                   {fullPlayer?.loan_from_club ? (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 }}>
                       <Text numberOfLines={1} style={[styles.detailHeaderClubText, { fontSize: isMobile ? 10 : 13, color: 'rgba(255,255,255,0.55)', fontWeight: '400' }]}>
