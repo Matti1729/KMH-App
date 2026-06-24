@@ -2044,6 +2044,11 @@ export function PlayerOverviewScreen({ navigation }: any) {
     </View>
   );
 
+  // Kontaktdaten/Familie/Ausbildung sind reine Spieler-Daten: der Berater sieht sie
+  // nur (read-only), bearbeiten kann sie ausschließlich der Spieler. Diese Felder
+  // bleiben daher auch im Bearbeiten-Modus auf Anzeige.
+  const advisorEditsPersonal = false;
+
   const DateDropdown = ({ field, dropdownKeyPrefix, birthMode = false }: { field: string; dropdownKeyPrefix: string; birthMode?: boolean }) => {
     const raw: string = editData[field] || '';
     const today = new Date();
@@ -2805,7 +2810,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
                   <View style={isMobile && isEditing ? { width: '100%', gap: 14 } : { flex: 1, minWidth: 180, gap: 14 }}>
                     <View>
                       <Text style={styles.detailFieldLabel}>Telefon</Text>
-                      {isEditing ? (
+                      {advisorEditsPersonal ? (
                         <View style={{ flexDirection: 'row', gap: 8 }}>
                           <View style={{ width: 70 }}>
                             <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="phone_country_code" placeholder="+49" />
@@ -2826,7 +2831,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
                     </View>
                     <View>
                       <Text style={styles.detailFieldLabel}>E-Mail</Text>
-                      {isEditing ? (
+                      {advisorEditsPersonal ? (
                         <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="email" placeholder="name@example.com" />
                       ) : (() => {
                         const em = sv('email');
@@ -2846,7 +2851,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
                   <View style={isMobile && isEditing ? { width: '100%', gap: 14 } : { flex: 1, minWidth: 180, gap: 14 }}>
                     <View>
                       <Text style={styles.detailFieldLabel}>Adresse</Text>
-                      {isEditing ? (
+                      {advisorEditsPersonal ? (
                         <>
                           <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="street" placeholder="Straße + Hausnummer" />
                           <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
@@ -2870,7 +2875,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
                     </View>
                     <View style={{ zIndex: 20, position: 'relative' }}>
                       <Text style={styles.detailFieldLabel}>Internat</Text>
-                      {isEditing ? (
+                      {advisorEditsPersonal ? (
                         <>
                           <DetailDropdown
                             value={internatJa ? 'Ja' : ''}
@@ -2995,11 +3000,11 @@ export function PlayerOverviewScreen({ navigation }: any) {
                   <View style={isMobile && isEditing ? { width: '100%', gap: 14 } : { flex: 1, minWidth: 160, gap: 14 }}>
                     <View>
                       <Text style={styles.detailFieldLabel}>Papa</Text>
-                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="father_name" displayValue={fullPlayer?.father_name} />
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={advisorEditsPersonal} fullPlayer={fullPlayer} field="father_name" displayValue={fullPlayer?.father_name} />
                     </View>
                     <View>
                       <Text style={styles.detailFieldLabel}>Telefon</Text>
-                      {isEditing ? (
+                      {advisorEditsPersonal ? (
                         <View style={{ flexDirection: 'row', gap: 8 }}>
                           <View style={{ width: 60 }}>
                             <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="father_phone_country_code" placeholder="+49" />
@@ -3020,7 +3025,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
                     </View>
                     <View>
                       <Text style={styles.detailFieldLabel}>Job</Text>
-                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="father_job" displayValue={fullPlayer?.father_job} />
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={advisorEditsPersonal} fullPlayer={fullPlayer} field="father_job" displayValue={fullPlayer?.father_job} />
                     </View>
                   </View>
 
@@ -3028,11 +3033,11 @@ export function PlayerOverviewScreen({ navigation }: any) {
                   <View style={isMobile && isEditing ? { width: '100%', gap: 14 } : { flex: 1, minWidth: 160, gap: 14 }}>
                     <View>
                       <Text style={styles.detailFieldLabel}>Mama</Text>
-                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="mother_name" displayValue={fullPlayer?.mother_name} />
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={advisorEditsPersonal} fullPlayer={fullPlayer} field="mother_name" displayValue={fullPlayer?.mother_name} />
                     </View>
                     <View>
                       <Text style={styles.detailFieldLabel}>Telefon</Text>
-                      {isEditing ? (
+                      {advisorEditsPersonal ? (
                         <View style={{ flexDirection: 'row', gap: 8 }}>
                           <View style={{ width: 60 }}>
                             <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="mother_phone_country_code" placeholder="+49" />
@@ -3053,7 +3058,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
                     </View>
                     <View>
                       <Text style={styles.detailFieldLabel}>Job</Text>
-                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="mother_job" displayValue={fullPlayer?.mother_job} />
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={advisorEditsPersonal} fullPlayer={fullPlayer} field="mother_job" displayValue={fullPlayer?.mother_job} />
                     </View>
                   </View>
 
@@ -3061,7 +3066,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
                   <View style={isMobile && isEditing ? { width: '100%', gap: 14 } : { flex: 1, minWidth: 160, gap: 14 }}>
                     <View>
                       <Text style={styles.detailFieldLabel}>Geschwister</Text>
-                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="siblings" displayValue={fullPlayer?.siblings} multiline />
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={advisorEditsPersonal} fullPlayer={fullPlayer} field="siblings" displayValue={fullPlayer?.siblings} multiline />
                     </View>
                   </View>
                 </View>
@@ -3115,15 +3120,15 @@ export function PlayerOverviewScreen({ navigation }: any) {
                 <View style={{ flexDirection: isMobile && isEditing ? 'column' : 'row', gap: isMobile && isEditing ? 14 : 24, flexWrap: 'wrap' }}>
                   <View style={isMobile && isEditing ? { width: '100%' } : { flex: 1, minWidth: 140 }}>
                     <Text style={styles.detailFieldLabel}>Schulabschluss</Text>
-                    <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="education" displayValue={fullPlayer?.education} />
+                    <EditableValue editData={editData} setEditData={setEditData} isEditing={advisorEditsPersonal} fullPlayer={fullPlayer} field="education" displayValue={fullPlayer?.education} />
                   </View>
                   <View style={isMobile && isEditing ? { width: '100%' } : { flex: 1, minWidth: 140 }}>
                     <Text style={styles.detailFieldLabel}>Ausbildung/Studium</Text>
-                    <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="training" displayValue={fullPlayer?.training} />
+                    <EditableValue editData={editData} setEditData={setEditData} isEditing={advisorEditsPersonal} fullPlayer={fullPlayer} field="training" displayValue={fullPlayer?.training} />
                   </View>
                   <View style={isMobile && isEditing ? { width: '100%' } : { flex: 1, minWidth: 140 }}>
                     <Text style={styles.detailFieldLabel}>Job</Text>
-                    <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="job" displayValue={fullPlayer?.job} />
+                    <EditableValue editData={editData} setEditData={setEditData} isEditing={advisorEditsPersonal} fullPlayer={fullPlayer} field="job" displayValue={fullPlayer?.job} />
                   </View>
                 </View>
               </View>
