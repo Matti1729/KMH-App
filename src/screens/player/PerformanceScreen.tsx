@@ -742,6 +742,9 @@ export function PerformanceScreen() {
     if (metric === 'koerper') return ['height', 'weight'];
     if (metric === 'sprint') return ['sprint_10m', 'sprint_20m', 'sprint_30m', 'vmax'];
     if (metric === 'cmj') return ['cmj'];
+    if (metric === 'sj') return ['sj'];
+    if (metric === 'dj') return ['dj', 'dj_rsi'];
+    if (metric === 'ht') return ['ht', 'ht_rsi'];
     return [];
   };
 
@@ -763,6 +766,12 @@ export function PerformanceScreen() {
         if (addValue2) await supabase.from('player_measurements').insert({ player_id: player.id, type: 'sprint_20m', value: parseNum(addValue2), measured_at: date, created_by: profile?.first_name || '' });
         if (addValue3) await supabase.from('player_measurements').insert({ player_id: player.id, type: 'sprint_30m', value: parseNum(addValue3), measured_at: date, created_by: profile?.first_name || '' });
         if (addValue4) await supabase.from('player_measurements').insert({ player_id: player.id, type: 'vmax', value: parseNum(addValue4), measured_at: date, created_by: profile?.first_name || '' });
+      } else if (selectedMetric === 'dj') {
+        if (addValue) await supabase.from('player_measurements').insert({ player_id: player.id, type: 'dj', value: parseNum(addValue), measured_at: date, created_by: profile?.first_name || '' });
+        if (addValue2) await supabase.from('player_measurements').insert({ player_id: player.id, type: 'dj_rsi', value: parseNum(addValue2), measured_at: date, created_by: profile?.first_name || '' });
+      } else if (selectedMetric === 'ht') {
+        if (addValue) await supabase.from('player_measurements').insert({ player_id: player.id, type: 'ht', value: parseNum(addValue), measured_at: date, created_by: profile?.first_name || '' });
+        if (addValue2) await supabase.from('player_measurements').insert({ player_id: player.id, type: 'ht_rsi', value: parseNum(addValue2), measured_at: date, created_by: profile?.first_name || '' });
       } else {
         if (addValue) await supabase.from('player_measurements').insert({ player_id: player.id, type: types[0], value: parseNum(addValue), measured_at: date, created_by: profile?.first_name || '' });
       }
@@ -1281,12 +1290,30 @@ export function PerformanceScreen() {
                   </View>
 
                   <View style={{ flex: isMobile ? undefined : 1, width: isMobile ? '100%' : undefined }}>
-                    <Text style={[styles.subLabel, { marginBottom: 8 }]}>Countermovement Jump</Text>
+                    <Text style={[styles.subLabel, { marginBottom: 8 }]}>Sprünge</Text>
                     <Pressable
                       onPress={() => setSelectedMetric(selectedMetric === 'cmj' ? null : 'cmj')}
                       style={[styles.metricRow, { paddingHorizontal: 0, borderLeftWidth: 0 }, selectedMetric === 'cmj' && styles.metricRowActive]}
                     >
                       <View style={styles.infoRow}><Text style={styles.infoLabel}>Countermovement Jump</Text><Text style={styles.infoValue}>{latestValue('cmj') !== '-' ? `${latestValue('cmj')} cm` : '-'}</Text></View>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => setSelectedMetric(selectedMetric === 'sj' ? null : 'sj')}
+                      style={[styles.metricRow, { paddingHorizontal: 0, borderLeftWidth: 0 }, selectedMetric === 'sj' && styles.metricRowActive]}
+                    >
+                      <View style={styles.infoRow}><Text style={styles.infoLabel}>Squat Jump</Text><Text style={styles.infoValue}>{latestValue('sj') !== '-' ? `${latestValue('sj')} cm` : '-'}</Text></View>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => setSelectedMetric(selectedMetric === 'dj' ? null : 'dj')}
+                      style={[styles.metricRow, { paddingHorizontal: 0, borderLeftWidth: 0 }, selectedMetric === 'dj' && styles.metricRowActive]}
+                    >
+                      <View style={styles.infoRow}><Text style={styles.infoLabel}>Drop Jump</Text><Text style={styles.infoValue}>{latestValue('dj') !== '-' ? `${latestValue('dj')} cm${latestValue('dj_rsi') !== '-' ? ` · RSI ${latestValue('dj_rsi')}` : ''}` : '-'}</Text></View>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => setSelectedMetric(selectedMetric === 'ht' ? null : 'ht')}
+                      style={[styles.metricRow, { paddingHorizontal: 0, borderLeftWidth: 0 }, selectedMetric === 'ht' && styles.metricRowActive]}
+                    >
+                      <View style={styles.infoRow}><Text style={styles.infoLabel}>Hop Test</Text><Text style={styles.infoValue}>{latestValue('ht') !== '-' ? `${latestValue('ht')} cm${latestValue('ht_rsi') !== '-' ? ` · RSI ${latestValue('ht_rsi')}` : ''}` : '-'}</Text></View>
                     </Pressable>
                   </View>
                 </View>
@@ -1343,6 +1370,42 @@ export function PerformanceScreen() {
                             <Bar dataKey="cmj" name="CMJ (cm)" fill="rgba(59,130,246,0.5)" radius={[4, 4, 0, 0]} maxBarSize={50} />
                           </BarChart>
                         </ResponsiveContainer>
+                      ) : selectedMetric === 'sj' ? (
+                        <ResponsiveContainer width="100%" height={250}>
+                          <BarChart data={getChartData('sj')}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                            <XAxis dataKey="date" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} />
+                            <YAxis tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} label={{ value: 'cm', position: 'insideTopLeft', fill: 'rgba(255,255,255,0.4)', fontSize: 10 }} />
+                            <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.9)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, fontSize: 12, color: '#fff' }} />
+                            <Bar dataKey="sj" name="SJ (cm)" fill="rgba(34,197,94,0.5)" radius={[4, 4, 0, 0]} maxBarSize={50} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : selectedMetric === 'dj' ? (
+                        <ResponsiveContainer width="100%" height={250}>
+                          <ComposedChart data={getChartData('dj')}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                            <XAxis dataKey="date" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} />
+                            <YAxis yAxisId="left" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} label={{ value: 'cm', position: 'insideTopLeft', fill: 'rgba(255,255,255,0.4)', fontSize: 10 }} />
+                            <YAxis yAxisId="right" orientation="right" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} label={{ value: 'RSI', position: 'insideTopRight', fill: 'rgba(255,255,255,0.4)', fontSize: 10 }} />
+                            <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.9)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, fontSize: 12, color: '#fff' }} />
+                            <Legend wrapperStyle={{ fontSize: 11 }} />
+                            <Bar yAxisId="left" dataKey="dj" name="DJ (cm)" fill="rgba(245,158,11,0.5)" radius={[4, 4, 0, 0]} maxBarSize={50} />
+                            <Line yAxisId="right" dataKey="dj_rsi" name="RSI" stroke="#ef4444" strokeWidth={2} dot={{ r: 4 }} />
+                          </ComposedChart>
+                        </ResponsiveContainer>
+                      ) : selectedMetric === 'ht' ? (
+                        <ResponsiveContainer width="100%" height={250}>
+                          <ComposedChart data={getChartData('ht')}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                            <XAxis dataKey="date" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} />
+                            <YAxis yAxisId="left" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} label={{ value: 'cm', position: 'insideTopLeft', fill: 'rgba(255,255,255,0.4)', fontSize: 10 }} />
+                            <YAxis yAxisId="right" orientation="right" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} label={{ value: 'RSI', position: 'insideTopRight', fill: 'rgba(255,255,255,0.4)', fontSize: 10 }} />
+                            <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.9)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, fontSize: 12, color: '#fff' }} />
+                            <Legend wrapperStyle={{ fontSize: 11 }} />
+                            <Bar yAxisId="left" dataKey="ht" name="HT (cm)" fill="rgba(168,85,247,0.5)" radius={[4, 4, 0, 0]} maxBarSize={50} />
+                            <Line yAxisId="right" dataKey="ht_rsi" name="RSI" stroke="#ef4444" strokeWidth={2} dot={{ r: 4 }} />
+                          </ComposedChart>
+                        </ResponsiveContainer>
                       ) : null}
                     </View>
 
@@ -1351,11 +1414,12 @@ export function PerformanceScreen() {
                       const types = getTypesForMetric(selectedMetric);
                       const entries = measurements.filter(m => types.includes(m.type)).sort((a, b) => b.measured_at.localeCompare(a.measured_at));
                       if (entries.length === 0 && !showAddForm) return null;
-                      const typeLabels: Record<string, string> = { height: 'Größe', weight: 'Gewicht', sprint_10m: '10m', sprint_20m: '20m', sprint_30m: '30m', vmax: 'Vmax', cmj: 'CMJ' };
+                      const typeLabels: Record<string, string> = { height: 'Größe', weight: 'Gewicht', sprint_10m: '10m', sprint_20m: '20m', sprint_30m: '30m', vmax: 'Vmax', cmj: 'CMJ', sj: 'SJ', dj: 'DJ', dj_rsi: 'DJ RSI', ht: 'HT', ht_rsi: 'HT RSI' };
                       const formatVal = (val: number, type: string) => {
                         if (type.startsWith('sprint')) return val.toFixed(2) + 's';
                         if (type === 'vmax') return val.toFixed(1) + ' km/h';
-                        if (type === 'cmj') return val.toFixed(1) + ' cm';
+                        if (type === 'cmj' || type === 'sj' || type === 'dj' || type === 'ht') return val.toFixed(1) + ' cm';
+                        if (type === 'dj_rsi' || type === 'ht_rsi') return val.toFixed(2);
                         if (type === 'height') return val % 1 === 0 ? String(val) + ' cm' : val.toFixed(1) + ' cm';
                         if (type === 'weight') return val % 1 === 0 ? String(val) + ' kg' : val.toFixed(1) + ' kg';
                         return String(val);
@@ -1395,7 +1459,7 @@ export function PerformanceScreen() {
                                   <TextInput style={[styles.chartInput, { width: 60 }]} value={addYear} onChangeText={setAddYear} placeholder="JJJJ" placeholderTextColor="rgba(255,255,255,0.2)" keyboardType="numeric" />
                                 </View>
                                 <View>
-                                  <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>{selectedMetric === 'koerper' ? 'GEWICHT (KG)' : selectedMetric === 'sprint' ? '10M (SEK)' : selectedMetric === 'cmj' ? 'WERT (CM)' : 'WERT'}</Text>
+                                  <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>{selectedMetric === 'koerper' ? 'GEWICHT (KG)' : selectedMetric === 'sprint' ? '10M (SEK)' : selectedMetric === 'cmj' ? 'WERT (CM)' : (selectedMetric === 'sj' || selectedMetric === 'dj' || selectedMetric === 'ht') ? 'HÖHE (CM)' : 'WERT'}</Text>
                                   <TextInput style={styles.chartInput} value={addValue} onChangeText={setAddValue} placeholder="-" placeholderTextColor="rgba(255,255,255,0.2)" keyboardType="numeric" />
                                 </View>
                                 {selectedMetric === 'koerper' && (
@@ -1419,6 +1483,12 @@ export function PerformanceScreen() {
                                       <TextInput style={styles.chartInput} value={addValue4} onChangeText={setAddValue4} placeholder="-" placeholderTextColor="rgba(255,255,255,0.2)" keyboardType="numeric" />
                                     </View>
                                   </>
+                                )}
+                                {(selectedMetric === 'dj' || selectedMetric === 'ht') && (
+                                  <View>
+                                    <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>RSI</Text>
+                                    <TextInput style={styles.chartInput} value={addValue2} onChangeText={setAddValue2} placeholder="-" placeholderTextColor="rgba(255,255,255,0.2)" keyboardType="numeric" />
+                                  </View>
                                 )}
                                 <View style={{ flex: 1 }} />
                                 <TouchableOpacity onPress={() => setShowAddForm(false)} style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}>
@@ -1576,6 +1646,9 @@ export function PerformanceScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={styles.infoRow}><Text style={styles.infoLabel}>Countermovement Jump</Text><Text style={styles.infoValue}>{latestValue('cmj') !== '-' ? `${latestValue('cmj')} cm` : '-'}</Text></View>
+                  <View style={styles.infoRow}><Text style={styles.infoLabel}>Squat Jump</Text><Text style={styles.infoValue}>{latestValue('sj') !== '-' ? `${latestValue('sj')} cm` : '-'}</Text></View>
+                  <View style={styles.infoRow}><Text style={styles.infoLabel}>Drop Jump</Text><Text style={styles.infoValue}>{latestValue('dj') !== '-' ? `${latestValue('dj')} cm` : '-'}{latestValue('dj_rsi') !== '-' ? `  ·  RSI ${latestValue('dj_rsi')}` : ''}</Text></View>
+                  <View style={styles.infoRow}><Text style={styles.infoLabel}>Hop Test</Text><Text style={styles.infoValue}>{latestValue('ht') !== '-' ? `${latestValue('ht')} cm` : '-'}{latestValue('ht_rsi') !== '-' ? `  ·  RSI ${latestValue('ht_rsi')}` : ''}</Text></View>
                 </View>
               </View>
             </View>
