@@ -763,7 +763,7 @@ export function PlayerPersonalDataScreen() {
 
         <View style={styles.dataGrid}>
           {/* Karte: Allgemeine Angaben */}
-          <View style={styles.dataGridCard}>
+          <View style={[styles.dataGridCard, internatOpen && { zIndex: 1000, position: 'relative' }]}>
             <Text style={[styles.cardSectionLabel, { marginBottom: 12 }]}>Kontaktdaten</Text>
             <View style={{ flex: 1 }}>
               {editing ? (
