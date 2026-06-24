@@ -59,7 +59,7 @@ export function LoginScreen({ navigation }: any) {
       setCodeError(null);
       showAlert(
         'Code bestätigt',
-        'Du wirst jetzt zur Registrierung weitergeleitet. Nach der Registrierung erhältst du eine E-Mail zur Bestätigung deiner Adresse.',
+        'Du wirst jetzt zur Registrierung weitergeleitet.',
         () => navigation.navigate('RegisterAdvisor')
       );
     } else {
@@ -99,7 +99,7 @@ export function LoginScreen({ navigation }: any) {
       setPlayerCodeLoading(false);
       showAlert(
         'Code bestätigt',
-        `Willkommen ${data.first_name} ${data.last_name}! Du wirst jetzt zur Registrierung weitergeleitet. Nach der Registrierung erhältst du eine E-Mail zur Bestätigung deiner Adresse.`,
+        `Willkommen ${data.first_name} ${data.last_name}! Du wirst jetzt zur Registrierung weitergeleitet.`,
         () => navigation.navigate('Register', { playerDetailsId: data.id, playerFirstName: data.first_name, playerLastName: data.last_name })
       );
     } catch (e) {
