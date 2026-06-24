@@ -45,7 +45,7 @@ export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedde
   const [feedbackImage, setFeedbackImage] = useState<string | null>(null);
   const [generatedPrompt, setGeneratedPrompt] = useState<string>('');
   const [promptCopied, setPromptCopied] = useState(false);
-  const { user, profile: authProfile, setViewAsPlayer, setViewAsPlayerId, setViewAsTrainer, setViewAsTrainerId } = useAuth();
+  const { user, profile: authProfile, setViewAsPlayer, setViewAsPlayerId, setViewAsTrainer, setViewAsTrainerId, viewAsTrainerId } = useAuth();
   const [showPlayerPicker, setShowPlayerPicker] = useState(false);
   const [playerList, setPlayerList] = useState<Array<{ id: string; first_name: string; last_name: string; club: string }>>([]);
   const [playerSearch, setPlayerSearch] = useState('');
@@ -734,6 +734,7 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
                   <TouchableOpacity key={t.id} style={styles.perspectiveItem} onPress={() => selectTrainer(t.id)}>
                     <Text style={styles.perspectiveIcon}>🏋️</Text>
                     <Text style={styles.perspectiveLabel}>Als {t.first_name} {t.last_name} (Trainer)</Text>
+                    {trainerMode && viewAsTrainerId === t.id && <Text style={styles.perspectiveCurrent}>aktiv</Text>}
                   </TouchableOpacity>
                 ))
               )}
