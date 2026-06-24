@@ -2111,7 +2111,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
 
         <ScrollView contentContainerStyle={{ paddingBottom: 16 }}>
           {/* Header */}
-          <View style={styles.detailHeader}>
+          <View style={[styles.detailHeader, isEditing && { zIndex: 100, position: 'relative' }]}>
             <View style={styles.detailHeaderTop}>
               {/* Foto — im Edit-Mode klickbar (nur Berater darf das Foto verwalten) */}
               <View style={{ position: 'relative' }}>
@@ -2263,7 +2263,15 @@ export function PlayerOverviewScreen({ navigation }: any) {
             <View style={styles.detailStatsRow}>
               <Pressable style={styles.detailStatCol} onHoverIn={() => setShowNatTooltip(true)} onHoverOut={() => setShowNatTooltip(false)}>
                 <Text style={styles.detailStatLabel}>Nationalität</Text>
-                {(() => {
+                {isEditing ? (
+                  <TextInput
+                    style={[styles.detailEditInput, { paddingVertical: 4, fontSize: 11, width: '100%', minWidth: 120, textAlign: 'center' }]}
+                    value={(editData.nationality_advisor as string) || ''}
+                    onChangeText={(v) => setEditData({ ...editData, nationality_advisor: v })}
+                    placeholder="z.B. Deutschland"
+                    placeholderTextColor="rgba(255,255,255,0.3)"
+                  />
+                ) : (() => {
                   // Stamm-Daten: Spieler-Wert ?? Berater-Wert ?? alte Spalte
                   const nat = fullPlayer?.nationality_player || fullPlayer?.nationality_advisor || fullPlayer?.nationality;
                   return (
@@ -2272,15 +2280,17 @@ export function PlayerOverviewScreen({ navigation }: any) {
                     </Text>
                   );
                 })()}
-                {showNatTooltip && (fullPlayer?.nationality_player || fullPlayer?.nationality_advisor || fullPlayer?.nationality) ? (
+                {!isEditing && showNatTooltip && (fullPlayer?.nationality_player || fullPlayer?.nationality_advisor || fullPlayer?.nationality) ? (
                   <View style={styles.detailTooltip}>
                     <Text style={styles.detailTooltipText}>{fullPlayer?.nationality_player || fullPlayer?.nationality_advisor || fullPlayer?.nationality}</Text>
                   </View>
                 ) : null}
               </Pressable>
-              <View style={styles.detailStatCol}>
+              <View style={[styles.detailStatCol, isEditing && { zIndex: 50, position: 'relative' }]}>
                 <Text style={styles.detailStatLabel}>Geburtsdatum</Text>
-                {(() => {
+                {isEditing ? (
+                  <DateDropdown field="birth_date_advisor" dropdownKeyPrefix="birth_date" />
+                ) : (() => {
                   const bd = fullPlayer?.birth_date_player || fullPlayer?.birth_date_advisor || selectedPlayer.birth_date;
                   return (
                     <Text style={styles.detailStatValue}>
