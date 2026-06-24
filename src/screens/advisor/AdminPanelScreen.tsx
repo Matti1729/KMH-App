@@ -500,9 +500,9 @@ Achte dabei auf:
                       Geb.: {advisor.birth_date ? formatDate(advisor.birth_date) : '-'}
                     </Text>
                   </View>
-                  <View style={[styles.roleBadge, advisor.role === 'admin' ? { backgroundColor: colors.primary } : styles.roleBerater]}>
+                  <View style={[styles.roleBadge, advisor.role === 'admin' ? { backgroundColor: colors.primary } : advisor.role === 'athletiktrainer' ? { backgroundColor: '#16a34a' } : styles.roleBerater]}>
                     <Text style={[styles.roleBadgeText, { color: advisor.role === 'admin' ? colors.primaryText : '#fff' }]}>
-                      {advisor.role === 'admin' ? 'Admin' : 'Berater'}
+                      {advisor.role === 'admin' ? 'Admin' : advisor.role === 'athletiktrainer' ? 'Athletiktrainer' : 'Berater'}
                     </Text>
                   </View>
                 </View>
