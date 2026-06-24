@@ -23,6 +23,10 @@ interface AuthContextType {
   viewAsPlayerId: string | null;
   setViewAsPlayer: (v: boolean) => void;
   setViewAsPlayerId: (id: string | null) => void;
+  viewAsTrainer: boolean;
+  viewAsTrainerId: string | null;
+  setViewAsTrainer: (v: boolean) => void;
+  setViewAsTrainerId: (id: string | null) => void;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, firstName: string, lastName: string, role?: UserRole, playerDetailsId?: string) => Promise<{ data: any; error: any }>;
   signOut: () => Promise<void>;
@@ -40,6 +44,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [viewAsPlayer, setViewAsPlayer] = useState(false);
   const [viewAsPlayerId, setViewAsPlayerId] = useState<string | null>(null);
+  const [viewAsTrainer, setViewAsTrainer] = useState(false);
+  const [viewAsTrainerId, setViewAsTrainerId] = useState<string | null>(null);
   const watchdogRef = useRef<NodeJS.Timeout | null>(null);
   const isInitializedRef = useRef(false);
 
@@ -314,10 +320,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSession(null);
     setUser(null);
     setProfile(null);
+    setViewAsPlayer(false);
+    setViewAsPlayerId(null);
+    setViewAsTrainer(false);
+    setViewAsTrainerId(null);
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, profile, loading, viewAsPlayer, viewAsPlayerId, setViewAsPlayer, setViewAsPlayerId, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ session, user, profile, loading, viewAsPlayer, viewAsPlayerId, setViewAsPlayer, setViewAsPlayerId, viewAsTrainer, viewAsTrainerId, setViewAsTrainer, setViewAsTrainerId, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );

@@ -23,7 +23,7 @@ import { AufgabenScreen } from '../screens/advisor/AufgabenScreen';
 const Stack = createNativeStackNavigator();
 
 export function RootNavigator() {
-  const { session, profile, loading, viewAsPlayer } = useAuth();
+  const { session, profile, loading, viewAsPlayer, viewAsTrainer } = useAuth();
 
   if (loading) {
     return (
@@ -43,7 +43,7 @@ export function RootNavigator() {
             <Stack.Screen name="RegisterAdvisor" component={RegisterAdvisorScreen} />
             <Stack.Screen name="RegisterTrainer" component={RegisterTrainerScreen} />
           </>
-        ) : profile?.role === 'athletiktrainer' ? (
+        ) : !viewAsPlayer && (profile?.role === 'athletiktrainer' || viewAsTrainer) ? (
           <>
             <Stack.Screen name="TrainerHome" component={PlayerOverviewScreen} initialParams={{ trainerMode: true }} />
             <Stack.Screen name="TrainerPlayerDetail" component={TrainerPlayerDetailScreen} />

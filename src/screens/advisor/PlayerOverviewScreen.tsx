@@ -316,7 +316,7 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
   const isMobile = useIsMobile();
   // Athletiktrainer-Modus: gleiche Liste, aber nur zugewiesene Spieler + ohne Berater-Aktionen.
   const trainerMode = route?.params?.trainerMode === true;
-  const { session, loading: authLoading } = useAuth();
+  const { session, loading: authLoading, viewAsTrainerId } = useAuth();
   const { colors, isDark } = useTheme();
   const { confirm: confirmDialog, alert: alertDialog } = useDialog();
   const [players, setPlayers] = useState<Player[]>([]);
@@ -1068,10 +1068,12 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
 
       // Trainer sieht nur die ihm zugewiesenen Spieler.
       if (trainerMode) {
+        // Beim Impersonieren eines Trainers dessen Zuweisungen laden, sonst die eigenen.
+        const effectiveTrainerId = viewAsTrainerId || session?.user?.id || '';
         const { data: assigns } = await supabase
           .from('player_trainer_assignments')
           .select('player_id')
-          .eq('trainer_id', session?.user?.id || '');
+          .eq('trainer_id', effectiveTrainerId);
         const ids = (assigns || []).map((a: any) => a.player_id);
         if (ids.length === 0) { setPlayers([]); setError(null); setLoading(false); return; }
         query = query.in('id', ids);

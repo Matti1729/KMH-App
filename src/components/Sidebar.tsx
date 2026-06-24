@@ -45,10 +45,33 @@ export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedde
   const [feedbackImage, setFeedbackImage] = useState<string | null>(null);
   const [generatedPrompt, setGeneratedPrompt] = useState<string>('');
   const [promptCopied, setPromptCopied] = useState(false);
-  const { user, profile: authProfile, setViewAsPlayer, setViewAsPlayerId } = useAuth();
+  const { user, profile: authProfile, setViewAsPlayer, setViewAsPlayerId, setViewAsTrainer, setViewAsTrainerId } = useAuth();
   const [showPlayerPicker, setShowPlayerPicker] = useState(false);
   const [playerList, setPlayerList] = useState<Array<{ id: string; first_name: string; last_name: string; club: string }>>([]);
   const [playerSearch, setPlayerSearch] = useState('');
+  const [showPerspectivePicker, setShowPerspectivePicker] = useState(false);
+  const [trainerPickList, setTrainerPickList] = useState<Array<{ id: string; first_name: string; last_name: string }>>([]);
+
+  // Admin/Berater dürfen die Perspektive wechseln (Berater/Spieler/Athletiktrainer).
+  const canSwitchPerspective = authProfile?.role === 'admin' || authProfile?.role === 'advisor';
+
+  const openPerspectivePicker = async () => {
+    const { data } = await supabase.from('advisors').select('id, first_name, last_name').eq('role', 'athletiktrainer').order('last_name', { ascending: true });
+    setTrainerPickList(data || []);
+    setShowPerspectivePicker(true);
+  };
+
+  const goBerater = () => {
+    setShowPerspectivePicker(false);
+    setViewAsPlayer(false); setViewAsPlayerId(null);
+    setViewAsTrainer(false); setViewAsTrainerId(null);
+  };
+
+  const selectTrainer = (trainerId: string) => {
+    setShowPerspectivePicker(false);
+    setViewAsPlayer(false); setViewAsPlayerId(null);
+    setViewAsTrainerId(trainerId); setViewAsTrainer(true);
+  };
 
   const openPlayerPicker = async () => {
     const { data } = await supabase
@@ -62,8 +85,15 @@ export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedde
 
   const selectPlayer = (playerId: string) => {
     setShowPlayerPicker(false);
+    setViewAsTrainer(false); setViewAsTrainerId(null);
     setViewAsPlayerId(playerId);
     setViewAsPlayer(true);
+  };
+
+  // Aus dem Perspektiven-Menü heraus den Spieler-Picker öffnen.
+  const openPlayerPickerFromPerspective = () => {
+    setShowPerspectivePicker(false);
+    openPlayerPicker();
   };
 
   const filteredPlayers = playerList
@@ -325,35 +355,22 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
           <Text style={[styles.feedbackText, { color: isDark ? '#7dd3fc' : '#0284c7' }]}>Feedback / Bug</Text>
         </Pressable>
 
-        {/* Als Spieler ansehen — TEMPORÄR nur für Matti (Feature noch in Bearbeitung) */}
-        {!playerMode && user?.id === '892d4dbc-3c5b-4908-9735-ac0ca3794dfc' && (
+        {/* Perspektive wechseln (Berater / Spieler / Athletiktrainer) — nur Admin/Berater */}
+        {canSwitchPerspective && (
           <Pressable
-            onHoverIn={() => setHoveredNav('viewPlayer')}
+            onHoverIn={() => setHoveredNav('perspective')}
             onHoverOut={() => setHoveredNav(null)}
-            onPress={openPlayerPicker}
+            onPress={openPerspectivePicker}
             style={[
               styles.feedbackButton,
               { backgroundColor: isDark ? 'rgba(34, 197, 94, 0.15)' : '#f0fdf4' },
-              hoveredNav === 'viewPlayer' && { backgroundColor: isDark ? 'rgba(34, 197, 94, 0.25)' : '#dcfce7' },
+              hoveredNav === 'perspective' && { backgroundColor: isDark ? 'rgba(34, 197, 94, 0.25)' : '#dcfce7' },
             ]}
           >
             <Text style={styles.feedbackIcon}>👁️</Text>
-            <Text style={[styles.feedbackText, { color: isDark ? '#4ade80' : '#16a34a' }]}>Als Spieler ansehen</Text>
-          </Pressable>
-        )}
-        {playerMode && (authProfile?.role === 'admin' || authProfile?.role === 'advisor') && (
-          <Pressable
-            onHoverIn={() => setHoveredNav('backAdvisor')}
-            onHoverOut={() => setHoveredNav(null)}
-            onPress={() => { setViewAsPlayer(false); setViewAsPlayerId(null); }}
-            style={[
-              styles.feedbackButton,
-              { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff' },
-              hoveredNav === 'backAdvisor' && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.25)' : '#dbeafe' },
-            ]}
-          >
-            <Text style={styles.feedbackIcon}>←</Text>
-            <Text style={[styles.feedbackText, { color: isDark ? '#60a5fa' : '#2563eb' }]}>Zurück zur Berateransicht</Text>
+            <Text style={[styles.feedbackText, { color: isDark ? '#4ade80' : '#16a34a' }]}>
+              {playerMode ? 'Ansicht: Spieler ▾' : trainerMode ? 'Ansicht: Trainer ▾' : 'Ansicht wechseln ▾'}
+            </Text>
           </Pressable>
         )}
 
@@ -690,6 +707,45 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
           </View>
         </View>
       </Modal>
+
+      {/* Perspektiven-Picker (Berater / Spieler / Athletiktrainer) */}
+      <Modal visible={showPerspectivePicker} transparent animationType="fade" onRequestClose={() => setShowPerspectivePicker(false)}>
+        <View style={styles.modalOverlay}>
+          <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setShowPerspectivePicker(false)} />
+          <View style={[styles.playerPickerBox, { maxHeight: undefined }, isMobile && { width: '95%' }]}>
+            <Image source={require('../../assets/scouting-header-bg.jpg')} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.45 }} resizeMode="cover" />
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)' }} />
+            <View style={{ zIndex: 1 }}>
+              <Text style={styles.playerPickerTitle}>Ansicht wählen</Text>
+              <TouchableOpacity style={styles.perspectiveItem} onPress={goBerater}>
+                <Text style={styles.perspectiveIcon}>💼</Text>
+                <Text style={styles.perspectiveLabel}>Berateransicht</Text>
+                {!playerMode && !trainerMode && <Text style={styles.perspectiveCurrent}>aktiv</Text>}
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.perspectiveItem} onPress={openPlayerPickerFromPerspective}>
+                <Text style={styles.perspectiveIcon}>⚽</Text>
+                <Text style={styles.perspectiveLabel}>Als Spieler ansehen …</Text>
+                {playerMode && <Text style={styles.perspectiveCurrent}>aktiv</Text>}
+              </TouchableOpacity>
+              {trainerPickList.length === 0 ? (
+                <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', paddingVertical: 10, paddingHorizontal: 4 }}>Kein Athletiktrainer registriert.</Text>
+              ) : (
+                trainerPickList.map(t => (
+                  <TouchableOpacity key={t.id} style={styles.perspectiveItem} onPress={() => selectTrainer(t.id)}>
+                    <Text style={styles.perspectiveIcon}>🏋️</Text>
+                    <Text style={styles.perspectiveLabel}>Als {t.first_name} {t.last_name} (Trainer)</Text>
+                  </TouchableOpacity>
+                ))
+              )}
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.3)' }}>
+                <TouchableOpacity style={styles.playerPickerCancelBtn} onPress={() => setShowPerspectivePicker(false)}>
+                  <Text style={styles.playerPickerCancelText}>Abbrechen</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1000,6 +1056,21 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.08)',
   },
+  perspectiveItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 13,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  perspectiveIcon: { fontSize: 18 },
+  perspectiveLabel: { flex: 1, fontSize: 14, color: '#fff', fontWeight: '500' },
+  perspectiveCurrent: { fontSize: 11, color: '#4ade80', fontWeight: '600' },
   playerPickerCancelBtn: {
     paddingVertical: 6,
     paddingHorizontal: 10,
