@@ -854,7 +854,7 @@ export function PlayerPersonalDataScreen() {
                       <Ionicons name={internatOpen ? 'chevron-up' : 'chevron-down'} size={14} color="rgba(255,255,255,0.5)" />
                     </TouchableOpacity>
                     {internatOpen && (
-                      <View style={{ marginTop: 4, backgroundColor: '#1e293b', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, overflow: 'hidden' }}>
+                      <View style={{ marginTop: 4, backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, overflow: 'hidden' }}>
                         {[{ label: 'Ja', val: true }, { label: 'Nein', val: false }].map((opt, i) => (
                           <TouchableOpacity
                             key={opt.label}

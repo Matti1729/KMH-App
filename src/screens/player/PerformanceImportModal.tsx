@@ -115,7 +115,7 @@ export function PerformanceImportModal({ visible, onClose, rows, unmapped, sourc
                 <Ionicons name={openKey === k ? 'chevron-up' : 'chevron-down'} size={11} color="rgba(255,255,255,0.5)" />
               </Pressable>
               {openKey === k && (
-                <View style={{ position: 'absolute', top: 50, left: 0, width: Math.max(f.w, 70), maxHeight: 168, backgroundColor: '#1e293b', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, overflow: 'hidden', zIndex: 60 }}>
+                <View style={{ position: 'absolute', top: 50, left: 0, width: Math.max(f.w, 70), maxHeight: 168, backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, overflow: 'hidden', zIndex: 60 }}>
                   <ScrollView nestedScrollEnabled>
                     {f.opts.map(opt => (
                       <TouchableOpacity key={opt} onPress={() => { setDatePart(si, f.part, opt); setOpenKey(null); }} style={{ paddingVertical: 8, paddingHorizontal: 10, backgroundColor: f.value === opt ? 'rgba(255,255,255,0.08)' : 'transparent' }}>
@@ -141,7 +141,7 @@ export function PerformanceImportModal({ visible, onClose, rows, unmapped, sourc
           <Ionicons name={openKey === k ? 'chevron-up' : 'chevron-down'} size={11} color="rgba(255,255,255,0.5)" />
         </Pressable>
         {openKey === k && (
-          <View style={{ position: 'absolute', top: 38, left: 0, width: 200, maxHeight: 220, backgroundColor: '#1e293b', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, overflow: 'hidden', zIndex: 60 }}>
+          <View style={{ position: 'absolute', top: 38, left: 0, width: 200, maxHeight: 220, backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, overflow: 'hidden', zIndex: 60 }}>
             <ScrollView nestedScrollEnabled>
               <TouchableOpacity onPress={() => { updateValue(si, vi, { type: null, include: false }); setOpenKey(null); }} style={{ paddingVertical: 8, paddingHorizontal: 10 }}>
                 <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontStyle: 'italic' }}>ignorieren</Text>

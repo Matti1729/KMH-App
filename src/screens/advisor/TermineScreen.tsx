@@ -349,7 +349,7 @@ export function TermineScreen({ navigation }: any) {
   };
 
   const fetchAdvisors = async () => {
-    const { data } = await supabase.from('advisors').select('id, first_name, last_name').order('last_name');
+    const { data } = await supabase.from('advisors').select('id, first_name, last_name').neq('role', 'athletiktrainer').order('last_name');
     if (data) setAdvisors(data);
   };
 
@@ -1311,7 +1311,7 @@ END:VEVENT
                     <Ionicons name={showMobilePlayerSection ? 'chevron-up' : 'chevron-down'} size={14} color="rgba(255,255,255,0.5)" />
                   </TouchableOpacity>
                   {showMobilePlayerSection ? (
-                    <View style={{ position: 'absolute', top: '100%', left: 0, minWidth: 220, marginTop: 2, backgroundColor: '#1e293b', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12 }}>
+                    <View style={{ position: 'absolute', top: '100%', left: 0, minWidth: 220, marginTop: 2, backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12 }}>
                       <ScrollView style={{ maxHeight: 260 }} nestedScrollEnabled>
                         <TouchableOpacity style={{ paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }} onPress={() => { setSelectedPlayers([]); saveFilter(STORAGE_KEY_PLAYERS, []); }}>
                           <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>Leeren</Text>
@@ -1347,7 +1347,7 @@ END:VEVENT
                     <Ionicons name={showMobileRespSection ? 'chevron-up' : 'chevron-down'} size={14} color="rgba(255,255,255,0.5)" />
                   </TouchableOpacity>
                   {showMobileRespSection ? (
-                    <View style={{ position: 'absolute', top: '100%', left: 0, minWidth: 220, marginTop: 2, backgroundColor: '#1e293b', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12 }}>
+                    <View style={{ position: 'absolute', top: '100%', left: 0, minWidth: 220, marginTop: 2, backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12 }}>
                       <ScrollView style={{ maxHeight: 260 }} nestedScrollEnabled>
                         <TouchableOpacity style={{ paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }} onPress={() => { setSelectedResponsibilities([]); saveFilter(STORAGE_KEY_RESPONSIBILITIES, []); }}>
                           <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>Leeren</Text>

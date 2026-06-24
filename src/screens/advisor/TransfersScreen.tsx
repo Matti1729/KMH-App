@@ -607,7 +607,7 @@ export function TransfersScreen({ navigation }: any) {
   }, [searchingClubs]);
 
   const fetchAdvisors = async () => {
-    const { data } = await supabase.from('advisors').select('id, first_name, last_name').order('last_name');
+    const { data } = await supabase.from('advisors').select('id, first_name, last_name').neq('role', 'athletiktrainer').order('last_name');
     if (data) setAdvisors(data);
   };
 
@@ -1162,7 +1162,7 @@ export function TransfersScreen({ navigation }: any) {
                         <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={14} color="rgba(255,255,255,0.5)" />
                       </TouchableOpacity>
                       {open ? (
-                        <View style={{ position: 'absolute', top: '100%', left: 0, minWidth: 220, marginTop: 2, backgroundColor: '#1e293b', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12 }}>
+                        <View style={{ position: 'absolute', top: '100%', left: 0, minWidth: 220, marginTop: 2, backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12 }}>
                           <ScrollView style={{ maxHeight: 260 }} nestedScrollEnabled>
                             <TouchableOpacity style={{ paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }} onPress={() => cfg.onChange([])}>
                               <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>Leeren</Text>
@@ -1907,7 +1907,7 @@ export function TransfersScreen({ navigation }: any) {
                   <Ionicons name={showFormPositionDropdown ? 'chevron-up' : 'chevron-down'} size={14} color="rgba(255,255,255,0.5)" />
                 </TouchableOpacity>
                 {showFormPositionDropdown && (
-                  <Pressable style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, backgroundColor: '#1e293b', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12, zIndex: 1000 }} onPress={(e) => e.stopPropagation()}>
+                  <Pressable style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12, zIndex: 1000 }} onPress={(e) => e.stopPropagation()}>
                     <ScrollView style={{ maxHeight: 280 }} nestedScrollEnabled>
                       {POSITIONS.map(pos => {
                         const isSelected = formPositions.includes(pos);
@@ -1964,7 +1964,7 @@ export function TransfersScreen({ navigation }: any) {
                     : formClubContacts;
                   if (matches.length === 0) return null;
                   return (
-                    <Pressable style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, backgroundColor: '#1e293b', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12, zIndex: 1000 }} onPress={(e) => e.stopPropagation()}>
+                    <Pressable style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12, zIndex: 1000 }} onPress={(e) => e.stopPropagation()}>
                       <ScrollView style={{ maxHeight: 240 }} nestedScrollEnabled keyboardShouldPersistTaps="handled">
                         {matches.map(c => {
                           const fullName = [c.vorname, c.nachname].filter(Boolean).join(' ').trim();

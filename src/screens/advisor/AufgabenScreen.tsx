@@ -97,7 +97,7 @@ export function AufgabenScreen({ navigation }: any) {
   }, [userId]);
 
   const fetchAdvisors = useCallback(async () => {
-    const { data } = await supabase.from('advisors').select('id, first_name, last_name');
+    const { data } = await supabase.from('advisors').select('id, first_name, last_name').neq('role', 'athletiktrainer');
     if (data) {
       const map: Record<string, AdvisorLite> = {};
       for (const a of data as AdvisorLite[]) map[a.id] = a;

@@ -2852,7 +2852,7 @@ const styles = StyleSheet.create({
   },
   docSuggestList: {
     marginTop: 6,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#000',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)',
     borderRadius: 8,

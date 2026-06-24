@@ -1629,7 +1629,7 @@ export function PerformanceScreen() {
                                       <Ionicons name={dateOpen === f.key ? 'chevron-up' : 'chevron-down'} size={12} color="rgba(255,255,255,0.5)" />
                                     </Pressable>
                                     {dateOpen === f.key && (
-                                      <View style={{ position: 'absolute', top: 44, left: 0, width: Math.max(f.w, 70), maxHeight: 168, backgroundColor: '#1e293b', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, overflow: 'hidden', zIndex: 40 }}>
+                                      <View style={{ position: 'absolute', top: 44, left: 0, width: Math.max(f.w, 70), maxHeight: 168, backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, overflow: 'hidden', zIndex: 40 }}>
                                         <ScrollView showsVerticalScrollIndicator nestedScrollEnabled>
                                           {f.opts.map(opt => (
                                             <TouchableOpacity key={opt} onPress={() => { f.set(opt); setDateOpen(null); }} style={{ paddingVertical: 8, paddingHorizontal: 10, backgroundColor: f.value === opt ? 'rgba(255,255,255,0.08)' : 'transparent' }}>

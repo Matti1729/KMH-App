@@ -352,7 +352,7 @@ export function VideoLibraryScreen({ navigation }: any) {
                       <Ionicons name={playerDropdownOpen ? 'chevron-up' : 'chevron-down'} size={14} color="rgba(255,255,255,0.5)" />
                     </TouchableOpacity>
                     {playerDropdownOpen && (
-                      <View style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 2, backgroundColor: '#252525', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, zIndex: 1000, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12, maxHeight: 320 }}>
+                      <View style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 2, backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, zIndex: 1000, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12, maxHeight: 320 }}>
                         <View style={{ padding: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, backgroundColor: '#000', borderRadius: 6 }}>
                             <Ionicons name="search" size={14} color="rgba(255,255,255,0.4)" />

@@ -550,7 +550,7 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
 
   const fetchAdvisors = async () => {
     try {
-      const { data } = await supabase.from('advisors').select('id, first_name, last_name').order('last_name');
+      const { data } = await supabase.from('advisors').select('id, first_name, last_name').neq('role', 'athletiktrainer').order('last_name');
       if (data) setAdvisors(data);
     } catch (err) {
       console.error('Fehler beim Laden der Berater:', err);
@@ -879,7 +879,7 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
           placeholder={placeholder} placeholderTextColor="rgba(255,255,255,0.3)"
         />
         {isActive && (tmClubSearching || tmClubResults.length > 0) ? (
-          <View style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, backgroundColor: '#1e293b', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, zIndex: 1000, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12, maxHeight: 260 }}>
+          <View style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, zIndex: 1000, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12, maxHeight: 260 }}>
             <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled">
               {tmClubSearching && tmClubResults.length === 0 ? (
                 <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, paddingHorizontal: 12, paddingVertical: 8 }}>Suche…</Text>
@@ -4760,7 +4760,7 @@ const styles = StyleSheet.create({
     top: '100%',
     left: 0,
     marginTop: 2,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#000',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)',
     borderRadius: 6,

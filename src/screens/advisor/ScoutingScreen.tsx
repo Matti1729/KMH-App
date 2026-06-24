@@ -670,7 +670,7 @@ export function ScoutingScreen({ navigation }: any) {
   };
 
   const fetchAdvisors = async () => {
-    const { data } = await supabase.from('advisors').select('id, first_name, last_name').order('last_name');
+    const { data } = await supabase.from('advisors').select('id, first_name, last_name').neq('role', 'athletiktrainer').order('last_name');
     if (data) setAdvisors(data);
   };
 
@@ -5394,7 +5394,7 @@ const styles = StyleSheet.create({
   searchResultsHeader: { padding: 12, backgroundColor: 'rgba(0,0,0,0.45)', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)' },
   searchResultsTitle: { fontSize: 11, fontWeight: '600', color: '#1a1a1a' },
   clubSelectorContainer: { position: 'relative', zIndex: 9999 },
-  clubDropdown: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', marginTop: 4, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 10, zIndex: 9999, elevation: 9999 },
+  clubDropdown: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#000', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', marginTop: 4, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 10, zIndex: 9999, elevation: 9999 },
   clubDropdownScroll: { maxHeight: 300 },
   clubDropdownItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', backgroundColor: 'rgba(255,255,255,0.08)' },
   clubDropdownLogo: { width: 24, height: 24, resizeMode: 'contain', marginRight: 10 },
@@ -5673,7 +5673,7 @@ const styles = StyleSheet.create({
   dateDropdownButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 8, padding: 12, backgroundColor: 'rgba(255,255,255,0.08)' },
   dateDropdownText: { fontSize: 11, color: '#1a1a1a' },
   dateDropdownPlaceholder: { fontSize: 11, color: '#999' },
-  datePickerList: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 8, marginTop: 4, zIndex: 1000, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 5 },
+  datePickerList: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 8, marginTop: 4, zIndex: 1000, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 5 },
   datePickerItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   datePickerItemText: { fontSize: 11, color: '#1a1a1a' },
   // Chip Styles
@@ -5714,7 +5714,7 @@ const styles = StyleSheet.create({
   editDateRow: { flexDirection: 'row', gap: 4 },
   editDateBtn: { backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 4, paddingVertical: 4, paddingHorizontal: 8, minWidth: 50 },
   editDateBtnText: { fontSize: 12, color: '#1a1a1a' },
-  editDropdownList: { position: 'absolute', top: '100%', left: 0, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 6, marginTop: 2, zIndex: 1000, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 5, minWidth: 100 },
+  editDropdownList: { position: 'absolute', top: '100%', left: 0, backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 6, marginTop: 2, zIndex: 1000, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 5, minWidth: 100 },
   editDropdownItem: { padding: 8, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   editDropdownItemText: { fontSize: 12, color: '#1a1a1a' },
   // Two Column Body
@@ -5785,7 +5785,7 @@ const styles = StyleSheet.create({
   addPlayerDropdownBtnTextRating: { color: '#166534', fontWeight: '600' },
   addPlayerDropdownArrow: { fontSize: 8, color: '#9ca3af', marginLeft: 2 },
   addPlayerDropdownArrowRating: { color: '#166534' },
-  addPlayerDropdownList: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 6, marginTop: 2, zIndex: 1000, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 5, minWidth: 80 },
+  addPlayerDropdownList: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 6, marginTop: 2, zIndex: 1000, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 5, minWidth: 80 },
   addPlayerDropdownItem: { padding: 8, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   addPlayerDropdownItemActive: { backgroundColor: '#dcfce7' },
   addPlayerDropdownItemText: { fontSize: 12, color: '#1a1a1a' },
@@ -5797,7 +5797,7 @@ const styles = StyleSheet.create({
   playerEditDropdownBtnTextRating: { color: '#166534', fontWeight: '600' },
   playerEditDropdownArrow: { fontSize: 10, color: '#9ca3af', marginLeft: 4 },
   playerEditDropdownArrowRating: { color: '#166534' },
-  playerEditDropdownList: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 6, marginTop: 2, zIndex: 1000, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 5 },
+  playerEditDropdownList: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 6, marginTop: 2, zIndex: 1000, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 5 },
   playerEditDropdownItem: { padding: 10, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   playerEditDropdownItemActive: { backgroundColor: '#dcfce7' },
   playerEditDropdownItemText: { fontSize: 11, color: '#1a1a1a' },
