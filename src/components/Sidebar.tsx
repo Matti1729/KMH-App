@@ -7,6 +7,9 @@ import { useTheme } from '../contexts/ThemeContext';
 import * as ImagePicker from 'expo-image-picker';
 import { useDialog } from './DialogProvider';
 
+// Hintergrundbild im Spieler-Modus (Player-View-Design).
+const PLAYER_SIDEBAR_BG = require('../../assets/player-home-bg.png');
+
 interface SidebarProps {
   navigation: any;
   activeScreen: string;
@@ -371,8 +374,8 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
   if (isMobile && embedded) {
     return (
       <View style={[styles.sidebarEmbedded, { backgroundColor: '#000' }]}>
-        <Image source={require('../../assets/scouting-header-bg.jpg')} style={[StyleSheet.absoluteFillObject, { width: '100%', height: '100%', opacity: 0.85, ...({ objectFit: 'cover', objectPosition: 'center', backgroundSize: 'cover', backgroundPosition: 'center' } as any) }]} resizeMode="cover" />
-        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.3)' }]} />
+        <Image source={playerMode ? PLAYER_SIDEBAR_BG : require('../../assets/scouting-header-bg.jpg')} style={[StyleSheet.absoluteFillObject, { width: '100%', height: '100%', opacity: 0.85, ...({ objectFit: 'cover', objectPosition: 'center', backgroundSize: 'cover', backgroundPosition: 'center' } as any) }]} resizeMode="cover" />
+        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: playerMode ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.3)' }]} />
         {sidebarContent}
         <Modal visible={showFeedbackModal} transparent animationType="fade">
           <View style={styles.modalOverlay}>
@@ -512,8 +515,8 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
   // Desktop: Normale Sidebar
   return (
     <View style={[styles.sidebar, { backgroundColor: '#000', borderRightColor: 'rgba(255,255,255,0.15)' }]}>
-      <Image source={require('../../assets/scouting-header-bg.jpg')} style={[StyleSheet.absoluteFillObject, { width: '100%', height: '100%', opacity: 0.85, ...({ objectFit: 'cover', objectPosition: 'center', backgroundSize: 'cover', backgroundPosition: 'center' } as any) }]} resizeMode="cover" />
-      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.3)' }]} />
+      <Image source={playerMode ? PLAYER_SIDEBAR_BG : require('../../assets/scouting-header-bg.jpg')} style={[StyleSheet.absoluteFillObject, { width: '100%', height: '100%', opacity: 0.85, ...({ objectFit: 'cover', objectPosition: 'center', backgroundSize: 'cover', backgroundPosition: 'center' } as any) }]} resizeMode="cover" />
+      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: playerMode ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.3)' }]} />
       {sidebarContent}
       <Modal visible={showFeedbackModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
