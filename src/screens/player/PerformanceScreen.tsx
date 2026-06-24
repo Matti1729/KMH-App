@@ -27,6 +27,7 @@ import { ComposedChart, Bar, Line, LineChart, BarChart, XAxis, YAxis, Tooltip, L
 import { TextInput } from 'react-native';
 import { PrototypePoster } from '../../components/PrototypePoster';
 import { Prototype, PrototypePositionField, protoPositions } from '../../utils/prototypes';
+import { PerformanceImportModal, ImportRow, PreparedInsert } from './PerformanceImportModal';
 
 const TransfermarktIcon = require('../../../assets/transfermarkt-logo.png');
 const BACKGROUND_IMAGE = require('../../../assets/stadion-bg.jpeg');
@@ -687,6 +688,13 @@ export function PerformanceScreen() {
   const [addMonth, setAddMonth] = useState('');
   const [addYear, setAddYear] = useState('');
   const [dateOpen, setDateOpen] = useState<null | 'day' | 'month' | 'year'>(null);
+  // Datei-Import
+  const [importExtracting, setImportExtracting] = useState(false);
+  const [importSaving, setImportSaving] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importRows, setImportRows] = useState<ImportRow[]>([]);
+  const [importUnmapped, setImportUnmapped] = useState<{ header: string; sample: string }[]>([]);
+  const [importSourceLabel, setImportSourceLabel] = useState('');
   const [addValue, setAddValue] = useState('');
   const [addValue2, setAddValue2] = useState('');
   const [addValue3, setAddValue3] = useState('');
@@ -832,6 +840,77 @@ export function PerformanceScreen() {
     setEditingMeasurement(null);
     setAddDay(''); setAddMonth(''); setAddYear(''); setAddValue(''); setAddValue2(''); setAddValue3(''); setAddValue4(''); setAddValue5(''); setAddValue6(''); setAddNote('');
     fetchMeasurements();
+  };
+
+  // Datei auswählen -> auslesen lassen -> Vorschau-Modal öffnen (kein DB-Write).
+  const handleImportFile = () => {
+    if (Platform.OS !== 'web') return; // Web-first
+    if (!player?.id) { alert('Kein Spielerprofil geladen.'); return; }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv,.xlsx,.xls,.pdf,image/*';
+    input.onchange = async (e: any) => {
+      const file = e.target?.files?.[0];
+      if (!file) return;
+      if (file.size > 15 * 1024 * 1024) { alert('Datei zu groß (max. 15 MB).'); return; }
+      setImportExtracting(true);
+      try {
+        const fileBase64: string = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+          reader.onerror = () => reject(new Error('Datei konnte nicht gelesen werden.'));
+          reader.readAsDataURL(file);
+        });
+
+        // Originaldatei zur Nachvollziehbarkeit ablegen (best effort).
+        try {
+          const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+          const path = `performance/${player.id}/${Date.now()}_${safeName}`;
+          await supabase.storage.from('performance-imports').upload(path, file, { contentType: file.type || 'application/octet-stream', upsert: false });
+        } catch (storeErr) { console.warn('Import-Datei konnte nicht abgelegt werden', storeErr); }
+
+        const { data, error } = await supabase.functions.invoke('extract-performance-data', {
+          body: { fileBase64, fileName: file.name, mimeType: file.type || '' },
+        });
+        if (error) { alert('Auslesen fehlgeschlagen: ' + error.message); return; }
+        if (data?.error) { alert(data.error); return; }
+        const rows: ImportRow[] = Array.isArray(data?.rows) ? data.rows : [];
+        if (rows.length === 0) { alert('In der Datei wurden keine bekannten Messwerte gefunden.'); return; }
+        setImportRows(rows);
+        setImportUnmapped(Array.isArray(data?.unmapped) ? data.unmapped : []);
+        setImportSourceLabel(file.name);
+        setShowImportModal(true);
+      } catch (err: any) {
+        alert('Fehler: ' + (err?.message || String(err)));
+      } finally {
+        setImportExtracting(false);
+      }
+    };
+    input.click();
+  };
+
+  // Bestätigte Werte übernehmen: existierende (Typ+Datum) updaten, sonst inserten.
+  const confirmImport = async (inserts: PreparedInsert[], note: string) => {
+    if (!player?.id || inserts.length === 0) return;
+    setImportSaving(true);
+    try {
+      for (const ins of inserts) {
+        const existing = measurements.find(m => m.type === ins.type && (m.measured_at || '').substring(0, 10) === ins.measured_at);
+        if (existing) {
+          await supabase.from('player_measurements').update({ value: ins.value }).eq('id', existing.id);
+        } else {
+          await supabase.from('player_measurements').insert({ player_id: player.id, type: ins.type, value: ins.value, measured_at: ins.measured_at, created_by: profile?.first_name || '', note: note ? `Import: ${note}` : null });
+        }
+      }
+      setShowImportModal(false);
+      setImportRows([]);
+      setImportUnmapped([]);
+      await fetchMeasurements();
+    } catch (err: any) {
+      alert('Übernahme fehlgeschlagen: ' + (err?.message || String(err)));
+    } finally {
+      setImportSaving(false);
+    }
   };
 
   const saveEditedValues = async (groupDate: string, items: typeof measurements) => {
@@ -1454,6 +1533,13 @@ export function PerformanceScreen() {
 
                 {/* Unten: Chart + Einträge */}
                 <View style={{ marginTop: 20 }}>
+                    {/* Datei-Import (CSV/Excel/PDF/Bild) — füllt Werte aller Kategorien nach Bestätigung */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 12 }}>
+                      <TouchableOpacity onPress={handleImportFile} disabled={importExtracting} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.04)' }}>
+                        {importExtracting ? <ActivityIndicator size="small" color="rgba(255,255,255,0.7)" /> : <Ionicons name="cloud-upload-outline" size={14} color="rgba(255,255,255,0.7)" />}
+                        <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>{importExtracting ? 'Datei wird ausgelesen …' : 'Datei importieren'}</Text>
+                      </TouchableOpacity>
+                    </View>
                     {/* Charts — pro Kategorie ein eigener Graph (X = Datum, ein Punkt je Messung) */}
                     {!selectedMetric ? (
                       <View style={{ minHeight: 120, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -2247,6 +2333,17 @@ export function PerformanceScreen() {
           </View>
         </View>
       </Modal>
+
+      <PerformanceImportModal
+        visible={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        rows={importRows}
+        unmapped={importUnmapped}
+        sourceLabel={importSourceLabel}
+        existing={measurements.map(m => ({ type: m.type, measured_at: (m.measured_at || '').substring(0, 10) }))}
+        importing={importSaving}
+        onConfirm={confirmImport}
+      />
     </ScrollView>
   );
 
