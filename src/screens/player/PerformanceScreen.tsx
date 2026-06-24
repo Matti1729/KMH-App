@@ -822,6 +822,68 @@ export function PerformanceScreen() {
     return Object.values(grouped).sort((a: any, b: any) => a.sortKey.localeCompare(b.sortKey));
   };
 
+  // Pro Kategorie ein eigener Graph: ein Punkt je Messung/Datum (X = Datum TT.MM.JJ).
+  const getCategoryChartData = (type: string) => {
+    const grouped: Record<string, any> = {};
+    for (const m of measurements.filter(x => x.type === type)) {
+      const iso = (m.measured_at || '').substring(0, 10);
+      if (!iso) continue;
+      const [y, mo, dd] = iso.split('-');
+      grouped[iso] = { sortKey: iso, date: `${dd}.${mo}.${y.substring(2)}`, [type]: m.value };
+    }
+    return Object.values(grouped).sort((a: any, b: any) => a.sortKey.localeCompare(b.sortKey));
+  };
+
+  const CATEGORY_LABELS: Record<string, string> = {
+    weight: 'Gewicht', height: 'Größe',
+    sprint_10m: 'Sprint 10m', sprint_20m: 'Sprint 20m', sprint_30m: 'Sprint 30m', vmax: 'Vmax',
+    cmj: 'Countermovement Jump', sj: 'Squat Jump',
+    dj: 'Drop Jump (Höhe)', dj_rsi: 'Drop Jump RSI',
+    ht: 'Hop Test (Höhe)', ht_rsi: 'Hop Test RSI',
+  };
+  const categoryUnit = (type: string): string => {
+    if (type.startsWith('sprint')) return 'Sek';
+    if (type === 'vmax') return 'km/h';
+    if (type === 'weight') return 'kg';
+    if (type === 'cmj' || type === 'sj' || type === 'dj' || type === 'ht' || type === 'height') return 'cm';
+    return '';
+  };
+  const categoryColor = (type: string): string => {
+    const map: Record<string, string> = {
+      sprint_10m: '#3b82f6', sprint_20m: '#f59e0b', sprint_30m: '#22c55e', vmax: '#ef4444',
+      weight: 'rgba(255,255,255,0.7)', height: '#fff',
+      cmj: '#3b82f6', sj: '#22c55e', dj: '#f59e0b', dj_rsi: '#ef4444', ht: '#a855f7', ht_rsi: '#ef4444',
+    };
+    return map[type] || '#3b82f6';
+  };
+
+  const renderCategoryChart = (type: string) => {
+    const data = getCategoryChartData(type);
+    const unit = categoryUnit(type);
+    return (
+      <View key={type} style={{ marginBottom: 20 }}>
+        <Text style={[styles.subLabel, { marginBottom: 6 }]}>{CATEGORY_LABELS[type] || type}{unit ? ` (${unit})` : ''}</Text>
+        {data.length === 0 ? (
+          <View style={{ height: 80, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+            <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12 }}>Noch keine Daten</Text>
+          </View>
+        ) : (
+          <View style={{ borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 12 }}>
+            <ResponsiveContainer width="100%" height={180}>
+              <LineChart data={data}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                <XAxis dataKey="date" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} />
+                <YAxis tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} label={unit ? { value: unit, position: 'insideTopLeft', fill: 'rgba(255,255,255,0.4)', fontSize: 10 } : undefined} domain={['auto', 'auto']} />
+                <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.9)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, fontSize: 12, color: '#fff' }} />
+                <Line dataKey={type} name={CATEGORY_LABELS[type] || type} stroke={categoryColor(type)} strokeWidth={2} dot={{ r: 4 }} connectNulls />
+              </LineChart>
+            </ResponsiveContainer>
+          </View>
+        )}
+      </View>
+    );
+  };
+
   const fetchPlayer = useCallback(async () => {
     if (!session?.user?.id) { setLoading(false); return; }
     try {
@@ -1320,94 +1382,23 @@ export function PerformanceScreen() {
 
                 {/* Unten: Chart + Einträge */}
                 <View style={{ marginTop: 20 }}>
-                    {/* Chart */}
-                    <View style={{ flex: 1, minHeight: 280, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 16 }}>
-                      {!selectedMetric ? (
-                        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                          <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 13 }}>Klicke links auf eine Kategorie</Text>
-                        </View>
-                      ) : getChartData(selectedMetric).length === 0 ? (
-                        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                          <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 13 }}>Noch keine Daten vorhanden</Text>
-                          <TouchableOpacity onPress={() => { const t = new Date(); setAddDay(String(t.getDate())); setAddMonth(String(t.getMonth()+1)); setAddYear(String(t.getFullYear())); setAddValue(''); setAddValue2(''); setAddValue3(''); setAddValue4(''); setShowAddForm(true); }} style={{ marginTop: 12, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}>
-                            <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Ersten Eintrag hinzufügen</Text>
-                          </TouchableOpacity>
-                        </View>
-                      ) : selectedMetric === 'koerper' ? (
-                        <ResponsiveContainer width="100%" height={250}>
-                          <ComposedChart data={getChartData('koerper')}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                            <XAxis dataKey="date" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} />
-                            <YAxis yAxisId="left" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} label={{ value: 'kg', position: 'insideTopLeft', fill: 'rgba(255,255,255,0.4)', fontSize: 10 }} />
-                            <YAxis yAxisId="right" orientation="right" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} label={{ value: 'cm', position: 'insideTopRight', fill: 'rgba(255,255,255,0.4)', fontSize: 10 }} />
-                            <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.9)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, fontSize: 12, color: '#fff' }} />
-                            <Legend wrapperStyle={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }} />
-                            <Bar yAxisId="left" dataKey="weight" name="Gewicht (kg)" fill="rgba(255,255,255,0.15)" radius={[4, 4, 0, 0]} maxBarSize={50} />
-                            <Line yAxisId="right" dataKey="height" name="Größe (cm)" type="stepAfter" stroke="#fff" strokeWidth={2} dot={{ r: 4, fill: '#fff' }} />
-                          </ComposedChart>
-                        </ResponsiveContainer>
-                      ) : selectedMetric === 'sprint' ? (
-                        <ResponsiveContainer width="100%" height={250}>
-                          <LineChart data={getChartData('sprint')}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                            <XAxis dataKey="date" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} />
-                            <YAxis tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} label={{ value: 'Sek', position: 'insideTopLeft', fill: 'rgba(255,255,255,0.4)', fontSize: 10 }} />
-                            <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.9)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, fontSize: 12, color: '#fff' }} />
-                            <Legend wrapperStyle={{ fontSize: 11 }} />
-                            <Line dataKey="sprint_10m" name="10m" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4 }} />
-                            <Line dataKey="sprint_20m" name="20m" stroke="#f59e0b" strokeWidth={2} dot={{ r: 4 }} />
-                            <Line dataKey="sprint_30m" name="30m" stroke="#22c55e" strokeWidth={2} dot={{ r: 4 }} />
-                            <Line dataKey="vmax" name="Vmax" stroke="#ef4444" strokeWidth={2} dot={{ r: 4 }} />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      ) : selectedMetric === 'cmj' ? (
-                        <ResponsiveContainer width="100%" height={250}>
-                          <BarChart data={getChartData('cmj')}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                            <XAxis dataKey="date" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} />
-                            <YAxis tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} label={{ value: 'cm', position: 'insideTopLeft', fill: 'rgba(255,255,255,0.4)', fontSize: 10 }} />
-                            <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.9)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, fontSize: 12, color: '#fff' }} />
-                            <Bar dataKey="cmj" name="CMJ (cm)" fill="rgba(59,130,246,0.5)" radius={[4, 4, 0, 0]} maxBarSize={50} />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      ) : selectedMetric === 'sj' ? (
-                        <ResponsiveContainer width="100%" height={250}>
-                          <BarChart data={getChartData('sj')}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                            <XAxis dataKey="date" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} />
-                            <YAxis tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} label={{ value: 'cm', position: 'insideTopLeft', fill: 'rgba(255,255,255,0.4)', fontSize: 10 }} />
-                            <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.9)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, fontSize: 12, color: '#fff' }} />
-                            <Bar dataKey="sj" name="SJ (cm)" fill="rgba(34,197,94,0.5)" radius={[4, 4, 0, 0]} maxBarSize={50} />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      ) : selectedMetric === 'dj' ? (
-                        <ResponsiveContainer width="100%" height={250}>
-                          <ComposedChart data={getChartData('dj')}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                            <XAxis dataKey="date" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} />
-                            <YAxis yAxisId="left" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} label={{ value: 'cm', position: 'insideTopLeft', fill: 'rgba(255,255,255,0.4)', fontSize: 10 }} />
-                            <YAxis yAxisId="right" orientation="right" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} label={{ value: 'RSI', position: 'insideTopRight', fill: 'rgba(255,255,255,0.4)', fontSize: 10 }} />
-                            <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.9)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, fontSize: 12, color: '#fff' }} />
-                            <Legend wrapperStyle={{ fontSize: 11 }} />
-                            <Bar yAxisId="left" dataKey="dj" name="DJ (cm)" fill="rgba(245,158,11,0.5)" radius={[4, 4, 0, 0]} maxBarSize={50} />
-                            <Line yAxisId="right" dataKey="dj_rsi" name="RSI" stroke="#ef4444" strokeWidth={2} dot={{ r: 4 }} />
-                          </ComposedChart>
-                        </ResponsiveContainer>
-                      ) : selectedMetric === 'ht' ? (
-                        <ResponsiveContainer width="100%" height={250}>
-                          <ComposedChart data={getChartData('ht')}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                            <XAxis dataKey="date" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} />
-                            <YAxis yAxisId="left" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} label={{ value: 'cm', position: 'insideTopLeft', fill: 'rgba(255,255,255,0.4)', fontSize: 10 }} />
-                            <YAxis yAxisId="right" orientation="right" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} label={{ value: 'RSI', position: 'insideTopRight', fill: 'rgba(255,255,255,0.4)', fontSize: 10 }} />
-                            <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.9)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, fontSize: 12, color: '#fff' }} />
-                            <Legend wrapperStyle={{ fontSize: 11 }} />
-                            <Bar yAxisId="left" dataKey="ht" name="HT (cm)" fill="rgba(168,85,247,0.5)" radius={[4, 4, 0, 0]} maxBarSize={50} />
-                            <Line yAxisId="right" dataKey="ht_rsi" name="RSI" stroke="#ef4444" strokeWidth={2} dot={{ r: 4 }} />
-                          </ComposedChart>
-                        </ResponsiveContainer>
-                      ) : null}
-                    </View>
+                    {/* Charts — pro Kategorie ein eigener Graph (X = Datum, ein Punkt je Messung) */}
+                    {!selectedMetric ? (
+                      <View style={{ minHeight: 120, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+                        <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 13 }}>Klicke links auf eine Kategorie</Text>
+                      </View>
+                    ) : getChartData(selectedMetric).length === 0 ? (
+                      <View style={{ minHeight: 120, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+                        <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 13 }}>Noch keine Daten vorhanden</Text>
+                        <TouchableOpacity onPress={() => { const t = new Date(); setAddDay(String(t.getDate())); setAddMonth(String(t.getMonth()+1)); setAddYear(String(t.getFullYear())); setAddValue(''); setAddValue2(''); setAddValue3(''); setAddValue4(''); setShowAddForm(true); }} style={{ marginTop: 12, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}>
+                          <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Ersten Eintrag hinzufügen</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <View>
+                        {getTypesForMetric(selectedMetric).map(t => renderCategoryChart(t))}
+                      </View>
+                    )}
 
                     {/* Einträge-Liste (gruppiert nach Datum) */}
                     {selectedMetric && (() => {
