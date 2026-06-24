@@ -755,6 +755,16 @@ export function PerformanceScreen() {
     return String(filtered[0].value);
   };
 
+  // Bestwert einer Kategorie: Sprints = schnellste (kleinste) Zeit,
+  // sonst (Vmax, Sprünge, RSI) = höchster Wert.
+  const bestValue = (type: string): string => {
+    const vals = measurements.filter(m => m.type === type).map(m => Number(m.value)).filter(v => !isNaN(v));
+    if (vals.length === 0) return '-';
+    const lowerIsBetter = type.startsWith('sprint');
+    const best = lowerIsBetter ? Math.min(...vals) : Math.max(...vals);
+    return String(best);
+  };
+
   const getTypesForMetric = (metric: string): string[] => {
     if (metric === 'koerper') return ['height', 'weight'];
     if (metric === 'sprint') return ['sprint_10m', 'sprint_20m', 'sprint_30m', 'vmax'];
@@ -1421,10 +1431,10 @@ export function PerformanceScreen() {
                       onPress={() => setSelectedMetric(selectedMetric === 'sprint' ? null : 'sprint')}
                       style={[styles.metricRow, { paddingHorizontal: 0, borderLeftWidth: 0 }, selectedMetric === 'sprint' && styles.metricRowActive]}
                     >
-                      <View style={styles.infoRow}><Text style={styles.infoLabel}>Sprint (10m)</Text><Text style={styles.infoValue}>{latestValue('sprint_10m') !== '-' ? `${latestValue('sprint_10m')}s` : '-'}</Text></View>
-                      <View style={styles.infoRow}><Text style={styles.infoLabel}>Sprint (20m)</Text><Text style={styles.infoValue}>{latestValue('sprint_20m') !== '-' ? `${latestValue('sprint_20m')}s` : '-'}</Text></View>
-                      <View style={styles.infoRow}><Text style={styles.infoLabel}>Sprint (30m)</Text><Text style={styles.infoValue}>{latestValue('sprint_30m') !== '-' ? `${latestValue('sprint_30m')}s` : '-'}</Text></View>
-                      <View style={styles.infoRow}><Text style={styles.infoLabel}>Vmax</Text><Text style={styles.infoValue}>{latestValue('vmax') !== '-' ? `${latestValue('vmax')} km/h` : '-'}</Text></View>
+                      <View style={styles.infoRow}><Text style={styles.infoLabel}>Sprint (10m)</Text><Text style={styles.infoValue}>{bestValue('sprint_10m') !== '-' ? `${bestValue('sprint_10m')}s` : '-'}</Text></View>
+                      <View style={styles.infoRow}><Text style={styles.infoLabel}>Sprint (20m)</Text><Text style={styles.infoValue}>{bestValue('sprint_20m') !== '-' ? `${bestValue('sprint_20m')}s` : '-'}</Text></View>
+                      <View style={styles.infoRow}><Text style={styles.infoLabel}>Sprint (30m)</Text><Text style={styles.infoValue}>{bestValue('sprint_30m') !== '-' ? `${bestValue('sprint_30m')}s` : '-'}</Text></View>
+                      <View style={styles.infoRow}><Text style={styles.infoLabel}>Vmax</Text><Text style={styles.infoValue}>{bestValue('vmax') !== '-' ? `${bestValue('vmax')} km/h` : '-'}</Text></View>
                     </Pressable>
                   </View>
 
@@ -1434,10 +1444,10 @@ export function PerformanceScreen() {
                       onPress={() => setSelectedMetric(selectedMetric === 'jumps' ? null : 'jumps')}
                       style={[styles.metricRow, { paddingHorizontal: 0, borderLeftWidth: 0 }, selectedMetric === 'jumps' && styles.metricRowActive]}
                     >
-                      <View style={styles.infoRow}><Text style={styles.infoLabel}>Countermovement Jump</Text><Text style={styles.infoValue}>{latestValue('cmj') !== '-' ? `${latestValue('cmj')} cm` : '-'}</Text></View>
-                      <View style={styles.infoRow}><Text style={styles.infoLabel}>Squat Jump</Text><Text style={styles.infoValue}>{latestValue('sj') !== '-' ? `${latestValue('sj')} cm` : '-'}</Text></View>
-                      <View style={styles.infoRow}><Text style={styles.infoLabel}>Drop Jump</Text><Text style={styles.infoValue}>{latestValue('dj') !== '-' ? `${latestValue('dj')} cm${latestValue('dj_rsi') !== '-' ? ` · RSI ${latestValue('dj_rsi')}` : ''}` : '-'}</Text></View>
-                      <View style={styles.infoRow}><Text style={styles.infoLabel}>Hop Test</Text><Text style={styles.infoValue}>{latestValue('ht') !== '-' ? `${latestValue('ht')} cm${latestValue('ht_rsi') !== '-' ? ` · RSI ${latestValue('ht_rsi')}` : ''}` : '-'}</Text></View>
+                      <View style={styles.infoRow}><Text style={styles.infoLabel}>Countermovement Jump</Text><Text style={styles.infoValue}>{bestValue('cmj') !== '-' ? `${bestValue('cmj')} cm` : '-'}</Text></View>
+                      <View style={styles.infoRow}><Text style={styles.infoLabel}>Squat Jump</Text><Text style={styles.infoValue}>{bestValue('sj') !== '-' ? `${bestValue('sj')} cm` : '-'}</Text></View>
+                      <View style={styles.infoRow}><Text style={styles.infoLabel}>Drop Jump</Text><Text style={styles.infoValue}>{bestValue('dj') !== '-' ? `${bestValue('dj')} cm${bestValue('dj_rsi') !== '-' ? ` · RSI ${bestValue('dj_rsi')}` : ''}` : '-'}</Text></View>
+                      <View style={styles.infoRow}><Text style={styles.infoLabel}>Hop Test</Text><Text style={styles.infoValue}>{bestValue('ht') !== '-' ? `${bestValue('ht')} cm${bestValue('ht_rsi') !== '-' ? ` · RSI ${bestValue('ht_rsi')}` : ''}` : '-'}</Text></View>
                     </Pressable>
                   </View>
                 </View>
@@ -1748,16 +1758,16 @@ export function PerformanceScreen() {
                   <View style={styles.infoRow}><Text style={styles.infoLabel}>Starker Fuß</Text><Text style={styles.infoValue}>{player?.strong_foot || '-'}</Text></View>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <View style={styles.infoRow}><Text style={styles.infoLabel}>Sprint (10m)</Text><Text style={styles.infoValue}>{latestValue('sprint_10m') !== '-' ? `${latestValue('sprint_10m')}s` : '-'}</Text></View>
-                  <View style={styles.infoRow}><Text style={styles.infoLabel}>Sprint (20m)</Text><Text style={styles.infoValue}>{latestValue('sprint_20m') !== '-' ? `${latestValue('sprint_20m')}s` : '-'}</Text></View>
-                  <View style={styles.infoRow}><Text style={styles.infoLabel}>Sprint (30m)</Text><Text style={styles.infoValue}>{latestValue('sprint_30m') !== '-' ? `${latestValue('sprint_30m')}s` : '-'}</Text></View>
-                  <View style={styles.infoRow}><Text style={styles.infoLabel}>Vmax</Text><Text style={styles.infoValue}>{latestValue('vmax') !== '-' ? `${latestValue('vmax')} km/h` : '-'}</Text></View>
+                  <View style={styles.infoRow}><Text style={styles.infoLabel}>Sprint (10m)</Text><Text style={styles.infoValue}>{bestValue('sprint_10m') !== '-' ? `${bestValue('sprint_10m')}s` : '-'}</Text></View>
+                  <View style={styles.infoRow}><Text style={styles.infoLabel}>Sprint (20m)</Text><Text style={styles.infoValue}>{bestValue('sprint_20m') !== '-' ? `${bestValue('sprint_20m')}s` : '-'}</Text></View>
+                  <View style={styles.infoRow}><Text style={styles.infoLabel}>Sprint (30m)</Text><Text style={styles.infoValue}>{bestValue('sprint_30m') !== '-' ? `${bestValue('sprint_30m')}s` : '-'}</Text></View>
+                  <View style={styles.infoRow}><Text style={styles.infoLabel}>Vmax</Text><Text style={styles.infoValue}>{bestValue('vmax') !== '-' ? `${bestValue('vmax')} km/h` : '-'}</Text></View>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <View style={styles.infoRow}><Text style={styles.infoLabel}>Countermovement Jump</Text><Text style={styles.infoValue}>{latestValue('cmj') !== '-' ? `${latestValue('cmj')} cm` : '-'}</Text></View>
-                  <View style={styles.infoRow}><Text style={styles.infoLabel}>Squat Jump</Text><Text style={styles.infoValue}>{latestValue('sj') !== '-' ? `${latestValue('sj')} cm` : '-'}</Text></View>
-                  <View style={styles.infoRow}><Text style={styles.infoLabel}>Drop Jump</Text><Text style={styles.infoValue}>{latestValue('dj') !== '-' ? `${latestValue('dj')} cm` : '-'}{latestValue('dj_rsi') !== '-' ? `  ·  RSI ${latestValue('dj_rsi')}` : ''}</Text></View>
-                  <View style={styles.infoRow}><Text style={styles.infoLabel}>Hop Test</Text><Text style={styles.infoValue}>{latestValue('ht') !== '-' ? `${latestValue('ht')} cm` : '-'}{latestValue('ht_rsi') !== '-' ? `  ·  RSI ${latestValue('ht_rsi')}` : ''}</Text></View>
+                  <View style={styles.infoRow}><Text style={styles.infoLabel}>Countermovement Jump</Text><Text style={styles.infoValue}>{bestValue('cmj') !== '-' ? `${bestValue('cmj')} cm` : '-'}</Text></View>
+                  <View style={styles.infoRow}><Text style={styles.infoLabel}>Squat Jump</Text><Text style={styles.infoValue}>{bestValue('sj') !== '-' ? `${bestValue('sj')} cm` : '-'}</Text></View>
+                  <View style={styles.infoRow}><Text style={styles.infoLabel}>Drop Jump</Text><Text style={styles.infoValue}>{bestValue('dj') !== '-' ? `${bestValue('dj')} cm` : '-'}{bestValue('dj_rsi') !== '-' ? `  ·  RSI ${bestValue('dj_rsi')}` : ''}</Text></View>
+                  <View style={styles.infoRow}><Text style={styles.infoLabel}>Hop Test</Text><Text style={styles.infoValue}>{bestValue('ht') !== '-' ? `${bestValue('ht')} cm` : '-'}{bestValue('ht_rsi') !== '-' ? `  ·  RSI ${bestValue('ht_rsi')}` : ''}</Text></View>
                 </View>
               </View>
             </View>
