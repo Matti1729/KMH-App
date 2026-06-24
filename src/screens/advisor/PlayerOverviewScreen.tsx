@@ -2231,9 +2231,9 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
                 );
               })}
               <TouchableOpacity onPress={confirmTrainerAssignments} disabled={trainerBusy}
-                style={{ marginTop: 10, backgroundColor: '#22c55e', borderRadius: 8, paddingVertical: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, opacity: trainerBusy ? 0.6 : 1 }}>
+                style={{ marginTop: 12, alignSelf: 'center', backgroundColor: '#22c55e', borderRadius: 6, paddingVertical: 9, paddingHorizontal: 22, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, opacity: trainerBusy ? 0.6 : 1 }}>
                 {trainerBusy && <ActivityIndicator size="small" color="#fff" />}
-                <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>Bestätigen</Text>
+                <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>Bestätigen</Text>
               </TouchableOpacity>
             </>
           )}
