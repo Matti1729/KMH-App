@@ -367,6 +367,7 @@ export function PlayerOverviewScreen({ navigation }: any) {
   const [cardSaving, setCardSaving] = useState(false);
   const [editData, setEditData] = useState<any>({});
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [natSearch, setNatSearch] = useState('');
   const [allPrototypes, setAllPrototypes] = useState<Array<{ id: string; name: string; position_code: string; position_codes: string[] }>>([]);
   const [playerPrototypeId, setPlayerPrototypeId] = useState<string | null>(null);
   const [internatJa, setInternatJa] = useState(false);
@@ -1931,6 +1932,74 @@ export function PlayerOverviewScreen({ navigation }: any) {
     );
   };
 
+  // Suchbarer Multi-Select für Nationalität (Render-Funktion statt Inline-Komponente,
+  // damit der Such-TextInput beim Tippen den Fokus behält). Schreibt kommagetrennt
+  // nach editData.nationality_advisor.
+  const NATIONALITY_OPTIONS = Object.keys(COUNTRY_TO_ISO).sort((a, b) => a.localeCompare(b, 'de'));
+  const renderNationalityEditor = () => {
+    const raw = (editData.nationality_advisor as string) || '';
+    const selected = raw.split(/[,\/]+/).map(s => s.trim()).filter(Boolean);
+    const open = openDropdown === 'nationality_advisor';
+    const q = natSearch.trim().toLowerCase();
+    const filtered = q ? NATIONALITY_OPTIONS.filter(c => c.toLowerCase().includes(q)) : NATIONALITY_OPTIONS;
+    const toggle = (country: string) => {
+      const next = selected.includes(country) ? selected.filter(c => c !== country) : [...selected, country];
+      setEditData({ ...editData, nationality_advisor: next.join(', ') });
+    };
+    return (
+      <View
+        {...({ 'data-kmh-dropdown': 'true', dataSet: { kmhDropdown: 'true' } } as any)}
+        style={{ position: 'relative', width: '100%', minWidth: 120, zIndex: open ? 1000 : 1 }}
+      >
+        <TouchableOpacity
+          style={[styles.detailEditInput, { paddingVertical: 4, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
+          onPress={() => { setOpenDropdown(open ? null : 'nationality_advisor'); setNatSearch(''); }}
+        >
+          <Text numberOfLines={1} style={{ fontSize: 12, color: selected.length ? '#fff' : 'rgba(255,255,255,0.3)', flex: 1 }}>
+            {selected.length ? `${nationalityToFlags(selected.join(','))} ${selected.join(', ')}` : 'Wählen…'}
+          </Text>
+          <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={14} color="rgba(255,255,255,0.5)" />
+        </TouchableOpacity>
+        {open ? (
+          <View style={[styles.detailDropdownList, { minWidth: 240 }]}>
+            <View style={{ padding: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' }}>
+              <TextInput
+                style={[styles.detailEditInput, { paddingVertical: 6, fontSize: 13, borderRadius: 8, textAlign: 'left' }]}
+                value={natSearch}
+                onChangeText={setNatSearch}
+                placeholder="Suchen…"
+                placeholderTextColor="rgba(255,255,255,0.3)"
+                autoFocus
+              />
+            </View>
+            <ScrollView style={{ maxHeight: 240 }} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+              <TouchableOpacity style={styles.detailDropdownItem} onPress={() => setEditData({ ...editData, nationality_advisor: '' })}>
+                <Text numberOfLines={1} style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>Leeren</Text>
+              </TouchableOpacity>
+              {filtered.map(country => {
+                const checked = selected.includes(country);
+                return (
+                  <TouchableOpacity
+                    key={country}
+                    style={[styles.detailDropdownItem, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}
+                    onPress={() => toggle(country)}
+                  >
+                    <Ionicons name={checked ? 'checkbox' : 'square-outline'} size={16} color={checked ? '#22c55e' : 'rgba(255,255,255,0.5)'} />
+                    <Text style={{ fontSize: 14 }}>{COUNTRY_FLAGS[country] || '🏳️'}</Text>
+                    <Text numberOfLines={1} style={{ fontSize: 13, color: '#fff', flex: 1 }}>{country}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+              {filtered.length === 0 ? (
+                <View style={styles.detailDropdownItem}><Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>Kein Treffer</Text></View>
+              ) : null}
+            </ScrollView>
+          </View>
+        ) : null}
+      </View>
+    );
+  };
+
   const DateDropdown = ({ field, dropdownKeyPrefix }: { field: string; dropdownKeyPrefix: string }) => {
     const raw: string = editData[field] || '';
     const today = new Date();
@@ -2261,17 +2330,13 @@ export function PlayerOverviewScreen({ navigation }: any) {
 
             <View style={styles.detailDivider} />
             <View style={styles.detailStatsRow}>
-              <Pressable style={styles.detailStatCol} onHoverIn={() => setShowNatTooltip(true)} onHoverOut={() => setShowNatTooltip(false)}>
+              <Pressable
+                style={[styles.detailStatCol, openDropdown === 'nationality_advisor' && { zIndex: 1000, position: 'relative' }]}
+                onHoverIn={() => setShowNatTooltip(true)}
+                onHoverOut={() => setShowNatTooltip(false)}
+              >
                 <Text style={styles.detailStatLabel}>Nationalität</Text>
-                {isEditing ? (
-                  <TextInput
-                    style={[styles.detailEditInput, { paddingVertical: 4, fontSize: 11, width: '100%', minWidth: 120, textAlign: 'center' }]}
-                    value={(editData.nationality_advisor as string) || ''}
-                    onChangeText={(v) => setEditData({ ...editData, nationality_advisor: v })}
-                    placeholder="z.B. Deutschland"
-                    placeholderTextColor="rgba(255,255,255,0.3)"
-                  />
-                ) : (() => {
+                {isEditing ? renderNationalityEditor() : (() => {
                   // Stamm-Daten: Spieler-Wert ?? Berater-Wert ?? alte Spalte
                   const nat = fullPlayer?.nationality_player || fullPlayer?.nationality_advisor || fullPlayer?.nationality;
                   return (
