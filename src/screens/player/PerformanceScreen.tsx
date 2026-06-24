@@ -690,6 +690,8 @@ export function PerformanceScreen() {
   const [addValue2, setAddValue2] = useState('');
   const [addValue3, setAddValue3] = useState('');
   const [addValue4, setAddValue4] = useState('');
+  const [addValue5, setAddValue5] = useState('');
+  const [addValue6, setAddValue6] = useState('');
   const [addNote, setAddNote] = useState('');
   const [editingMeasurement, setEditingMeasurement] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Record<string, string>>({});
@@ -747,6 +749,7 @@ export function PerformanceScreen() {
     if (metric === 'sj') return ['sj'];
     if (metric === 'dj') return ['dj', 'dj_rsi'];
     if (metric === 'ht') return ['ht', 'ht_rsi'];
+    if (metric === 'jumps') return ['cmj', 'sj', 'dj', 'dj_rsi', 'ht', 'ht_rsi'];
     return [];
   };
 
@@ -778,6 +781,13 @@ export function PerformanceScreen() {
         if (addValue2) await supabase.from('player_measurements').insert({ player_id: player.id, type: 'sprint_20m', value: parseNum(addValue2), measured_at: date, created_by: profile?.first_name || '' });
         if (addValue3) await supabase.from('player_measurements').insert({ player_id: player.id, type: 'sprint_30m', value: parseNum(addValue3), measured_at: date, created_by: profile?.first_name || '' });
         if (addValue4) await supabase.from('player_measurements').insert({ player_id: player.id, type: 'vmax', value: parseNum(addValue4), measured_at: date, created_by: profile?.first_name || '' });
+      } else if (selectedMetric === 'jumps') {
+        if (addValue) await supabase.from('player_measurements').insert({ player_id: player.id, type: 'cmj', value: parseNum(addValue), measured_at: date, created_by: profile?.first_name || '' });
+        if (addValue2) await supabase.from('player_measurements').insert({ player_id: player.id, type: 'sj', value: parseNum(addValue2), measured_at: date, created_by: profile?.first_name || '' });
+        if (addValue3) await supabase.from('player_measurements').insert({ player_id: player.id, type: 'dj', value: parseNum(addValue3), measured_at: date, created_by: profile?.first_name || '' });
+        if (addValue4) await supabase.from('player_measurements').insert({ player_id: player.id, type: 'dj_rsi', value: parseNum(addValue4), measured_at: date, created_by: profile?.first_name || '' });
+        if (addValue5) await supabase.from('player_measurements').insert({ player_id: player.id, type: 'ht', value: parseNum(addValue5), measured_at: date, created_by: profile?.first_name || '' });
+        if (addValue6) await supabase.from('player_measurements').insert({ player_id: player.id, type: 'ht_rsi', value: parseNum(addValue6), measured_at: date, created_by: profile?.first_name || '' });
       } else if (selectedMetric === 'dj') {
         if (addValue) await supabase.from('player_measurements').insert({ player_id: player.id, type: 'dj', value: parseNum(addValue), measured_at: date, created_by: profile?.first_name || '' });
         if (addValue2) await supabase.from('player_measurements').insert({ player_id: player.id, type: 'dj_rsi', value: parseNum(addValue2), measured_at: date, created_by: profile?.first_name || '' });
@@ -794,7 +804,7 @@ export function PerformanceScreen() {
     }
     setShowAddForm(false);
     setEditingMeasurement(null);
-    setAddDay(''); setAddMonth(''); setAddYear(''); setAddValue(''); setAddValue2(''); setAddValue3(''); setAddValue4(''); setAddNote('');
+    setAddDay(''); setAddMonth(''); setAddYear(''); setAddValue(''); setAddValue2(''); setAddValue3(''); setAddValue4(''); setAddValue5(''); setAddValue6(''); setAddNote('');
     fetchMeasurements();
   };
 
@@ -848,7 +858,7 @@ export function PerformanceScreen() {
       const iso = (m.measured_at || '').substring(0, 10);
       if (!iso) continue;
       const [y, mo, dd] = iso.split('-');
-      grouped[iso] = { sortKey: iso, date: `${dd}.${mo}.${y.substring(2)}`, [type]: m.value };
+      grouped[iso] = { sortKey: iso, date: `${dd}.${mo}.${y.substring(2)}`, [type]: m.value, note: m.note || '' };
     }
     return Object.values(grouped).sort((a: any, b: any) => a.sortKey.localeCompare(b.sortKey));
   };
@@ -908,15 +918,22 @@ export function PerformanceScreen() {
                   <XAxis dataKey="date" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} padding={{ left: 12, right: 12 }} />
                   <YAxis width={Y_AXIS_W} tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} label={unit ? { value: unit, position: 'insideTopLeft', fill: 'rgba(255,255,255,0.4)', fontSize: 10 } : undefined} domain={[0, 'auto']} />
                   <Tooltip
-                    contentStyle={{ backgroundColor: 'rgba(0,0,0,0.9)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, fontSize: 12, color: '#fff' }}
-                    labelStyle={{ color: 'rgba(255,255,255,0.85)', marginBottom: 2 }}
-                    itemStyle={{ color: categoryColor(type) }}
-                    labelFormatter={(_label: any, items: any) => {
-                      const iso = items && items[0] && items[0].payload && items[0].payload.sortKey;
-                      if (iso) { const [yy, mm, dd] = String(iso).split('-'); return `Datum: ${dd}.${mm}.${yy}`; }
-                      return _label;
+                    content={(props: any) => {
+                      const { active, payload } = props || {};
+                      if (!active || !payload || !payload.length) return null;
+                      const p = payload[0].payload || {};
+                      const iso = String(p.sortKey || '');
+                      const [yy, mm, dd] = iso.split('-');
+                      const dateStr = iso ? `${dd}.${mm}.${yy}` : '';
+                      const valStr = `${String(payload[0].value).replace('.', ',')}${tooltipUnit(type)}`;
+                      return (
+                        <div style={{ backgroundColor: 'rgba(0,0,0,0.9)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, fontSize: 12, color: '#fff', padding: '6px 10px' } as any}>
+                          {dateStr ? <div style={{ color: 'rgba(255,255,255,0.85)', marginBottom: 2 } as any}>Datum: {dateStr}</div> : null}
+                          <div style={{ color: categoryColor(type) } as any}>{CATEGORY_LABELS[type] || type}: {valStr}</div>
+                          {p.note ? <div style={{ color: 'rgba(255,255,255,0.6)', marginTop: 3 } as any}>Ort: {p.note}</div> : null}
+                        </div>
+                      ) as any;
                     }}
-                    formatter={(value: any) => [`${String(value).replace('.', ',')}${tooltipUnit(type)}`, CATEGORY_LABELS[type] || type] as any}
                   />
                   <Line dataKey={type} name={CATEGORY_LABELS[type] || type} stroke={categoryColor(type)} strokeWidth={2} dot={{ r: 4 }} connectNulls />
                 </LineChart>
@@ -1398,27 +1415,12 @@ export function PerformanceScreen() {
                   <View style={{ flex: isMobile ? undefined : 1, width: isMobile ? '100%' : undefined }}>
                     <Text style={[styles.subLabel, { marginBottom: 8 }]}>Sprünge</Text>
                     <Pressable
-                      onPress={() => setSelectedMetric(selectedMetric === 'cmj' ? null : 'cmj')}
-                      style={[styles.metricRow, { paddingHorizontal: 0, borderLeftWidth: 0 }, selectedMetric === 'cmj' && styles.metricRowActive]}
+                      onPress={() => setSelectedMetric(selectedMetric === 'jumps' ? null : 'jumps')}
+                      style={[styles.metricRow, { paddingHorizontal: 0, borderLeftWidth: 0 }, selectedMetric === 'jumps' && styles.metricRowActive]}
                     >
                       <View style={styles.infoRow}><Text style={styles.infoLabel}>Countermovement Jump</Text><Text style={styles.infoValue}>{latestValue('cmj') !== '-' ? `${latestValue('cmj')} cm` : '-'}</Text></View>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => setSelectedMetric(selectedMetric === 'sj' ? null : 'sj')}
-                      style={[styles.metricRow, { paddingHorizontal: 0, borderLeftWidth: 0 }, selectedMetric === 'sj' && styles.metricRowActive]}
-                    >
                       <View style={styles.infoRow}><Text style={styles.infoLabel}>Squat Jump</Text><Text style={styles.infoValue}>{latestValue('sj') !== '-' ? `${latestValue('sj')} cm` : '-'}</Text></View>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => setSelectedMetric(selectedMetric === 'dj' ? null : 'dj')}
-                      style={[styles.metricRow, { paddingHorizontal: 0, borderLeftWidth: 0 }, selectedMetric === 'dj' && styles.metricRowActive]}
-                    >
                       <View style={styles.infoRow}><Text style={styles.infoLabel}>Drop Jump</Text><Text style={styles.infoValue}>{latestValue('dj') !== '-' ? `${latestValue('dj')} cm${latestValue('dj_rsi') !== '-' ? ` · RSI ${latestValue('dj_rsi')}` : ''}` : '-'}</Text></View>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => setSelectedMetric(selectedMetric === 'ht' ? null : 'ht')}
-                      style={[styles.metricRow, { paddingHorizontal: 0, borderLeftWidth: 0 }, selectedMetric === 'ht' && styles.metricRowActive]}
-                    >
                       <View style={styles.infoRow}><Text style={styles.infoLabel}>Hop Test</Text><Text style={styles.infoValue}>{latestValue('ht') !== '-' ? `${latestValue('ht')} cm${latestValue('ht_rsi') !== '-' ? ` · RSI ${latestValue('ht_rsi')}` : ''}` : '-'}</Text></View>
                     </Pressable>
                   </View>
@@ -1434,7 +1436,7 @@ export function PerformanceScreen() {
                     ) : !measurements.some(m => getDisplayTypes(selectedMetric).includes(m.type)) ? (
                       <View style={{ minHeight: 120, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
                         <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 13 }}>Noch keine Daten vorhanden</Text>
-                        <TouchableOpacity onPress={() => { const t = new Date(); setAddDay(String(t.getDate())); setAddMonth(String(t.getMonth()+1)); setAddYear(String(t.getFullYear())); setAddValue(''); setAddValue2(''); setAddValue3(''); setAddValue4(''); setAddNote(''); setShowAddForm(true); }} style={{ marginTop: 12, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}>
+                        <TouchableOpacity onPress={() => { const t = new Date(); setAddDay(String(t.getDate())); setAddMonth(String(t.getMonth()+1)); setAddYear(String(t.getFullYear())); setAddValue(''); setAddValue2(''); setAddValue3(''); setAddValue4(''); setAddValue5(''); setAddValue6(''); setAddNote(''); setShowAddForm(true); }} style={{ marginTop: 12, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}>
                           <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Ersten Eintrag hinzufügen</Text>
                         </TouchableOpacity>
                       </View>
@@ -1471,7 +1473,7 @@ export function PerformanceScreen() {
                         <View style={{ marginTop: 12 }}>
                           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                             <Text style={styles.subLabel}>Einträge</Text>
-                            <TouchableOpacity onPress={() => { const t = new Date(); setAddDay(String(t.getDate())); setAddMonth(String(t.getMonth()+1)); setAddYear(String(t.getFullYear())); setAddValue(''); setAddValue2(''); setAddValue3(''); setAddValue4(''); setAddNote(''); setEditingMeasurement(null); setShowAddForm(true); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}>
+                            <TouchableOpacity onPress={() => { const t = new Date(); setAddDay(String(t.getDate())); setAddMonth(String(t.getMonth()+1)); setAddYear(String(t.getFullYear())); setAddValue(''); setAddValue2(''); setAddValue3(''); setAddValue4(''); setAddValue5(''); setAddValue6(''); setAddNote(''); setEditingMeasurement(null); setShowAddForm(true); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}>
                               <Ionicons name="add" size={12} color="rgba(255,255,255,0.5)" />
                               <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>Eintrag</Text>
                             </TouchableOpacity>
@@ -1480,7 +1482,7 @@ export function PerformanceScreen() {
                           {/* Inline-Formular (oben bei Einträgen) */}
                           {showAddForm && (
                             <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
-                              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-end' }}>
+                              <View style={{ flexDirection: 'row', gap: 8, rowGap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
                                 <View>
                                   <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>TAG</Text>
                                   <TextInput style={styles.chartInput} value={addDay} onChangeText={setAddDay} placeholder="TT" placeholderTextColor="rgba(255,255,255,0.2)" keyboardType="numeric" />
@@ -1494,7 +1496,7 @@ export function PerformanceScreen() {
                                   <TextInput style={[styles.chartInput, { width: 60 }]} value={addYear} onChangeText={setAddYear} placeholder="JJJJ" placeholderTextColor="rgba(255,255,255,0.2)" keyboardType="numeric" />
                                 </View>
                                 <View>
-                                  <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>{selectedMetric === 'koerper' ? 'GEWICHT (KG)' : selectedMetric === 'sprint' ? '10M (SEK)' : selectedMetric === 'cmj' ? 'WERT (CM)' : (selectedMetric === 'sj' || selectedMetric === 'dj' || selectedMetric === 'ht') ? 'HÖHE (CM)' : 'WERT'}</Text>
+                                  <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>{selectedMetric === 'koerper' ? 'GEWICHT (KG)' : selectedMetric === 'sprint' ? '10M (SEK)' : selectedMetric === 'cmj' ? 'WERT (CM)' : selectedMetric === 'jumps' ? 'CMJ (CM)' : (selectedMetric === 'sj' || selectedMetric === 'dj' || selectedMetric === 'ht') ? 'HÖHE (CM)' : 'WERT'}</Text>
                                   <TextInput style={styles.chartInput} value={addValue} onChangeText={setAddValue} placeholder="-" placeholderTextColor="rgba(255,255,255,0.2)" keyboardType="numeric" />
                                 </View>
                                 {selectedMetric === 'koerper' && (
@@ -1524,6 +1526,30 @@ export function PerformanceScreen() {
                                     <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>RSI</Text>
                                     <TextInput style={styles.chartInput} value={addValue2} onChangeText={setAddValue2} placeholder="-" placeholderTextColor="rgba(255,255,255,0.2)" keyboardType="numeric" />
                                   </View>
+                                )}
+                                {selectedMetric === 'jumps' && (
+                                  <>
+                                    <View>
+                                      <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>SJ (CM)</Text>
+                                      <TextInput style={styles.chartInput} value={addValue2} onChangeText={setAddValue2} placeholder="-" placeholderTextColor="rgba(255,255,255,0.2)" keyboardType="numeric" />
+                                    </View>
+                                    <View>
+                                      <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>DJ (CM)</Text>
+                                      <TextInput style={styles.chartInput} value={addValue3} onChangeText={setAddValue3} placeholder="-" placeholderTextColor="rgba(255,255,255,0.2)" keyboardType="numeric" />
+                                    </View>
+                                    <View>
+                                      <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>DJ RSI</Text>
+                                      <TextInput style={styles.chartInput} value={addValue4} onChangeText={setAddValue4} placeholder="-" placeholderTextColor="rgba(255,255,255,0.2)" keyboardType="numeric" />
+                                    </View>
+                                    <View>
+                                      <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>HT (CM)</Text>
+                                      <TextInput style={styles.chartInput} value={addValue5} onChangeText={setAddValue5} placeholder="-" placeholderTextColor="rgba(255,255,255,0.2)" keyboardType="numeric" />
+                                    </View>
+                                    <View>
+                                      <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>HT RSI</Text>
+                                      <TextInput style={styles.chartInput} value={addValue6} onChangeText={setAddValue6} placeholder="-" placeholderTextColor="rgba(255,255,255,0.2)" keyboardType="numeric" />
+                                    </View>
+                                  </>
                                 )}
                                 <View style={{ flex: 1 }} />
                                 <TouchableOpacity onPress={() => setShowAddForm(false)} style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}>
