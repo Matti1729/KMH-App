@@ -678,7 +678,7 @@ export function PerformanceScreen() {
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
   const [expandHover, setExpandHover] = useState(false);
   const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
-  const [measurements, setMeasurements] = useState<Array<{ id: string; type: string; value: number; measured_at: string; created_by: string }>>([]);
+  const [measurements, setMeasurements] = useState<Array<{ id: string; type: string; value: number; measured_at: string; created_by: string; note?: string | null }>>([]);
   const [playerPrototype, setPlayerPrototype] = useState<Prototype | null>(null);
   // Video-Library: pro Spieler die zugewiesenen Videos mit Label + Type + Phase
   const [playerVideos, setPlayerVideos] = useState<Array<{ id: string; video_path: string | null; video_url: string | null; label: string; description: string | null; role_model_name: string | null; role_model_club: string | null; phase: 'negative' | 'positive' | 'neutral'; type: 'strength' | 'potential' }>>([]);
@@ -690,8 +690,10 @@ export function PerformanceScreen() {
   const [addValue2, setAddValue2] = useState('');
   const [addValue3, setAddValue3] = useState('');
   const [addValue4, setAddValue4] = useState('');
+  const [addNote, setAddNote] = useState('');
   const [editingMeasurement, setEditingMeasurement] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Record<string, string>>({});
+  const [editNote, setEditNote] = useState('');
 
   // Analysen-State
   const [playerAnalyses, setPlayerAnalyses] = useState<AnalysisEntry[]>([]);
@@ -776,9 +778,13 @@ export function PerformanceScreen() {
         if (addValue) await supabase.from('player_measurements').insert({ player_id: player.id, type: types[0], value: parseNum(addValue), measured_at: date, created_by: profile?.first_name || '' });
       }
     }
+    // Notiz/Ort gilt für die gesamte Test-Session (Datum) -> auf alle Zeilen setzen.
+    if (addNote.trim()) {
+      await supabase.from('player_measurements').update({ note: addNote.trim() }).eq('player_id', player.id).eq('measured_at', date);
+    }
     setShowAddForm(false);
     setEditingMeasurement(null);
-    setAddDay(''); setAddMonth(''); setAddYear(''); setAddValue(''); setAddValue2(''); setAddValue3(''); setAddValue4('');
+    setAddDay(''); setAddMonth(''); setAddYear(''); setAddValue(''); setAddValue2(''); setAddValue3(''); setAddValue4(''); setAddNote('');
     fetchMeasurements();
   };
 
@@ -798,8 +804,11 @@ export function PerformanceScreen() {
         await supabase.from('player_measurements').insert({ player_id: player.id, type, value: val, measured_at: groupDate, created_by: profile?.first_name || '' });
       }
     }
+    // Notiz/Ort der Session aktualisieren (auf alle Zeilen des Datums).
+    await supabase.from('player_measurements').update({ note: editNote.trim() || null }).eq('player_id', player.id).eq('measured_at', groupDate);
     setEditingMeasurement(null);
     setEditValues({});
+    setEditNote('');
     fetchMeasurements();
   };
 
@@ -856,6 +865,14 @@ export function PerformanceScreen() {
     };
     return map[type] || '#3b82f6';
   };
+  // Einheit fürs Tooltip (kompakt). Wert wird mit Komma-Dezimal dargestellt.
+  const tooltipUnit = (type: string): string => {
+    if (type.startsWith('sprint')) return 's';
+    if (type === 'vmax') return ' km/h';
+    if (type === 'weight') return ' kg';
+    if (type === 'cmj' || type === 'sj' || type === 'dj' || type === 'ht' || type === 'height') return ' cm';
+    return '';
+  };
 
   const renderCategoryChart = (type: string) => {
     const data = getCategoryChartData(type);
@@ -879,8 +896,18 @@ export function PerformanceScreen() {
                 <LineChart data={data} width={chartWidth} height={180}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
                   <XAxis dataKey="date" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} padding={{ left: 12, right: 12 }} />
-                  <YAxis width={Y_AXIS_W} tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} label={unit ? { value: unit, position: 'insideTopLeft', fill: 'rgba(255,255,255,0.4)', fontSize: 10 } : undefined} domain={['auto', 'auto']} />
-                  <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.9)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, fontSize: 12, color: '#fff' }} />
+                  <YAxis width={Y_AXIS_W} tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} label={unit ? { value: unit, position: 'insideTopLeft', fill: 'rgba(255,255,255,0.4)', fontSize: 10 } : undefined} domain={[0, 'auto']} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: 'rgba(0,0,0,0.9)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, fontSize: 12, color: '#fff' }}
+                    labelStyle={{ color: 'rgba(255,255,255,0.85)', marginBottom: 2 }}
+                    itemStyle={{ color: categoryColor(type) }}
+                    labelFormatter={(_label: any, items: any) => {
+                      const iso = items && items[0] && items[0].payload && items[0].payload.sortKey;
+                      if (iso) { const [yy, mm, dd] = String(iso).split('-'); return `Datum: ${dd}.${mm}.${yy}`; }
+                      return _label;
+                    }}
+                    formatter={(value: any) => [`${String(value).replace('.', ',')}${tooltipUnit(type)}`, CATEGORY_LABELS[type] || type] as any}
+                  />
                   <Line dataKey={type} name={CATEGORY_LABELS[type] || type} stroke={categoryColor(type)} strokeWidth={2} dot={{ r: 4 }} connectNulls />
                 </LineChart>
               </ScrollView>
@@ -1397,7 +1424,7 @@ export function PerformanceScreen() {
                     ) : getChartData(selectedMetric).length === 0 ? (
                       <View style={{ minHeight: 120, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
                         <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 13 }}>Noch keine Daten vorhanden</Text>
-                        <TouchableOpacity onPress={() => { const t = new Date(); setAddDay(String(t.getDate())); setAddMonth(String(t.getMonth()+1)); setAddYear(String(t.getFullYear())); setAddValue(''); setAddValue2(''); setAddValue3(''); setAddValue4(''); setShowAddForm(true); }} style={{ marginTop: 12, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}>
+                        <TouchableOpacity onPress={() => { const t = new Date(); setAddDay(String(t.getDate())); setAddMonth(String(t.getMonth()+1)); setAddYear(String(t.getFullYear())); setAddValue(''); setAddValue2(''); setAddValue3(''); setAddValue4(''); setAddNote(''); setShowAddForm(true); }} style={{ marginTop: 12, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}>
                           <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Ersten Eintrag hinzufügen</Text>
                         </TouchableOpacity>
                       </View>
@@ -1434,7 +1461,7 @@ export function PerformanceScreen() {
                         <View style={{ marginTop: 12 }}>
                           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                             <Text style={styles.subLabel}>Einträge</Text>
-                            <TouchableOpacity onPress={() => { const t = new Date(); setAddDay(String(t.getDate())); setAddMonth(String(t.getMonth()+1)); setAddYear(String(t.getFullYear())); setAddValue(''); setAddValue2(''); setEditingMeasurement(null); setShowAddForm(true); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}>
+                            <TouchableOpacity onPress={() => { const t = new Date(); setAddDay(String(t.getDate())); setAddMonth(String(t.getMonth()+1)); setAddYear(String(t.getFullYear())); setAddValue(''); setAddValue2(''); setAddValue3(''); setAddValue4(''); setAddNote(''); setEditingMeasurement(null); setShowAddForm(true); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}>
                               <Ionicons name="add" size={12} color="rgba(255,255,255,0.5)" />
                               <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>Eintrag</Text>
                             </TouchableOpacity>
@@ -1496,6 +1523,10 @@ export function PerformanceScreen() {
                                   <Text style={{ fontSize: 11, color: '#fff', fontWeight: '600' }}>Speichern</Text>
                                 </TouchableOpacity>
                               </View>
+                              <View style={{ marginTop: 8 }}>
+                                <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>ORT / NOTIZ</Text>
+                                <TextInput style={[styles.chartInput, { width: '100%' }]} value={addNote} onChangeText={setAddNote} placeholder="z.B. Stadion, Halle, Bedingungen …" placeholderTextColor="rgba(255,255,255,0.2)" />
+                              </View>
                             </View>
                           )}
 
@@ -1503,6 +1534,7 @@ export function PerformanceScreen() {
                             const d = new Date(group.date);
                             const dateStr = `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
                             const isEditing = editingMeasurement === group.date;
+                            const groupNote = (group.items.find(e => e.note && String(e.note).trim())?.note) || '';
                             return (
                               <View key={gi} style={{ borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)', paddingVertical: 4 }}>
                                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -1544,6 +1576,7 @@ export function PerformanceScreen() {
                                       const vals: Record<string, string> = {};
                                       for (const e of group.items) vals[e.type] = String(e.value);
                                       setEditValues(vals);
+                                      setEditNote(groupNote);
                                       setEditingMeasurement(group.date);
                                     }} style={{ padding: 4 }}>
                                       <Ionicons name="pencil-outline" size={13} color="rgba(255,255,255,0.3)" />
@@ -1554,6 +1587,16 @@ export function PerformanceScreen() {
                                     </TouchableOpacity>
                                   )}
                                 </View>
+                                {isEditing ? (
+                                  <View style={{ marginLeft: 90, marginTop: 4 }}>
+                                    <TextInput style={[styles.chartInput, { width: '100%' }]} defaultValue={groupNote} onChangeText={setEditNote} placeholder="Ort / Notiz …" placeholderTextColor="rgba(255,255,255,0.2)" />
+                                  </View>
+                                ) : groupNote ? (
+                                  <View style={{ marginLeft: 90, marginTop: 2, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                    <Ionicons name="location-outline" size={11} color="rgba(255,255,255,0.35)" />
+                                    <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>{groupNote}</Text>
+                                  </View>
+                                ) : null}
                               </View>
                             );
                           })}
