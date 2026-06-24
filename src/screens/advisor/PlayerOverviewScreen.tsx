@@ -356,6 +356,11 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [fullPlayer, setFullPlayer] = useState<any | null>(null);
   const [fullPlayerLoading, setFullPlayerLoading] = useState(false);
+  // Athletiktrainer-Zuweisung (im eingebetteten Detail-Modal)
+  const [showTrainerAssignModal, setShowTrainerAssignModal] = useState(false);
+  const [trainerList, setTrainerList] = useState<Array<{ id: string; first_name: string; last_name: string }>>([]);
+  const [assignedTrainerIds, setAssignedTrainerIds] = useState<string[]>([]);
+  const [trainerBusy, setTrainerBusy] = useState(false);
   const [transferBusy, setTransferBusy] = useState(false);
   const [inviteCodeLoading, setInviteCodeLoading] = useState(false);
   const [inviteCode, setInviteCode] = useState<string | null>(null);
@@ -725,6 +730,44 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
   const hasAccessToPlayer = (_playerId: string): boolean => {
     // Alle Berater haben Zugriff auf alle Spieler — keine Schlösser mehr.
     return true;
+  };
+
+  // Athletiktrainer-Zuweisung öffnen: Trainerliste + aktuelle Zuweisungen laden.
+  const openTrainerAssign = async () => {
+    const pid = selectedPlayer?.id;
+    if (!pid) return;
+    setTrainerBusy(true);
+    setShowTrainerAssignModal(true);
+    try {
+      const [{ data: trainers }, { data: assigns }] = await Promise.all([
+        supabase.from('advisors').select('id, first_name, last_name').eq('role', 'athletiktrainer').order('last_name', { ascending: true }),
+        supabase.from('player_trainer_assignments').select('trainer_id').eq('player_id', pid),
+      ]);
+      setTrainerList(trainers || []);
+      setAssignedTrainerIds((assigns || []).map((a: any) => a.trainer_id));
+    } catch (err) {
+      console.error('Trainer assign load error:', err);
+    }
+    setTrainerBusy(false);
+  };
+
+  const toggleTrainerAssignment = async (trainerId: string) => {
+    const pid = selectedPlayer?.id;
+    if (!pid) return;
+    const isAssigned = assignedTrainerIds.includes(trainerId);
+    setTrainerBusy(true);
+    try {
+      if (isAssigned) {
+        await supabase.from('player_trainer_assignments').delete().eq('player_id', pid).eq('trainer_id', trainerId);
+        setAssignedTrainerIds(prev => prev.filter(id => id !== trainerId));
+      } else {
+        await supabase.from('player_trainer_assignments').insert({ player_id: pid, trainer_id: trainerId, assigned_by: session?.user?.id || null });
+        setAssignedTrainerIds(prev => [...prev, trainerId]);
+      }
+    } catch (err: any) {
+      alertDialog({ title: 'Fehler', message: 'Zuweisung fehlgeschlagen: ' + (err?.message || String(err)) });
+    }
+    setTrainerBusy(false);
   };
 
   const handlePlayerClick = (player: Player) => {
@@ -2143,6 +2186,38 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
   // EditableValue ist jetzt außerhalb des Component-Scopes definiert (siehe oben),
   // damit der TextInput beim Tippen nicht unmounted wird.
 
+  const trainerAssignModalJsx = (
+    <Modal visible={showTrainerAssignModal} transparent animationType="fade" onRequestClose={() => setShowTrainerAssignModal(false)}>
+      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 16 }}>
+        <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setShowTrainerAssignModal(false)} />
+        <View style={{ backgroundColor: colors.surface, borderRadius: 16, padding: 20, width: '100%', maxWidth: 420 }}>
+          <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: 2 }}>An Athletiktrainer übergeben</Text>
+          <Text style={{ fontSize: 11, color: colors.textSecondary, marginBottom: 16 }}>{selectedPlayer?.first_name} {selectedPlayer?.last_name} — wähle, wer diesen Spieler in seiner Liste sieht.</Text>
+          {trainerList.length === 0 ? (
+            <Text style={{ fontSize: 13, color: colors.textMuted, paddingVertical: 12, textAlign: 'center' }}>
+              {trainerBusy ? 'Lädt …' : 'Noch kein Athletiktrainer registriert.'}
+            </Text>
+          ) : (
+            trainerList.map(t => {
+              const assigned = assignedTrainerIds.includes(t.id);
+              return (
+                <TouchableOpacity key={t.id} onPress={() => toggleTrainerAssignment(t.id)} disabled={trainerBusy}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11, paddingHorizontal: 8, borderRadius: 8, marginBottom: 4, backgroundColor: assigned ? 'rgba(34,197,94,0.12)' : colors.surfaceSecondary }}>
+                  <Text style={{ fontSize: 18 }}>{assigned ? '✅' : '⬜'}</Text>
+                  <Text style={{ flex: 1, fontSize: 14, color: colors.text }}>{t.first_name} {t.last_name}</Text>
+                  <Text style={{ fontSize: 11, color: assigned ? '#22c55e' : colors.textMuted }}>{assigned ? 'zugewiesen' : 'tippen zum Zuweisen'}</Text>
+                </TouchableOpacity>
+              );
+            })
+          )}
+          <TouchableOpacity onPress={() => setShowTrainerAssignModal(false)} style={{ marginTop: 12, alignSelf: 'center' }}>
+            <Text style={{ fontSize: 12, color: colors.textSecondary }}>Schließen</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+
   const playerDetailModalJsx = selectedPlayer && (
     <Modal visible={showPlayerDetailModal} transparent animationType={isMobile ? 'slide' : 'fade'} onRequestClose={closePlayerDetailModal}>
       <View style={[styles.detailModalBackdrop, isMobile && { paddingHorizontal: 0, paddingVertical: 0, justifyContent: 'flex-end', alignItems: 'stretch' }]}>
@@ -2200,6 +2275,14 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
                   ) : (
                     <Ionicons name="document-text-outline" size={14} color={colors.textSecondary} />
                   )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.detailToolbarBtn, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}
+                  onPress={openTrainerAssign}
+                  disabled={!selectedPlayer}
+                >
+                  <Ionicons name="barbell-outline" size={13} color="#22c55e" />
+                  {!isMobile && <Text style={[styles.detailToolbarBtnText, { color: '#22c55e' }]}>Trainer</Text>}
                 </TouchableOpacity>
               </>
             )}
@@ -3554,6 +3637,7 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
           </Modal>
 
           {playerDetailModalJsx}
+          {trainerAssignModalJsx}
         </View>
       </View>
     );
@@ -4001,6 +4085,7 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
         </Modal>
 
         {playerDetailModalJsx}
+        {trainerAssignModalJsx}
       </View>
     </View>
   );
