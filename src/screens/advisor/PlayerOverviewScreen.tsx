@@ -2860,11 +2860,23 @@ export function PlayerOverviewScreen({ navigation }: any) {
                           ) : null}
                         </>
                       ) : (() => {
-                        const intern = sv('internat');
+                        // internat ist uneinheitlich: mal Boolean (PlayerDetailScreen),
+                        // mal Adress-Text (hier). Robust normalisieren — "false"/false/leer
+                        // -> kein Internat, "true"/true -> "Ja", Text -> "Ja — <Text>".
+                        const internLabel = (v: any): string => {
+                          if (v === true) return 'Ja';
+                          if (v === null || v === undefined || v === false) return '';
+                          const s = String(v).trim();
+                          if (s === '' || s.toLowerCase() === 'false') return '';
+                          if (s.toLowerCase() === 'true') return 'Ja';
+                          return `Ja — ${s}`;
+                        };
+                        const playerLabel = internLabel(fullPlayer?.internat_player);
+                        const label = playerLabel || internLabel(fullPlayer?.internat) || 'Nein';
                         return (
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                            <Text style={styles.detailFieldValue}>{intern ? `Ja — ${intern}` : 'Nein'}</Text>
-                            {svIsPlayer('internat') ? renderPlayerBadge() : null}
+                            <Text style={styles.detailFieldValue}>{label}</Text>
+                            {playerLabel ? renderPlayerBadge() : null}
                           </View>
                         );
                       })()}
