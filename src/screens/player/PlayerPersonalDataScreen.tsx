@@ -539,9 +539,6 @@ export function PlayerPersonalDataScreen() {
   // Die Spieler-E-Mail wird automatisch auf die Registrierungs-E-Mail gesetzt
   // (= Login-E-Mail des Accounts). Im "Als Spieler ansehen"-Modus (Berater)
   // ist session.user.email der Berater — dann den gespeicherten Wert behalten.
-  const getRegistrationEmail = (): string =>
-    (!viewAsPlayerId && session?.user?.email) ? session.user.email : (player?.email || '');
-
   const saveAll = async () => {
     if (!player) return;
     setSaving(true);
@@ -550,11 +547,25 @@ export function PlayerPersonalDataScreen() {
       // Berater-Werte (`_advisor`-Spalten) werden nie überschrieben.
       // editInterests + editOtherNotes werden zusammengefasst (siehe UI-Umbau Sonstiges).
       const additionalInfo = [editInterests, editOtherNotes].filter(s => s && s.trim()).join('\n').trim();
+
+      // E-Mail-Änderung (Login + Kontakt) via Admin-Edge-Function — nur für den
+      // echten Spieler (nicht im "Als Spieler ansehen"-Modus, da wäre session.user
+      // der Berater). email_player wird dabei serverseitig mitgesetzt.
+      const newEmail = editEmail.trim().toLowerCase();
+      const currentEmail = (player.email || '').trim().toLowerCase();
+      if (!viewAsPlayerId && newEmail && newEmail !== currentEmail) {
+        const { data: emailRes, error: emailErr } = await supabase.functions.invoke('update-player-email', { body: { email: newEmail } });
+        if (emailErr || !emailRes?.success) {
+          Alert.alert('E-Mail nicht geändert', (emailRes && emailRes.error) || 'Die E-Mail konnte nicht geändert werden. Bitte versuche es erneut.');
+          setSaving(false);
+          return;
+        }
+      }
+
       const updateData: any = {
         birth_date_player: editBirthDate || null,
         phone_player: editPhone || null,
         phone_country_code_player: editPhoneCountryCode || null,
-        email_player: getRegistrationEmail() || null,
         street_player: editStreet || null,
         postal_code_player: editPostalCode || null,
         city_player: editCity || null,
@@ -592,7 +603,7 @@ export function PlayerPersonalDataScreen() {
           birth_date: editBirthDate,
           phone: editPhone,
           phone_country_code: editPhoneCountryCode,
-          email: getRegistrationEmail(),
+          email: (!viewAsPlayerId && newEmail) ? newEmail : player.email,
           street: editStreet,
           postal_code: editPostalCode,
           city: editCity,
@@ -802,11 +813,27 @@ export function PlayerPersonalDataScreen() {
                       <TextInput style={styles.editInput} value={editPhone} onChangeText={setEditPhone} placeholder="1701234567" placeholderTextColor={colors.textMuted} keyboardType="phone-pad" />
                     </View>
                   </View>
-                  <View style={styles.editFieldContainer}>
-                    <Text style={styles.editFieldLabel}>E-Mail</Text>
-                    <Text style={{ fontSize: 13, color: '#fff', paddingVertical: 4 }}>{getRegistrationEmail() || '-'}</Text>
-                    <Text style={{ fontSize: 10, color: colors.textMuted, marginTop: 2 }}>Automatisch aus deiner Registrierung</Text>
-                  </View>
+                  {viewAsPlayerId ? (
+                    <View style={styles.editFieldContainer}>
+                      <Text style={styles.editFieldLabel}>E-Mail</Text>
+                      <Text style={{ fontSize: 13, color: '#fff', paddingVertical: 4 }}>{player?.email || '-'}</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.editFieldContainer}>
+                      <Text style={styles.editFieldLabel}>E-Mail</Text>
+                      <TextInput
+                        style={styles.editFieldInput}
+                        value={editEmail}
+                        onChangeText={setEditEmail}
+                        placeholder="name@example.com"
+                        placeholderTextColor={colors.textMuted}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                      />
+                      <Text style={{ fontSize: 10, color: colors.textMuted, marginTop: 4 }}>Damit meldest du dich künftig auch an.</Text>
+                    </View>
+                  )}
                   <EditField label="Straße" value={editStreet} onChangeText={setEditStreet} colors={colors} placeholder="Musterstraße 12" />
                   <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>PLZ / Ort</Text>
                   <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
@@ -846,7 +873,7 @@ export function PlayerPersonalDataScreen() {
                 <>
 
                   <InfoRow label="Telefon" value={formatPhone(player?.phone, player?.phone_country_code)} colors={colors} />
-                  <InfoRow label="E-Mail" value={getRegistrationEmail() || '-'} colors={colors} />
+                  <InfoRow label="E-Mail" value={player?.email || '-'} colors={colors} />
                   <InfoRow label="Adresse" value={formatAddress(player?.street, player?.postal_code, player?.city)} colors={colors} />
                   <InfoRow label="Internat" value={(player as any)?.internat ? 'Ja' : 'Nein'} colors={colors} />
                 </>
