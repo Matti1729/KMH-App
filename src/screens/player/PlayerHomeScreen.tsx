@@ -59,6 +59,8 @@ function resolveClubLogo(clubName: string, clubLogos: Record<string, string>): s
   return null;
 }
 
+const WEEKDAYS_DE = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+
 interface DashboardCardDef {
   id: string;
   title: string;
@@ -206,6 +208,8 @@ export function PlayerHomeScreen() {
 
   const firstName = (player?.first_name || profile?.first_name || '').toUpperCase();
   const lastName = (player?.last_name || profile?.last_name || '').toUpperCase();
+  const currentWeekday = WEEKDAYS_DE[new Date().getDay()];
+  const greetingName = player?.first_name || profile?.first_name || 'Spieler';
   const clubLogo = player?.club ? resolveClubLogo(player.club, clubLogos) : null;
   const photoWidth = isMobile ? 90 : 150;
   const photoHeight = isMobile ? 120 : 190;
@@ -336,7 +340,11 @@ export function PlayerHomeScreen() {
           profile={profile as any}
           playerMode
         />
-        <MobileHeader title="Mein Dashboard" onMenuPress={() => setShowMobileSidebar(true)} />
+        <MobileHeader title="Mein Dashboard" onMenuPress={() => setShowMobileSidebar(true)}>
+          <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: '500' }}>
+            Schönen {currentWeekday}, {greetingName}!
+          </Text>
+        </MobileHeader>
         <View style={{ flex: 1, position: 'relative' }}>
           <Image
             source={BACKGROUND_IMAGE}
