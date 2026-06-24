@@ -1459,10 +1459,12 @@ export function PerformanceScreen() {
           <Text style={styles.statLabel}>POSITION</Text>
           <Text style={styles.statValue}>{positionLabel || '-'}</Text>
         </View>
-        <View style={styles.statCol}>
-          <Text style={styles.statLabel}>VERTRAGSENDE</Text>
-          <Text style={styles.statValue}>{formatContractEnd(player?.contract_end)}</Text>
-        </View>
+        {!isTrainerView && (
+          <View style={styles.statCol}>
+            <Text style={styles.statLabel}>VERTRAGSENDE</Text>
+            <Text style={styles.statValue}>{formatContractEnd(player?.contract_end)}</Text>
+          </View>
+        )}
         <View style={styles.statCol}>
           <Text style={styles.statLabel}>TRANSFERMARKT-PROFIL</Text>
           {player?.transfermarkt_url ? (

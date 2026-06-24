@@ -405,9 +405,10 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
   const [createdPlayerName, setCreatedPlayerName] = useState<string>('');
   const [showCodeModal, setShowCodeModal] = useState(false);
 
-  // Table columns
+  // Table columns — der Athletiktrainer sieht keine Vertragslaufzeiten.
   const [tableWidth, setTableWidth] = useState(0);
-  const table = useTableColumns(PLAYER_COLUMNS, tableWidth, 'players');
+  const visibleColumns = trainerMode ? PLAYER_COLUMNS.filter(c => c.key !== 'contract_end') : PLAYER_COLUMNS;
+  const table = useTableColumns(visibleColumns, tableWidth, trainerMode ? 'trainer-players' : 'players');
 
   // Separate Dropdown States wie in Scouting
   const [showYearDropdown, setShowYearDropdown] = useState(false);
@@ -1445,7 +1446,7 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
                   ))}
                 </View>
               ) : null}
-              {player.contract_end ? (
+              {!trainerMode && player.contract_end ? (
                 <Text style={[
                   styles.contractTextMobile,
                   { color: hasSecuredFuture ? '#22c55e' : (inCurrentSeason ? '#ef4444' : colors.textMuted), marginLeft: 'auto' }
@@ -3831,7 +3832,8 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
               )}
             </View>
 
-            {/* Vertragsende Filter */}
+            {/* Vertragsende Filter — für Athletiktrainer ausgeblendet */}
+            {!trainerMode && (
             <View style={[styles.dropdownContainer, { zIndex: 10 }]} {...({ dataSet: { filterDropdown: 'true' } } as any)}>
               <TouchableOpacity
                 style={[styles.filterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }, selectedContractYears.length > 0 && { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#e0f2fe', borderColor: '#3b82f6' }]}
@@ -3862,6 +3864,7 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
                 </Pressable>
               )}
             </View>
+            )}
           </View>
           
           {!trainerMode && <TouchableOpacity style={[styles.filterButton, { backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.25)' }]} onPress={() => setShowAddModal(true)}><Ionicons name="person-add-outline" size={12} color={colors.textSecondary} /></TouchableOpacity>}
@@ -3877,7 +3880,7 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
           <View style={[styles.tableWrapper, { backgroundColor: 'rgba(0,0,0,0.55)', borderColor: 'rgba(255,255,255,0.15)' }]} onLayout={(e) => setTableWidth(e.nativeEvent.layout.width - 32)}>
             {tableWidth > 0 && (
               <TableHeader
-                columnDefs={PLAYER_COLUMNS}
+                columnDefs={visibleColumns}
                 backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
                 columnOrder={table.columnOrder}
                 getColumnWidth={table.getColumnWidth}
