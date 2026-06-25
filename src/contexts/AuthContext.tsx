@@ -118,8 +118,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Session Watchdog - prüft periodisch die Session-Gesundheit
-  // NIEMALS Auto-Logout - nur stille Recovery-Versuche
+  // Erkennt, ob der Auth-Account serverseitig nicht mehr existiert (z.B. vom Berater
+  // gelöschter Spieler-Zugang). Nur ein DEFINITIVES "User weg"-Signal (403 / passende
+  // Fehlermeldung) zählt — KEINE Netzwerk-/Timeout-Fehler (sonst Fehl-Logout).
+  const isAccountGoneError = (err: any): boolean => {
+    if (!err) return false;
+    const status = err.status ?? err.code;
+    const msg = String(err.message || '').toLowerCase();
+    if (status === 403) return true;
+    return /sub claim|user.*not.*(exist|found)|user_not_found|user from sub/.test(msg);
+  };
+
+  // Erzwingt den Logout-Zustand -> RootNavigator zeigt das Anmeldeformular.
+  const forceLogout = async (reason: string) => {
+    console.warn('Konto ungültig/gelöscht — automatischer Logout:', reason);
+    try { await supabase.auth.signOut(); } catch (_) { /* egal */ }
+    setSession(null);
+    setUser(null);
+    setProfile(null);
+    setViewAsPlayer(false);
+    setViewAsPlayerId(null);
+    setViewAsTrainer(false);
+    setViewAsTrainerId(null);
+  };
+
+  // Session Watchdog - prüft periodisch die Session-Gesundheit.
+  // Recovery bei verlorener Session; ABER: gelöschtes Konto -> Logout zum Login-Screen.
   const sessionWatchdog = async () => {
     try {
       const { data: { session: currentSession }, error } = await supabase.auth.getSession();
@@ -136,8 +160,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
 
         if (refreshError) {
-          // Refresh fehlgeschlagen - KEIN Logout, einfach weiter versuchen
-          console.warn('Session watchdog - Refresh fehlgeschlagen (nächster Versuch in 3 Min):', refreshError);
+          // Refresh-Token widerrufen (Konto gelöscht) -> Logout. Sonst still weiterversuchen.
+          if (isAccountGoneError(refreshError)) { await forceLogout('refresh'); }
+          else console.warn('Session watchdog - Refresh fehlgeschlagen (nächster Versuch in 3 Min):', refreshError);
           return;
         }
 
@@ -146,6 +171,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setSession(refreshData.session);
           setUser(refreshData.session.user);
         }
+        return;
+      }
+
+      if (currentSession) {
+        // Serverseitig prüfen, ob der Account noch existiert (gelöschter Zugang?).
+        const { data: userData, error: userErr } = await supabase.auth.getUser();
+        if (isAccountGoneError(userErr)) {
+          await forceLogout('getUser');
+        }
+        void userData;
       }
     } catch (e) {
       // Bei Exceptions: ignorieren und weiter versuchen
@@ -186,6 +221,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null);
 
         if (session?.user) {
+          // Beim Laden prüfen, ob der Account noch existiert (z.B. gelöschter Zugang)
+          // -> sonst direkt zurück zum Login statt eine leere Übersicht zu zeigen.
+          const { error: userErr } = await supabase.auth.getUser();
+          if (isAccountGoneError(userErr)) {
+            await forceLogout('init');
+            return;
+          }
           await fetchProfile(session.user.id, session.user.email);
         }
       } catch (e) {
