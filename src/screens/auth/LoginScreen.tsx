@@ -24,10 +24,6 @@ export function LoginScreen({ navigation }: any) {
   const [playerCode, setPlayerCode] = useState('');
   const [playerCodeError, setPlayerCodeError] = useState<string | null>(null);
   const [playerCodeLoading, setPlayerCodeLoading] = useState(false);
-  const [showTrainerModal, setShowTrainerModal] = useState(false);
-  const [trainerCode, setTrainerCode] = useState('');
-  const [trainerCodeError, setTrainerCodeError] = useState<string | null>(null);
-  const [trainerCodeLoading, setTrainerCodeLoading] = useState(false);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -40,6 +36,8 @@ export function LoginScreen({ navigation }: any) {
     if (error) showAlert('Fehler', error.message);
   };
 
+  // Ein gemeinsamer Code-Eingang für Berater UND Athletiktrainer:
+  // erst Berater-Code prüfen, sonst Trainer-Code, dann zur passenden Registrierung leiten.
   const handleAdvisorCode = async () => {
     setCodeError(null);
 
@@ -49,57 +47,30 @@ export function LoginScreen({ navigation }: any) {
     }
 
     setAdvisorCodeLoading(true);
-    const { data, error } = await supabase.rpc('verify_advisor_invitation_code', { p_code: advisorCode.trim() });
+    const code = advisorCode.trim();
+    const { data: advisorOk, error: e1 } = await supabase.rpc('verify_advisor_invitation_code', { p_code: code });
+
+    if (advisorOk === true) {
+      setAdvisorCodeLoading(false);
+      setShowAdvisorModal(false); setAdvisorCode(''); setCodeError(null);
+      showAlert('Code bestätigt', 'Du wirst jetzt zur Registrierung weitergeleitet.', () => navigation.navigate('RegisterAdvisor'));
+      return;
+    }
+
+    const { data: trainerOk, error: e2 } = await supabase.rpc('verify_trainer_invitation_code', { p_code: code });
     setAdvisorCodeLoading(false);
 
-    if (error) {
+    if (trainerOk === true) {
+      setShowAdvisorModal(false); setAdvisorCode(''); setCodeError(null);
+      showAlert('Code bestätigt', 'Du wirst jetzt zur Registrierung weitergeleitet.', () => navigation.navigate('RegisterTrainer'));
+      return;
+    }
+
+    if (e1 || e2) {
       setCodeError('Code konnte nicht geprüft werden. Bitte versuche es später erneut.');
       return;
     }
-
-    if (data === true) {
-      setShowAdvisorModal(false);
-      setAdvisorCode('');
-      setCodeError(null);
-      showAlert(
-        'Code bestätigt',
-        'Du wirst jetzt zur Registrierung weitergeleitet.',
-        () => navigation.navigate('RegisterAdvisor')
-      );
-    } else {
-      setCodeError('Der eingegebene Einladungscode ist ungültig.');
-    }
-  };
-
-  const handleTrainerCode = async () => {
-    setTrainerCodeError(null);
-
-    if (!trainerCode.trim()) {
-      setTrainerCodeError('Bitte gib einen Einladungscode ein.');
-      return;
-    }
-
-    setTrainerCodeLoading(true);
-    const { data, error } = await supabase.rpc('verify_trainer_invitation_code', { p_code: trainerCode.trim() });
-    setTrainerCodeLoading(false);
-
-    if (error) {
-      setTrainerCodeError('Code konnte nicht geprüft werden. Bitte versuche es später erneut.');
-      return;
-    }
-
-    if (data === true) {
-      setShowTrainerModal(false);
-      setTrainerCode('');
-      setTrainerCodeError(null);
-      showAlert(
-        'Code bestätigt',
-        'Du wirst jetzt zur Registrierung weitergeleitet.',
-        () => navigation.navigate('RegisterTrainer')
-      );
-    } else {
-      setTrainerCodeError('Der eingegebene Einladungscode ist ungültig.');
-    }
+    setCodeError('Der eingegebene Einladungscode ist ungültig.');
   };
 
   const handlePlayerCode = async () => {
@@ -239,10 +210,6 @@ export function LoginScreen({ navigation }: any) {
         <TouchableOpacity onPress={() => { setShowAdvisorModal(true); setCodeError(null); setAdvisorCode(''); }} style={styles.advisorLink}>
           <Text style={[styles.advisorText, { color: colors.textMuted }]}>Als Berater registrieren</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => { setShowTrainerModal(true); setTrainerCodeError(null); setTrainerCode(''); }} style={styles.advisorLink}>
-          <Text style={[styles.advisorText, { color: colors.textMuted }]}>Als Athletiktrainer registrieren</Text>
-        </TouchableOpacity>
       </View>
 
       {/* Berater-Zugang Modal */}
@@ -269,17 +236,6 @@ export function LoginScreen({ navigation }: any) {
         onSubmit: handlePlayerCode,
       })}
 
-      {/* Athletiktrainer-Zugang Modal */}
-      {renderCodeModal({
-        visible: showTrainerModal,
-        onClose: () => setShowTrainerModal(false),
-        title: 'Athletiktrainer-Zugang',
-        value: trainerCode,
-        onChange: (text) => { setTrainerCode(text); setTrainerCodeError(null); },
-        error: trainerCodeError,
-        loading: trainerCodeLoading,
-        onSubmit: handleTrainerCode,
-      })}
     </SafeAreaView>
   );
 }
