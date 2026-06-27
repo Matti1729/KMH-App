@@ -224,6 +224,10 @@ function buildSocialUrl(platform: 'instagram' | 'tiktok' | 'linkedin', handle: s
   if (platform === 'tiktok') return `https://tiktok.com/@${clean}`;
   return `https://linkedin.com/in/${clean}`;
 }
+// Echter Link vorhanden? (z.B. "/" oder leer zählt nicht -> kein Icon, nicht klickbar)
+function isRealSocialLink(handle: string): boolean {
+  return (handle || '').replace(/^https?:\/\//i, '').replace(/[\/@\s]/g, '').length > 0;
+}
 
 interface Player {
   id: string;
@@ -320,12 +324,12 @@ const EditableValue = React.memo(({ field, displayValue, playerValue, placeholde
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
       {social ? (
-        handle ? (
+        isRealSocialLink(handle) ? (
           <TouchableOpacity onPress={() => Linking.openURL(buildSocialUrl(social, handle))} style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center', overflow: 'visible' }}>
             <Image source={SOCIAL_ICONS[social]} style={social === 'tiktok' ? { width: 40, height: 40 } : { width: 22, height: 22, borderRadius: 5 }} />
           </TouchableOpacity>
         ) : (
-          <Text style={styles.detailFieldValue}>-</Text>
+          <Text style={styles.detailFieldValue}>/</Text>
         )
       ) : (
         <Text style={styles.detailFieldValue}>{handle !== '' ? handle : '-'}</Text>
