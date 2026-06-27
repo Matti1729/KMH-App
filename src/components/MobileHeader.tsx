@@ -12,9 +12,10 @@ interface MobileHeaderProps {
   onProfilePress?: () => void;
   profileInitials?: string;
   children?: React.ReactNode;
+  bottomRow?: React.ReactNode; // volle Breite, unter dem Trennstrich (z.B. Tabs) — gleicher Header-Hintergrund
 }
 
-export function MobileHeader({ title, subtitle, backgroundImage, backgroundImageOpacity = 0.45, onMenuPress, onProfilePress, profileInitials, children }: MobileHeaderProps) {
+export function MobileHeader({ title, subtitle, backgroundImage, backgroundImageOpacity = 0.45, onMenuPress, onProfilePress, profileInitials, children, bottomRow }: MobileHeaderProps) {
   const { colors } = useTheme();
 
   return (
@@ -51,6 +52,8 @@ export function MobileHeader({ title, subtitle, backgroundImage, backgroundImage
           ) : null}
         </View>
       ) : null}
+
+      {bottomRow ? <View>{bottomRow}</View> : null}
     </View>
   );
 }

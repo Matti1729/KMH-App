@@ -429,6 +429,7 @@ Achte dabei auf:
             title="Administration"
             backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
             onMenuPress={() => setShowMobileSidebar(true)}
+            bottomRow={renderTabs()}
           />
         )}
 
@@ -439,7 +440,7 @@ Achte dabei auf:
             <View style={styles.headerBgOverlay} />
             <View style={styles.headerTopRow}>
               <TouchableOpacity onPress={() => navigation.navigate('AdvisorDashboard')} style={styles.backButton}>
-                <Ionicons name="arrow-back" size={18} color="rgba(255,255,255,0.8)" />
+                <Ionicons name="arrow-back" size={16} color="rgba(255,255,255,0.85)" />
               </TouchableOpacity>
               <View style={{ flex: 1 }} />
               <View style={{ alignItems: 'flex-end' }}>
@@ -451,9 +452,6 @@ Achte dabei auf:
             {renderTabs()}
           </View>
         )}
-
-      {/* Tabs auf Mobile — direkt am MobileHeader integriert (dunkle Leiste, ohne Abstand) */}
-      {isMobile && <View style={styles.mobileTabsBar}>{renderTabs()}</View>}
 
       <ScrollView style={[styles.content, { backgroundColor: 'transparent' }]}>
         {loading ? (
@@ -684,8 +682,8 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 28, paddingTop: 24, paddingBottom: 16, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', marginHorizontal: 24, marginTop: 16, marginBottom: 16, overflow: 'hidden' },
   headerBg: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.85, ...(Platform.OS === 'web' ? ({ objectFit: 'cover', objectPosition: 'center' } as any) : {}) },
   headerBgOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.3)' },
-  headerTopRow: { flexDirection: 'row', alignItems: 'center', minHeight: 44 },
-  backButton: { width: 36, height: 36, borderRadius: 8, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  headerTopRow: { flexDirection: 'row', alignItems: 'flex-start', minHeight: 44 },
+  backButton: { width: 28, height: 28, borderRadius: 6, backgroundColor: 'rgba(0,0,0,0.7)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center' },
   backButtonText: { fontSize: 13, color: 'rgba(255,255,255,0.7)' },
   headerCenter: { flex: 1, alignItems: 'center' },
   headerTitle: { fontFamily: 'Josefin Sans', fontSize: 26, fontWeight: '300', letterSpacing: 4, textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)' },
