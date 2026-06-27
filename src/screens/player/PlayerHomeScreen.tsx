@@ -9,6 +9,7 @@ import {
   Image,
   Linking,
   Platform,
+  Modal,
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -37,9 +38,10 @@ interface PlayerHomeData {
   photo_url: string;
   transfermarkt_url: string;
   listing: string;
+  welcome_seen: boolean;
 }
 
-const HOME_HEADER_FIELDS = 'id, first_name, last_name, club, photo_url, transfermarkt_url, listing';
+const HOME_HEADER_FIELDS = 'id, first_name, last_name, club, photo_url, transfermarkt_url, listing, welcome_seen';
 
 function resolveClubLogo(clubName: string, clubLogos: Record<string, string>): string | null {
   if (!clubName) return null;
@@ -121,6 +123,7 @@ export function PlayerHomeScreen() {
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [player, setPlayer] = useState<PlayerHomeData | null>(null);
   const [clubLogos, setClubLogos] = useState<Record<string, string>>({});
+  const [showWelcome, setShowWelcome] = useState(false);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
 
   const fetchPlayer = useCallback(async () => {
@@ -174,6 +177,22 @@ export function PlayerHomeScreen() {
 
   useEffect(() => { fetchPlayer(); fetchClubLogos(); }, [fetchPlayer, fetchClubLogos]);
 
+  // Einmalige Willkommensnachricht: nur für echte Spieler (kein Berater-Impersonation),
+  // beim ersten Login nach Registrierung (welcome_seen === false).
+  const isAdvisorViewing = profile?.role === 'admin' || profile?.role === 'advisor';
+  useEffect(() => {
+    if (!viewAsPlayerId && !isAdvisorViewing && player && player.welcome_seen === false) {
+      setShowWelcome(true);
+    }
+  }, [player, isAdvisorViewing, viewAsPlayerId]);
+
+  const dismissWelcome = async () => {
+    setShowWelcome(false);
+    if (!player?.id) return;
+    setPlayer(prev => prev ? { ...prev, welcome_seen: true } : prev);
+    try { await supabase.from('player_details').update({ welcome_seen: true }).eq('id', player.id); } catch (e) { console.warn('welcome_seen update', e); }
+  };
+
   const { width: windowWidth } = useWindowDimensions();
   const SIDEBAR_WIDTH = isMobile ? 0 : 240;
   const CONTENT_PADDING = 48; // 24 left + 24 right
@@ -182,7 +201,7 @@ export function PlayerHomeScreen() {
   const CARD_HEIGHT = 160;
   const GRID_COLS = 3;
   // Noch nicht fertige Screens: für echte Spieler ausblenden, für Berater (Spieleransicht) rot zeigen.
-  const isAdvisorViewing = profile?.role === 'admin' || profile?.role === 'advisor';
+  // (isAdvisorViewing ist weiter oben für die Willkommensnachricht definiert.)
   const visibleCards = CARDS.filter(c => !c.hidden || isAdvisorViewing);
   const GRID_ROWS = Math.ceil(visibleCards.length / GRID_COLS);
   const HEADER_HEIGHT = isMobile ? 300 : 330;
@@ -231,6 +250,40 @@ export function PlayerHomeScreen() {
   const lastName = (player?.last_name || profile?.last_name || '').toUpperCase();
   const currentWeekday = WEEKDAYS_DE[new Date().getDay()];
   const greetingName = player?.first_name || profile?.first_name || 'Spieler';
+
+  const WelcomeModal = (
+    <Modal visible={showWelcome} transparent animationType="fade" onRequestClose={dismissWelcome}>
+      <View style={styles.welcomeOverlay}>
+        <View style={styles.welcomeBox}>
+          <Image source={require('../../../assets/scouting-header-bg.jpg')} style={styles.welcomeBg} resizeMode="cover" />
+          <View style={styles.welcomeBgOverlay} />
+          <View style={{ zIndex: 1 }}>
+            <View style={styles.welcomeTitleRow}>
+              <Text style={styles.welcomeTitle}>WILLKOMMEN</Text>
+              <TouchableOpacity onPress={dismissWelcome} style={styles.welcomeClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={styles.welcomeCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={{ maxHeight: isMobile ? 360 : 440 }} contentContainerStyle={{ paddingBottom: 4 }}>
+              <Text style={styles.welcomeText}>
+                Hallo {greetingName},{'\n\n'}
+                schön, dass wir dich auf deinem Weg unterstützen dürfen.{'\n\n'}
+                Um die Zusammenarbeit so gut wie möglich zu gestalten und dich sportlich sowie persönlich weiter voranzubringen, haben wir diesen Bereich für dich eingerichtet. Hier findest du alle wichtigen Informationen rund um deine Entwicklung, deine Ziele, deine Termine und die nächsten gemeinsamen Schritte.{'\n\n'}
+                Unser Ziel ist es, dich bestmöglich zu begleiten, deine Stärken weiter auszubauen und gemeinsam an den Themen zu arbeiten, die dich auf das nächste Level bringen.{'\n\n'}
+                Bitte nimm dir kurz Zeit, dein Profil vollständig auszufüllen und deine Angaben aktuell zu halten. So können wir dich noch gezielter unterstützen und die Zusammenarbeit optimal auf dich abstimmen.{'\n\n'}
+                Wir freuen uns auf den gemeinsamen Weg mit dir.{'\n\n'}
+                Dein KMH Team
+              </Text>
+            </ScrollView>
+            <TouchableOpacity onPress={dismissWelcome} style={styles.welcomeButton}>
+              <Text style={styles.welcomeButtonText}>Los geht's</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
   const clubLogo = player?.club ? resolveClubLogo(player.club, clubLogos) : null;
   const photoWidth = isMobile ? 90 : 150;
   const photoHeight = isMobile ? 120 : 190;
@@ -376,6 +429,7 @@ export function PlayerHomeScreen() {
           <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.7)' }]} />
           {MobileContent}
         </View>
+        {WelcomeModal}
       </SafeAreaView>
     );
   }
@@ -392,6 +446,7 @@ export function PlayerHomeScreen() {
         <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.7)' }]} />
         {Content}
       </View>
+      {WelcomeModal}
     </View>
   );
 }
@@ -400,6 +455,19 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   containerDesktop: { flex: 1, flexDirection: 'row' },
   mainContent: { flex: 1 },
+
+  // Willkommens-Modal (Design-System: Skyline-BG, Josefin-Titel, grüner Button)
+  welcomeOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  welcomeBox: { width: '100%', maxWidth: 480, backgroundColor: '#000', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', overflow: 'hidden', padding: 24 },
+  welcomeBg: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.85, ...(Platform.OS === 'web' ? ({ objectFit: 'cover', objectPosition: 'center' } as any) : {}) },
+  welcomeBgOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.62)' },
+  welcomeTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 16, position: 'relative' },
+  welcomeTitle: { fontFamily: 'Josefin Sans', fontSize: 18, lineHeight: 24, fontWeight: '300', letterSpacing: 4, textTransform: 'uppercase', color: 'rgba(255,255,255,0.85)', textAlign: 'center' },
+  welcomeClose: { position: 'absolute', right: 0, width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+  welcomeCloseText: { fontSize: 20, color: 'rgba(255,255,255,0.7)' },
+  welcomeText: { fontSize: 14, lineHeight: 21, color: 'rgba(255,255,255,0.85)', textAlign: 'left' },
+  welcomeButton: { backgroundColor: '#22c55e', borderRadius: 8, paddingVertical: 12, alignItems: 'center', marginTop: 18 },
+  welcomeButtonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   scrollView: { flex: 1 },
   scrollContent: { padding: 24 },
   scrollContentMobile: { padding: 16 },
