@@ -2246,7 +2246,6 @@ export function FinanzenScreen({ navigation }: any) {
                       onPress={() => openDetail(row.player_id)}
                       style={[
                         styles.tableRow, { borderBottomColor: colors.border },
-                        !isProv && { opacity: 0.5 },
                         rowBg ? { backgroundColor: rowBg } : undefined,
                       ]}
                       renderCell={(key) => {
@@ -2262,7 +2261,7 @@ export function FinanzenScreen({ navigation }: any) {
                           case 'club':
                             return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{row.club || '-'}</Text>;
                           case 'league':
-                            return <Text style={[styles.tableCell, { color: colors.textMuted, fontSize: 12 }]} numberOfLines={1}>{row.league || '-'}</Text>;
+                            return <Text style={[styles.tableCell, { color: colors.text, fontSize: 12 }]} numberOfLines={1}>{row.league || '-'}</Text>;
                           case 'provision':
                             return <Text style={[styles.tableCell, { color: colors.text }]}>{row.provisionPercent ? `${row.provisionPercent}%` : '-'}</Text>;
                           case 'amount':
