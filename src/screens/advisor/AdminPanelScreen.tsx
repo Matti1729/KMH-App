@@ -452,8 +452,8 @@ Achte dabei auf:
           </View>
         )}
 
-      {/* Tabs auf Mobile (unter dem MobileHeader) */}
-      {isMobile && <View style={{ paddingHorizontal: 8 }}>{renderTabs()}</View>}
+      {/* Tabs auf Mobile — direkt am MobileHeader integriert (dunkle Leiste, ohne Abstand) */}
+      {isMobile && <View style={styles.mobileTabsBar}>{renderTabs()}</View>}
 
       <ScrollView style={[styles.content, { backgroundColor: 'transparent' }]}>
         {loading ? (
@@ -693,6 +693,7 @@ const styles = StyleSheet.create({
   headerSubtitle: { fontFamily: 'Josefin Sans', fontSize: 11, fontWeight: '300', letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', marginTop: 6, textAlign: 'right' },
   placeholder: { width: 90 },
   tabs: { flexDirection: 'row', marginTop: 8 },
+  mobileTabsBar: { backgroundColor: 'rgba(0,0,0,0.55)', paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.12)' },
   tab: { flex: 1, paddingVertical: 11, alignItems: 'center' },
   tabActive: { borderBottomWidth: 2, borderBottomColor: '#22c55e' },
   tabText: { fontSize: 12, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)' },
