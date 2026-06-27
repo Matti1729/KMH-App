@@ -678,8 +678,8 @@ export function PlayerPersonalDataScreen() {
         const firstName = ((player as any)?.first_name || profile?.first_name || '').toUpperCase();
         const lastName = ((player as any)?.last_name || profile?.last_name || '').toUpperCase();
         const clubLogo = (player as any)?.club ? resolveClubLogo((player as any).club, clubLogos) : null;
-        const photoW = isMobile ? 90 : 150;
-        const photoH = isMobile ? 120 : 190;
+        const photoW = isMobile ? 110 : 150;
+        const photoH = isMobile ? 140 : 190;
         const nameSize = isMobile ? 34 : 72;
         const nameLH = isMobile ? 38 : 76;
         return (
@@ -727,7 +727,7 @@ export function PlayerPersonalDataScreen() {
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                   <AutoFitText
                     lines={[firstName, lastName]}
-                    maxFontSize={isMobile ? 34 : 72}
+                    maxFontSize={isMobile ? 48 : 72}
                     letterSpacing={2}
                     lineHeightRatio={1.06}
                     textStyle={styles.headerName}
@@ -749,11 +749,11 @@ export function PlayerPersonalDataScreen() {
                   )}
                 </View>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <View style={[styles.headerClubRow, { flex: 1, minWidth: 0 }, isMobile && { gap: 8 }]}>
-                    {clubLogo ? <Image source={{ uri: clubLogo }} style={[styles.headerClubLogo, isMobile && { width: 32, height: 32 }]} /> : null}
+                  <View style={[styles.headerClubRow, { flex: 1, minWidth: 0 }]}>
+                    {clubLogo ? <Image source={{ uri: clubLogo }} style={styles.headerClubLogo} /> : null}
                     <AutoFitText
                       lines={[normalizeGermanClubName((player as any)?.club || 'VEREINSLOS').toUpperCase()]}
-                      maxFontSize={isMobile ? 15 : 30}
+                      maxFontSize={isMobile ? 30 : 30}
                       letterSpacing={3}
                       textStyle={[styles.headerClubName, isMobile && { marginTop: 0 }]}
                     />
