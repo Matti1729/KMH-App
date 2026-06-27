@@ -32,6 +32,8 @@ interface Player {
   provision_documents: any[];
   contract_documents: any[];
   commission_shares: any[];
+  contract_end: string | null;
+  future_club: string | null;
 }
 
 interface Provision {
@@ -948,7 +950,7 @@ export function FinanzenScreen({ navigation }: any) {
     const [playersRes, provsRes] = await Promise.all([
       supabase
         .from('player_details')
-        .select('id, first_name, last_name, club, league, provision, provision_documents, contract_documents, commission_shares')
+        .select('id, first_name, last_name, club, league, provision, provision_documents, contract_documents, commission_shares, contract_end, future_club')
         .ilike('responsibility', `%${fullName}%`)
         .order('last_name'),
       supabase
@@ -968,14 +970,21 @@ export function FinanzenScreen({ navigation }: any) {
   const displayRows: DisplayRow[] = useMemo(() => {
     const rows: DisplayRow[] = [];
     const playerIdsWithProv = new Set<string>();
+    // In zukünftigen Saisons den neuen Verein anzeigen, sobald die Saison NACH dem
+    // aktuellen Vertragsende beginnt (Saisonstart 1.7. des Startjahres).
+    const seasonStartYear = parseInt(String(season).split('/')[0], 10);
+    const seasonStart = isNaN(seasonStartYear) ? null : new Date(seasonStartYear, 6, 1);
+    const usesFuture = (pl: Player) => !!(pl.future_club && pl.contract_end && seasonStart && seasonStart > new Date(pl.contract_end));
+    const effClub = (pl: Player) => usesFuture(pl) ? (pl.future_club as string) : pl.club;
+    const effLeague = (pl: Player) => usesFuture(pl) ? '' : pl.league;
     for (const prov of provisions) {
       const player = players.find(p => p.id === prov.player_id);
       if (!player) continue;
       playerIdsWithProv.add(prov.player_id);
       rows.push({
         type: 'provision', key: prov.id, provisionId: prov.id, player_id: prov.player_id,
-        first_name: player.first_name, last_name: player.last_name, club: player.club,
-        league: player.league, provisionPercent: player.provision, amount: Number(prov.amount) || 0,
+        first_name: player.first_name, last_name: player.last_name, club: effClub(player),
+        league: effLeague(player), provisionPercent: player.provision, amount: Number(prov.amount) || 0,
         status: prov.status || 'offen', due_date: prov.due_date,
       });
     }
@@ -983,12 +992,12 @@ export function FinanzenScreen({ navigation }: any) {
       if (playerIdsWithProv.has(player.id)) continue;
       rows.push({
         type: 'player_only', key: `p_${player.id}`, provisionId: null, player_id: player.id,
-        first_name: player.first_name, last_name: player.last_name, club: player.club,
-        league: player.league, provisionPercent: player.provision, amount: 0, status: '', due_date: null,
+        first_name: player.first_name, last_name: player.last_name, club: effClub(player),
+        league: effLeague(player), provisionPercent: player.provision, amount: 0, status: '', due_date: null,
       });
     }
     return rows;
-  }, [players, provisions]);
+  }, [players, provisions, season]);
 
   // --- Sort ---
 
