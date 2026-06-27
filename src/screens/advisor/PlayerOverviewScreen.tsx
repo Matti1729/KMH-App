@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Pressable, RefreshControl, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Pressable, RefreshControl, Platform, ActivityIndicator, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../config/supabase';
@@ -209,6 +209,21 @@ const miniFieldStyles = StyleSheet.create({
 });
 
 const ArbeitsamtIcon = require('../../../assets/arbeitsamt.png');
+// Social-Media-Icons (wie in der Spieleransicht)
+const SOCIAL_ICONS: Record<'instagram' | 'tiktok' | 'linkedin', any> = {
+  instagram: require('../../../assets/instagram.png.webp'),
+  tiktok: require('../../../assets/tiktok.png'),
+  linkedin: require('../../../assets/linkedin.png'),
+};
+function buildSocialUrl(platform: 'instagram' | 'tiktok' | 'linkedin', handle: string): string {
+  const h = (handle || '').trim();
+  if (!h) return '';
+  if (/^https?:\/\//i.test(h)) return h;
+  const clean = h.replace(/^@/, '');
+  if (platform === 'instagram') return `https://instagram.com/${clean}`;
+  if (platform === 'tiktok') return `https://tiktok.com/@${clean}`;
+  return `https://linkedin.com/in/${clean}`;
+}
 
 interface Player {
   id: string;
@@ -278,8 +293,9 @@ type EditableValueProps = {
   editData: any;
   setEditData: (v: any) => void;
   fullPlayer?: any;  // optionaler Zugriff auf alle Werte für split-field Pille
+  social?: 'instagram' | 'tiktok' | 'linkedin'; // Read-Mode: als anklickbares Icon statt URL-Text
 };
-const EditableValue = React.memo(({ field, displayValue, playerValue, placeholder, multiline, numeric, isEditing, editData, setEditData, fullPlayer }: EditableValueProps) => {
+const EditableValue = React.memo(({ field, displayValue, playerValue, placeholder, multiline, numeric, isEditing, editData, setEditData, fullPlayer, social }: EditableValueProps) => {
   const isSplit = SPLIT_FIELDS.has(field);
   const editKey = isSplit ? `${field}_advisor` : field;
   // Auto-Resolve playerValue aus fullPlayer wenn nicht explizit übergeben
@@ -300,9 +316,20 @@ const EditableValue = React.memo(({ field, displayValue, playerValue, placeholde
     );
   }
   const showVal = hasPlayerValue ? resolvedPlayerValue : displayValue;
+  const handle = String(showVal ?? '').trim();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-      <Text style={styles.detailFieldValue}>{(showVal ?? '') !== '' ? String(showVal) : '-'}</Text>
+      {social ? (
+        handle ? (
+          <TouchableOpacity onPress={() => Linking.openURL(buildSocialUrl(social, handle))} style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center', overflow: 'visible' }}>
+            <Image source={SOCIAL_ICONS[social]} style={social === 'tiktok' ? { width: 40, height: 40 } : { width: 22, height: 22, borderRadius: 5 }} />
+          </TouchableOpacity>
+        ) : (
+          <Text style={styles.detailFieldValue}>-</Text>
+        )
+      ) : (
+        <Text style={styles.detailFieldValue}>{handle !== '' ? handle : '-'}</Text>
+      )}
       {hasPlayerValue ? (
         <View style={{ backgroundColor: 'rgba(34,197,94,0.15)', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 8 }}>
           <Text style={{ color: '#22c55e', fontSize: 9, fontWeight: '600', letterSpacing: 0.5 }}>VOM SPIELER</Text>
@@ -3209,15 +3236,15 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
                   <View style={{ flexDirection: 'row', gap: 16, flexWrap: 'wrap' }}>
                     <View style={isMobile && isEditing ? { width: '100%' } : { flex: 1, minWidth: 120 }}>
                       <Text style={styles.detailFieldLabel}>Instagram</Text>
-                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="instagram" displayValue={fullPlayer?.instagram} />
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="instagram" displayValue={fullPlayer?.instagram} social="instagram" />
                     </View>
                     <View style={isMobile && isEditing ? { width: '100%' } : { flex: 1, minWidth: 120 }}>
                       <Text style={styles.detailFieldLabel}>TikTok</Text>
-                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="tiktok" displayValue={fullPlayer?.tiktok} />
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="tiktok" displayValue={fullPlayer?.tiktok} social="tiktok" />
                     </View>
                     <View style={isMobile && isEditing ? { width: '100%' } : { flex: 1, minWidth: 120 }}>
                       <Text style={styles.detailFieldLabel}>LinkedIn</Text>
-                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="linkedin" displayValue={fullPlayer?.linkedin} />
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="linkedin" displayValue={fullPlayer?.linkedin} social="linkedin" />
                     </View>
                   </View>
                   <View>
