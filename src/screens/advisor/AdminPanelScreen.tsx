@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Platform, Modal, Linking, Image } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -375,6 +376,35 @@ Achte dabei auf:
 
   const profileInitials = profile ? `${profile.first_name?.[0] || ''}${profile.last_name?.[0] || ''}` : '?';
 
+  const renderTabs = () => (
+    <View style={styles.tabs}>
+      <TouchableOpacity
+        style={[styles.tab, activeTab === 'requests' && styles.tabActive]}
+        onPress={() => setActiveTab('requests')}
+      >
+        <Text style={[styles.tabText, activeTab === 'requests' && styles.tabTextActive]}>
+          Anfragen {pendingRequests.length > 0 ? `(${pendingRequests.length})` : ''}
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.tab, activeTab === 'advisors' && styles.tabActive]}
+        onPress={() => setActiveTab('advisors')}
+      >
+        <Text style={[styles.tabText, activeTab === 'advisors' && styles.tabTextActive]}>
+          Benutzer
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.tab, activeTab === 'feedback' && styles.tabActive]}
+        onPress={() => setActiveTab('feedback')}
+      >
+        <Text style={[styles.tabText, activeTab === 'feedback' && styles.tabTextActive]}>
+          Feedback {feedbackList.filter(f => f.status === 'open').length > 0 ? `(${feedbackList.filter(f => f.status === 'open').length})` : ''}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
     <View style={[styles.container, isMobile && styles.containerMobile, { backgroundColor: 'transparent' }]}>
       <AdvisorBackground />
@@ -402,14 +432,14 @@ Achte dabei auf:
           />
         )}
 
-        {/* Desktop Header — Design-System Header-Card */}
+        {/* Desktop Header — Design-System Header-Card (Tabs unter dem Trennstrich) */}
         {!isMobile && (
           <View style={styles.header}>
             <Image source={require('../../../assets/scouting-header-bg.jpg')} style={styles.headerBg} resizeMode="cover" />
             <View style={styles.headerBgOverlay} />
             <View style={styles.headerTopRow}>
               <TouchableOpacity onPress={() => navigation.navigate('AdvisorDashboard')} style={styles.backButton}>
-                <Text style={styles.backButtonText}>← Zurück</Text>
+                <Ionicons name="arrow-back" size={18} color="rgba(255,255,255,0.8)" />
               </TouchableOpacity>
               <View style={{ flex: 1 }} />
               <View style={{ alignItems: 'flex-end' }}>
@@ -418,36 +448,12 @@ Achte dabei auf:
               </View>
             </View>
             <View style={styles.headerDivider} />
+            {renderTabs()}
           </View>
         )}
 
-      {/* Tabs */}
-      <View style={styles.tabs}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'requests' && styles.tabActive, activeTab === 'requests' && { borderBottomColor: '#22c55e' }]}
-          onPress={() => setActiveTab('requests')}
-        >
-          <Text style={[styles.tabText, { color: colors.textSecondary }, activeTab === 'requests' && { color: colors.text, fontWeight: '600' }]}>
-            Anfragen {pendingRequests.length > 0 ? `(${pendingRequests.length})` : ''}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'advisors' && styles.tabActive, activeTab === 'advisors' && { borderBottomColor: '#22c55e' }]}
-          onPress={() => setActiveTab('advisors')}
-        >
-          <Text style={[styles.tabText, { color: colors.textSecondary }, activeTab === 'advisors' && { color: colors.text, fontWeight: '600' }]}>
-            Benutzer
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'feedback' && styles.tabActive, activeTab === 'feedback' && { borderBottomColor: '#22c55e' }]}
-          onPress={() => setActiveTab('feedback')}
-        >
-          <Text style={[styles.tabText, { color: colors.textSecondary }, activeTab === 'feedback' && { color: colors.text, fontWeight: '600' }]}>
-            Feedback {feedbackList.filter(f => f.status === 'open').length > 0 ? `(${feedbackList.filter(f => f.status === 'open').length})` : ''}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      {/* Tabs auf Mobile (unter dem MobileHeader) */}
+      {isMobile && <View style={{ paddingHorizontal: 8 }}>{renderTabs()}</View>}
 
       <ScrollView style={[styles.content, { backgroundColor: 'transparent' }]}>
         {loading ? (
@@ -679,15 +685,15 @@ const styles = StyleSheet.create({
   headerBg: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.85, ...(Platform.OS === 'web' ? ({ objectFit: 'cover', objectPosition: 'center' } as any) : {}) },
   headerBgOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.3)' },
   headerTopRow: { flexDirection: 'row', alignItems: 'center', minHeight: 44 },
-  backButton: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 8, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+  backButton: { width: 36, height: 36, borderRadius: 8, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
   backButtonText: { fontSize: 13, color: 'rgba(255,255,255,0.7)' },
   headerCenter: { flex: 1, alignItems: 'center' },
   headerTitle: { fontFamily: 'Josefin Sans', fontSize: 26, fontWeight: '300', letterSpacing: 4, textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)' },
   headerDivider: { height: 1, marginTop: 14, marginBottom: 0, backgroundColor: 'rgba(255,255,255,0.3)' },
   headerSubtitle: { fontFamily: 'Josefin Sans', fontSize: 11, fontWeight: '300', letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', marginTop: 6, textAlign: 'right' },
   placeholder: { width: 90 },
-  tabs: { flexDirection: 'row', marginHorizontal: 24, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.12)' },
-  tab: { flex: 1, paddingVertical: 13, alignItems: 'center' },
+  tabs: { flexDirection: 'row', marginTop: 8 },
+  tab: { flex: 1, paddingVertical: 11, alignItems: 'center' },
   tabActive: { borderBottomWidth: 2, borderBottomColor: '#22c55e' },
   tabText: { fontSize: 12, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)' },
   tabTextActive: { color: '#fff', fontWeight: '600' },
