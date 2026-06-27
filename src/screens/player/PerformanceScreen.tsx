@@ -1424,7 +1424,6 @@ export function PerformanceScreen() {
               {firstName ? <Text style={[styles.playerNameHuge, { fontSize: nameSize, lineHeight: nameLH }]}>{firstName}</Text> : null}
               {lastName ? <Text style={[styles.playerNameHuge, { fontSize: nameSize, lineHeight: nameLH }]}>{lastName}</Text> : null}
             </View>
-            <Text style={styles.headerScreenLabel}>Performance</Text>
           </View>
           <View style={styles.clubRow}>
             {clubLogo ? (
