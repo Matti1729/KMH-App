@@ -69,6 +69,7 @@ interface DashboardCardDef {
   subtitle: string;
   icon: string;
   screen: string;
+  hidden?: boolean; // noch nicht fertig: für Spieler verstecken, für Berater rot zeigen
 }
 
 const CARDS: DashboardCardDef[] = [
@@ -92,6 +93,7 @@ const CARDS: DashboardCardDef[] = [
     subtitle: 'Berater & Ansprechpartner',
     icon: '🤝',
     screen: 'KmhTeam',
+    hidden: true,
   },
   {
     id: 'beratung',
@@ -99,6 +101,7 @@ const CARDS: DashboardCardDef[] = [
     subtitle: 'Unsere Leistungen für dich',
     icon: '💡',
     screen: 'Beratung',
+    hidden: true,
   },
   {
     id: 'news',
@@ -106,6 +109,7 @@ const CARDS: DashboardCardDef[] = [
     subtitle: 'Updates & Mitteilungen',
     icon: '📰',
     screen: 'News',
+    hidden: true,
   },
 ];
 
@@ -177,13 +181,16 @@ export function PlayerHomeScreen() {
   const cardWidth = Math.max(160, Math.floor((windowWidth - SIDEBAR_WIDTH - CONTENT_PADDING - GAP * 2) / 3));
   const CARD_HEIGHT = 160;
   const GRID_COLS = 3;
-  const GRID_ROWS = Math.ceil(CARDS.length / GRID_COLS);
+  // Noch nicht fertige Screens: für echte Spieler ausblenden, für Berater (Spieleransicht) rot zeigen.
+  const isAdvisorViewing = profile?.role === 'admin' || profile?.role === 'advisor';
+  const visibleCards = CARDS.filter(c => !c.hidden || isAdvisorViewing);
+  const GRID_ROWS = Math.ceil(visibleCards.length / GRID_COLS);
   const HEADER_HEIGHT = isMobile ? 300 : 330;
   const HEADER_GAP = 24;
   const canvasWidth = Math.max(480, windowWidth - SIDEBAR_WIDTH - CONTENT_PADDING);
   const canvasHeight = HEADER_HEIGHT + HEADER_GAP + GRID_ROWS * CARD_HEIGHT + (GRID_ROWS - 1) * GAP;
   const MOBILE_CARD_HEIGHT = 76;
-  const mobileCanvasHeight = HEADER_HEIGHT + CARDS.length * MOBILE_CARD_HEIGHT;
+  const mobileCanvasHeight = HEADER_HEIGHT + visibleCards.length * MOBILE_CARD_HEIGHT;
 
   const renderCard = (card: DashboardCardDef, colIdx: number, rowIdx: number) => {
     const isHovered = hoveredCard === card.id;
@@ -213,7 +220,7 @@ export function PlayerHomeScreen() {
           }}
         />
         <View style={[styles.cardTextBand, isHovered && { backgroundColor: 'transparent' }]}>
-          <Text style={styles.cardTitle}>{card.title}</Text>
+          <Text style={[styles.cardTitle, card.hidden && { color: '#ef4444' }]}>{card.title}</Text>
           <Text style={styles.cardSubtitle}>{card.subtitle}</Text>
         </View>
       </Pressable>
@@ -301,8 +308,8 @@ export function PlayerHomeScreen() {
       {Header}
 
       <View style={styles.grid}>
-        {Array.from({ length: Math.ceil(CARDS.length / 3) }).map((_, rowIdx) => {
-          const rowCards = CARDS.slice(rowIdx * 3, rowIdx * 3 + 3);
+        {Array.from({ length: Math.ceil(visibleCards.length / 3) }).map((_, rowIdx) => {
+          const rowCards = visibleCards.slice(rowIdx * 3, rowIdx * 3 + 3);
           return (
             <View key={rowIdx} style={styles.gridRow}>
               {rowCards.map((card, colIdx) => renderCard(card, colIdx, rowIdx))}
@@ -319,7 +326,7 @@ export function PlayerHomeScreen() {
         {Header}
 
         <View style={styles.mobileCardsContainer}>
-          {CARDS.map((card, idx) => (
+          {visibleCards.map((card, idx) => (
             <TouchableOpacity
               key={card.id}
               activeOpacity={0.85}
@@ -336,7 +343,7 @@ export function PlayerHomeScreen() {
                 }}
               />
               <View style={[styles.cardTextBand, { position: 'relative', bottom: 0 }]}>
-                <Text style={styles.cardTitle}>{card.title}</Text>
+                <Text style={[styles.cardTitle, card.hidden && { color: '#ef4444' }]}>{card.title}</Text>
                 <Text style={styles.cardSubtitle}>{card.subtitle}</Text>
               </View>
             </TouchableOpacity>

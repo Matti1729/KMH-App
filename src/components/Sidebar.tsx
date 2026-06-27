@@ -245,9 +245,10 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
     ? [
         { id: 'personalData', label: 'Persönliche Daten', icon: '👤', screen: 'PersonalData' },
         { id: 'performance', label: 'Performance', icon: '📈', screen: 'Performance' },
-        { id: 'kmhTeam', label: 'Unser KMH-Team', icon: '🤝', screen: 'KmhTeam' },
-        { id: 'beratung', label: 'Was bedeutet Beratung', icon: '💡', screen: 'Beratung' },
-        { id: 'news', label: 'News', icon: '📰', screen: 'News' },
+        // Noch nicht fertig: für echte Spieler verstecken; Berater sehen sie (in Rot).
+        { id: 'kmhTeam', label: 'Unser KMH-Team', icon: '🤝', screen: 'KmhTeam', hidden: true },
+        { id: 'beratung', label: 'Was bedeutet Beratung', icon: '💡', screen: 'Beratung', hidden: true },
+        { id: 'news', label: 'News', icon: '📰', screen: 'News', hidden: true },
       ]
     : [
         { id: 'players', label: 'KMH-Spieler', icon: '👤', screen: 'PlayerOverview' },
@@ -279,7 +280,9 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
       <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1 }}>
         {/* Navigation */}
         <View style={styles.navContainer}>
-          {navItems.map((item) => (
+          {navItems.filter((item) => !(item as any).hidden || canSwitchPerspective).map((item) => {
+            const isHidden = !!(item as any).hidden; // für Spieler unsichtbar -> beim Berater rot
+            return (
             <Pressable
               key={item.id}
               onHoverIn={() => setHoveredNav(item.id)}
@@ -301,10 +304,12 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
               <Text style={[
                 styles.navLabel,
                 { color: colors.textSecondary },
-                activeScreen === item.id && { color: colors.text, fontWeight: '600' }
+                activeScreen === item.id && { color: colors.text, fontWeight: '600' },
+                isHidden && { color: '#ef4444' },
               ]}>{item.label}</Text>
             </Pressable>
-          ))}
+            );
+          })}
         </View>
 
         {/* Wissenswertes — Tools & Informationen für alle Berater */}
