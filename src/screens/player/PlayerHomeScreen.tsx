@@ -262,9 +262,6 @@ export function PlayerHomeScreen() {
           <View style={{ zIndex: 1 }}>
             <View style={styles.welcomeTitleRow}>
               <Text style={styles.welcomeTitle}>WILLKOMMEN</Text>
-              <TouchableOpacity onPress={dismissWelcome} style={styles.welcomeClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Text style={styles.welcomeCloseText}>✕</Text>
-              </TouchableOpacity>
             </View>
             <ScrollView style={{ maxHeight: isMobile ? 360 : 440 }} contentContainerStyle={{ paddingBottom: 4 }}>
               <Text style={styles.welcomeText}>
