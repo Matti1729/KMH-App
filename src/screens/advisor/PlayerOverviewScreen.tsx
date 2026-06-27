@@ -34,6 +34,20 @@ const POSITION_SHORT: Record<string, string> = {
 };
 const LISTINGS = ['Karl Herzog Sportmanagement', 'PM Sportmanagement'];
 
+// Kategorie/Typ eines Eintrags. "Fußball" ist Default; Funktionäre und andere
+// Sportarten werden in derselben Liste geführt (Felder bleiben generisch).
+const CATEGORIES = ['Fußball', 'Funktionär', 'Handball', 'Basketball', 'Leichtathletik', 'Sonstige'];
+const CATEGORY_TABS = ['Alle', 'Fußball', 'Funktionäre', 'Weitere Sportarten'] as const;
+type CategoryTab = typeof CATEGORY_TABS[number];
+// Ordnet eine Kategorie einem Tab zu: Fußball | Funktionär | sonst "Weitere Sportarten".
+const matchesCategoryTab = (category: string | undefined, tab: CategoryTab): boolean => {
+  const c = category || 'Fußball';
+  if (tab === 'Alle') return true;
+  if (tab === 'Fußball') return c === 'Fußball';
+  if (tab === 'Funktionäre') return c === 'Funktionär';
+  return c !== 'Fußball' && c !== 'Funktionär'; // Weitere Sportarten
+};
+
 const CLUB_UMLAUT_MAP: Array<[RegExp, string]> = [
   [/saarbrucken/gi, 'Saarbrücken'],
   [/munchen/gi, 'München'],
@@ -241,6 +255,7 @@ interface Player {
   listing: string;
   responsibility: string;
   future_club: string;
+  category: string;
 }
 
 interface Advisor {
@@ -268,6 +283,7 @@ const PLAYER_COLUMNS: ColumnDef[] = [
   { key: 'contract_end', label: 'Vertragsende', defaultFlex: 1.2, minWidth: 100 },
   { key: 'listing', label: 'Listung', defaultFlex: 0.7, minWidth: 50 },
   { key: 'responsibility', label: 'Zuständigkeit', defaultFlex: 1, minWidth: 85 },
+  { key: 'category', label: 'Typ', defaultFlex: 0.9, minWidth: 70 },
 ];
 
 // Liste aller persönlich-bezogenen Felder, die als advisor+player-Spalten existieren.
@@ -363,6 +379,8 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
   const pendingScrollRestore = useRef(false);
   const [newFirstName, setNewFirstName] = useState('');
   const [newLastName, setNewLastName] = useState('');
+  const [newCategory, setNewCategory] = useState('Fußball');
+  const [showNewCategoryPicker, setShowNewCategoryPicker] = useState(false);
   const [tmSuggestions, setTmSuggestions] = useState<any[]>([]);
   const [tmSearching, setTmSearching] = useState(false);
   const [tmLoading, setTmLoading] = useState(false);
@@ -424,6 +442,7 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
   const [selectedListings, setSelectedListings] = useState<string[]>([]);
   const [selectedResponsibilities, setSelectedResponsibilities] = useState<string[]>([]);
   const [selectedContractYears, setSelectedContractYears] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<CategoryTab>('Alle');
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
@@ -572,7 +591,7 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
         setTimeout(() => scrollRef.current?.scrollTo({ y, animated: false }), 150);
       }
     }
-  }, [searchText, players, selectedYears, selectedPositions, selectedListings, selectedResponsibilities, selectedContractYears, sortField, sortDirection]);
+  }, [searchText, players, selectedYears, selectedPositions, selectedListings, selectedResponsibilities, selectedContractYears, sortField, sortDirection, activeTab]);
 
   const fetchAdvisors = async () => {
     try {
@@ -1021,6 +1040,9 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
 
   const applyFilters = () => {
     let filtered = [...players];
+    if (activeTab !== 'Alle') {
+      filtered = filtered.filter(player => matchesCategoryTab(player.category, activeTab));
+    }
     if (searchText.trim() !== '') {
       const search = searchText.toLowerCase();
       filtered = filtered.filter(player => {
@@ -1090,7 +1112,7 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
     try {
       let query = supabase
         .from('player_details')
-        .select('id, first_name, last_name, birth_date, position, club, league, contract_end, listing, responsibility, future_club')
+        .select('id, first_name, last_name, birth_date, position, club, league, contract_end, listing, responsibility, future_club, category')
         .order('last_name', { ascending: true });
 
       // Trainer sieht nur die ihm zugewiesenen Spieler.
@@ -1244,6 +1266,7 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
       first_name: newFirstName.trim(),
       last_name: newLastName.trim(),
       responsibility: currentUserName,
+      category: newCategory || 'Fußball',
     };
 
     // DD.MM.YYYY → YYYY-MM-DD konvertieren
@@ -1343,6 +1366,7 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
 
       setNewFirstName('');
       setNewLastName('');
+      setNewCategory('Fußball');
       setTmSelected(null);
       setTmSuggestions([]);
       setShowAddModal(false);
@@ -1564,6 +1588,7 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
       city_advisor: fullPlayer.city_advisor || fullPlayer.city || '',
       city_player: fullPlayer.city_player ?? null,
       listing: fullPlayer.listing || '',
+      category: fullPlayer.category || 'Fußball',
       responsibility: fullPlayer.responsibility || '',
       mandate_until: fullPlayer.mandate_until || '',
       provision: fullPlayer.provision || '',
@@ -1760,6 +1785,8 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
     });
     // Leere Strings zu null
     Object.keys(updates).forEach(k => { if (updates[k] === '') updates[k] = null; });
+    // category ist NOT NULL — niemals leer speichern
+    if ('category' in updates && !updates.category) updates.category = 'Fußball';
     const { error } = await supabase.from('player_details').update(updates).eq('id', fullPlayer.id);
     if (error) { setCardSaving(false); alertDialog({ title: 'Fehler beim Speichern', message: error.message }); return; }
 
@@ -3080,8 +3107,23 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
               <View style={[styles.detailCard, { position: 'relative', zIndex: 70 }, isMobile && { minWidth: 0, width: '100%', flexBasis: 'auto', flexGrow: 0, padding: 12 }]}>
                 <Text style={styles.detailCardTitle}>Beratung</Text>
                 <View style={{ flexDirection: isMobile && isEditing ? 'column' : 'row', gap: isMobile && isEditing ? 14 : 24, flexWrap: 'wrap' }}>
-                  {/* Spalte 1: Listung, Zuständigkeit, Mandat gültig bis */}
+                  {/* Spalte 1: Typ, Listung, Zuständigkeit, Mandat gültig bis */}
                   <View style={isMobile && isEditing ? { width: '100%', gap: 14 } : { flex: 1, minWidth: 180, gap: 14 }}>
+                    <View style={{ zIndex: 40, position: 'relative' }}>
+                      <Text style={styles.detailFieldLabel}>Typ</Text>
+                      {isEditing ? (
+                        <DetailDropdown
+                          value={editData.category || 'Fußball'}
+                          options={CATEGORIES}
+                          onChange={(v) => setEditData({ ...editData, category: v })}
+                          placeholder="Auswählen"
+                          dropdownKey="category"
+                          minWidth={260}
+                        />
+                      ) : (
+                        <Text style={styles.detailFieldValue}>{fullPlayer?.category || 'Fußball'}</Text>
+                      )}
+                    </View>
                     <View style={{ zIndex: 30, position: 'relative' }}>
                       <Text style={styles.detailFieldLabel}>Listung</Text>
                       {isEditing ? (
@@ -3438,6 +3480,23 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
             </TouchableOpacity>
           </MobileHeader>
 
+          {/* Kategorie-Tabs (mobil, horizontal scrollbar) */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, paddingHorizontal: 12, paddingVertical: 8 }} contentContainerStyle={{ gap: 8 }}>
+            {CATEGORY_TABS.map(tab => {
+              const isActive = activeTab === tab;
+              const count = tab === 'Alle' ? players.length : players.filter(p => matchesCategoryTab(p.category, tab)).length;
+              return (
+                <TouchableOpacity
+                  key={tab}
+                  onPress={() => setActiveTab(tab)}
+                  style={{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, backgroundColor: isActive ? colors.primary : 'rgba(0,0,0,0.55)', borderColor: isActive ? colors.primary : 'rgba(255,255,255,0.18)' }}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: isActive ? colors.primaryText : colors.textSecondary }}>{tab} ({count})</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+
           {/* Player Cards */}
           <ScrollView
             ref={scrollRef}
@@ -3578,7 +3637,7 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
                 <View style={{ padding: 24, zIndex: 1 }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 20, position: 'relative' }}>
                     <Text style={{ fontFamily: 'Josefin Sans', fontSize: 16, fontWeight: '300', letterSpacing: 4, textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>Neuen Spieler anlegen</Text>
-                    <TouchableOpacity onPress={() => { setShowAddModal(false); setTmSuggestions([]); setTmSelected(null); setNewFirstName(''); setNewLastName(''); }} style={{ position: 'absolute', right: 0, width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+                    <TouchableOpacity onPress={() => { setShowAddModal(false); setTmSuggestions([]); setTmSelected(null); setNewFirstName(''); setNewLastName(''); setNewCategory('Fußball'); setShowNewCategoryPicker(false); }} style={{ position: 'absolute', right: 0, width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
                       <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 20 }}>✕</Text>
                     </TouchableOpacity>
                   </View>
@@ -3599,6 +3658,26 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
                         value={newFirstName} onChangeText={handleFirstNameChange}
                       />
                     </View>
+                  </View>
+                  {/* Kategorie / Typ */}
+                  <View style={{ marginBottom: 12 }}>
+                    <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Kategorie</Text>
+                    <TouchableOpacity
+                      onPress={() => setShowNewCategoryPicker(v => !v)}
+                      style={{ backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                    >
+                      <Text style={{ fontSize: 13, color: '#fff' }}>{newCategory}</Text>
+                      <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>▼</Text>
+                    </TouchableOpacity>
+                    {showNewCategoryPicker && (
+                      <View style={{ marginTop: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 12, backgroundColor: '#1a1a1a', overflow: 'hidden' }}>
+                        {CATEGORIES.map((c, i) => (
+                          <TouchableOpacity key={c} onPress={() => { setNewCategory(c); setShowNewCategoryPicker(false); }} style={{ paddingVertical: 10, paddingHorizontal: 16, borderBottomWidth: i < CATEGORIES.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.08)', backgroundColor: newCategory === c ? 'rgba(34,197,94,0.15)' : 'transparent' }}>
+                            <Text style={{ fontSize: 13, color: newCategory === c ? '#22c55e' : '#fff' }}>{c}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
                   </View>
                   {tmSearching && <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginBottom: 4 }}>Suche auf Transfermarkt...</Text>}
                   {tmSuggestions.length > 0 && (
@@ -3904,6 +3983,22 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
         )}
 
         <View style={styles.content}>
+          {/* Kategorie-Tabs: Alle · Fußball · Funktionäre · Weitere Sportarten */}
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+            {CATEGORY_TABS.map(tab => {
+              const isActive = activeTab === tab;
+              const count = tab === 'Alle' ? players.length : players.filter(p => matchesCategoryTab(p.category, tab)).length;
+              return (
+                <TouchableOpacity
+                  key={tab}
+                  onPress={() => setActiveTab(tab)}
+                  style={{ paddingVertical: 6, paddingHorizontal: 14, borderRadius: 6, borderWidth: 1, backgroundColor: isActive ? colors.primary : 'rgba(0,0,0,0.55)', borderColor: isActive ? colors.primary : 'rgba(255,255,255,0.18)' }}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: isActive ? colors.primaryText : colors.textSecondary }}>{tab} ({count})</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
           <View style={[styles.tableWrapper, { backgroundColor: 'rgba(0,0,0,0.55)', borderColor: 'rgba(255,255,255,0.15)' }]} onLayout={(e) => setTableWidth(e.nativeEvent.layout.width - 32)}>
             {tableWidth > 0 && (
               <TableHeader
@@ -4004,6 +4099,8 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
                             return renderListingBadge(player.listing);
                           case 'responsibility':
                             return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{getResponsibilityInitials(player.responsibility)}</Text>;
+                          case 'category':
+                            return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{player.category || 'Fußball'}</Text>;
                           default:
                             return null;
                         }
@@ -4048,6 +4145,26 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
                       value={newFirstName} onChangeText={handleFirstNameChange}
                     />
                   </View>
+                </View>
+                {/* Kategorie / Typ */}
+                <View style={{ marginBottom: 12 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Kategorie</Text>
+                  <TouchableOpacity
+                    onPress={() => setShowNewCategoryPicker(v => !v)}
+                    style={{ backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                  >
+                    <Text style={{ fontSize: 13, color: '#fff' }}>{newCategory}</Text>
+                    <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>▼</Text>
+                  </TouchableOpacity>
+                  {showNewCategoryPicker && (
+                    <View style={{ marginTop: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 12, backgroundColor: '#1a1a1a', overflow: 'hidden' }}>
+                      {CATEGORIES.map((c, i) => (
+                        <TouchableOpacity key={c} onPress={() => { setNewCategory(c); setShowNewCategoryPicker(false); }} style={{ paddingVertical: 10, paddingHorizontal: 16, borderBottomWidth: i < CATEGORIES.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.08)', backgroundColor: newCategory === c ? 'rgba(34,197,94,0.15)' : 'transparent' }}>
+                          <Text style={{ fontSize: 13, color: newCategory === c ? '#22c55e' : '#fff' }}>{c}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
                 </View>
                 {tmSearching && <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginBottom: 4 }}>Suche auf Transfermarkt...</Text>}
                 {tmSuggestions.length > 0 && (
