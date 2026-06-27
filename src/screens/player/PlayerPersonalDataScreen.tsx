@@ -43,6 +43,10 @@ function buildSocialUrl(platform: 'instagram' | 'tiktok' | 'linkedin', handle: s
   if (platform === 'tiktok') return `https://tiktok.com/@${clean}`;
   return `https://linkedin.com/in/${clean}`;
 }
+// Echter Link vorhanden? "/" oder leer zählt nicht -> nur "/" anzeigen, kein Icon.
+function isRealSocialLink(handle: string): boolean {
+  return (handle || '').replace(/^https?:\/\//i, '').replace(/[\/@\s]/g, '').length > 0;
+}
 
 const CLUB_UMLAUT_MAP: Array<[RegExp, string]> = [
   [/saarbrucken/gi, 'Saarbrücken'],
@@ -1071,7 +1075,7 @@ function SocialLinkRow({
   return (
     <View style={styles.infoRow}>
       <Text style={[styles.infoLabel, { color: colors.textMuted }]}>{label}</Text>
-      {handle ? (
+      {isRealSocialLink(handle) ? (
         <TouchableOpacity
           onPress={() => Linking.openURL(buildSocialUrl(platform, handle))}
           style={{ alignSelf: 'flex-start', width: 22, height: 22, alignItems: 'center', justifyContent: 'center', overflow: 'visible' }}
@@ -1082,7 +1086,7 @@ function SocialLinkRow({
           />
         </TouchableOpacity>
       ) : (
-        <Text style={[styles.infoValue, { color: colors.text }]}>-</Text>
+        <Text style={[styles.infoValue, { color: colors.text }]}>/</Text>
       )}
     </View>
   );
