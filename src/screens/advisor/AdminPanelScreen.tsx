@@ -412,10 +412,12 @@ Achte dabei auf:
                 <Text style={styles.backButtonText}>← Zurück</Text>
               </TouchableOpacity>
               <View style={{ flex: 1 }} />
-              <Text style={styles.headerTitle}>ADMINISTRATION</Text>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={styles.headerTitle}>ADMINISTRATION</Text>
+                <Text style={styles.headerSubtitle}>Benutzer, Anfragen und Feedback verwalten</Text>
+              </View>
             </View>
             <View style={styles.headerDivider} />
-            <Text style={styles.headerSubtitle}>Benutzer, Anfragen und Feedback verwalten</Text>
           </View>
         )}
 
@@ -681,8 +683,8 @@ const styles = StyleSheet.create({
   backButtonText: { fontSize: 13, color: 'rgba(255,255,255,0.7)' },
   headerCenter: { flex: 1, alignItems: 'center' },
   headerTitle: { fontFamily: 'Josefin Sans', fontSize: 26, fontWeight: '300', letterSpacing: 4, textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)' },
-  headerDivider: { height: 1, marginTop: 16, marginBottom: 14, backgroundColor: 'rgba(255,255,255,0.3)' },
-  headerSubtitle: { fontFamily: 'Josefin Sans', fontSize: 13, fontWeight: '300', letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)' },
+  headerDivider: { height: 1, marginTop: 14, marginBottom: 0, backgroundColor: 'rgba(255,255,255,0.3)' },
+  headerSubtitle: { fontFamily: 'Josefin Sans', fontSize: 11, fontWeight: '300', letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', marginTop: 6, textAlign: 'right' },
   placeholder: { width: 90 },
   tabs: { flexDirection: 'row', marginHorizontal: 24, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.12)' },
   tab: { flex: 1, paddingVertical: 13, alignItems: 'center' },
@@ -694,7 +696,7 @@ const styles = StyleSheet.create({
   emptyContainer: { padding: 40, alignItems: 'center' },
   emptyText: { color: '#999', fontSize: 16 },
   requestsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  requestCard: { backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 10, padding: 12, borderWidth: 1, width: 240, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
+  requestCard: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', width: 240, ...(Platform.OS === 'web' ? ({ backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' } as any) : {}) },
   requestHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
   requestInfo: { flex: 1 },
   requestPlayer: { fontSize: 14, fontWeight: '600', color: '#1a1a1a' },
@@ -707,7 +709,7 @@ const styles = StyleSheet.create({
   rejectButtonText: { color: '#dc2626', fontSize: 12, fontWeight: '600' },
   advisorsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   advisorsGridMobile: { flexDirection: 'column' },
-  advisorCard: { backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 10, padding: 12, borderWidth: 1, width: '31%', minWidth: 220, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
+  advisorCard: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', width: '31%', minWidth: 220, ...(Platform.OS === 'web' ? ({ backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' } as any) : {}) },
   advisorCardMobile: { width: '100%', minWidth: 0 },
   advisorHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   advisorNameSection: { flex: 1 },
@@ -730,7 +732,7 @@ const styles = StyleSheet.create({
   removeAdminButton: { backgroundColor: 'rgba(239,68,68,0.15)', paddingVertical: 3, paddingHorizontal: 6, borderRadius: 3, borderWidth: 1, borderColor: '#fecaca', alignItems: 'center', alignSelf: 'flex-end', marginLeft: 10 },
   removeAdminButtonText: { color: '#dc2626', fontSize: 10, fontWeight: '600' },
   // Feedback Styles
-  feedbackCard: { backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 6, padding: 8, marginBottom: 6, borderWidth: 1, maxWidth: 500 },
+  feedbackCard: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', maxWidth: 500, ...(Platform.OS === 'web' ? ({ backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' } as any) : {}) },
   feedbackCardDone: { opacity: 0.6, backgroundColor: '#f9fafb' },
   feedbackHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   feedbackHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
