@@ -334,11 +334,6 @@ const EditableValue = React.memo(({ field, displayValue, playerValue, placeholde
       ) : (
         <Text style={styles.detailFieldValue}>{handle !== '' ? handle : '-'}</Text>
       )}
-      {hasPlayerValue ? (
-        <View style={{ backgroundColor: 'rgba(34,197,94,0.15)', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 8 }}>
-          <Text style={{ color: '#22c55e', fontSize: 9, fontWeight: '600', letterSpacing: 0.5 }}>VOM SPIELER</Text>
-        </View>
-      ) : null}
     </View>
   );
 });
@@ -2146,11 +2141,8 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
   };
   const svIsPlayer = (...fs: string[]): boolean =>
     fs.some(f => { const pv = fullPlayer?.[`${f}_player`]; return pv !== null && pv !== undefined && String(pv).trim() !== ''; });
-  const renderPlayerBadge = () => (
-    <View style={{ backgroundColor: 'rgba(34,197,94,0.15)', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 8 }}>
-      <Text style={{ color: '#22c55e', fontSize: 9, fontWeight: '600', letterSpacing: 0.5 }}>VOM SPIELER</Text>
-    </View>
-  );
+  // "VOM SPIELER"-Pille entfernt (auf Wunsch überall ausgeblendet).
+  const renderPlayerBadge = () => null;
 
   // Kontaktdaten/Familie/Ausbildung sind reine Spieler-Daten: der Berater sieht sie
   // nur (read-only), bearbeiten kann sie ausschließlich der Spieler. Diese Felder
@@ -3268,14 +3260,7 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
                   </View>
                   <View>
                     <Text style={styles.detailFieldLabel}>Was erwartet der Spieler von uns? / Wie sieht Beratung für ihn aus?</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                      <Text style={styles.detailFieldValue}>{fullPlayer?.consulting_expectations_player || '-'}</Text>
-                      {fullPlayer?.consulting_expectations_player ? (
-                        <View style={{ backgroundColor: 'rgba(34,197,94,0.15)', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 8 }}>
-                          <Text style={{ color: '#22c55e', fontSize: 9, fontWeight: '600', letterSpacing: 0.5 }}>VOM SPIELER</Text>
-                        </View>
-                      ) : null}
-                    </View>
+                    <Text style={styles.detailFieldValue}>{fullPlayer?.consulting_expectations_player || '-'}</Text>
                   </View>
                   {(isEditing || fullPlayer?.other_notes) ? (
                     <View>
