@@ -36,9 +36,10 @@ interface PlayerHomeData {
   club: string;
   photo_url: string;
   transfermarkt_url: string;
+  listing: string;
 }
 
-const HOME_HEADER_FIELDS = 'id, first_name, last_name, club, photo_url, transfermarkt_url';
+const HOME_HEADER_FIELDS = 'id, first_name, last_name, club, photo_url, transfermarkt_url, listing';
 
 function resolveClubLogo(clubName: string, clubLogos: Record<string, string>): string | null {
   if (!clubName) return null;
@@ -267,7 +268,7 @@ export function PlayerHomeScreen() {
               lineHeightRatio={1.06}
               textStyle={styles.playerNameHuge}
             />
-            {!isMobile && <Text style={[styles.headerScreenLabel, { textAlign: 'left' }]}>Karl Herzog Sportmanagement</Text>}
+            {!isMobile && <Text style={[styles.headerScreenLabel, { textAlign: 'left' }]}>{player?.listing === 'PM Sportmanagement' ? 'PM Sportmanagement' : 'Karl Herzog Sportmanagement'}</Text>}
           </View>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <View style={[styles.clubRow, { flex: 1, minWidth: 0 }, isMobile && { gap: 8 }]}>

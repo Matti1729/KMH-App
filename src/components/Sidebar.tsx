@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, Modal, TextInput, TouchableOpacity, Platform, useWindowDimensions, Image, ScrollView } from 'react-native';
 import { supabase } from '../config/supabase';
 import { CommonActions } from '@react-navigation/native';
@@ -45,7 +45,26 @@ export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedde
   const [feedbackImage, setFeedbackImage] = useState<string | null>(null);
   const [generatedPrompt, setGeneratedPrompt] = useState<string>('');
   const [promptCopied, setPromptCopied] = useState(false);
-  const { user, profile: authProfile, setViewAsPlayer, setViewAsPlayerId, setViewAsTrainer, setViewAsTrainerId, viewAsTrainerId } = useAuth();
+  const { user, profile: authProfile, setViewAsPlayer, setViewAsPlayerId, setViewAsTrainer, setViewAsTrainerId, viewAsTrainerId, viewAsPlayerId } = useAuth();
+  // Agentur-Name im Spieler-Modus: gelistet bei PM -> "PM Sportmanagement", sonst KMH.
+  const [agencyTitle, setAgencyTitle] = useState('Karl Herzog Sportmanagement');
+  useEffect(() => {
+    if (!playerMode) { setAgencyTitle('Karl Herzog Sportmanagement'); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        let pid = viewAsPlayerId || null;
+        if (!pid && user?.id) {
+          const { data } = await supabase.from('player_details').select('id').eq('linked_user_id', user.id).limit(1).maybeSingle();
+          pid = data?.id || null;
+        }
+        if (!pid) return;
+        const { data: row } = await supabase.from('player_details').select('listing').eq('id', pid).single();
+        if (!cancelled) setAgencyTitle(row?.listing === 'PM Sportmanagement' ? 'PM Sportmanagement' : 'Karl Herzog Sportmanagement');
+      } catch (_) { /* Default bleibt */ }
+    })();
+    return () => { cancelled = true; };
+  }, [playerMode, viewAsPlayerId, user?.id]);
   const [showPlayerPicker, setShowPlayerPicker] = useState(false);
   const [playerList, setPlayerList] = useState<Array<{ id: string; first_name: string; last_name: string; club: string }>>([]);
   const [playerSearch, setPlayerSearch] = useState('');
@@ -250,7 +269,7 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
           source={require('../../assets/kmh-logo.png')}
           style={styles.logoImage}
         />
-        <Text style={[styles.logoTitle, { color: colors.text }]}>Karl Herzog{'\n'}Sportmanagement</Text>
+        <Text style={[styles.logoTitle, { color: colors.text }]}>{agencyTitle.replace(/ Sportmanagement$/, '\nSportmanagement')}</Text>
       </Pressable>
 
       {/* Trennstrich unter Logo */}
