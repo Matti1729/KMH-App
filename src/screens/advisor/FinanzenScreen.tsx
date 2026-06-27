@@ -1685,7 +1685,7 @@ export function FinanzenScreen({ navigation }: any) {
   const renderDetailModal = () => (
     <Modal visible={showDetail} transparent animationType="fade">
       <Pressable style={styles.modalOverlay} onPress={() => setShowDetail(false)}>
-        <Pressable style={[styles.modalContent, { backgroundColor: 'rgba(255,255,255,0.08)' }]} onPress={e => { e.stopPropagation(); setActiveDatePicker(null); setShowRateDropdown(false); }}>
+        <Pressable style={styles.modalContent} onPress={e => { e.stopPropagation(); setActiveDatePicker(null); setShowRateDropdown(false); }}>
           {/* Header */}
           <View style={styles.modalHeader}>
             <View style={{ flex: 1 }}>
@@ -2942,8 +2942,8 @@ const styles = StyleSheet.create({
   statusBadgeText: { fontSize: 11, fontWeight: '600' },
 
   // Modal
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { borderRadius: 16, padding: 24, width: '90%', maxWidth: 540, maxHeight: '85%', overflow: 'visible' as const },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 16 },
+  modalContent: { backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 16, padding: 24, width: '90%', maxWidth: 540, maxHeight: '85%', overflow: 'visible' as const },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
   modalTitle: { fontSize: 18, fontWeight: '700' },
   modalFooter: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e5e7eb' },
