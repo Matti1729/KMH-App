@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Platform, Modal, Linking } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Platform, Modal, Linking, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -402,24 +402,27 @@ Achte dabei auf:
           />
         )}
 
-        {/* Desktop Header */}
+        {/* Desktop Header — Design-System Header-Card */}
         {!isMobile && (
-          <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-            <TouchableOpacity onPress={() => navigation.navigate('AdvisorDashboard')} style={[styles.backButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
-              <Text style={[styles.backButtonText, { color: colors.textSecondary }]}>← Zurück</Text>
-            </TouchableOpacity>
-            <View style={styles.headerCenter}>
-              <Text style={[styles.headerTitle, { color: colors.text }]}>Administration</Text>
-              <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Benutzer, Anfragen und Feedback verwalten</Text>
+          <View style={styles.header}>
+            <Image source={require('../../../assets/scouting-header-bg.jpg')} style={styles.headerBg} resizeMode="cover" />
+            <View style={styles.headerBgOverlay} />
+            <View style={styles.headerTopRow}>
+              <TouchableOpacity onPress={() => navigation.navigate('AdvisorDashboard')} style={styles.backButton}>
+                <Text style={styles.backButtonText}>← Zurück</Text>
+              </TouchableOpacity>
+              <View style={{ flex: 1 }} />
+              <Text style={styles.headerTitle}>ADMINISTRATION</Text>
             </View>
-            <View style={styles.placeholder} />
+            <View style={styles.headerDivider} />
+            <Text style={styles.headerSubtitle}>Benutzer, Anfragen und Feedback verwalten</Text>
           </View>
         )}
 
       {/* Tabs */}
-      <View style={[styles.tabs, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+      <View style={styles.tabs}>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'requests' && styles.tabActive, activeTab === 'requests' && { borderBottomColor: colors.primary }]}
+          style={[styles.tab, activeTab === 'requests' && styles.tabActive, activeTab === 'requests' && { borderBottomColor: '#22c55e' }]}
           onPress={() => setActiveTab('requests')}
         >
           <Text style={[styles.tabText, { color: colors.textSecondary }, activeTab === 'requests' && { color: colors.text, fontWeight: '600' }]}>
@@ -427,7 +430,7 @@ Achte dabei auf:
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'advisors' && styles.tabActive, activeTab === 'advisors' && { borderBottomColor: colors.primary }]}
+          style={[styles.tab, activeTab === 'advisors' && styles.tabActive, activeTab === 'advisors' && { borderBottomColor: '#22c55e' }]}
           onPress={() => setActiveTab('advisors')}
         >
           <Text style={[styles.tabText, { color: colors.textSecondary }, activeTab === 'advisors' && { color: colors.text, fontWeight: '600' }]}>
@@ -435,7 +438,7 @@ Achte dabei auf:
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'feedback' && styles.tabActive, activeTab === 'feedback' && { borderBottomColor: colors.primary }]}
+          style={[styles.tab, activeTab === 'feedback' && styles.tabActive, activeTab === 'feedback' && { borderBottomColor: '#22c55e' }]}
           onPress={() => setActiveTab('feedback')}
         >
           <Text style={[styles.tabText, { color: colors.textSecondary }, activeTab === 'feedback' && { color: colors.text, fontWeight: '600' }]}>
@@ -669,18 +672,23 @@ const styles = StyleSheet.create({
   container: { flex: 1, flexDirection: 'row', backgroundColor: '#f5f5f5' },
   containerMobile: { flexDirection: 'column' },
   mainContent: { flex: 1, backgroundColor: '#f5f5f5' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 16, backgroundColor: 'rgba(0,0,0,0.55)', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)' },
-  backButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
-  backButtonText: { fontSize: 14, color: '#64748b' },
+  // Header-Card (Design-System: Skyline-BG, Josefin-Titel, Divider)
+  header: { paddingHorizontal: 28, paddingTop: 24, paddingBottom: 16, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', marginHorizontal: 24, marginTop: 16, marginBottom: 16, overflow: 'hidden' },
+  headerBg: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.85, ...(Platform.OS === 'web' ? ({ objectFit: 'cover', objectPosition: 'center' } as any) : {}) },
+  headerBgOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.3)' },
+  headerTopRow: { flexDirection: 'row', alignItems: 'center', minHeight: 44 },
+  backButton: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 8, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+  backButtonText: { fontSize: 13, color: 'rgba(255,255,255,0.7)' },
   headerCenter: { flex: 1, alignItems: 'center' },
-  headerTitle: { fontSize: 24, fontWeight: '700', color: '#1a1a1a' },
-  headerSubtitle: { fontSize: 14, color: '#64748b', marginTop: 4 },
+  headerTitle: { fontFamily: 'Josefin Sans', fontSize: 26, fontWeight: '300', letterSpacing: 4, textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)' },
+  headerDivider: { height: 1, marginTop: 16, marginBottom: 14, backgroundColor: 'rgba(255,255,255,0.3)' },
+  headerSubtitle: { fontFamily: 'Josefin Sans', fontSize: 13, fontWeight: '300', letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)' },
   placeholder: { width: 90 },
-  tabs: { flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.55)', borderBottomWidth: 1, borderBottomColor: '#ddd' },
-  tab: { flex: 1, paddingVertical: 14, alignItems: 'center' },
-  tabActive: { borderBottomWidth: 2, borderBottomColor: '#000' },
-  tabText: { fontSize: 15, color: '#666' },
-  tabTextActive: { color: '#000', fontWeight: '600' },
+  tabs: { flexDirection: 'row', marginHorizontal: 24, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.12)' },
+  tab: { flex: 1, paddingVertical: 13, alignItems: 'center' },
+  tabActive: { borderBottomWidth: 2, borderBottomColor: '#22c55e' },
+  tabText: { fontSize: 12, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)' },
+  tabTextActive: { color: '#fff', fontWeight: '600' },
   content: { flex: 1, padding: 16 },
   loadingText: { padding: 20, textAlign: 'center', color: '#666' },
   emptyContainer: { padding: 40, alignItems: 'center' },
