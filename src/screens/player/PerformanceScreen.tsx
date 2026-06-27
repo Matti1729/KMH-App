@@ -27,6 +27,7 @@ import { ComposedChart, Bar, Line, LineChart, BarChart, XAxis, YAxis, Tooltip, L
 import { TextInput } from 'react-native';
 import { PrototypePoster } from '../../components/PrototypePoster';
 import { Prototype, PrototypePositionField, protoPositions } from '../../utils/prototypes';
+import { AutoFitText } from '../../components/AutoFitText';
 import { PerformanceImportModal, ImportRow, PreparedInsert } from './PerformanceImportModal';
 
 const TransfermarktIcon = require('../../../assets/transfermarkt-logo.png');
@@ -1403,11 +1404,9 @@ export function PerformanceScreen() {
   const lastName = (player?.last_name || profile?.last_name || '').toUpperCase();
   const photoW = isMobile ? 110 : 150;
   const photoH = isMobile ? 140 : 190;
-  const nameSize = isMobile ? 48 : 72;
-  const nameLH = isMobile ? 52 : 76;
 
   const HeaderBar = (
-    <View style={[styles.headerCard, { borderColor: 'rgba(255,255,255,0.15)', backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+    <View style={[styles.headerCard, { borderColor: 'rgba(255,255,255,0.15)', backgroundColor: 'rgba(0,0,0,0.5)' }, isMobile && { paddingHorizontal: 16, paddingTop: 16 }]}>
       <View style={styles.headerTopRow}>
         {player?.photo_url ? (
           <Image source={{ uri: player.photo_url }} style={{ width: photoW, height: photoH, borderRadius: 8 }} resizeMode="contain" />
@@ -1420,10 +1419,13 @@ export function PerformanceScreen() {
         )}
         <View style={{ flex: 1, justifyContent: 'space-between', minHeight: photoH, paddingBottom: 8 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <View>
-              {firstName ? <Text style={[styles.playerNameHuge, { fontSize: nameSize, lineHeight: nameLH }]}>{firstName}</Text> : null}
-              {lastName ? <Text style={[styles.playerNameHuge, { fontSize: nameSize, lineHeight: nameLH }]}>{lastName}</Text> : null}
-            </View>
+            <AutoFitText
+              lines={[firstName, lastName]}
+              maxFontSize={isMobile ? 48 : 72}
+              letterSpacing={2}
+              lineHeightRatio={1.06}
+              textStyle={styles.playerNameHuge}
+            />
           </View>
           <View style={styles.clubRow}>
             {clubLogo ? (
