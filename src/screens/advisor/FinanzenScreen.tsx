@@ -1120,6 +1120,23 @@ export function FinanzenScreen({ navigation }: any) {
     setDetailRates(prev => prev.map(r => ({ ...r, amount: perRate })));
   };
 
+  // Gesamtsumme = Gehalt × Provision%. Wird automatisch berechnet, sobald sich
+  // Gehalt oder Prozentsatz ändern, und auf die Raten verteilt.
+  const recomputeTotal = (salaryStr: string, percentStr: string) => {
+    const salary = parseFloat(salaryStr.replace(/\./g, '').replace(',', '.')) || 0;
+    const pct = parseFloat(percentStr.replace(',', '.')) || 0;
+    if (salary <= 0 || pct <= 0) {
+      setDetailTotalAmount('');
+      setDetailRates(prev => prev.map(r => ({ ...r, amount: '' })));
+      return;
+    }
+    const total = salary * pct / 100;
+    const totalStr = total.toFixed(2).replace('.', ',');
+    setDetailTotalAmount(totalStr);
+    const perRate = detailRateCount && detailRateCount > 0 ? (total / detailRateCount).toFixed(2).replace('.', ',') : '';
+    setDetailRates(prev => prev.map(r => ({ ...r, amount: perRate })));
+  };
+
   const updateRateDate = (idx: number, part: 'day' | 'month' | 'year', value: number) => {
     setDetailRates(prev => prev.map((r, i) => i === idx ? { ...r, [part]: value } : r));
     setActiveDatePicker(null);
@@ -1715,56 +1732,6 @@ export function FinanzenScreen({ navigation }: any) {
             scrollEnabled={!activeDatePicker && !showRateDropdown}
             nestedScrollEnabled
           >
-            {/* Dokumente */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginBottom: 0 }]}>Dokumente</Text>
-              {parsing && <Text style={{ color: '#3b82f6', fontSize: 11 }}>Wird analysiert...</Text>}
-            </View>
-            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
-              {/* Provisionsvereinbarung */}
-              <View style={[styles.uploadBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-                <Text style={{ fontSize: 20, marginBottom: 4 }}>📄</Text>
-                <Text style={{ color: colors.text, fontSize: 11, fontWeight: '500', textAlign: 'center', marginBottom: 8 }}>Provisionsvereinbarung</Text>
-                <TouchableOpacity
-                  style={[styles.uploadPdfBtn, { backgroundColor: colors.border }]}
-                  onPress={() => uploadDoc('provision_documents')}
-                >
-                  <Text style={{ color: colors.text, fontSize: 12, fontWeight: '600' }}>+ PDF</Text>
-                </TouchableOpacity>
-                {detailProvDocs.map((doc: any, i: number) => (
-                  <View key={i} style={styles.docItem}>
-                    <TouchableOpacity style={{ flex: 1 }} onPress={() => Linking.openURL(doc.url)}>
-                      <Text style={{ color: '#3b82f6', fontSize: 11 }} numberOfLines={1}>📄 {doc.name}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => deleteDoc(doc.path, 'provision_documents')}>
-                      <Text style={{ color: '#ef4444', fontSize: 14, fontWeight: '700', paddingLeft: 6 }}>✕</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </View>
-              {/* Vertrag */}
-              <View style={[styles.uploadBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-                <Text style={{ fontSize: 20, marginBottom: 4 }}>📋</Text>
-                <Text style={{ color: colors.text, fontSize: 12, fontWeight: '500', textAlign: 'center', marginBottom: 8 }}>Vertrag</Text>
-                <TouchableOpacity
-                  style={[styles.uploadPdfBtn, { backgroundColor: colors.border }]}
-                  onPress={() => uploadDoc('contract_documents')}
-                >
-                  <Text style={{ color: colors.text, fontSize: 12, fontWeight: '600' }}>+ PDF</Text>
-                </TouchableOpacity>
-                {detailContractDocs.map((doc: any, i: number) => (
-                  <View key={i} style={styles.docItem}>
-                    <TouchableOpacity style={{ flex: 1 }} onPress={() => Linking.openURL(doc.url)}>
-                      <Text style={{ color: '#3b82f6', fontSize: 11 }} numberOfLines={1}>📄 {doc.name}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => deleteDoc(doc.path, 'contract_documents')}>
-                      <Text style={{ color: '#ef4444', fontSize: 14, fontWeight: '700', paddingLeft: 6 }}>✕</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </View>
-            </View>
-
             {/* Saisongehalt */}
             <View style={{ marginBottom: 16 }}>
               <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Gehalt Saison {season}</Text>
@@ -1776,10 +1743,7 @@ export function FinanzenScreen({ navigation }: any) {
                   value={detailAnnualSalary}
                   onChangeText={(val) => {
                     setDetailAnnualSalary(val);
-                    const basis = detailProvBasis || (detailProvPercent ? 'prozent_jahresgehalt' : '');
-                    if (basis) {
-                      computeProvision(val, basis, detailProvPercent, detailProvSalaryMonths, detailTotalAmount, detailRateCount, detailRates, detailMonthlySalary || undefined);
-                    }
+                    recomputeTotal(val, detailProvPercent);
                   }}
                   keyboardType="numeric"
                 />
@@ -1798,7 +1762,10 @@ export function FinanzenScreen({ navigation }: any) {
                     placeholder="10"
                     placeholderTextColor={colors.textMuted}
                     value={detailProvPercent}
-                    onChangeText={setDetailProvPercent}
+                    onChangeText={(val) => {
+                      setDetailProvPercent(val);
+                      recomputeTotal(detailAnnualSalary, val);
+                    }}
                     keyboardType="numeric"
                     maxLength={2}
                   />
@@ -1810,11 +1777,11 @@ export function FinanzenScreen({ navigation }: any) {
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Gesamtsumme</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                   <TextInput
-                    style={[styles.inputCompact, { width: 100, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
+                    style={[styles.inputCompact, { width: 100, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface, opacity: 0.75 }]}
                     placeholder="1.000,00"
                     placeholderTextColor={colors.textMuted}
                     value={detailTotalAmount}
-                    onChangeText={updateTotalAmount}
+                    editable={false}
                     keyboardType="numeric"
                   />
                   <TouchableOpacity
