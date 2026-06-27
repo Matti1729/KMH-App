@@ -426,9 +426,9 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
         {sidebarContent}
         <Modal visible={showFeedbackModal} transparent animationType="fade">
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, isMobile && styles.modalContentMobile, { backgroundColor: colors.surface }]}>
+            <View style={[styles.modalContent, isMobile && styles.modalContentMobile]}>
               <ScrollView style={{ maxHeight: 450 }} showsVerticalScrollIndicator={false}>
-                <Text style={[styles.modalTitle, { color: colors.text }]}>Feedback / Bug melden</Text>
+                <Text style={styles.modalTitle}>Feedback / Bug melden</Text>
                 <View style={[styles.typeContainer, isMobile && styles.typeContainerMobile]}>
                   {[
                     { id: 'bug', label: '🐛 Bug' },
@@ -440,19 +440,19 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
                       style={[
                         styles.typeButton,
                         { borderColor: colors.border },
-                        feedbackType === type.id && { backgroundColor: colors.primary, borderColor: colors.primary },
+                        feedbackType === type.id && { backgroundColor: '#22c55e', borderColor: '#22c55e' },
                       ]}
                       onPress={() => setFeedbackType(type.id as any)}
                     >
                       <Text style={[
                         styles.typeButtonText,
                         { color: colors.textSecondary },
-                        feedbackType === type.id && { color: colors.primaryText },
+                        feedbackType === type.id && { color: '#fff' },
                       ]}>{type.label}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
-                <Text style={[styles.inputLabel, { color: colors.text }]}>Beschreibung</Text>
+                <Text style={styles.inputLabel}>Beschreibung</Text>
                 <TextInput
                   style={[styles.textArea, { borderColor: colors.border, backgroundColor: colors.inputBackground, color: colors.text }]}
                   value={feedbackText}
@@ -464,7 +464,7 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
                 />
 
                 {/* Screenshot Upload */}
-                <Text style={[styles.inputLabel, { color: colors.text, marginTop: 8 }]}>Screenshot (optional)</Text>
+                <Text style={[styles.inputLabel, { marginTop: 8 }]}>Screenshot (optional)</Text>
                 <View style={styles.imageUploadContainer}>
                   <TouchableOpacity
                     style={[styles.imageUploadButton, { borderColor: colors.border, backgroundColor: colors.inputBackground }]}
@@ -524,9 +524,9 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
                 )}
               </ScrollView>
 
-              <View style={[styles.modalButtons, { borderTopColor: colors.border }]}>
+              <View style={styles.modalButtons}>
                 <TouchableOpacity
-                  style={[styles.cancelButton, { borderColor: colors.border }]}
+                  style={styles.cancelButton}
                   onPress={() => {
                     setShowFeedbackModal(false);
                     setFeedbackText('');
@@ -534,14 +534,14 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
                     setGeneratedPrompt('');
                   }}
                 >
-                  <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
+                  <Text style={styles.cancelButtonText}>Abbrechen</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.submitButton, { backgroundColor: colors.primary }, submitting && { opacity: 0.6 }]}
+                  style={[styles.submitButton, submitting && { opacity: 0.6 }]}
                   onPress={submitFeedback}
                   disabled={submitting}
                 >
-                  <Text style={[styles.submitButtonText, { color: colors.primaryText }]}>
+                  <Text style={styles.submitButtonText}>
                     {submitting ? 'Sende...' : 'Absenden'}
                   </Text>
                 </TouchableOpacity>
@@ -567,9 +567,9 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
       {sidebarContent}
       <Modal visible={showFeedbackModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, isMobile && styles.modalContentMobile, { backgroundColor: colors.surface }]}>
+          <View style={[styles.modalContent, isMobile && styles.modalContentMobile]}>
             <ScrollView style={{ maxHeight: 500 }} showsVerticalScrollIndicator={false}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Feedback / Bug melden</Text>
+              <Text style={styles.modalTitle}>Feedback / Bug melden</Text>
               <View style={[styles.typeContainer, isMobile && styles.typeContainerMobile]}>
                 {[
                   { id: 'bug', label: '🐛 Bug' },
@@ -580,20 +580,18 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
                     key={type.id}
                     style={[
                       styles.typeButton,
-                      { borderColor: colors.border },
-                      feedbackType === type.id && { backgroundColor: colors.primary, borderColor: colors.primary },
+                      feedbackType === type.id && { backgroundColor: '#22c55e', borderColor: '#22c55e' },
                     ]}
                     onPress={() => setFeedbackType(type.id as any)}
                   >
                     <Text style={[
                       styles.typeButtonText,
-                      { color: colors.textSecondary },
-                      feedbackType === type.id && { color: colors.primaryText },
+                      feedbackType === type.id && { color: '#fff' },
                     ]}>{type.label}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
-              <Text style={[styles.inputLabel, { color: colors.text }]}>Beschreibung</Text>
+              <Text style={styles.inputLabel}>Beschreibung</Text>
               <TextInput
                 style={[styles.textArea, { borderColor: colors.border, backgroundColor: colors.inputBackground, color: colors.text }]}
                 value={feedbackText}
@@ -605,7 +603,7 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
               />
 
               {/* Screenshot Upload */}
-              <Text style={[styles.inputLabel, { color: colors.text, marginTop: 8 }]}>Screenshot (optional)</Text>
+              <Text style={[styles.inputLabel, { marginTop: 8 }]}>Screenshot (optional)</Text>
               <View style={styles.imageUploadContainer}>
                 <TouchableOpacity
                   style={[styles.imageUploadButton, { borderColor: colors.border, backgroundColor: colors.inputBackground }]}
@@ -665,9 +663,9 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
               )}
             </ScrollView>
 
-            <View style={[styles.modalButtons, { borderTopColor: colors.border }]}>
+            <View style={styles.modalButtons}>
               <TouchableOpacity
-                style={[styles.cancelButton, { borderColor: colors.border }]}
+                style={styles.cancelButton}
                 onPress={() => {
                   setShowFeedbackModal(false);
                   setFeedbackText('');
@@ -675,14 +673,14 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
                   setGeneratedPrompt('');
                 }}
               >
-                <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Abbrechen</Text>
+                <Text style={styles.cancelButtonText}>Abbrechen</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.submitButton, { backgroundColor: colors.primary }, submitting && { opacity: 0.6 }]}
+                style={[styles.submitButton, submitting && { opacity: 0.6 }]}
                 onPress={submitFeedback}
                 disabled={submitting}
               >
-                <Text style={[styles.submitButtonText, { color: colors.primaryText }]}>
+                <Text style={styles.submitButtonText}>
                   {submitting ? 'Sende...' : 'Absenden'}
                 </Text>
               </TouchableOpacity>
@@ -1111,10 +1109,12 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.85)',
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: '#000',
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
     padding: 24,
-    width: 450,
+    width: 440,
     maxWidth: '90%',
   },
   modalContentMobile: {
@@ -1122,13 +1122,18 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1a1a1a',
-    marginBottom: 20,
+    fontFamily: 'Josefin Sans',
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '300',
+    letterSpacing: 3,
+    textTransform: 'uppercase',
+    color: 'rgba(255,255,255,0.85)',
+    marginBottom: 18,
   },
   typeContainer: {
     flexDirection: 'row',
+    gap: 8,
     marginBottom: 16,
   },
   typeContainerMobile: {
@@ -1136,79 +1141,82 @@ const styles = StyleSheet.create({
   },
   typeButton: {
     flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     alignItems: 'center',
-    marginRight: 8,
     marginBottom: 8,
   },
   typeButtonActive: {
-    backgroundColor: '#1a1a1a',
-    borderColor: '#1a1a1a',
+    backgroundColor: '#22c55e',
+    borderColor: '#22c55e',
   },
   typeButtonText: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '500',
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.7)',
+    fontWeight: '600',
   },
   typeButtonTextActive: {
     color: '#fff',
   },
   inputLabel: {
-    fontSize: 14,
+    fontSize: 10,
     fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: 'rgba(255,255,255,0.5)',
+    marginBottom: 6,
   },
   textArea: {
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 8,
+    borderColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 10,
     padding: 12,
-    fontSize: 14,
-    minHeight: 120,
+    fontSize: 13,
+    minHeight: 110,
     textAlignVertical: 'top',
     marginBottom: 12,
   },
   hintText: {
-    fontSize: 12,
-    color: '#9ca3af',
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.45)',
     marginBottom: 16,
   },
   modalButtons: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginTop: 16,
-    paddingTop: 16,
+    marginTop: 14,
+    paddingTop: 14,
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
+    borderTopColor: 'rgba(255,255,255,0.15)',
   },
   cancelButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+    paddingVertical: 9,
+    paddingHorizontal: 18,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    marginRight: 12,
+    borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    marginRight: 10,
   },
   cancelButtonText: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.7)',
+    fontWeight: '600',
   },
   submitButton: {
-    paddingVertical: 10,
+    paddingVertical: 9,
     paddingHorizontal: 20,
     borderRadius: 8,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#22c55e',
   },
   submitButtonText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#fff',
-    fontWeight: '600',
+    fontWeight: '700',
   },
   // Image Upload Styles
   imageUploadContainer: {
