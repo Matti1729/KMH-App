@@ -971,11 +971,13 @@ export function FinanzenScreen({ navigation }: any) {
   const displayRows: DisplayRow[] = useMemo(() => {
     const rows: DisplayRow[] = [];
     const playerIdsWithProv = new Set<string>();
-    // In zukünftigen Saisons den neuen Verein anzeigen, sobald die Saison NACH dem
-    // aktuellen Vertragsende beginnt (Saisonstart 1.7. des Startjahres).
+    // In zukünftigen Saisons den neuen Verein (future_club) anzeigen — ab der ersten
+    // Saison NACH der aktuellen. Unabhängig vom aktuellen Vertragsende, da ein Wechsel
+    // auch mitten im laufenden Vertrag passieren kann (z.B. Slamar: Vertrag bis 2028,
+    // wechselt aber zur Saison 26/27).
     const seasonStartYear = parseInt(String(season).split('/')[0], 10);
-    const seasonStart = isNaN(seasonStartYear) ? null : new Date(seasonStartYear, 6, 1);
-    const usesFuture = (pl: Player) => !!(pl.future_club && pl.contract_end && seasonStart && seasonStart > new Date(pl.contract_end));
+    const currentSeasonStartYear = parseInt(getCurrentSeason().split('/')[0], 10);
+    const usesFuture = (pl: Player) => !!(pl.future_club && !isNaN(seasonStartYear) && !isNaN(currentSeasonStartYear) && seasonStartYear > currentSeasonStartYear);
     const effClub = (pl: Player) => usesFuture(pl) ? (pl.future_club as string) : pl.club;
     const effLeague = (pl: Player) => usesFuture(pl) ? '' : pl.league;
     for (const prov of provisions) {
