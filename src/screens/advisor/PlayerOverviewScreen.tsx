@@ -887,14 +887,18 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
       setTmClubSearching(false);
       return;
     }
+    // Handballerinnen: Vereine aus der HBF-Quelle (1./2. Bundesliga) statt Transfermarkt.
+    const isHandball = (editData?.category || fullPlayer?.category) === 'Handball';
     tmClubSearchTimeout.current = setTimeout(async () => {
       setTmClubSearching(true);
       try {
-        const { data } = await supabase.functions.invoke('search-club', { body: { query: query.trim() } });
+        const { data } = isHandball
+          ? await supabase.functions.invoke('search-handball', { body: { type: 'club', query: query.trim() } })
+          : await supabase.functions.invoke('search-club', { body: { query: query.trim() } });
         const parsed = typeof data === 'string' ? JSON.parse(data) : data;
         setTmClubResults(parsed?.results && Array.isArray(parsed.results) ? parsed.results : []);
       } catch (e) {
-        console.error('TM club search error:', e);
+        console.error('Club search error:', e);
         setTmClubResults([]);
       } finally {
         setTmClubSearching(false);
@@ -930,7 +934,7 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
                 <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, paddingHorizontal: 12, paddingVertical: 8 }}>Suche…</Text>
               ) : null}
               {tmClubResults.length > 0 ? (
-                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '600', letterSpacing: 0.8, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6, textTransform: 'uppercase' }}>Transfermarkt-Ergebnisse</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '600', letterSpacing: 0.8, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6, textTransform: 'uppercase' }}>{(editData?.category || fullPlayer?.category) === 'Handball' ? 'HBF-Vereine (1./2. BL)' : 'Transfermarkt-Ergebnisse'}</Text>
               ) : null}
               {tmClubResults.map((club, idx) => (
                 <TouchableOpacity
@@ -1194,13 +1198,15 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
   const handleLastNameChange = (text: string) => {
     setNewLastName(text);
     setTmSelected(null);
-    triggerTmSearch(text, newFirstName);
+    if (newCategory === 'Handball') triggerHandballSearch(text, newFirstName);
+    else triggerTmSearch(text, newFirstName);
   };
 
   const handleFirstNameChange = (text: string) => {
     setNewFirstName(text);
     setTmSelected(null);
-    triggerTmSearch(newLastName, text);
+    if (newCategory === 'Handball') triggerHandballSearch(newLastName, text);
+    else triggerTmSearch(newLastName, text);
   };
 
   const selectTmPlayer = async (suggestion: any) => {
@@ -1241,6 +1247,59 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
       setTmSelected({ transfermarkt_url: suggestion.url, verein: suggestion.verein || '', tmPosition: suggestion.position || '', tmAge: suggestion.age || '', nationality: suggestion.nationality || '', position: suggestion.position || '' });
     }
     setTmLoading(false);
+  };
+
+  // --- Handball-Suche (HBF: 1./2. Bundesliga Frauen, Quelle alsco-hbf.de) ---
+  const searchHandballPlayers = async (query: string) => {
+    if (query.trim().length < 2) { setTmSuggestions([]); return; }
+    setTmSearching(true);
+    try {
+      const { data } = await supabase.functions.invoke('search-handball', { body: { type: 'player', name: query.trim() } });
+      const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+      setTmSuggestions((parsed?.results || []).slice(0, 30));
+    } catch { setTmSuggestions([]); }
+    setTmSearching(false);
+  };
+
+  const triggerHandballSearch = (lastName: string, firstName: string) => {
+    if (tmDebounceRef.current) clearTimeout(tmDebounceRef.current);
+    const query = firstName.trim() ? `${firstName.trim()} ${lastName.trim()}` : lastName.trim();
+    tmDebounceRef.current = setTimeout(() => searchHandballPlayers(query), 500);
+  };
+
+  // Handball-Treffer: enthält bereits alle Daten → kein zweiter Profil-Fetch nötig.
+  const selectHandballPlayer = (s: any) => {
+    setTmSuggestions([]);
+    const parts = (s.name || '').split(' ');
+    const firstName = parts.slice(0, -1).join(' ');
+    const lastName = parts[parts.length - 1];
+    setNewFirstName(firstName);
+    setNewLastName(lastName);
+    setTmSelected({
+      source: 'handball',
+      verein: s.verein || '',
+      clubLogoUrl: s.clubLogoUrl || '',
+      position: s.position || '',
+      dateOfBirth: s.dateOfBirth || '',
+      nationality: s.nationality || '',
+      heightCm: s.heightCm || null,
+      league: s.league || '',
+      photoUrl: s.photoUrl || '',
+      tmPosition: s.position || '',
+      tmAge: s.age || '',
+    });
+  };
+
+  // Kategorie im Eintrag-Modal wechseln → Suche auf die passende Quelle umstellen.
+  const changeNewCategory = (c: string) => {
+    setNewCategory(c);
+    setShowNewCategoryPicker(false);
+    setTmSelected(null);
+    setTmSuggestions([]);
+    if (newLastName.trim() || newFirstName.trim()) {
+      if (c === 'Handball') triggerHandballSearch(newLastName, newFirstName);
+      else triggerTmSearch(newLastName, newFirstName);
+    }
   };
 
   const handleAddPlayer = async () => {
@@ -1297,7 +1356,17 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
     // TM-Daten einfügen falls vorhanden. Stamm-Daten (Geburtsdatum + Nationalität) gehen
     // sowohl in die unsuffixed Spalte (Backwards-Compat für Listen-Queries) als auch in
     // `_advisor` (damit der Spieler-View sie über die Fallback-Kette findet).
-    if (tmSelected) {
+    if (tmSelected?.source === 'handball') {
+      // Handball: Daten sind schon deutsch/normalisiert (kein TM-Positions-Mapping).
+      if (tmSelected.verein) insertData.club = tmSelected.verein;
+      const dob = tmSelected.dateOfBirth ? toIsoDate(tmSelected.dateOfBirth) : null;
+      if (dob) { insertData.birth_date = dob; insertData.birth_date_advisor = dob; }
+      if (tmSelected.position) insertData.position = tmSelected.position;
+      if (tmSelected.nationality) { insertData.nationality = tmSelected.nationality; insertData.nationality_advisor = tmSelected.nationality; }
+      if (tmSelected.heightCm) insertData.height = tmSelected.heightCm;
+      if (tmSelected.league) insertData.league = tmSelected.league;
+      if (tmSelected.photoUrl) insertData.photo_url = tmSelected.photoUrl;
+    } else if (tmSelected) {
       if (tmSelected.transfermarkt_url) insertData.transfermarkt_url = tmSelected.transfermarkt_url;
       if (tmSelected.verein) insertData.club = tmSelected.verein;
       if (tmSelected.loanFromClub) insertData.loan_from_club = tmSelected.loanFromClub;
@@ -3672,18 +3741,18 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
                     {showNewCategoryPicker && (
                       <View style={{ marginTop: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 12, backgroundColor: '#1a1a1a', overflow: 'hidden' }}>
                         {CATEGORIES.map((c, i) => (
-                          <TouchableOpacity key={c} onPress={() => { setNewCategory(c); setShowNewCategoryPicker(false); }} style={{ paddingVertical: 10, paddingHorizontal: 16, borderBottomWidth: i < CATEGORIES.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.08)', backgroundColor: newCategory === c ? 'rgba(34,197,94,0.15)' : 'transparent' }}>
+                          <TouchableOpacity key={c} onPress={() => changeNewCategory(c)} style={{ paddingVertical: 10, paddingHorizontal: 16, borderBottomWidth: i < CATEGORIES.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.08)', backgroundColor: newCategory === c ? 'rgba(34,197,94,0.15)' : 'transparent' }}>
                             <Text style={{ fontSize: 13, color: newCategory === c ? '#22c55e' : '#fff' }}>{c}</Text>
                           </TouchableOpacity>
                         ))}
                       </View>
                     )}
                   </View>
-                  {tmSearching && <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginBottom: 4 }}>Suche auf Transfermarkt...</Text>}
+                  {tmSearching && <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginBottom: 4 }}>{newCategory === 'Handball' ? 'Suche auf alsco-hbf.de...' : 'Suche auf Transfermarkt...'}</Text>}
                   {tmSuggestions.length > 0 && (
                     <ScrollView style={{ maxHeight: 240, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, marginBottom: 8, backgroundColor: '#1a1a1a' }}>
                       {tmSuggestions.map((s, i) => (
-                        <TouchableOpacity key={i} style={{ flexDirection: 'row', alignItems: 'baseline', paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: i < tmSuggestions.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.05)' }} onPress={() => selectTmPlayer(s)}>
+                        <TouchableOpacity key={i} style={{ flexDirection: 'row', alignItems: 'baseline', paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: i < tmSuggestions.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.05)' }} onPress={() => (s.source === 'handball' ? selectHandballPlayer(s) : selectTmPlayer(s))}>
                           <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>{s.name}</Text>
                           <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginLeft: 6 }}>{[s.verein, s.position, s.age ? s.age + 'J' : ''].filter(Boolean).join(' · ')}</Text>
                         </TouchableOpacity>
@@ -3693,7 +3762,7 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
                   {tmLoading && <Text style={{ color: '#22c55e', fontSize: 11, marginBottom: 6 }}>Lade Spielerdaten von Transfermarkt...</Text>}
                   {tmSelected && (
                     <View style={{ backgroundColor: 'rgba(34,197,94,0.1)', borderRadius: 6, padding: 8, marginBottom: 6, borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)' }}>
-                      <Text style={{ color: '#22c55e', fontSize: 11, fontWeight: '600', marginBottom: 3 }}>Transfermarkt-Daten übernommen</Text>
+                      <Text style={{ color: '#22c55e', fontSize: 11, fontWeight: '600', marginBottom: 3 }}>{tmSelected?.source === 'handball' ? 'Handball-Daten übernommen' : 'Transfermarkt-Daten übernommen'}</Text>
                       <Text style={{ fontSize: 12 }} numberOfLines={1}><Text style={{ color: '#fff', fontWeight: '600' }}>{newFirstName} {newLastName}</Text>{'  '}<Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>{[tmSelected.verein, tmSelected.tmPosition, tmSelected.tmAge ? tmSelected.tmAge + 'J' : ''].filter(Boolean).join(' · ')}</Text>
                       </Text>
                     </View>
@@ -4159,18 +4228,18 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
                   {showNewCategoryPicker && (
                     <View style={{ marginTop: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 12, backgroundColor: '#1a1a1a', overflow: 'hidden' }}>
                       {CATEGORIES.map((c, i) => (
-                        <TouchableOpacity key={c} onPress={() => { setNewCategory(c); setShowNewCategoryPicker(false); }} style={{ paddingVertical: 10, paddingHorizontal: 16, borderBottomWidth: i < CATEGORIES.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.08)', backgroundColor: newCategory === c ? 'rgba(34,197,94,0.15)' : 'transparent' }}>
+                        <TouchableOpacity key={c} onPress={() => changeNewCategory(c)} style={{ paddingVertical: 10, paddingHorizontal: 16, borderBottomWidth: i < CATEGORIES.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.08)', backgroundColor: newCategory === c ? 'rgba(34,197,94,0.15)' : 'transparent' }}>
                           <Text style={{ fontSize: 13, color: newCategory === c ? '#22c55e' : '#fff' }}>{c}</Text>
                         </TouchableOpacity>
                       ))}
                     </View>
                   )}
                 </View>
-                {tmSearching && <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginBottom: 4 }}>Suche auf Transfermarkt...</Text>}
+                {tmSearching && <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginBottom: 4 }}>{newCategory === 'Handball' ? 'Suche auf alsco-hbf.de...' : 'Suche auf Transfermarkt...'}</Text>}
                 {tmSuggestions.length > 0 && (
                   <ScrollView style={{ maxHeight: 280, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, marginBottom: 8, backgroundColor: '#1a1a1a' }}>
                     {tmSuggestions.map((s, i) => (
-                      <TouchableOpacity key={i} style={{ flexDirection: 'row', alignItems: 'baseline', paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: i < tmSuggestions.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.05)' }} onPress={() => selectTmPlayer(s)}>
+                      <TouchableOpacity key={i} style={{ flexDirection: 'row', alignItems: 'baseline', paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: i < tmSuggestions.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.05)' }} onPress={() => (s.source === 'handball' ? selectHandballPlayer(s) : selectTmPlayer(s))}>
                         <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>{s.name}</Text>
                         <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginLeft: 6 }}>{[s.verein, s.position, s.age ? s.age + 'J' : ''].filter(Boolean).join(' · ')}</Text>
                       </TouchableOpacity>
