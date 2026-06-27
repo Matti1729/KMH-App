@@ -5,10 +5,12 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { supabase } from '../../config/supabase';
 import { useDialog } from '../../components/DialogProvider';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 export function LoginScreen({ navigation }: any) {
   const { signIn } = useAuth();
   const { colors } = useTheme();
+  const isMobile = useIsMobile();
   const { alert: alertDialog } = useDialog();
   const showAlert = (title: string, message: string, onOk?: () => void) => {
     alertDialog({ title, message }).then(() => { if (onOk) onOk(); });
@@ -177,13 +179,25 @@ export function LoginScreen({ navigation }: any) {
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.content, { backgroundColor: colors.background }]}>
-        <Text style={[styles.title, { color: colors.text }]}>Karl M. Herzog</Text>
-        <Text style={[styles.titleSecond, { color: colors.text }]}>Sportmanagement</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: '#000' }]}>
+      {/* Dezenter Hintergrund (Skyline) */}
+      <Image source={require('../../../assets/scouting-header-bg.jpg')} style={styles.bgImage} resizeMode="cover" />
+      <View style={styles.bgOverlay} />
+
+      <View style={[styles.content, isMobile && styles.contentMobile]}>
+        {/* Kooperations-Lockup */}
+        <View style={styles.brandHeader}>
+          <Text style={[styles.brandPrimary, isMobile && styles.brandPrimaryMobile]}>Karl M. Herzog{'\n'}Sportmanagement</Text>
+          <View style={styles.brandDivider}>
+            <View style={styles.brandDividerLine} />
+            <Text style={[styles.brandX, isMobile && { fontSize: 13 }]}>×</Text>
+            <View style={styles.brandDividerLine} />
+          </View>
+          <Text style={[styles.brandSecondary, isMobile && styles.brandSecondaryMobile]}>PM Sportmanagement</Text>
+        </View>
 
         <TextInput
-          style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+          style={styles.input}
           placeholder="E-Mail" placeholderTextColor={colors.textMuted}
           value={email}
           onChangeText={setEmail}
@@ -192,7 +206,7 @@ export function LoginScreen({ navigation }: any) {
         />
 
         <TextInput
-          style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
+          style={styles.input}
           placeholder="Passwort" placeholderTextColor={colors.textMuted}
           value={password}
           onChangeText={setPassword}
@@ -241,18 +255,32 @@ export function LoginScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  content: { flex: 1, padding: 24, justifyContent: 'center', maxWidth: 400, width: '100%', alignSelf: 'center' },
+  container: { flex: 1, backgroundColor: '#000' },
+  bgImage: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%', opacity: 0.5, ...(Platform.OS === 'web' ? ({ objectFit: 'cover', objectPosition: 'center' } as any) : {}) },
+  bgOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.72)' },
+  content: { flex: 1, padding: 24, justifyContent: 'center', maxWidth: 420, width: '100%', alignSelf: 'center' },
+  contentMobile: { padding: 20 },
+
+  // Kooperations-Lockup
+  brandHeader: { alignItems: 'center', marginBottom: 40 },
+  brandPrimary: { fontFamily: 'Josefin Sans', fontSize: 27, lineHeight: 34, fontWeight: '400', letterSpacing: 3, textTransform: 'uppercase', color: '#fff', textAlign: 'center' },
+  brandPrimaryMobile: { fontSize: 21, lineHeight: 27, letterSpacing: 2 },
+  brandDivider: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, marginVertical: 14, alignSelf: 'stretch', paddingHorizontal: 24 },
+  brandDividerLine: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.25)' },
+  brandX: { fontFamily: 'Josefin Sans', fontSize: 15, fontWeight: '300', color: 'rgba(255,255,255,0.6)' },
+  brandSecondary: { fontFamily: 'Josefin Sans', fontSize: 19, lineHeight: 25, fontWeight: '300', letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(255,255,255,0.78)', textAlign: 'center' },
+  brandSecondaryMobile: { fontSize: 15, letterSpacing: 2 },
+
   title: { fontSize: 32, fontWeight: 'bold', textAlign: 'center', marginBottom: 0 },
   titleSecond: { fontSize: 32, fontWeight: 'bold', textAlign: 'center', marginBottom: 32 },
-  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 12, padding: 16, fontSize: 16, marginBottom: 16 },
-  button: { backgroundColor: '#000', padding: 16, borderRadius: 12, alignItems: 'center', marginBottom: 16 },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  link: { color: '#000', textAlign: 'center', marginTop: 8 },
-  registerButton: { padding: 14, borderRadius: 12, alignItems: 'center' as const, marginTop: 16 },
-  registerButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' as const },
-  advisorLink: { marginTop: 16 },
-  advisorText: { color: '#666', textAlign: 'center' as const, fontSize: 14 },
+  input: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 14, paddingHorizontal: 18, paddingVertical: 16, fontSize: 16, marginBottom: 14, color: '#fff' },
+  button: { backgroundColor: '#fff', padding: 16, borderRadius: 14, alignItems: 'center', marginTop: 4, marginBottom: 8 },
+  buttonText: { color: '#000', fontSize: 16, fontWeight: '700' },
+  link: { color: '#fff', textAlign: 'center', marginTop: 8 },
+  registerButton: { padding: 15, borderRadius: 14, alignItems: 'center' as const, marginTop: 16 },
+  registerButtonText: { color: '#fff', fontSize: 15, fontWeight: '700' as const },
+  advisorLink: { marginTop: 18 },
+  advisorText: { color: 'rgba(255,255,255,0.55)', textAlign: 'center' as const, fontSize: 14 },
   
   // Modal Styles — Design-System (Skyline-BG, dunkel, Josefin-Titel, Pill-Input)
   modalOverlay: {
