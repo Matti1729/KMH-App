@@ -139,7 +139,9 @@ export function Sidebar({ navigation, activeScreen, profile, onNavigate, embedde
     });
 
     if (!result.canceled && result.assets[0]) {
-      setFeedbackImage(result.assets[0].uri);
+      const a = result.assets[0];
+      // Als Data-URL speichern, damit das Bild persistierbar ist (Blob-URLs sind nur lokal gültig).
+      setFeedbackImage(a.base64 ? `data:${a.mimeType || 'image/jpeg'};base64,${a.base64}` : a.uri);
     }
   };
 
@@ -192,6 +194,7 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
         description: feedbackText.trim(),
         screen: activeScreen,
         status: 'open',
+        image_data: feedbackImage && feedbackImage.startsWith('data:') ? feedbackImage : null,
         created_at: new Date().toISOString(),
       });
 
@@ -429,29 +432,6 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
             <View style={[styles.modalContent, isMobile && styles.modalContentMobile]}>
               <ScrollView style={{ maxHeight: 450 }} showsVerticalScrollIndicator={false}>
                 <Text style={styles.modalTitle}>Feedback / Bug melden</Text>
-                <View style={[styles.typeContainer, isMobile && styles.typeContainerMobile]}>
-                  {[
-                    { id: 'bug', label: '🐛 Bug' },
-                    { id: 'feature', label: '💡 Idee' },
-                    { id: 'other', label: '📝 Sonstiges' },
-                  ].map((type) => (
-                    <TouchableOpacity
-                      key={type.id}
-                      style={[
-                        styles.typeButton,
-                        { borderColor: colors.border },
-                        feedbackType === type.id && { backgroundColor: '#22c55e', borderColor: '#22c55e' },
-                      ]}
-                      onPress={() => setFeedbackType(type.id as any)}
-                    >
-                      <Text style={[
-                        styles.typeButtonText,
-                        { color: colors.textSecondary },
-                        feedbackType === type.id && { color: '#fff' },
-                      ]}>{type.label}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
                 <Text style={styles.inputLabel}>Beschreibung</Text>
                 <TextInput
                   style={[styles.textArea, { borderColor: colors.border, backgroundColor: colors.inputBackground, color: colors.text }]}
@@ -570,27 +550,6 @@ Bitte analysiere das Problem und implementiere eine Lösung. Achte dabei auf:
           <View style={[styles.modalContent, isMobile && styles.modalContentMobile]}>
             <ScrollView style={{ maxHeight: 500 }} showsVerticalScrollIndicator={false}>
               <Text style={styles.modalTitle}>Feedback / Bug melden</Text>
-              <View style={[styles.typeContainer, isMobile && styles.typeContainerMobile]}>
-                {[
-                  { id: 'bug', label: '🐛 Bug' },
-                  { id: 'feature', label: '💡 Idee' },
-                  { id: 'other', label: '📝 Sonstiges' },
-                ].map((type) => (
-                  <TouchableOpacity
-                    key={type.id}
-                    style={[
-                      styles.typeButton,
-                      feedbackType === type.id && { backgroundColor: '#22c55e', borderColor: '#22c55e' },
-                    ]}
-                    onPress={() => setFeedbackType(type.id as any)}
-                  >
-                    <Text style={[
-                      styles.typeButtonText,
-                      feedbackType === type.id && { color: '#fff' },
-                    ]}>{type.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
               <Text style={styles.inputLabel}>Beschreibung</Text>
               <TextInput
                 style={[styles.textArea, { borderColor: colors.border, backgroundColor: colors.inputBackground, color: colors.text }]}

@@ -41,6 +41,7 @@ interface Feedback {
   screen: string;
   status: 'open' | 'done';
   created_at: string;
+  image_data?: string | null;
 }
 
 export function AdminPanelScreen({ navigation }: any) {
@@ -591,6 +592,11 @@ Achte dabei auf:
                 <View style={[styles.feedbackDescriptionBox, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
                   <Text style={[styles.feedbackDescription, { color: colors.text }]}>{feedback.description}</Text>
                 </View>
+                {feedback.image_data ? (
+                  <TouchableOpacity onPress={() => { if (Platform.OS === 'web') { try { window.open(feedback.image_data as string, '_blank'); } catch {} } }}>
+                    <Image source={{ uri: feedback.image_data }} style={styles.feedbackImage} resizeMode="contain" />
+                  </TouchableOpacity>
+                ) : null}
                 <View style={styles.feedbackActions}>
                   <TouchableOpacity
                     style={[styles.copyPromptButton, { backgroundColor: colors.surfaceSecondary }]}
@@ -745,6 +751,7 @@ const styles = StyleSheet.create({
   removeAdminButtonText: { color: '#dc2626', fontSize: 10, fontWeight: '600' },
   // Feedback Styles
   feedbackCard: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', maxWidth: 500, ...(Platform.OS === 'web' ? ({ backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' } as any) : {}) },
+  feedbackImage: { width: '100%', maxWidth: 360, height: 200, borderRadius: 8, marginTop: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', backgroundColor: 'rgba(0,0,0,0.4)' },
   feedbackCardDone: { opacity: 0.6, backgroundColor: '#f9fafb' },
   feedbackHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   feedbackHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
