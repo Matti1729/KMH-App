@@ -933,6 +933,7 @@ export function FinanzenScreen({ navigation }: any) {
   const [detailShares, setDetailShares] = useState<{ name: string; percentage: string; type: string; notes: string }[]>([]);
   const [parsing, setParsing] = useState(false);
   const [detailAnnualSalary, setDetailAnnualSalary] = useState('');
+  const [detailMonthlySalaryStr, setDetailMonthlySalaryStr] = useState('');
   const [detailProvBasis, setDetailProvBasis] = useState('');
   const [detailProvSalaryMonths, setDetailProvSalaryMonths] = useState<number | null>(null);
   const [detailContractSalaryPeriods, setDetailContractSalaryPeriods] = useState<any[]>([]);
@@ -1060,6 +1061,7 @@ export function FinanzenScreen({ navigation }: any) {
     setShowRateDropdown(false);
     setDetailCurrency('EUR');
     setDetailAnnualSalary('');
+    setDetailMonthlySalaryStr('');
     setDetailProvBasis('');
     setDetailProvSalaryMonths(null);
     setDetailContractSalaryPeriods([]);
@@ -1118,6 +1120,19 @@ export function FinanzenScreen({ navigation }: any) {
     const total = parseFloat(val.replace(',', '.')) || 0;
     const perRate = detailRateCount && detailRateCount > 0 ? (total / detailRateCount).toFixed(2).replace('.', ',') : '';
     setDetailRates(prev => prev.map(r => ({ ...r, amount: perRate })));
+  };
+
+  // Tausenderpunkte (deutsch), ohne Nachkommastellen.
+  const formatThousands = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+  // Monatsgehalt eingeben → Jahresgehalt (× 12) automatisch berechnen und Gesamtsumme aktualisieren.
+  const updateMonthlySalary = (val: string) => {
+    setDetailMonthlySalaryStr(val);
+    const monthly = parseFloat(val.replace(/\./g, '').replace(',', '.')) || 0;
+    const annualStr = monthly > 0 ? formatThousands(monthly * 12) : '';
+    setDetailAnnualSalary(annualStr);
+    setDetailMonthlySalary(monthly);
+    recomputeTotal(annualStr, detailProvPercent);
   };
 
   // Gesamtsumme = Gehalt × Provision%. Wird automatisch berechnet, sobald sich
@@ -1732,22 +1747,33 @@ export function FinanzenScreen({ navigation }: any) {
             scrollEnabled={!activeDatePicker && !showRateDropdown}
             nestedScrollEnabled
           >
-            {/* Saisongehalt */}
+            {/* Saisongehalt: Monatsgehalt eingeben → Jahresgehalt automatisch */}
             <View style={{ marginBottom: 16 }}>
               <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Gehalt Saison {season}</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <TextInput
-                  style={[styles.inputCompact, { width: 140, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
-                  placeholder="z.B. 24.000"
-                  placeholderTextColor={colors.textMuted}
-                  value={detailAnnualSalary}
-                  onChangeText={(val) => {
-                    setDetailAnnualSalary(val);
-                    recomputeTotal(val, detailProvPercent);
-                  }}
-                  keyboardType="numeric"
-                />
-                <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: '600' }}>{detailCurrency === 'EUR' ? '€' : '$'} / Saison</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <TextInput
+                    style={[styles.inputCompact, { width: 110, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
+                    placeholder="z.B. 2.000"
+                    placeholderTextColor={colors.textMuted}
+                    value={detailMonthlySalaryStr}
+                    onChangeText={updateMonthlySalary}
+                    keyboardType="numeric"
+                  />
+                  <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: '600' }}>{detailCurrency === 'EUR' ? '€' : '$'} / Monat</Text>
+                </View>
+                <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: '700' }}>=</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <TextInput
+                    style={[styles.inputCompact, { width: 110, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface, opacity: 0.75 }]}
+                    placeholder="z.B. 24.000"
+                    placeholderTextColor={colors.textMuted}
+                    value={detailAnnualSalary}
+                    editable={false}
+                    keyboardType="numeric"
+                  />
+                  <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: '600' }}>{detailCurrency === 'EUR' ? '€' : '$'} / Saison</Text>
+                </View>
               </View>
             </View>
 
