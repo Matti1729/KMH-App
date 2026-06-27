@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Platform, Modal, Linking, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Platform, Modal, Linking, Image, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../config/supabase';
@@ -619,53 +619,60 @@ Achte dabei auf:
 
       {/* Confirmation Modal */}
       {showConfirmModal && (selectedAdvisor || selectedRequest || selectedFeedback) && (
-        <Modal visible={showConfirmModal} transparent animationType="fade">
+        <Modal visible={showConfirmModal} transparent animationType="fade" onRequestClose={() => { setShowConfirmModal(false); setSelectedFeedback(null); }}>
           <View style={styles.modalOverlay}>
-            <View style={[styles.confirmModal, { backgroundColor: colors.surface }]}>
-              <Text style={[styles.confirmTitle, { color: colors.text }]}>
-                {confirmAction === 'makeAdmin' && 'Admin-Rechte vergeben'}
-                {confirmAction === 'removeAdmin' && 'Admin-Rechte entfernen'}
-                {confirmAction === 'approve' && 'Anfrage genehmigen'}
-                {confirmAction === 'reject' && 'Anfrage ablehnen'}
-                {confirmAction === 'deleteFeedback' && 'Feedback löschen'}
-                {confirmAction === 'completeFeedback' && 'Als erledigt markieren'}
-              </Text>
-              <Text style={[styles.confirmText, { color: (confirmAction === 'removeAdmin' || confirmAction === 'reject' || confirmAction === 'deleteFeedback') ? '#ef4444' : colors.textSecondary }]}>
-                {confirmAction === 'makeAdmin' && selectedAdvisor &&
-                  `Möchten Sie ${selectedAdvisor.first_name} ${selectedAdvisor.last_name} zum Admin machen?`}
-                {confirmAction === 'removeAdmin' && selectedAdvisor &&
-                  `Möchten Sie ${selectedAdvisor.first_name} ${selectedAdvisor.last_name} die Admin-Rechte entziehen?`}
-                {confirmAction === 'approve' && selectedRequest &&
-                  `Möchten Sie ${selectedRequest.requester_name} Zugriff auf ${selectedRequest.player_name} gewähren?`}
-                {confirmAction === 'reject' && selectedRequest &&
-                  `Möchten Sie die Anfrage von ${selectedRequest.requester_name} für ${selectedRequest.player_name} ablehnen?`}
-                {confirmAction === 'deleteFeedback' && selectedFeedback &&
-                  `Möchten Sie dieses Feedback wirklich löschen?`}
-                {confirmAction === 'completeFeedback' && selectedFeedback &&
-                  `Möchten Sie dieses Feedback als erledigt markieren?`}
-              </Text>
-              <View style={styles.confirmButtons}>
-                <TouchableOpacity
-                  style={[styles.confirmCancelBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
-                  onPress={() => { setShowConfirmModal(false); setSelectedFeedback(null); }}
-                >
-                  <Text style={[styles.confirmCancelText, { color: colors.textSecondary }]}>Abbrechen</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.confirmActionBtn, (confirmAction === 'removeAdmin' || confirmAction === 'reject' || confirmAction === 'deleteFeedback') ? { backgroundColor: '#ef4444' } : { backgroundColor: colors.primary }]}
-                  onPress={selectedFeedback ? confirmFeedbackAction : handleConfirmAction}
-                >
-                  <Text style={[styles.confirmActionText, { color: (confirmAction === 'removeAdmin' || confirmAction === 'reject' || confirmAction === 'deleteFeedback') ? '#fff' : colors.primaryText }]}>
-                    {confirmAction === 'makeAdmin' && 'Bestätigen'}
-                    {confirmAction === 'removeAdmin' && 'Entfernen'}
-                    {confirmAction === 'approve' && 'Genehmigen'}
-                    {confirmAction === 'reject' && 'Ablehnen'}
-                    {confirmAction === 'deleteFeedback' && 'Löschen'}
-                    {confirmAction === 'completeFeedback' && 'Erledigt'}
-                  </Text>
-                </TouchableOpacity>
+            <Pressable style={StyleSheet.absoluteFillObject} onPress={() => { setShowConfirmModal(false); setSelectedFeedback(null); }} />
+            {(() => { const danger = (confirmAction === 'removeAdmin' || confirmAction === 'reject' || confirmAction === 'deleteFeedback'); return (
+            <View style={styles.confirmModal}>
+              <Image source={require('../../../assets/scouting-header-bg.jpg')} style={[StyleSheet.absoluteFillObject, { opacity: 0.85, ...(Platform.OS === 'web' ? ({ objectFit: 'cover', objectPosition: 'center' } as any) : {}) }]} resizeMode="cover" />
+              <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.55)' }]} />
+              <View style={{ zIndex: 1, alignItems: 'center' }}>
+                <Text style={styles.confirmTitle}>
+                  {confirmAction === 'makeAdmin' && 'Admin-Rechte vergeben'}
+                  {confirmAction === 'removeAdmin' && 'Admin-Rechte entfernen'}
+                  {confirmAction === 'approve' && 'Anfrage genehmigen'}
+                  {confirmAction === 'reject' && 'Anfrage ablehnen'}
+                  {confirmAction === 'deleteFeedback' && 'Feedback löschen'}
+                  {confirmAction === 'completeFeedback' && 'Als erledigt markieren'}
+                </Text>
+                <Text style={[styles.confirmText, { color: danger ? '#ef4444' : 'rgba(255,255,255,0.6)' }]}>
+                  {confirmAction === 'makeAdmin' && selectedAdvisor &&
+                    `Möchten Sie ${selectedAdvisor.first_name} ${selectedAdvisor.last_name} zum Admin machen?`}
+                  {confirmAction === 'removeAdmin' && selectedAdvisor &&
+                    `Möchten Sie ${selectedAdvisor.first_name} ${selectedAdvisor.last_name} die Admin-Rechte entziehen?`}
+                  {confirmAction === 'approve' && selectedRequest &&
+                    `Möchten Sie ${selectedRequest.requester_name} Zugriff auf ${selectedRequest.player_name} gewähren?`}
+                  {confirmAction === 'reject' && selectedRequest &&
+                    `Möchten Sie die Anfrage von ${selectedRequest.requester_name} für ${selectedRequest.player_name} ablehnen?`}
+                  {confirmAction === 'deleteFeedback' && selectedFeedback &&
+                    `Möchten Sie dieses Feedback wirklich löschen?`}
+                  {confirmAction === 'completeFeedback' && selectedFeedback &&
+                    `Möchten Sie dieses Feedback als erledigt markieren?`}
+                </Text>
+                <View style={styles.confirmButtons}>
+                  <TouchableOpacity
+                    style={styles.confirmCancelBtn}
+                    onPress={() => { setShowConfirmModal(false); setSelectedFeedback(null); }}
+                  >
+                    <Text style={styles.confirmCancelText}>Abbrechen</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.confirmActionBtn, danger ? { backgroundColor: '#ef4444' } : { backgroundColor: '#22c55e' }]}
+                    onPress={selectedFeedback ? confirmFeedbackAction : handleConfirmAction}
+                  >
+                    <Text style={styles.confirmActionText}>
+                      {confirmAction === 'makeAdmin' && 'Bestätigen'}
+                      {confirmAction === 'removeAdmin' && 'Entfernen'}
+                      {confirmAction === 'approve' && 'Genehmigen'}
+                      {confirmAction === 'reject' && 'Ablehnen'}
+                      {confirmAction === 'deleteFeedback' && 'Löschen'}
+                      {confirmAction === 'completeFeedback' && 'Erledigt'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
+            ); })()}
           </View>
         </Modal>
       )}
@@ -761,13 +768,14 @@ const styles = StyleSheet.create({
   deleteFeedbackButton: { paddingVertical: 3, paddingHorizontal: 6, borderRadius: 3, backgroundColor: 'rgba(239,68,68,0.15)', borderWidth: 1, borderColor: '#fecaca', alignItems: 'center' },
   deleteFeedbackButtonText: { fontSize: 10, color: '#dc2626', fontWeight: '600' },
   // Confirmation Modal Styles
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  confirmModal: { backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 12, padding: 20, width: '85%', maxWidth: 320, alignItems: 'center' },
-  confirmTitle: { fontSize: 16, fontWeight: '600', color: '#1a1a1a', marginBottom: 10 },
-  confirmText: { fontSize: 14, textAlign: 'center', marginBottom: 20, lineHeight: 20 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 16 },
+  // Design-System Modal: Skyline-BG + Josefin-Titel + Skill-Footer-Buttons
+  confirmModal: { width: '100%', maxWidth: 380, backgroundColor: '#000', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', overflow: 'hidden', padding: 24 },
+  confirmTitle: { fontFamily: 'Josefin Sans', fontSize: 16, lineHeight: 22, fontWeight: '300', letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(255,255,255,0.85)', textAlign: 'center', marginBottom: 10 },
+  confirmText: { fontSize: 13, textAlign: 'center', marginBottom: 22, lineHeight: 19 },
   confirmButtons: { flexDirection: 'row', gap: 10, width: '100%' },
-  confirmCancelBtn: { flex: 1, paddingVertical: 10, backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
-  confirmCancelText: { fontSize: 14, fontWeight: '500' },
-  confirmActionBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
-  confirmActionText: { fontSize: 14, fontWeight: '600' },
+  confirmCancelBtn: { flex: 1, paddingVertical: 11, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+  confirmCancelText: { fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.7)' },
+  confirmActionBtn: { flex: 1, paddingVertical: 11, borderRadius: 8, alignItems: 'center' },
+  confirmActionText: { fontSize: 14, fontWeight: '700', color: '#fff' },
 });
