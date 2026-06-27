@@ -177,18 +177,20 @@ export function PlayerHomeScreen() {
 
   useEffect(() => { fetchPlayer(); fetchClubLogos(); }, [fetchPlayer, fetchClubLogos]);
 
-  // Einmalige Willkommensnachricht: nur für echte Spieler (kein Berater-Impersonation),
-  // beim ersten Login nach Registrierung (welcome_seen === false).
+  // Einmalige Willkommensnachricht beim ersten Login (welcome_seen === false).
+  // Wird auch in der Berater-Impersonation angezeigt (zur Vorschau), das Flag wird
+  // dann aber NICHT gesetzt — so sieht der echte Spieler die Begrüßung weiterhin.
   const isAdvisorViewing = profile?.role === 'admin' || profile?.role === 'advisor';
+  const isImpersonating = isAdvisorViewing || !!viewAsPlayerId;
   useEffect(() => {
-    if (!viewAsPlayerId && !isAdvisorViewing && player && player.welcome_seen === false) {
+    if (player && player.welcome_seen === false) {
       setShowWelcome(true);
     }
-  }, [player, isAdvisorViewing, viewAsPlayerId]);
+  }, [player]);
 
   const dismissWelcome = async () => {
     setShowWelcome(false);
-    if (!player?.id) return;
+    if (!player?.id || isImpersonating) return; // Vorschau: Flag nicht persistieren
     setPlayer(prev => prev ? { ...prev, welcome_seen: true } : prev);
     try { await supabase.from('player_details').update({ welcome_seen: true }).eq('id', player.id); } catch (e) { console.warn('welcome_seen update', e); }
   };
