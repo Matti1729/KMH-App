@@ -270,7 +270,7 @@ export function PlayerHomeScreen() {
               <Text style={styles.welcomeText}>
                 Hallo {greetingName},{'\n\n'}
                 schön, dass wir dich auf deinem Weg unterstützen dürfen.{'\n\n'}
-                Um die Zusammenarbeit so gut wie möglich zu gestalten und dich sportlich sowie persönlich weiter voranzubringen, haben wir diesen Bereich für dich eingerichtet. Hier findest du alle wichtigen Informationen rund um deine Entwicklung, deine Ziele, deine Termine und die nächsten gemeinsamen Schritte.{'\n\n'}
+                Um die Zusammenarbeit so gut wie möglich zu gestalten und dich sportlich sowie persönlich weiter voranzubringen, haben wir diesen Bereich für dich eingerichtet. Hier findest du alle wichtigen Informationen rund um deine persönlichen Daten, deine sportliche Entwicklung und alles, was die Beratung betrifft.{'\n\n'}
                 Unser Ziel ist es, dich bestmöglich zu begleiten, deine Stärken weiter auszubauen und gemeinsam an den Themen zu arbeiten, die dich auf das nächste Level bringen.{'\n\n'}
                 Bitte nimm dir kurz Zeit, dein Profil vollständig auszufüllen und deine Angaben aktuell zu halten. So können wir dich noch gezielter unterstützen und die Zusammenarbeit optimal auf dich abstimmen.{'\n\n'}
                 Wir freuen uns auf den gemeinsamen Weg mit dir.{'\n\n'}
