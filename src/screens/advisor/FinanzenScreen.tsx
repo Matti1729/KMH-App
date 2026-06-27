@@ -940,11 +940,16 @@ export function FinanzenScreen({ navigation }: any) {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    // Jeder Berater sieht NUR seine eigenen Provisionen (Zuständigkeit = sein voller Name).
+    const fn = (authProfile?.first_name || '').trim();
+    const ln = (authProfile?.last_name || '').trim();
+    const fullName = `${fn} ${ln}`.trim();
+    if (!fullName) { setPlayers([]); setProvisions([]); setLoading(false); return; }
     const [playersRes, provsRes] = await Promise.all([
       supabase
         .from('player_details')
         .select('id, first_name, last_name, club, league, provision, provision_documents, contract_documents, commission_shares')
-        .or('responsibility.ilike.%Matti%,responsibility.ilike.%Langer%')
+        .ilike('responsibility', `%${fullName}%`)
         .order('last_name'),
       supabase
         .from('player_provisions')
@@ -954,7 +959,7 @@ export function FinanzenScreen({ navigation }: any) {
     if (playersRes.data) setPlayers(playersRes.data);
     if (provsRes.data) setProvisions(provsRes.data);
     setLoading(false);
-  }, [season]);
+  }, [season, authProfile?.first_name, authProfile?.last_name]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
