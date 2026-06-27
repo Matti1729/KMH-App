@@ -98,6 +98,7 @@ interface PlayerDetails {
   education: string;
   training: string;
   interests: string;
+  expectations: string;
   father_name: string;
   father_phone: string;
   father_phone_country_code: string;
@@ -132,7 +133,7 @@ const PLAYER_FIELDS = 'id, first_name, last_name, position, contract_end, club, 
   'mother_name_player, mother_phone_player, mother_phone_country_code_player, mother_job_player, siblings_player, ' +
   'instagram_player, tiktok_player, linkedin_player, ' +
   'injuries_player, internat_player, ' +
-  'additional_info_player';
+  'additional_info_player, consulting_expectations_player';
 
 const COUNTRY_TO_ISO: Record<string, string> = {
   'Deutschland': 'DE', 'Österreich': 'AT', 'Schweiz': 'CH', 'Frankreich': 'FR',
@@ -252,6 +253,7 @@ export function PlayerPersonalDataScreen() {
   const [editJob, setEditJob] = useState('');
   const [editTraining, setEditTraining] = useState('');
   const [editInterests, setEditInterests] = useState('');
+  const [editExpectations, setEditExpectations] = useState('');
 
   const [editFatherName, setEditFatherName] = useState('');
   const [editFatherPhone, setEditFatherPhone] = useState('');
@@ -304,6 +306,7 @@ export function PlayerPersonalDataScreen() {
     setEditTraining(p.training || '');
     setEditJob(p.job || '');
     setEditInterests(p.interests || '');
+    setEditExpectations(p.expectations || '');
     setEditFatherName(p.father_name || '');
     setEditFatherPhone(p.father_phone || '');
     setEditFatherPhoneCC(p.father_phone_country_code || '');
@@ -438,6 +441,7 @@ export function PlayerPersonalDataScreen() {
         // wir mappen die zusammengefasste Quelle auf `interests` und lassen
         // `other_notes` leer (das UI-Feld wird unten umgebaut).
         interests: r.additional_info_player || '',
+        expectations: r.consulting_expectations_player || '',
         other_notes: '',
       } : null;
 
@@ -590,6 +594,7 @@ export function PlayerPersonalDataScreen() {
         linkedin_player: editLinkedin || null,
         internat_player: editInternat,
         additional_info_player: additionalInfo || null,
+        consulting_expectations_player: editExpectations.trim() || null,
       };
 
       const { error } = await supabase
@@ -628,6 +633,7 @@ export function PlayerPersonalDataScreen() {
           linkedin: editLinkedin,
           internat: editInternat,
           interests: additionalInfo,
+          expectations: editExpectations.trim(),
           other_notes: '',
         };
         setPlayer(updated);
@@ -991,6 +997,7 @@ export function PlayerPersonalDataScreen() {
                     </View>
                   </View>
                   <EditField label="Weitere Informationen" value={editInterests} onChangeText={setEditInterests} colors={colors} multiline placeholder="Hobbies, Familie, Ziele, etc." />
+                  <EditField label="Was erwartest du von uns? / Wie sieht Beratung für dich aus?" value={editExpectations} onChangeText={setEditExpectations} colors={colors} multiline placeholder="Deine Erwartungen an die Beratung …" />
                 </>
               ) : (
                 <>
@@ -1006,6 +1013,7 @@ export function PlayerPersonalDataScreen() {
                     </View>
                   </View>
                   <InfoRow label="Weitere Informationen" value={player?.interests || '-'} colors={colors} />
+                  <InfoRow label="Was erwartest du von uns? / Wie sieht Beratung für dich aus?" value={player?.expectations || '-'} colors={colors} />
                 </>
               )}
             </View>

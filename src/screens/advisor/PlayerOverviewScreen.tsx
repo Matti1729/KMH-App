@@ -3266,6 +3266,17 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
                       multiline
                     />
                   </View>
+                  <View>
+                    <Text style={styles.detailFieldLabel}>Was erwartet der Spieler von uns? / Wie sieht Beratung für ihn aus?</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <Text style={styles.detailFieldValue}>{fullPlayer?.consulting_expectations_player || '-'}</Text>
+                      {fullPlayer?.consulting_expectations_player ? (
+                        <View style={{ backgroundColor: 'rgba(34,197,94,0.15)', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 8 }}>
+                          <Text style={{ color: '#22c55e', fontSize: 9, fontWeight: '600', letterSpacing: 0.5 }}>VOM SPIELER</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  </View>
                   {(isEditing || fullPlayer?.other_notes) ? (
                     <View>
                       <Text style={styles.detailFieldLabel}>Beraterfeld — eigene Notizen zum Spieler</Text>
