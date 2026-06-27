@@ -1812,7 +1812,7 @@ export function FinanzenScreen({ navigation }: any) {
                     style={[styles.currencyToggle, { borderColor: colors.border, backgroundColor: colors.surface }]}
                     onPress={() => setDetailCurrency(c => c === 'EUR' ? 'USD' : 'EUR')}
                   >
-                    <Text style={{ color: colors.text, fontSize: 13, fontWeight: '600' }}>{detailCurrency === 'EUR' ? '€' : '$'}</Text>
+                    <Text style={{ color: colors.text, fontSize: 11, fontWeight: '600' }}>{detailCurrency === 'EUR' ? '€' : '$'}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -2963,7 +2963,7 @@ const styles = StyleSheet.create({
   docItem: { flexDirection: 'row', alignItems: 'center', marginTop: 4, width: '100%' },
 
   // Currency toggle
-  currencyToggle: { width: 34, height: 34, borderWidth: 1, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  currencyToggle: { paddingVertical: 6, paddingHorizontal: 11, borderWidth: 1, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
 
   // Rate section
   rateSection: { borderWidth: 1, borderRadius: 10, padding: 14, marginTop: 16 },
