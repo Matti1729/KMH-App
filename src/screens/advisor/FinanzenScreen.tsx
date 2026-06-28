@@ -205,6 +205,14 @@ export function FinanzenScreen({ navigation }: any) {
   const [provisions, setProvisions] = useState<Provision[]>([]);
   // Spieler, die in der gewählten Saison bewusst "keine Provision" haben.
   const [noProvisionIds, setNoProvisionIds] = useState<Set<string>>(new Set());
+  // Über finance_provision_links verknüpfte (nicht betreute) Spieler.
+  const [linkedPlayerIds, setLinkedPlayerIds] = useState<Set<string>>(new Set());
+  // Spieler-aus-Liste-Picker
+  const [showPickPlayers, setShowPickPlayers] = useState(false);
+  const [allKmhPlayers, setAllKmhPlayers] = useState<{ id: string; first_name: string; last_name: string; club: string | null; responsibility: string | null }[]>([]);
+  const [pickSelected, setPickSelected] = useState<Set<string>>(new Set());
+  const [pickSearch, setPickSearch] = useState('');
+  const [pickSaving, setPickSaving] = useState(false);
   // "Externen" Provisions-Spieler anlegen (nicht betreut, aber Provision).
   const [showAddProv, setShowAddProv] = useState(false);
   const [addFirstName, setAddFirstName] = useState('');
@@ -968,13 +976,20 @@ export function FinanzenScreen({ navigation }: any) {
     const fn = (authProfile?.first_name || '').trim();
     const ln = (authProfile?.last_name || '').trim();
     const fullName = `${fn} ${ln}`.trim();
-    if (!fullName) { setPlayers([]); setProvisions([]); setNoProvisionIds(new Set()); setLoading(false); return; }
+    if (!fullName) { setPlayers([]); setProvisions([]); setNoProvisionIds(new Set()); setLinkedPlayerIds(new Set()); setLoading(false); return; }
+    // Verknüpfte (nicht betreute) Spieler dieses Beraters laden.
+    const linksRes = await supabase.from('finance_provision_links').select('player_id').eq('advisor_id', session?.user?.id || '');
+    const linkedIds: string[] = (linksRes.data || []).map((l: any) => l.player_id);
+    setLinkedPlayerIds(new Set(linkedIds));
+
+    const playerSelect = 'id, first_name, last_name, club, league, provision, provision_documents, contract_documents, commission_shares, contract_end, future_club';
+    let playersQuery = supabase.from('player_details').select(playerSelect).order('last_name');
+    playersQuery = linkedIds.length > 0
+      ? playersQuery.or(`responsibility.ilike.*${fullName}*,id.in.(${linkedIds.join(',')})`)
+      : playersQuery.ilike('responsibility', `%${fullName}%`);
+
     const [playersRes, provsRes, noProvRes] = await Promise.all([
-      supabase
-        .from('player_details')
-        .select('id, first_name, last_name, club, league, provision, provision_documents, contract_documents, commission_shares, contract_end, future_club')
-        .ilike('responsibility', `%${fullName}%`)
-        .order('last_name'),
+      playersQuery,
       supabase
         .from('player_provisions')
         .select('id, player_id, season, amount, status, due_date')
@@ -988,7 +1003,7 @@ export function FinanzenScreen({ navigation }: any) {
     if (provsRes.data) setProvisions(provsRes.data);
     setNoProvisionIds(new Set((noProvRes.data || []).map((r: any) => r.player_id)));
     setLoading(false);
-  }, [season, authProfile?.first_name, authProfile?.last_name]);
+  }, [season, authProfile?.first_name, authProfile?.last_name, session?.user?.id]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -1326,6 +1341,48 @@ export function FinanzenScreen({ navigation }: any) {
     if (error) { alertDialog({ title: 'Fehler', message: error.message }); return; }
     setShowAddProv(false);
     setAddFirstName(''); setAddLastName(''); setAddClub('');
+    fetchData();
+  };
+
+  // --- Spieler aus KMH-Liste auswählen (Mehrfachauswahl) ---
+  const myFullNameLc = `${(authProfile?.first_name || '').trim()} ${(authProfile?.last_name || '').trim()}`.trim().toLowerCase();
+  const isResponsibleForPlayer = (p: { responsibility: string | null }) => !!myFullNameLc && (p.responsibility || '').toLowerCase().includes(myFullNameLc);
+
+  const openPlayerPicker = async () => {
+    setShowAddProv(false);
+    setShowPickPlayers(true);
+    setPickSearch('');
+    setPickSelected(new Set(players.map(p => p.id))); // bereits in meiner Liste = vorausgewählt
+    const { data } = await supabase
+      .from('player_details')
+      .select('id, first_name, last_name, club, responsibility')
+      .or('provision_only.is.null,provision_only.eq.false')
+      .order('last_name');
+    setAllKmhPlayers((data as any) || []);
+  };
+
+  const togglePick = (p: { id: string; responsibility: string | null }) => {
+    if (isResponsibleForPlayer(p)) return; // betreute Spieler sind fix in der Liste
+    setPickSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(p.id)) next.delete(p.id); else next.add(p.id);
+      return next;
+    });
+  };
+
+  const confirmPickPlayers = async () => {
+    const me = session?.user?.id;
+    if (!me) return;
+    setPickSaving(true);
+    const adds = [...pickSelected].filter(id => {
+      const p = allKmhPlayers.find(x => x.id === id);
+      return p && !isResponsibleForPlayer(p) && !linkedPlayerIds.has(id);
+    });
+    const removes = [...linkedPlayerIds].filter(id => !pickSelected.has(id));
+    if (adds.length) await supabase.from('finance_provision_links').insert(adds.map(id => ({ advisor_id: me, player_id: id })));
+    if (removes.length) await supabase.from('finance_provision_links').delete().eq('advisor_id', me).in('player_id', removes);
+    setPickSaving(false);
+    setShowPickPlayers(false);
     fetchData();
   };
 
@@ -1894,6 +1951,14 @@ export function FinanzenScreen({ navigation }: any) {
               <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: 2 }}>Provision ohne Betreuung</Text>
             </View>
           </View>
+          <TouchableOpacity
+            onPress={openPlayerPicker}
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(96,165,250,0.5)', backgroundColor: 'rgba(96,165,250,0.12)', marginBottom: 16 }}
+          >
+            <Ionicons name="list" size={16} color="#60a5fa" />
+            <Text style={{ color: '#60a5fa', fontSize: 13, fontWeight: '600' }}>Spieler aus Liste auswählen</Text>
+          </TouchableOpacity>
+          <Text style={{ color: colors.textMuted, fontSize: 11, marginBottom: 12, textAlign: 'center' }}>— oder manuell anlegen —</Text>
           <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Nachname</Text>
@@ -1932,6 +1997,68 @@ export function FinanzenScreen({ navigation }: any) {
       </Pressable>
     </Modal>
   );
+
+  // Modal: Spieler aus der KMH-Liste auswählen (Mehrfachauswahl, Häkchen für bereits in der Liste).
+  const renderPickPlayersModal = () => {
+    const q = pickSearch.trim().toLowerCase();
+    const list = (q
+      ? allKmhPlayers.filter(p => `${p.last_name} ${p.first_name}`.toLowerCase().includes(q) || (p.club || '').toLowerCase().includes(q))
+      : allKmhPlayers);
+    return (
+      <Modal visible={showPickPlayers} transparent animationType="fade">
+        <Pressable style={styles.modalOverlay} onPress={() => setShowPickPlayers(false)}>
+          <Pressable style={[styles.modalContent, { maxWidth: 520, width: '92%', height: '80%', padding: 0 }]} onPress={e => e.stopPropagation()}>
+            <View style={{ padding: 20, paddingBottom: 12 }}>
+              <View style={styles.modalHeader}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.modalTitle, { color: colors.text }]}>Spieler auswählen</Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: 2 }}>Aus der KMH-Spielerübersicht · Mehrfachauswahl</Text>
+                </View>
+                <TouchableOpacity onPress={() => setShowPickPlayers(false)}>
+                  <Text style={{ color: colors.textMuted, fontSize: 20 }}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              <TextInput
+                style={[styles.inputCompact, { height: 34, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
+                placeholder="Spieler oder Verein suchen…" placeholderTextColor={colors.textMuted}
+                value={pickSearch} onChangeText={setPickSearch}
+              />
+            </View>
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 12 }}>
+              {list.map(p => {
+                const locked = isResponsibleForPlayer(p);
+                const checked = locked || pickSelected.has(p.id);
+                return (
+                  <TouchableOpacity
+                    key={p.id}
+                    onPress={() => togglePick(p)}
+                    disabled={locked}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)', opacity: locked ? 0.6 : 1 }}
+                  >
+                    <Ionicons name={checked ? 'checkbox' : 'square-outline'} size={20} color={checked ? '#22c55e' : 'rgba(255,255,255,0.5)'} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: colors.text, fontSize: 14, fontWeight: '600' }} numberOfLines={1}>{p.last_name}, {p.first_name}</Text>
+                      {p.club ? <Text style={{ color: colors.textMuted, fontSize: 12 }} numberOfLines={1}>{p.club}</Text> : null}
+                    </View>
+                    {locked ? <Text style={{ color: colors.textMuted, fontSize: 10, fontStyle: 'italic' }}>betreut</Text> : null}
+                  </TouchableOpacity>
+                );
+              })}
+              {list.length === 0 ? <Text style={{ color: colors.textMuted, textAlign: 'center', paddingVertical: 24 }}>Keine Spieler gefunden.</Text> : null}
+            </ScrollView>
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, padding: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' }}>
+              <TouchableOpacity onPress={() => setShowPickPlayers(false)} style={[styles.modalBtn, { borderColor: colors.border }]}>
+                <Text style={{ color: colors.textMuted }}>Abbrechen</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={confirmPickPlayers} disabled={pickSaving} style={[styles.modalBtn, styles.modalBtnPrimary, { opacity: pickSaving ? 0.6 : 1 }]}>
+                <Text style={{ color: '#fff', fontWeight: '600' }}>{pickSaving ? 'Speichern…' : 'Übernehmen'}</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    );
+  };
 
   const renderDetailModal = () => (
     <Modal visible={showDetail} transparent animationType="fade">
@@ -2263,6 +2390,7 @@ export function FinanzenScreen({ navigation }: any) {
         <MobileSidebar visible={showMobileSidebar} onClose={() => setShowMobileSidebar(false)} navigation={navigation} activeScreen="finanzen" />
         {renderDetailModal()}
         {renderAddProvModal()}
+        {renderPickPlayersModal()}
 
         <MobileHeader
           title="Finanzen"
@@ -2475,6 +2603,7 @@ export function FinanzenScreen({ navigation }: any) {
       <Sidebar navigation={navigation} activeScreen="finanzen" profile={authProfile} />
       {renderDetailModal()}
       {renderAddProvModal()}
+        {renderPickPlayersModal()}
 
       <View style={styles.mainContent}>
         <AdvisorHeroHeader
