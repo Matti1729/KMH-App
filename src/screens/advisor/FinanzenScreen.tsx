@@ -211,6 +211,9 @@ export function FinanzenScreen({ navigation }: any) {
   const [addLastName, setAddLastName] = useState('');
   const [addClub, setAddClub] = useState('');
   const [addSaving, setAddSaving] = useState(false);
+  // Gemessene Höhen für den durchgehenden blauen Banner (Header + Saison/Summen-Card).
+  const [heroHeaderH, setHeroHeaderH] = useState(0);
+  const [heroCardH, setHeroCardH] = useState(0);
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
@@ -2381,7 +2384,15 @@ export function FinanzenScreen({ navigation }: any) {
       {renderDetailModal()}
       {renderAddProvModal()}
 
-      <View style={styles.mainContent}>
+      <View style={[styles.mainContent, { position: 'relative' }]}>
+        {/* Ein durchgehendes blaues Bild hinter Header + Saison/Summen-Card → nahtlos.
+            Höhe = gemessene Header-Höhe + content-Padding + Card-Höhe. */}
+        {activeTab === 'finanzen' && heroHeaderH > 0 && heroCardH > 0 ? (
+          <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: heroHeaderH + 24 + heroCardH, overflow: 'hidden' }}>
+            <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ width: '100%', height: '100%', opacity: 0.5 }} resizeMode="cover" />
+            <View style={[StyleSheet.absoluteFill as any, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />
+          </View>
+        ) : null}
         <AdvisorHeroHeader
           title="FINANZEN"
           subtitle={
@@ -2389,8 +2400,9 @@ export function FinanzenScreen({ navigation }: any) {
               ? `${sortedDocuments.length} ${sortedDocuments.length === 1 ? 'DOKUMENT' : 'DOKUMENTE'}${docSearchText ? ' (GEFILTERT)' : ''}`
               : 'PROVISIONEN · ABRECHNUNGEN · DOKUMENTE'
           }
-          backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
+          backgroundImage={activeTab === 'finanzen' ? undefined : require('../../../assets/scouting-header-bg.jpg')}
           backgroundImageOpacity={0.45}
+          style={activeTab === 'finanzen' ? { backgroundColor: 'transparent' } : undefined}
         >
           {activeTab === 'dokumente' ? (
             <View style={styles.docsHeroSearchRow}>
@@ -2445,14 +2457,11 @@ export function FinanzenScreen({ navigation }: any) {
         </AdvisorHeroHeader>
 
         {activeTab === 'finanzen' ? (
-        <View style={styles.content}>
+        <View style={styles.content} onLayout={(e) => setHeroHeaderH(e.nativeEvent.layout.y)}>
           {/* Gemeinsamer Rahmen: Saison-Zeile + Summen. Kein eigenes Bild — der
               durchgehende Seiten-Hintergrund (AdvisorBackground) scheint durch,
               dadurch fließender Übergang vom Header. */}
-          <View style={styles.financeHero}>
-            <View style={StyleSheet.absoluteFill as any} pointerEvents="none">
-              <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ width: '100%', height: '100%', opacity: 0.45 }} resizeMode="cover" />
-            </View>
+          <View style={styles.financeHero} onLayout={(e) => setHeroCardH(e.nativeEvent.layout.height)}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
               <View style={{ width: 96 }} />
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
@@ -3184,9 +3193,9 @@ const styles = StyleSheet.create({
   content: { flex: 1, padding: 24 },
 
   seasonRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 20, gap: 16 },
-  // Gleiches blaues Skyline-Bild + Abdunklung wie der Header → blauer Look in Card,
-  // während der Platz-Hintergrund die Seite drumherum bleibt.
-  financeHero: { position: 'relative', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 14, padding: 16, marginBottom: 16, backgroundColor: 'rgba(0,0,0,0.5)' },
+  // Transparent: der durchgehende blaue Banner (Desktop) bzw. das eigene Bild (Mobile)
+  // liefert den Hintergrund. Nur Rahmen grenzt die Card ab.
+  financeHero: { position: 'relative', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 14, padding: 16, marginBottom: 16, backgroundColor: 'transparent' },
   seasonArrow: { padding: 8 },
   seasonText: { fontSize: 18, fontWeight: '700' },
 
