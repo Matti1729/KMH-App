@@ -1708,9 +1708,18 @@ export function FinanzenScreen({ navigation }: any) {
           <Text style={[styles.playerCardName, { color: colors.text }]} numberOfLines={1}>
             {row.last_name}, {row.first_name}
           </Text>
-          {!isProv && (
-            <Text style={{ color: '#3b82f6', fontSize: 18, fontWeight: '700' }}>+</Text>
-          )}
+          {(() => {
+            const s = row.type === 'no_provision'
+              ? { label: 'Keine Provision', color: 'rgba(255,255,255,0.5)' }
+              : row.type !== 'provision'
+                ? { label: 'Kein Eintrag', color: 'rgba(255,255,255,0.5)' }
+                : row.status === 'bezahlt'
+                  ? { label: 'Bezahlt', color: '#16a34a' }
+                  : row.status === 'in rechnung gestellt'
+                    ? { label: 'In Rechnung', color: '#2563eb' }
+                    : { label: 'Offen', color: '#d97706' };
+            return <Text style={{ color: s.color, fontSize: 11, fontWeight: '600' }} numberOfLines={1}>{s.label}</Text>;
+          })()}
         </View>
         <View style={styles.playerCardBody}>
           <View style={styles.playerCardRow}>
