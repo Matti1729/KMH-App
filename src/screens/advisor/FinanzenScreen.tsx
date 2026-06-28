@@ -1559,8 +1559,9 @@ export function FinanzenScreen({ navigation }: any) {
             {row.last_name}, {row.first_name}
           </Text>
         </View>
-        <View style={styles.colClub}>
-          <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{row.club || '-'}</Text>
+        <View style={[styles.colClub, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
+          {getClubLogo(row.club) ? <Image source={{ uri: getClubLogo(row.club)! }} style={{ width: 16, height: 16 }} resizeMode="contain" /> : null}
+          <Text style={[styles.tableCell, { color: colors.text, flex: 1 }]} numberOfLines={1}>{row.club || '-'}</Text>
         </View>
         <View style={styles.colLeague}>
           <Text style={[styles.tableCell, { color: colors.textMuted, fontSize: 12 }]} numberOfLines={1}>{row.league || '-'}</Text>
@@ -1610,6 +1611,7 @@ export function FinanzenScreen({ navigation }: any) {
         </View>
         <View style={styles.playerCardBody}>
           <View style={styles.playerCardRow}>
+            {getClubLogo(row.club) ? <Image source={{ uri: getClubLogo(row.club)! }} style={{ width: 16, height: 16, marginRight: 6 }} resizeMode="contain" /> : null}
             <Text style={[{ color: colors.text, fontSize: 13, flex: 1 }]} numberOfLines={1}>{row.club || '-'}</Text>
             {row.league ? <Text style={{ color: colors.textMuted, fontSize: 12 }}>{row.league}</Text> : null}
             <Text style={{ color: colors.textMuted, fontSize: 13 }}>{row.provisionPercent ? `${row.provisionPercent}%` : ''}</Text>
@@ -2275,8 +2277,15 @@ export function FinanzenScreen({ navigation }: any) {
                             );
                           case 'vorname':
                             return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{row.first_name || '-'}</Text>;
-                          case 'club':
-                            return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{row.club || '-'}</Text>;
+                          case 'club': {
+                            const logo = getClubLogo(row.club);
+                            return (
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                {logo ? <Image source={{ uri: logo }} style={{ width: 18, height: 18 }} resizeMode="contain" /> : null}
+                                <Text style={[styles.tableCell, { color: colors.text, flex: 1 }]} numberOfLines={1}>{row.club || '-'}</Text>
+                              </View>
+                            );
+                          }
                           case 'league':
                             return <Text style={[styles.tableCell, { color: colors.text, fontSize: 12 }]} numberOfLines={1}>{row.league || '-'}</Text>;
                           case 'provision':
