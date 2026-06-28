@@ -2398,9 +2398,12 @@ export function FinanzenScreen({ navigation }: any) {
     </View>
   );
 
-  // Saison-Zeile + Summen-Card (transparent — blauer Banner liefert den Hintergrund).
+  // Saison-Zeile + Summen-Card mit eigenem blauen Bild (auf die Box zugeschnitten via overflow hidden).
   const financeHeroCard = (
     <View style={styles.financeHero}>
+      <View pointerEvents="none" style={StyleSheet.absoluteFill as any}>
+        <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ width: '100%', height: '100%', opacity: 0.45 }} resizeMode="cover" />
+      </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
         <View style={{ width: 96 }} />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
@@ -2424,32 +2427,18 @@ export function FinanzenScreen({ navigation }: any) {
       {renderDetailModal()}
       {renderAddProvModal()}
 
-      <View style={[styles.mainContent, { position: 'relative' }]}>
-        {activeTab === 'finanzen' ? (
-          /* Finanzen: Header UND Saison/Summen-Card in EINEM blauen Banner (ein durchgehendes Bild) */
-          <View style={{ position: 'relative', overflow: 'hidden' }}>
-            <View pointerEvents="none" style={StyleSheet.absoluteFill as any}>
-              <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ width: '100%', height: '100%', opacity: 0.5 }} resizeMode="cover" />
-              <View style={[StyleSheet.absoluteFill as any, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />
-            </View>
-            <AdvisorHeroHeader
-              title="FINANZEN"
-              subtitle="PROVISIONEN · ABRECHNUNGEN · DOKUMENTE"
-              style={{ backgroundColor: 'transparent', marginBottom: 0 }}
-            >
-              {segmentedTabs}
-            </AdvisorHeroHeader>
-            <View style={{ paddingHorizontal: 24, paddingTop: 6, paddingBottom: 16 }}>
-              {financeHeroCard}
-            </View>
-          </View>
-        ) : (
-          <AdvisorHeroHeader
-            title="FINANZEN"
-            subtitle={`${sortedDocuments.length} ${sortedDocuments.length === 1 ? 'DOKUMENT' : 'DOKUMENTE'}${docSearchText ? ' (GEFILTERT)' : ''}`}
-            backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
-            backgroundImageOpacity={0.45}
-          >
+      <View style={styles.mainContent}>
+        <AdvisorHeroHeader
+          title="FINANZEN"
+          subtitle={
+            activeTab === 'dokumente'
+              ? `${sortedDocuments.length} ${sortedDocuments.length === 1 ? 'DOKUMENT' : 'DOKUMENTE'}${docSearchText ? ' (GEFILTERT)' : ''}`
+              : 'PROVISIONEN · ABRECHNUNGEN · DOKUMENTE'
+          }
+          backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
+          backgroundImageOpacity={0.45}
+        >
+          {activeTab === 'dokumente' ? (
             <View style={styles.docsHeroSearchRow}>
               <Text style={styles.docsHeroSearchIcon}>🔍</Text>
               <TextInput
@@ -2465,6 +2454,8 @@ export function FinanzenScreen({ navigation }: any) {
                 </TouchableOpacity>
               ) : null}
             </View>
+          ) : null}
+          {activeTab === 'dokumente' ? (
             <TouchableOpacity
               style={[styles.heroUploadIconBtn, uploadingDoc && { opacity: 0.5 }]}
               onPress={startDocumentUpload}
@@ -2473,12 +2464,13 @@ export function FinanzenScreen({ navigation }: any) {
             >
               <MaterialCommunityIcons name="file-upload-outline" size={16} color="#fff" />
             </TouchableOpacity>
-            {segmentedTabs}
-          </AdvisorHeroHeader>
-        )}
+          ) : null}
+          {segmentedTabs}
+        </AdvisorHeroHeader>
 
         {activeTab === 'finanzen' ? (
         <View style={styles.content}>
+          {financeHeroCard}
           <Text style={[styles.rowCount, { color: colors.textMuted }]}>{provisionCount} Provisionen · {playerOnlyCount} Spieler ohne Einträge{noProvisionCount > 0 ? ` · ${noProvisionCount} keine Provision` : ''}</Text>
 
           <View style={[styles.tableWrapper, { backgroundColor: 'rgba(0,0,0,0.55)', borderColor: 'rgba(255,255,255,0.15)' }]} onLayout={(e) => setTableWidth(e.nativeEvent.layout.width - 32)}>
@@ -3195,9 +3187,8 @@ const styles = StyleSheet.create({
   content: { flex: 1, padding: 24 },
 
   seasonRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 20, gap: 16 },
-  // Transparent: der durchgehende blaue Banner (Desktop) bzw. das eigene Bild (Mobile)
-  // liefert den Hintergrund. Nur Rahmen grenzt die Card ab.
-  financeHero: { position: 'relative', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 14, padding: 16, marginBottom: 16, backgroundColor: 'transparent' },
+  // Eigenes blaues Bild auf die Box zugeschnitten (overflow hidden) + dunkle Basis wie der Header.
+  financeHero: { position: 'relative', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 14, padding: 16, marginBottom: 16, backgroundColor: 'rgba(0,0,0,0.5)' },
   seasonArrow: { padding: 8 },
   seasonText: { fontSize: 18, fontWeight: '700' },
 
