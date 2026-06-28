@@ -205,6 +205,12 @@ export function FinanzenScreen({ navigation }: any) {
   const [provisions, setProvisions] = useState<Provision[]>([]);
   // Spieler, die in der gewählten Saison bewusst "keine Provision" haben.
   const [noProvisionIds, setNoProvisionIds] = useState<Set<string>>(new Set());
+  // "Externen" Provisions-Spieler anlegen (nicht betreut, aber Provision).
+  const [showAddProv, setShowAddProv] = useState(false);
+  const [addFirstName, setAddFirstName] = useState('');
+  const [addLastName, setAddLastName] = useState('');
+  const [addClub, setAddClub] = useState('');
+  const [addSaving, setAddSaving] = useState(false);
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
@@ -1293,6 +1299,28 @@ export function FinanzenScreen({ navigation }: any) {
     fetchData();
   };
 
+  // Externen Provisions-Spieler anlegen (nur Finanzen, nicht in der Spielerübersicht).
+  const addProvisionPlayer = async () => {
+    if (!addLastName.trim()) { alertDialog({ title: 'Eingabe fehlt', message: 'Bitte Nachname eingeben.' }); return; }
+    const fn = (authProfile?.first_name || '').trim();
+    const ln = (authProfile?.last_name || '').trim();
+    const fullName = `${fn} ${ln}`.trim();
+    setAddSaving(true);
+    const { error } = await supabase.from('player_details').insert({
+      first_name: addFirstName.trim(),
+      last_name: addLastName.trim(),
+      club: addClub.trim() || null,
+      responsibility: fullName,
+      provision_only: true,
+      category: 'Fußball',
+    });
+    setAddSaving(false);
+    if (error) { alertDialog({ title: 'Fehler', message: error.message }); return; }
+    setShowAddProv(false);
+    setAddFirstName(''); setAddLastName(''); setAddClub('');
+    fetchData();
+  };
+
   // Provisions-Dropdown wählen: "Keine Provision" oder 1–30 %.
   const selectProvisionOption = (val: 'none' | number) => {
     setShowProvisionDropdown(false);
@@ -1817,6 +1845,56 @@ export function FinanzenScreen({ navigation }: any) {
   // durch und schließen das offene Dropdown.
   const blockIfNot = (key: string): 'none' | 'auto' => (dropdownOpenKey && dropdownOpenKey !== key ? 'none' : 'auto');
 
+  // Modal: externen Provisions-Spieler anlegen.
+  const renderAddProvModal = () => (
+    <Modal visible={showAddProv} transparent animationType="fade">
+      <Pressable style={styles.modalOverlay} onPress={() => setShowAddProv(false)}>
+        <Pressable style={[styles.modalContent, { maxWidth: 440 }]} onPress={e => e.stopPropagation()}>
+          <View style={styles.modalHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Spieler anlegen</Text>
+              <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: 2 }}>Provision ohne Betreuung</Text>
+            </View>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Nachname</Text>
+              <TextInput
+                style={[styles.inputCompact, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
+                placeholder="z.B. Mustermann" placeholderTextColor={colors.textMuted}
+                value={addLastName} onChangeText={setAddLastName} autoFocus
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Vorname</Text>
+              <TextInput
+                style={[styles.inputCompact, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
+                placeholder="z.B. Max" placeholderTextColor={colors.textMuted}
+                value={addFirstName} onChangeText={setAddFirstName}
+              />
+            </View>
+          </View>
+          <View style={{ marginBottom: 20 }}>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Verein</Text>
+            <TextInput
+              style={[styles.inputCompact, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
+              placeholder="z.B. FC Beispiel" placeholderTextColor={colors.textMuted}
+              value={addClub} onChangeText={setAddClub}
+            />
+          </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}>
+            <TouchableOpacity onPress={() => setShowAddProv(false)} style={[styles.modalBtn, { borderColor: colors.border }]}>
+              <Text style={{ color: colors.textMuted }}>Abbrechen</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={addProvisionPlayer} disabled={addSaving} style={[styles.modalBtn, styles.modalBtnPrimary, { opacity: addSaving ? 0.6 : 1 }]}>
+              <Text style={{ color: '#fff', fontWeight: '600' }}>{addSaving ? 'Speichern…' : 'Anlegen'}</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+
   const renderDetailModal = () => (
     <Modal visible={showDetail} transparent animationType="fade">
       <Pressable style={styles.modalOverlay} onPress={() => setShowDetail(false)}>
@@ -2146,6 +2224,7 @@ export function FinanzenScreen({ navigation }: any) {
         <AdvisorBackground />
         <MobileSidebar visible={showMobileSidebar} onClose={() => setShowMobileSidebar(false)} navigation={navigation} activeScreen="finanzen" />
         {renderDetailModal()}
+        {renderAddProvModal()}
 
         <MobileHeader
           title="Finanzen"
@@ -2222,7 +2301,13 @@ export function FinanzenScreen({ navigation }: any) {
               <Pressable onPress={() => changeSeason(1)} style={styles.seasonArrow}><Text style={{ color: colors.text, fontSize: 18 }}>▶</Text></Pressable>
             </View>
             {renderSummary()}
-            <Text style={[styles.rowCount, { color: colors.textMuted }]}>{provisionCount} Provisionen · {playerOnlyCount} ohne Einträge{noProvisionCount > 0 ? ` · ${noProvisionCount} keine Provision` : ''}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={[styles.rowCount, { color: colors.textMuted }]}>{provisionCount} Provisionen · {playerOnlyCount} ohne Einträge{noProvisionCount > 0 ? ` · ${noProvisionCount} keine Provision` : ''}</Text>
+              <TouchableOpacity onPress={() => setShowAddProv(true)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 5, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                <Ionicons name="add" size={13} color={colors.text} />
+                <Text style={{ color: colors.text, fontSize: 11, fontWeight: '600' }}>Spieler</Text>
+              </TouchableOpacity>
+            </View>
             {loading ? <Text style={[styles.emptyText, { color: colors.textMuted }]}>Laden...</Text> : sortedRows.map(renderCard)}
           </ScrollView>
         ) : (
@@ -2289,6 +2374,7 @@ export function FinanzenScreen({ navigation }: any) {
       <AdvisorBackground />
       <Sidebar navigation={navigation} activeScreen="finanzen" profile={authProfile} />
       {renderDetailModal()}
+      {renderAddProvModal()}
 
       <View style={styles.mainContent}>
         <AdvisorHeroHeader
@@ -2363,7 +2449,13 @@ export function FinanzenScreen({ navigation }: any) {
 
           {renderSummary()}
 
-          <Text style={[styles.rowCount, { color: colors.textMuted }]}>{provisionCount} Provisionen · {playerOnlyCount} Spieler ohne Einträge{noProvisionCount > 0 ? ` · ${noProvisionCount} keine Provision` : ''}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={[styles.rowCount, { color: colors.textMuted }]}>{provisionCount} Provisionen · {playerOnlyCount} Spieler ohne Einträge{noProvisionCount > 0 ? ` · ${noProvisionCount} keine Provision` : ''}</Text>
+            <TouchableOpacity onPress={() => setShowAddProv(true)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+              <Ionicons name="add" size={14} color={colors.text} />
+              <Text style={{ color: colors.text, fontSize: 12, fontWeight: '600' }}>Spieler</Text>
+            </TouchableOpacity>
+          </View>
 
           <View style={[styles.tableWrapper, { backgroundColor: 'rgba(0,0,0,0.55)', borderColor: 'rgba(255,255,255,0.15)' }]} onLayout={(e) => setTableWidth(e.nativeEvent.layout.width - 32)}>
             {tableWidth > 0 && (

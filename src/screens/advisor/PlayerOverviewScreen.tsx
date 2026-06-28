@@ -1128,6 +1128,7 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
       let query = supabase
         .from('player_details')
         .select('id, first_name, last_name, birth_date, position, club, league, contract_end, listing, responsibility, future_club, category')
+        .or('provision_only.is.null,provision_only.eq.false')
         .order('last_name', { ascending: true });
 
       // Trainer sieht nur die ihm zugewiesenen Spieler.
