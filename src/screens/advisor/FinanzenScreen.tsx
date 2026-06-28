@@ -1941,57 +1941,59 @@ export function FinanzenScreen({ navigation }: any) {
   const blockIfNot = (key: string): 'none' | 'auto' => (dropdownOpenKey && dropdownOpenKey !== key ? 'none' : 'auto');
 
   // Modal: externen Provisions-Spieler anlegen.
+  // Skyline-Hintergrund für Modals (Skill Form-Modal): scouting-header-bg + dunkles Overlay.
+  const modalSkylineBg = (
+    <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 16, overflow: 'hidden' }}>
+      <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%', opacity: 0.85, ...({ objectFit: 'cover', objectPosition: 'center' } as any) }} resizeMode="cover" />
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.45)' }} />
+    </View>
+  );
+  const skillModalTitle = { fontFamily: 'Josefin Sans', fontSize: 16, fontWeight: '300' as const, letterSpacing: 4, textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.7)', textAlign: 'center' as const };
+  const pillInput = { backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 8, fontSize: 13, color: '#fff' };
+
   const renderAddProvModal = () => (
     <Modal visible={showAddProv} transparent animationType="fade">
       <Pressable style={styles.modalOverlay} onPress={() => setShowAddProv(false)}>
-        <Pressable style={[styles.modalContent, { maxWidth: 440 }]} onPress={e => e.stopPropagation()}>
-          <View style={styles.modalHeader}>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Spieler anlegen</Text>
-              <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: 2 }}>Provision ohne Betreuung</Text>
+        <Pressable style={[styles.modalContent, { maxWidth: 460, padding: 0, overflow: 'hidden' }]} onPress={e => e.stopPropagation()}>
+          {modalSkylineBg}
+          <View style={{ padding: 24, zIndex: 1 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 4, position: 'relative' }}>
+              <Text style={skillModalTitle}>Spieler anlegen</Text>
+              <TouchableOpacity onPress={() => setShowAddProv(false)} style={{ position: 'absolute', right: 0, width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 20 }}>✕</Text>
+              </TouchableOpacity>
             </View>
-          </View>
-          <TouchableOpacity
-            onPress={openPlayerPicker}
-            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(96,165,250,0.5)', backgroundColor: 'rgba(96,165,250,0.12)', marginBottom: 16 }}
-          >
-            <Ionicons name="list" size={16} color="#60a5fa" />
-            <Text style={{ color: '#60a5fa', fontSize: 13, fontWeight: '600' }}>Spieler aus Liste auswählen</Text>
-          </TouchableOpacity>
-          <Text style={{ color: colors.textMuted, fontSize: 11, marginBottom: 12, textAlign: 'center' }}>— oder manuell anlegen —</Text>
-          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Nachname</Text>
-              <TextInput
-                style={[styles.inputCompact, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
-                placeholder="z.B. Mustermann" placeholderTextColor={colors.textMuted}
-                value={addLastName} onChangeText={setAddLastName} autoFocus
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Vorname</Text>
-              <TextInput
-                style={[styles.inputCompact, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
-                placeholder="z.B. Max" placeholderTextColor={colors.textMuted}
-                value={addFirstName} onChangeText={setAddFirstName}
-              />
-            </View>
-          </View>
-          <View style={{ marginBottom: 20 }}>
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Verein</Text>
-            <TextInput
-              style={[styles.inputCompact, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
-              placeholder="z.B. FC Beispiel" placeholderTextColor={colors.textMuted}
-              value={addClub} onChangeText={setAddClub}
-            />
-          </View>
-          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}>
-            <TouchableOpacity onPress={() => setShowAddProv(false)} style={[styles.modalBtn, { borderColor: colors.border }]}>
-              <Text style={{ color: colors.textMuted }}>Abbrechen</Text>
+            <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, textAlign: 'center', marginBottom: 18 }}>Provision ohne Betreuung</Text>
+            <TouchableOpacity
+              onPress={openPlayerPicker}
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(96,165,250,0.5)', backgroundColor: 'rgba(96,165,250,0.12)', marginBottom: 16 }}
+            >
+              <Ionicons name="list" size={16} color="#60a5fa" />
+              <Text style={{ color: '#60a5fa', fontSize: 13, fontWeight: '600' }}>Spieler aus Liste auswählen</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={addProvisionPlayer} disabled={addSaving} style={[styles.modalBtn, styles.modalBtnPrimary, { opacity: addSaving ? 0.6 : 1 }]}>
-              <Text style={{ color: '#fff', fontWeight: '600' }}>{addSaving ? 'Speichern…' : 'Anlegen'}</Text>
-            </TouchableOpacity>
+            <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, marginBottom: 14, textAlign: 'center' }}>— oder manuell anlegen —</Text>
+            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Nachname</Text>
+                <TextInput style={pillInput as any} placeholder="z.B. Mustermann" placeholderTextColor="rgba(255,255,255,0.3)" value={addLastName} onChangeText={setAddLastName} autoFocus />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Vorname</Text>
+                <TextInput style={pillInput as any} placeholder="z.B. Maximilian" placeholderTextColor="rgba(255,255,255,0.3)" value={addFirstName} onChangeText={setAddFirstName} />
+              </View>
+            </View>
+            <View style={{ marginBottom: 20 }}>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Verein</Text>
+              <TextInput style={pillInput as any} placeholder="z.B. FC Beispiel" placeholderTextColor="rgba(255,255,255,0.3)" value={addClub} onChangeText={setAddClub} />
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}>
+              <TouchableOpacity onPress={() => setShowAddProv(false)} style={[styles.modalBtn, { borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.05)' }]}>
+                <Text style={{ color: 'rgba(255,255,255,0.85)', fontWeight: '600' }}>Abbrechen</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={addProvisionPlayer} disabled={addSaving} style={[styles.modalBtn, styles.modalBtnPrimary, { opacity: addSaving ? 0.6 : 1 }]}>
+                <Text style={{ color: '#fff', fontWeight: '600' }}>{addSaving ? 'Speichern…' : 'Anlegen'}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </Pressable>
       </Pressable>
@@ -2007,24 +2009,23 @@ export function FinanzenScreen({ navigation }: any) {
     return (
       <Modal visible={showPickPlayers} transparent animationType="fade">
         <Pressable style={styles.modalOverlay} onPress={() => setShowPickPlayers(false)}>
-          <Pressable style={[styles.modalContent, { maxWidth: 520, width: '92%', height: '80%', padding: 0 }]} onPress={e => e.stopPropagation()}>
-            <View style={{ padding: 20, paddingBottom: 12 }}>
-              <View style={styles.modalHeader}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.modalTitle, { color: colors.text }]}>Spieler auswählen</Text>
-                  <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: 2 }}>Aus der KMH-Spielerübersicht · Mehrfachauswahl</Text>
-                </View>
-                <TouchableOpacity onPress={() => setShowPickPlayers(false)}>
-                  <Text style={{ color: colors.textMuted, fontSize: 20 }}>✕</Text>
+          <Pressable style={[styles.modalContent, { maxWidth: 520, width: '92%', height: '80%', padding: 0, overflow: 'hidden' }]} onPress={e => e.stopPropagation()}>
+            {modalSkylineBg}
+            <View style={{ padding: 20, paddingBottom: 12, zIndex: 1 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 4, position: 'relative' }}>
+                <Text style={skillModalTitle}>Spieler auswählen</Text>
+                <TouchableOpacity onPress={() => setShowPickPlayers(false)} style={{ position: 'absolute', right: 0, width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 20 }}>✕</Text>
                 </TouchableOpacity>
               </View>
+              <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, textAlign: 'center', marginBottom: 14 }}>Aus der KMH-Spielerübersicht · Mehrfachauswahl</Text>
               <TextInput
-                style={[styles.inputCompact, { height: 34, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
-                placeholder="Spieler oder Verein suchen…" placeholderTextColor={colors.textMuted}
+                style={[pillInput as any, { paddingVertical: 6 }]}
+                placeholder="Spieler oder Verein suchen…" placeholderTextColor="rgba(255,255,255,0.3)"
                 value={pickSearch} onChangeText={setPickSearch}
               />
             </View>
-            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 12 }}>
+            <ScrollView style={{ flex: 1, zIndex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 12 }}>
               {list.map(p => {
                 const locked = isResponsibleForPlayer(p);
                 const checked = locked || pickSelected.has(p.id);
@@ -2046,9 +2047,9 @@ export function FinanzenScreen({ navigation }: any) {
               })}
               {list.length === 0 ? <Text style={{ color: colors.textMuted, textAlign: 'center', paddingVertical: 24 }}>Keine Spieler gefunden.</Text> : null}
             </ScrollView>
-            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, padding: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' }}>
-              <TouchableOpacity onPress={() => setShowPickPlayers(false)} style={[styles.modalBtn, { borderColor: colors.border }]}>
-                <Text style={{ color: colors.textMuted }}>Abbrechen</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, padding: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)', zIndex: 1 }}>
+              <TouchableOpacity onPress={() => setShowPickPlayers(false)} style={[styles.modalBtn, { borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.05)' }]}>
+                <Text style={{ color: 'rgba(255,255,255,0.85)', fontWeight: '600' }}>Abbrechen</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={confirmPickPlayers} disabled={pickSaving} style={[styles.modalBtn, styles.modalBtnPrimary, { opacity: pickSaving ? 0.6 : 1 }]}>
                 <Text style={{ color: '#fff', fontWeight: '600' }}>{pickSaving ? 'Speichern…' : 'Übernehmen'}</Text>
@@ -2064,8 +2065,9 @@ export function FinanzenScreen({ navigation }: any) {
     <Modal visible={showDetail} transparent animationType="fade">
       <Pressable style={styles.modalOverlay} onPress={() => setShowDetail(false)}>
         <Pressable style={styles.modalContent} onPress={e => { e.stopPropagation(); setActiveDatePicker(null); setShowRateDropdown(false); setShowProvisionDropdown(false); setShowCurrencyDropdown(false); }}>
+          {modalSkylineBg}
           {/* Header */}
-          <View style={styles.modalHeader}>
+          <View style={[styles.modalHeader, { zIndex: 1 }]}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>
                 {detailPlayer ? `${detailPlayer.last_name}, ${detailPlayer.first_name}` : 'Provision'}
@@ -2085,7 +2087,7 @@ export function FinanzenScreen({ navigation }: any) {
           </View>
 
           <ScrollView
-            style={[{ flex: 1 }, (activeDatePicker || showRateDropdown || showProvisionDropdown || showCurrencyDropdown) ? { overflow: 'visible' as any } : {}]}
+            style={[{ flex: 1, zIndex: 2 }, (activeDatePicker || showRateDropdown || showProvisionDropdown || showCurrencyDropdown) ? { overflow: 'visible' as any } : {}]}
             scrollEnabled={!activeDatePicker && !showRateDropdown && !showProvisionDropdown && !showCurrencyDropdown}
             nestedScrollEnabled
           >
@@ -2357,7 +2359,7 @@ export function FinanzenScreen({ navigation }: any) {
           </ScrollView>
 
           {/* Footer */}
-          <View style={[styles.modalFooter, { zIndex: -1 }]}>
+          <View style={[styles.modalFooter, { zIndex: 1 }]}>
             {existingProvCount > 0 && (
               <TouchableOpacity style={[styles.modalBtn, { borderColor: '#ef4444', marginRight: 'auto' }]} onPress={deleteAllProvisions}>
                 <Text style={{ color: '#ef4444', fontWeight: '500' }}>Löschen</Text>
@@ -3425,9 +3427,9 @@ const styles = StyleSheet.create({
   modalContent: { backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 16, padding: 24, width: '90%', maxWidth: 540, maxHeight: '85%', overflow: 'visible' as const },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
   modalTitle: { fontSize: 18, fontWeight: '700' },
-  modalFooter: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e5e7eb' },
-  modalBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
-  modalBtnPrimary: { backgroundColor: '#3b82f6', borderColor: '#3b82f6' },
+  modalFooter: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' },
+  modalBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, borderWidth: 1 },
+  modalBtnPrimary: { backgroundColor: '#22c55e', borderColor: '#22c55e' },
 
   // Form
   fieldLabel: { fontSize: 11, fontWeight: '600', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
