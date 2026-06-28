@@ -1613,7 +1613,7 @@ export function FinanzenScreen({ navigation }: any) {
   const getRowBg = (row: DisplayRow): string | undefined => {
     if (row.type !== 'provision') return undefined;
     if (row.status === 'bezahlt') return isDark ? '#052e16' : '#f0fdf4';
-    if (row.status === 'in rechnung gestellt') return isDark ? '#172554' : '#eff6ff';
+    if (row.status === 'in rechnung gestellt') return isDark ? '#450a0a' : '#fef2f2';
     if (row.due_date && row.status !== 'bezahlt') {
       const today = new Date(); today.setHours(0, 0, 0, 0);
       if (new Date(row.due_date) <= today) return isDark ? '#450a0a' : '#fef2f2';
@@ -1699,7 +1699,7 @@ export function FinanzenScreen({ navigation }: any) {
         style={[
           styles.playerCard,
           // Frosted-Glass wie Spielerübersicht; Provisionen mit Status bekommen ihren Status-Ton.
-          rowBg ? { backgroundColor: rowBg, borderColor: row.status === 'bezahlt' ? '#bbf7d0' : row.status === 'in rechnung gestellt' ? '#bfdbfe' : '#fecaca' } : null,
+          rowBg ? { backgroundColor: rowBg, borderColor: row.status === 'bezahlt' ? '#22c55e' : row.status === 'in rechnung gestellt' ? '#ef4444' : '#ef4444' } : null,
         ]}
         onPress={() => openDetail(row.player_id)}
         activeOpacity={0.7}
@@ -1714,10 +1714,10 @@ export function FinanzenScreen({ navigation }: any) {
               : row.type !== 'provision'
                 ? { label: 'Kein Eintrag', color: 'rgba(255,255,255,0.5)' }
                 : row.status === 'bezahlt'
-                  ? { label: 'Bezahlt', color: '#16a34a' }
+                  ? { label: 'Bezahlt', color: '#22c55e' }
                   : row.status === 'in rechnung gestellt'
-                    ? { label: 'In Rechnung', color: '#2563eb' }
-                    : { label: 'Offen', color: '#d97706' };
+                    ? { label: 'In Rechnung', color: '#ef4444' }
+                    : { label: 'Offen', color: '#eab308' };
             return <Text style={{ color: s.color, fontSize: 11, fontWeight: '600', fontStyle: 'italic' }} numberOfLines={1}>{s.label}</Text>;
           })()}
         </View>
@@ -2151,7 +2151,7 @@ export function FinanzenScreen({ navigation }: any) {
                   {['offen', 'in rechnung gestellt', 'bezahlt'].map(s => {
                     const isActive = rate.status === s;
                     const labels: Record<string, string> = { 'offen': 'Offen', 'in rechnung gestellt': 'In Rechnung', 'bezahlt': 'Bezahlt' };
-                    const ac: Record<string, string> = { 'offen': '#d97706', 'in rechnung gestellt': '#2563eb', 'bezahlt': '#16a34a' };
+                    const ac: Record<string, string> = { 'offen': '#eab308', 'in rechnung gestellt': '#ef4444', 'bezahlt': '#22c55e' };
                     return (
                       <TouchableOpacity key={s} style={[styles.statusOption, { borderColor: isActive ? ac[s] : colors.border }, isActive && { backgroundColor: ac[s] + '15' }]}
                         onPress={() => setDetailRates(prev => prev.map((r, i) => i === idx ? { ...r, status: s } : r))}>
