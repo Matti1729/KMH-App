@@ -2120,13 +2120,13 @@ export function FinanzenScreen({ navigation }: any) {
             <View style={{ height: 1, backgroundColor: colors.border, marginBottom: 16 }} />
 
             {/* Reihe 1: Art + Provision/Wegvermittlung + Währung (3er-Reihe).
-                Spaltenbreite 200 wie in Reihe 2/3, damit die Spalten exakt untereinander stehen. */}
-            <View pointerEvents={blockIfNot('r1')} style={{ flexDirection: 'row', marginBottom: 16, position: 'relative', opacity: dimIfNot('r1'), zIndex: (showArtDropdown || showProvisionDropdown || showCurrencyDropdown) ? 1000 : 1 }}>
+                Flexible Spalten (flex:1), damit auch in der schmalen Mobile-Ansicht nichts abgeschnitten wird. */}
+            <View pointerEvents={blockIfNot('r1')} style={{ flexDirection: 'row', gap: 12, marginBottom: 16, position: 'relative', opacity: dimIfNot('r1'), zIndex: (showArtDropdown || showProvisionDropdown || showCurrencyDropdown) ? 1000 : 1 }}>
               {/* Art (Provision / Wegvermittlung / Sonderzahlungen) */}
-              <View style={{ width: 185, position: 'relative', zIndex: showArtDropdown ? 320 : 3 }}>
+              <View style={{ flex: 1, position: 'relative', zIndex: showArtDropdown ? 320 : 3 }}>
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Art</Text>
                 <TouchableOpacity
-                  style={[styles.inputCompact, { width: 90, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderColor: colors.border, backgroundColor: colors.surface }]}
+                  style={[styles.inputCompact, { width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderColor: colors.border, backgroundColor: colors.surface }]}
                   onPress={() => { setShowArtDropdown(v => !v); setShowProvisionDropdown(false); setShowCurrencyDropdown(false); setShowRateDropdown(false); setActiveDatePicker(null); }}
                 >
                   <Text style={{ color: colors.text, fontSize: 13, flex: 1 }} numberOfLines={1}>{artLabel(detailArt)}</Text>
@@ -2157,12 +2157,12 @@ export function FinanzenScreen({ navigation }: any) {
               {/* Provision/Wegvermittlung (Dropdown: Keine Provision / 1–30 %).
                   Bei "Sonderzahlungen" entfällt die Prozentauswahl → leerer Spacer. */}
               {detailArt === 'sonderzahlung' ? (
-                <View style={{ width: 185 }} />
+                <View style={{ flex: 1 }} />
               ) : (
-              <View style={{ width: 185, position: 'relative', zIndex: showProvisionDropdown ? 320 : 2 }}>
-                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>{detailArt === 'wegvermittlung' ? 'Wegvermittlung' : 'Provision'}</Text>
+              <View style={{ flex: 1, position: 'relative', zIndex: showProvisionDropdown ? 320 : 2 }}>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>{detailArt === 'wegvermittlung' ? 'Wegverm.' : 'Provision'}</Text>
                 <TouchableOpacity
-                  style={[styles.inputCompact, { width: 90, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderColor: colors.border, backgroundColor: colors.surface }]}
+                  style={[styles.inputCompact, { width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderColor: colors.border, backgroundColor: colors.surface }]}
                   onPress={() => { setShowProvisionDropdown(v => !v); setShowCurrencyDropdown(false); setShowRateDropdown(false); setShowArtDropdown(false); setActiveDatePicker(null); }}
                 >
                   <Text style={{ color: (detailNoProvision || detailProvPercent) ? colors.text : colors.textMuted, fontSize: 13, flex: 1 }} numberOfLines={1}>
@@ -2199,17 +2199,17 @@ export function FinanzenScreen({ navigation }: any) {
               </View>
               )}
               {/* Währung (Dropdown) */}
-              <View style={{ position: 'relative', zIndex: showCurrencyDropdown ? 320 : 1 }}>
+              <View style={{ flex: 1, position: 'relative', zIndex: showCurrencyDropdown ? 320 : 1 }}>
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Währung</Text>
                 <TouchableOpacity
-                  style={[styles.inputCompact, { width: 90, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderColor: colors.border, backgroundColor: colors.surface }]}
+                  style={[styles.inputCompact, { width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderColor: colors.border, backgroundColor: colors.surface }]}
                   onPress={() => { setShowCurrencyDropdown(v => !v); setShowProvisionDropdown(false); setShowRateDropdown(false); setShowArtDropdown(false); setActiveDatePicker(null); }}
                 >
                   <Text style={{ color: colors.text, fontSize: 13, flex: 1 }} numberOfLines={1}>{detailCurrency === 'EUR' ? '€ Euro' : '$ Dollar'}</Text>
                   <Text style={{ color: colors.textSecondary, fontSize: 10 }}>▼</Text>
                 </TouchableOpacity>
                 {showCurrencyDropdown && (
-                  <View style={[styles.datePickerList, { width: 90, backgroundColor: dropdownBg, borderColor: colors.border }]}>
+                  <View style={[styles.datePickerList, { left: 'auto' as any, right: 0, minWidth: 110, backgroundColor: dropdownBg, borderColor: colors.border }]}>
                     {([['EUR', '€ Euro'], ['USD', '$ Dollar']] as const).map(([val, label]) => {
                       const sel = detailCurrency === val;
                       return (
@@ -2234,31 +2234,30 @@ export function FinanzenScreen({ navigation }: any) {
             {detailArt === 'provision' && (
             <View pointerEvents={blockIfNot('r2')} style={{ marginBottom: 16, position: 'relative', opacity: dimIfNot('r2'), zIndex: 1 }}>
               <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Spielergehalt</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                {/* linke Spalte (200): Monatsgehalt + "=" */}
-                <View style={{ width: 185, flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                {/* linke Spalte: Monatsgehalt */}
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                   <TextInput
-                    style={[styles.inputCompact, { width: 90, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
+                    style={[styles.inputCompact, { flex: 1, minWidth: 0, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
                     placeholder="z.B. 2.000"
                     placeholderTextColor={colors.textMuted}
                     value={detailMonthlySalaryStr}
                     onChangeText={updateMonthlySalary}
                     keyboardType="numeric"
                   />
-                  <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: '600', marginLeft: 4 }}>{detailCurrency === 'EUR' ? '€' : '$'} / Monat</Text>
-                  <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: '700', marginLeft: 'auto', marginRight: 10 }}>=</Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 13, fontWeight: '600' }} numberOfLines={1}>{detailCurrency === 'EUR' ? '€' : '$'}/Mon.</Text>
                 </View>
-                {/* rechte Spalte: Jahresgehalt (€ / Saison) */}
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                {/* rechte Spalte: Jahresgehalt */}
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                   <TextInput
-                    style={[styles.inputCompact, { width: 90, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
+                    style={[styles.inputCompact, { flex: 1, minWidth: 0, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
                     placeholder="z.B. 24.000"
                     placeholderTextColor={colors.textMuted}
                     value={detailAnnualSalary}
                     onChangeText={updateAnnualSalary}
                     keyboardType="numeric"
                   />
-                  <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: '600', marginLeft: 4 }}>{detailCurrency === 'EUR' ? '€' : '$'} / Saison</Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 13, fontWeight: '600' }} numberOfLines={1}>{detailCurrency === 'EUR' ? '€' : '$'}/Sais.</Text>
                 </View>
               </View>
             </View>
@@ -2268,42 +2267,45 @@ export function FinanzenScreen({ navigation }: any) {
             {detailArt === 'wegvermittlung' && (
             <View pointerEvents={blockIfNot('r2')} style={{ marginBottom: 16, position: 'relative', opacity: dimIfNot('r2'), zIndex: 1 }}>
               <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Transfersumme</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <TextInput
-                  style={[styles.inputCompact, { width: 90, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
-                  placeholder="z.B. 5.000.000"
-                  placeholderTextColor={colors.textMuted}
-                  value={detailTransferSum}
-                  onChangeText={(v) => setDetailTransferSum(formatNumberInput(v))}
-                  keyboardType="numeric"
-                />
-                <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: '600', marginLeft: 6 }}>{detailCurrency === 'EUR' ? '€' : '$'}</Text>
+              <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <TextInput
+                    style={[styles.inputCompact, { flex: 1, minWidth: 0, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
+                    placeholder="z.B. 5.000.000"
+                    placeholderTextColor={colors.textMuted}
+                    value={detailTransferSum}
+                    onChangeText={(v) => setDetailTransferSum(formatNumberInput(v))}
+                    keyboardType="numeric"
+                  />
+                  <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: '600' }}>{detailCurrency === 'EUR' ? '€' : '$'}</Text>
+                </View>
+                <View style={{ flex: 1 }} />
               </View>
             </View>
             )}
 
             {/* Reihe 3: Gesamtsumme (links) + Raten (rechts) */}
-            <View pointerEvents={blockIfNot('r3')} style={{ flexDirection: 'row', alignItems: 'flex-start', position: 'relative', opacity: dimIfNot('r3'), zIndex: showRateDropdown ? 1000 : 1 }}>
-              {/* linke Spalte (200): Gesamtsumme */}
-              <View style={{ width: 185 }}>
-                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>{detailArt === 'wegvermittlung' ? 'Gesamtvermittlungssumme' : detailArt === 'sonderzahlung' ? 'Gesamtsumme' : 'Gesamtprovision'}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View pointerEvents={blockIfNot('r3')} style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start', position: 'relative', opacity: dimIfNot('r3'), zIndex: showRateDropdown ? 1000 : 1 }}>
+              {/* linke Spalte: Gesamtsumme */}
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>{detailArt === 'wegvermittlung' ? 'Gesamtverm.-Summe' : detailArt === 'sonderzahlung' ? 'Gesamtsumme' : 'Gesamtprovision'}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <TextInput
-                    style={[styles.inputCompact, { width: 90, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
+                    style={[styles.inputCompact, { flex: 1, minWidth: 0, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
                     placeholder="1.000,00"
                     placeholderTextColor={colors.textMuted}
                     value={detailTotalAmount}
                     onChangeText={updateTotalAmount}
                     keyboardType="numeric"
                   />
-                  <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: '600', marginLeft: 6 }}>{detailCurrency === 'EUR' ? '€' : '$'}</Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: '600' }}>{detailCurrency === 'EUR' ? '€' : '$'}</Text>
                 </View>
               </View>
               {/* rechte Spalte: Raten */}
-              <View style={{ position: 'relative', zIndex: showRateDropdown ? 200 : 1 }}>
+              <View style={{ flex: 1, position: 'relative', zIndex: showRateDropdown ? 200 : 1 }}>
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Raten</Text>
                 <TouchableOpacity
-                  style={[styles.inputCompact, { width: 90, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderColor: colors.border, backgroundColor: colors.surface }]}
+                  style={[styles.inputCompact, { width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderColor: colors.border, backgroundColor: colors.surface }]}
                   onPress={() => { setShowRateDropdown(!showRateDropdown); setShowProvisionDropdown(false); setShowCurrencyDropdown(false); setShowArtDropdown(false); setActiveDatePicker(null); }}
                 >
                   <Text style={{ color: detailRateCount ? colors.text : colors.textMuted, fontSize: 13 }}>
