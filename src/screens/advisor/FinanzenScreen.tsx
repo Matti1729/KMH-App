@@ -1751,7 +1751,7 @@ export function FinanzenScreen({ navigation }: any) {
           )}
         </View>
         {/* Monat */}
-        <View style={{ position: 'relative', flex: 2, zIndex: isActiveMonth ? 102 : 1 }}>
+        <View style={{ position: 'relative', flex: 1, zIndex: isActiveMonth ? 102 : 1 }}>
           <TouchableOpacity
             style={[styles.dateDropdownButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
             onPress={() => setActiveDatePicker(isActiveMonth ? null : { rateIdx, part: 'month' })}
@@ -3126,7 +3126,7 @@ const styles = StyleSheet.create({
 
   // Date Picker (matches TasksRemindersScreen)
   datePickerRow: { flexDirection: 'row', gap: 8 },
-  dateDropdownButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderRadius: 8, padding: 10 },
+  dateDropdownButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 0, height: 30 },
   dateDropdownText: { fontSize: 11 },
   datePickerList: { position: 'absolute', top: '100%', left: 0, borderWidth: 1, borderRadius: 8, maxHeight: 200, zIndex: 9999, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 12, elevation: 20, marginTop: 4, minWidth: 70 },
   datePickerItem: { padding: 10, borderBottomWidth: 1 },
