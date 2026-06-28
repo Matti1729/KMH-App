@@ -357,6 +357,7 @@ export function FinanzenScreen({ navigation }: any) {
 
   // Suche
   const [docSearchText, setDocSearchText] = useState('');
+  const [provSearchText, setProvSearchText] = useState('');
 
   // Sortierung
   const [docsSortField, setDocsSortField] = useState<DocsSortField>('created');
@@ -1036,7 +1037,14 @@ export function FinanzenScreen({ navigation }: any) {
   };
 
   const sortedRows = useMemo(() => {
-    const sorted = [...displayRows];
+    const q = provSearchText.trim().toLowerCase();
+    const filtered = q
+      ? displayRows.filter(r =>
+          `${r.last_name} ${r.first_name}`.toLowerCase().includes(q) ||
+          (r.club || '').toLowerCase().includes(q) ||
+          (r.league || '').toLowerCase().includes(q))
+      : displayRows;
+    const sorted = [...filtered];
     sorted.sort((a, b) => {
       let cmp = 0;
       switch (sortField) {
@@ -1050,7 +1058,7 @@ export function FinanzenScreen({ navigation }: any) {
       return sortDirection === 'asc' ? cmp : -cmp;
     });
     return sorted;
-  }, [displayRows, sortField, sortDirection]);
+  }, [displayRows, sortField, sortDirection, provSearchText]);
 
   // --- Totals ---
 
@@ -2284,6 +2292,28 @@ export function FinanzenScreen({ navigation }: any) {
               <MaterialCommunityIcons name="file-upload-outline" size={16} color="#fff" />
             </TouchableOpacity>
           ) : null}
+          {activeTab === 'finanzen' ? (
+            <View style={styles.docsHeroSearchRow}>
+              <Text style={styles.docsHeroSearchIcon}>🔍</Text>
+              <TextInput
+                style={styles.docsHeroSearchInput}
+                value={provSearchText}
+                onChangeText={setProvSearchText}
+                placeholder="Spieler, Verein…"
+                placeholderTextColor="rgba(255,255,255,0.4)"
+              />
+              {provSearchText ? (
+                <TouchableOpacity onPress={() => setProvSearchText('')} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                  <Ionicons name="close-circle" size={14} color="rgba(255,255,255,0.4)" />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ) : null}
+          {activeTab === 'finanzen' ? (
+            <TouchableOpacity onPress={() => setShowAddProv(true)} style={{ width: 28, height: 28, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' }} accessibilityLabel="Spieler hinzufügen">
+              <Ionicons name="person-add-outline" size={14} color="rgba(255,255,255,0.85)" />
+            </TouchableOpacity>
+          ) : null}
           <View style={styles.segmentedWrap}>
             {(['dokumente', 'finanzen'] as const).map((tab, idx) => {
               const isActive = activeTab === tab;
@@ -2321,16 +2351,10 @@ export function FinanzenScreen({ navigation }: any) {
                 <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ width: '100%', height: '100%', opacity: 0.45 }} resizeMode="cover" />
                 <View style={[StyleSheet.absoluteFill as any, { backgroundColor: 'rgba(255,255,255,0.07)', ...(Platform.OS === 'web' ? ({ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' } as any) : {}) }]} />
               </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <Pressable onPress={() => changeSeason(-1)} style={styles.seasonArrow}><Text style={{ color: colors.text, fontSize: 18 }}>◀</Text></Pressable>
-                  <Text style={[styles.seasonText, { color: colors.text }]}>{season}</Text>
-                  <Pressable onPress={() => changeSeason(1)} style={styles.seasonArrow}><Text style={{ color: colors.text, fontSize: 18 }}>▶</Text></Pressable>
-                </View>
-                <TouchableOpacity onPress={() => setShowAddProv(true)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 5, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(0,0,0,0.5)' }}>
-                  <Ionicons name="add" size={13} color={colors.text} />
-                  <Text style={{ color: colors.text, fontSize: 11, fontWeight: '600' }}>Spieler</Text>
-                </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 12 }}>
+                <Pressable onPress={() => changeSeason(-1)} style={styles.seasonArrow}><Text style={{ color: colors.text, fontSize: 18 }}>◀</Text></Pressable>
+                <Text style={[styles.seasonText, { color: colors.text }]}>{season}</Text>
+                <Pressable onPress={() => changeSeason(1)} style={styles.seasonArrow}><Text style={{ color: colors.text, fontSize: 18 }}>▶</Text></Pressable>
               </View>
               {renderSummary()}
             </View>
@@ -2427,17 +2451,10 @@ export function FinanzenScreen({ navigation }: any) {
         {/* Milchiger Frosted-Layer über dem Blau */}
         <View style={[StyleSheet.absoluteFill as any, { backgroundColor: 'rgba(255,255,255,0.07)', ...(Platform.OS === 'web' ? ({ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' } as any) : {}) }]} />
       </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-        <View style={{ width: 96 }} />
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-          <Pressable onPress={() => changeSeason(-1)} style={styles.seasonArrow}><Text style={{ color: colors.text, fontSize: 20 }}>◀</Text></Pressable>
-          <Text style={[styles.seasonText, { color: colors.text }]}>{season}</Text>
-          <Pressable onPress={() => changeSeason(1)} style={styles.seasonArrow}><Text style={{ color: colors.text, fontSize: 20 }}>▶</Text></Pressable>
-        </View>
-        <TouchableOpacity onPress={() => setShowAddProv(true)} style={{ width: 96, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <Ionicons name="add" size={14} color={colors.text} />
-          <Text style={{ color: colors.text, fontSize: 12, fontWeight: '600' }}>Spieler</Text>
-        </TouchableOpacity>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 14 }}>
+        <Pressable onPress={() => changeSeason(-1)} style={styles.seasonArrow}><Text style={{ color: colors.text, fontSize: 20 }}>◀</Text></Pressable>
+        <Text style={[styles.seasonText, { color: colors.text }]}>{season}</Text>
+        <Pressable onPress={() => changeSeason(1)} style={styles.seasonArrow}><Text style={{ color: colors.text, fontSize: 20 }}>▶</Text></Pressable>
       </View>
       {renderSummary()}
     </View>
@@ -2486,6 +2503,32 @@ export function FinanzenScreen({ navigation }: any) {
               accessibilityLabel="PDF hochladen"
             >
               <MaterialCommunityIcons name="file-upload-outline" size={16} color="#fff" />
+            </TouchableOpacity>
+          ) : null}
+          {activeTab === 'finanzen' ? (
+            <View style={styles.docsHeroSearchRow}>
+              <Text style={styles.docsHeroSearchIcon}>🔍</Text>
+              <TextInput
+                style={styles.docsHeroSearchInput}
+                value={provSearchText}
+                onChangeText={setProvSearchText}
+                placeholder="Spieler, Verein suchen..."
+                placeholderTextColor="rgba(255,255,255,0.4)"
+              />
+              {provSearchText ? (
+                <TouchableOpacity onPress={() => setProvSearchText('')} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                  <Ionicons name="close-circle" size={14} color="rgba(255,255,255,0.4)" />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ) : null}
+          {activeTab === 'finanzen' ? (
+            <TouchableOpacity
+              onPress={() => setShowAddProv(true)}
+              style={{ height: 28, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(0,0,0,0.7)' }}
+            >
+              <Ionicons name="add" size={14} color="rgba(255,255,255,0.85)" />
+              <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 11, fontWeight: '600' }}>Spieler</Text>
             </TouchableOpacity>
           ) : null}
           {segmentedTabs}
