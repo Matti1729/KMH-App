@@ -1690,8 +1690,8 @@ export function FinanzenScreen({ navigation }: any) {
         key={row.key}
         style={[
           styles.playerCard,
-          { backgroundColor: rowBg || colors.cardBackground, borderColor: rowBg ? (row.status === 'bezahlt' ? '#bbf7d0' : row.status === 'in rechnung gestellt' ? '#bfdbfe' : '#fecaca') : colors.cardBorder },
-          !isProv && { opacity: 0.5 },
+          // Frosted-Glass wie Spielerübersicht; Provisionen mit Status bekommen ihren Status-Ton.
+          rowBg ? { backgroundColor: rowBg, borderColor: row.status === 'bezahlt' ? '#bbf7d0' : row.status === 'in rechnung gestellt' ? '#bfdbfe' : '#fecaca' } : null,
         ]}
         onPress={() => openDetail(row.player_id)}
         activeOpacity={0.7}
@@ -3284,9 +3284,9 @@ const styles = StyleSheet.create({
   datePickerItemTextSelected: { color: '#3b82f6', fontWeight: '600' },
 
   // Mobile Card
-  playerCard: { borderRadius: 10, padding: 12, marginBottom: 8, borderWidth: 1 },
+  playerCard: { borderRadius: 16, padding: 12, marginBottom: 12, borderWidth: 1, backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)', ...(Platform.OS === 'web' ? ({ backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' } as any) : {}) },
   playerCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  playerCardName: { fontSize: 11, fontWeight: '600', flex: 1 },
+  playerCardName: { fontSize: 14, fontWeight: '600', flex: 1 },
   playerCardBody: {},
   playerCardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
 
