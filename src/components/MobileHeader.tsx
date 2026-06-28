@@ -44,11 +44,14 @@ export function MobileHeader({ title, subtitle, backgroundImage, backgroundImage
       {(children || onProfilePress) ? (
         <View style={styles.toolbar}>
           {children}
-          <View style={{ flex: 1 }} />
+          {/* Spacer nur, wenn ein Profil-Button rechts steht — sonst füllt die Suchleiste (flex:1) die ganze Zeile. */}
           {onProfilePress ? (
-            <TouchableOpacity style={[styles.profileButton, { backgroundColor: colors.primary }]} onPress={onProfilePress}>
-              <Text style={[styles.profileInitials, { color: colors.primaryText }]}>{profileInitials || '?'}</Text>
-            </TouchableOpacity>
+            <>
+              <View style={{ flex: 1 }} />
+              <TouchableOpacity style={[styles.profileButton, { backgroundColor: colors.primary }]} onPress={onProfilePress}>
+                <Text style={[styles.profileInitials, { color: colors.primaryText }]}>{profileInitials || '?'}</Text>
+              </TouchableOpacity>
+            </>
           ) : null}
         </View>
       ) : null}
