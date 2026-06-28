@@ -1729,15 +1729,15 @@ export function FinanzenScreen({ navigation }: any) {
 
   const renderSummary = () => (
     <View style={[styles.summaryRow, { marginBottom: 0 }, isMobile && { flexDirection: 'column' }]}>
-      <View style={[styles.summaryCard, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}>
+      <View style={[styles.summaryCard, { backgroundColor: 'rgba(255,255,255,0.13)', borderColor: 'rgba(255,255,255,0.28)' }]}>
         <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Offen</Text>
         <Text style={[styles.summaryValue, { color: '#d97706' }]}>{formatCurrency(totals.offen)}</Text>
       </View>
-      <View style={[styles.summaryCard, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}>
+      <View style={[styles.summaryCard, { backgroundColor: 'rgba(255,255,255,0.13)', borderColor: 'rgba(255,255,255,0.28)' }]}>
         <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Bezahlt</Text>
         <Text style={[styles.summaryValue, { color: '#16a34a' }]}>{formatCurrency(totals.bezahlt)}</Text>
       </View>
-      <View style={[styles.summaryCard, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}>
+      <View style={[styles.summaryCard, { backgroundColor: 'rgba(255,255,255,0.13)', borderColor: 'rgba(255,255,255,0.28)' }]}>
         <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Gesamt</Text>
         <Text style={[styles.summaryValue, { color: colors.text }]}>{formatCurrency(totals.gesamt)}</Text>
       </View>
@@ -2403,6 +2403,8 @@ export function FinanzenScreen({ navigation }: any) {
     <View style={styles.financeHero}>
       <View pointerEvents="none" style={StyleSheet.absoluteFill as any}>
         <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ width: '100%', height: '100%', opacity: 0.45 }} resizeMode="cover" />
+        {/* Milchiger Frosted-Layer über dem Blau */}
+        <View style={[StyleSheet.absoluteFill as any, { backgroundColor: 'rgba(255,255,255,0.07)', ...(Platform.OS === 'web' ? ({ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' } as any) : {}) }]} />
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
         <View style={{ width: 96 }} />
@@ -3193,7 +3195,7 @@ const styles = StyleSheet.create({
   seasonText: { fontSize: 18, fontWeight: '700' },
 
   summaryRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
-  summaryCard: { flex: 1, padding: 14, borderRadius: 10, borderWidth: 1 },
+  summaryCard: { flex: 1, padding: 14, borderRadius: 10, borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.5, shadowRadius: 12, elevation: 8 },
   summaryLabel: { fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
   summaryValue: { fontSize: 20, fontWeight: '700' },
 
