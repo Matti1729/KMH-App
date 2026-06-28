@@ -43,6 +43,7 @@ interface Provision {
   amount: number;
   status: string;
   due_date: string | null;
+  currency?: string;
 }
 
 interface DisplayRow {
@@ -58,6 +59,7 @@ interface DisplayRow {
   amount: number;
   status: string;
   due_date: string | null;
+  currency: string;
 }
 
 interface RateEntry {
@@ -148,8 +150,8 @@ function getSeasonOptions(): string[] {
   return seasons;
 }
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(amount);
+function formatCurrency(amount: number, currency: string = 'EUR'): string {
+  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: currency === 'USD' ? 'USD' : 'EUR' }).format(amount);
 }
 
 function formatDateDE(dateStr: string | null): string {
@@ -992,7 +994,7 @@ export function FinanzenScreen({ navigation }: any) {
       playersQuery,
       supabase
         .from('player_provisions')
-        .select('id, player_id, season, amount, status, due_date')
+        .select('id, player_id, season, amount, status, due_date, currency')
         .eq('season', season),
       supabase
         .from('player_no_provision')
@@ -1029,7 +1031,7 @@ export function FinanzenScreen({ navigation }: any) {
         type: 'provision', key: prov.id, provisionId: prov.id, player_id: prov.player_id,
         first_name: player.first_name, last_name: player.last_name, club: effClub(player),
         league: effLeague(player), provisionPercent: player.provision, amount: Number(prov.amount) || 0,
-        status: prov.status || 'offen', due_date: prov.due_date,
+        status: prov.status || 'offen', due_date: prov.due_date, currency: prov.currency || 'EUR',
       });
     }
     for (const player of players) {
@@ -1038,7 +1040,7 @@ export function FinanzenScreen({ navigation }: any) {
       rows.push({
         type: isNoProv ? 'no_provision' : 'player_only', key: `p_${player.id}`, provisionId: null, player_id: player.id,
         first_name: player.first_name, last_name: player.last_name, club: effClub(player),
-        league: effLeague(player), provisionPercent: player.provision, amount: 0, status: '', due_date: null,
+        league: effLeague(player), provisionPercent: player.provision, amount: 0, status: '', due_date: null, currency: 'EUR',
       });
     }
     return rows;
@@ -1113,7 +1115,7 @@ export function FinanzenScreen({ navigation }: any) {
     setShowRateDropdown(false);
     setShowProvisionDropdown(false);
     setShowCurrencyDropdown(false);
-    setDetailCurrency('EUR');
+    setDetailCurrency((existing.find(p => p.currency)?.currency === 'USD') ? 'USD' : 'EUR');
     setDetailAnnualSalary('');
     setDetailMonthlySalaryStr('');
     setDetailProvBasis('');
@@ -1297,6 +1299,7 @@ export function FinanzenScreen({ navigation }: any) {
       due_date: buildIsoDate(r.day, r.month, r.year),
       type: 'beraterprovision',
       frequency: !detailRateCount ? 'einmalig' : detailRateCount === 1 ? 'einmalig' : `${detailRateCount} Raten`,
+      currency: detailCurrency,
       created_by: session?.user?.id,
     }));
 
@@ -1733,7 +1736,7 @@ export function FinanzenScreen({ navigation }: any) {
         </View>
         <View style={styles.colAmount}>
           <Text style={[styles.tableCell, { color: row.type === 'no_provision' ? colors.textMuted : colors.text, fontWeight: isProv ? '600' : '400', fontStyle: row.type === 'no_provision' ? 'italic' : 'normal' }]} numberOfLines={1}>
-            {row.type === 'no_provision' ? 'Keine Provision' : (isProv && row.amount > 0 ? formatCurrency(row.amount) : '-')}
+            {row.type === 'no_provision' ? 'Keine Provision' : (isProv && row.amount > 0 ? formatCurrency(row.amount, row.currency) : '-')}
           </Text>
         </View>
         <View style={styles.colDue}>
@@ -1790,7 +1793,7 @@ export function FinanzenScreen({ navigation }: any) {
           )}
           {isProv && (
             <View style={styles.playerCardRow}>
-              <Text style={[{ color: colors.text, fontSize: 14, fontWeight: '600' }]}>{row.amount > 0 ? formatCurrency(row.amount) : '-'}</Text>
+              <Text style={[{ color: colors.text, fontSize: 14, fontWeight: '600' }]}>{row.amount > 0 ? formatCurrency(row.amount, row.currency) : '-'}</Text>
               <Text style={{ color: colors.textMuted, fontSize: 12 }}>{formatDateDE(row.due_date)}</Text>
             </View>
           )}
@@ -2271,7 +2274,7 @@ export function FinanzenScreen({ navigation }: any) {
                     Rate {idx + 1}{detailRateCount > 1 ? ` von ${detailRateCount}` : ''}
                   </Text>
                   <Text style={{ color: colors.textMuted, fontSize: 13 }}>
-                    {rate.amount ? `${rate.amount} €` : '-'}
+                    {rate.amount ? `${rate.amount} ${detailCurrency === 'USD' ? '$' : '€'}` : '-'}
                   </Text>
                 </View>
 
@@ -2746,7 +2749,7 @@ export function FinanzenScreen({ navigation }: any) {
                           case 'amount':
                             return (
                               <Text style={[styles.tableCell, { color: isNo ? colors.textMuted : colors.text, fontWeight: isProv ? '600' : '400', fontStyle: isNo ? 'italic' : 'normal' }]} numberOfLines={1}>
-                                {isNo ? 'Keine Provision' : (isProv && row.amount > 0 ? formatCurrency(row.amount) : '-')}
+                                {isNo ? 'Keine Provision' : (isProv && row.amount > 0 ? formatCurrency(row.amount, row.currency) : '-')}
                               </Text>
                             );
                           case 'due':
