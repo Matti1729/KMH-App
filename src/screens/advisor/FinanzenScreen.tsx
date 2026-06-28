@@ -1812,6 +1812,10 @@ export function FinanzenScreen({ navigation }: any) {
     : activeDatePicker ? `rate${activeDatePicker.rateIdx}`
     : null;
   const dimIfNot = (key: string): number => (dropdownOpenKey && dropdownOpenKey !== key ? 0.18 : 1);
+  // Abgedunkelte Bereiche dürfen keine Klicks abbekommen — sonst löst ein Klick im
+  // Hintergrund (z.B. "Bezahlt") aus. Klicks fallen dann auf den Modal-Hintergrund
+  // durch und schließen das offene Dropdown.
+  const blockIfNot = (key: string): 'none' | 'auto' => (dropdownOpenKey && dropdownOpenKey !== key ? 'none' : 'auto');
 
   const renderDetailModal = () => (
     <Modal visible={showDetail} transparent animationType="fade">
@@ -1846,7 +1850,7 @@ export function FinanzenScreen({ navigation }: any) {
             <View style={{ height: 1, backgroundColor: colors.border, marginBottom: 16 }} />
 
             {/* Reihe 1: Provision (links) + Währung (rechts, über dem Jahresgehalt-Feld) */}
-            <View style={{ flexDirection: 'row', marginBottom: 16, position: 'relative', opacity: dimIfNot('r1'), zIndex: (showProvisionDropdown || showCurrencyDropdown) ? 1000 : 1 }}>
+            <View pointerEvents={blockIfNot('r1')} style={{ flexDirection: 'row', marginBottom: 16, position: 'relative', opacity: dimIfNot('r1'), zIndex: (showProvisionDropdown || showCurrencyDropdown) ? 1000 : 1 }}>
               {/* Provision (Dropdown: Keine Provision / 1–30 %) */}
               <View style={{ width: 200, position: 'relative', zIndex: showProvisionDropdown ? 320 : 2 }}>
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Provision</Text>
@@ -1917,7 +1921,7 @@ export function FinanzenScreen({ navigation }: any) {
             <>
             {/* Reihe 2: Gehalt Saison — Monatsgehalt (links), Jahresgehalt (rechts).
                 Beide eingebbar (× / ÷ 12). */}
-            <View style={{ marginBottom: 16, position: 'relative', opacity: dimIfNot('r2'), zIndex: 1 }}>
+            <View pointerEvents={blockIfNot('r2')} style={{ marginBottom: 16, position: 'relative', opacity: dimIfNot('r2'), zIndex: 1 }}>
               <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Spielergehalt</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 {/* linke Spalte (200): Monatsgehalt + "=" */}
@@ -1949,7 +1953,7 @@ export function FinanzenScreen({ navigation }: any) {
             </View>
 
             {/* Reihe 3: Provision-Summe (links) + Raten (rechts, exakt unter dem Jahresgehalt) */}
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start', position: 'relative', opacity: dimIfNot('r3'), zIndex: showRateDropdown ? 1000 : 1 }}>
+            <View pointerEvents={blockIfNot('r3')} style={{ flexDirection: 'row', alignItems: 'flex-start', position: 'relative', opacity: dimIfNot('r3'), zIndex: showRateDropdown ? 1000 : 1 }}>
               {/* linke Spalte (200): Provision-Summe */}
               <View style={{ width: 200 }}>
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Gesamtprovision</Text>
@@ -2016,7 +2020,7 @@ export function FinanzenScreen({ navigation }: any) {
 
             {/* Raten Details */}
             {detailRates.map((rate, idx) => (
-              <View key={idx} style={[styles.rateSection, { borderColor: colors.border, position: 'relative', opacity: dimIfNot(`rate${idx}`), zIndex: activeDatePicker?.rateIdx === idx ? 500 : 1 }]}>
+              <View key={idx} pointerEvents={blockIfNot(`rate${idx}`)} style={[styles.rateSection, { borderColor: colors.border, position: 'relative', opacity: dimIfNot(`rate${idx}`), zIndex: activeDatePicker?.rateIdx === idx ? 500 : 1 }]}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                   <Text style={[styles.rateSectionTitle, { color: colors.text }]}>
                     Rate {idx + 1}{detailRateCount > 1 ? ` von ${detailRateCount}` : ''}
@@ -2048,7 +2052,7 @@ export function FinanzenScreen({ navigation }: any) {
             ))}
 
             {/* Beteiligungen / Abgaben */}
-            <View style={{ opacity: dimIfNot('beteiligungen') }}>
+            <View pointerEvents={blockIfNot('beteiligungen')} style={{ opacity: dimIfNot('beteiligungen') }}>
             <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: 20 }]}>Beteiligungen / Abgaben</Text>
             {detailShares.map((share, idx) => (
               <View key={idx} style={[styles.shareRow, { borderColor: colors.border }]}>
