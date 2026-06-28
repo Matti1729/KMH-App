@@ -1727,22 +1727,43 @@ export function FinanzenScreen({ navigation }: any) {
 
   // --- Summary ---
 
-  const renderSummary = () => (
-    <View style={[styles.summaryRow, { marginBottom: 0 }, isMobile && { flexDirection: 'column' }]}>
-      <View style={[styles.summaryCard, { backgroundColor: 'rgba(255,255,255,0.13)', borderColor: 'rgba(255,255,255,0.28)' }]}>
-        <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Offen</Text>
-        <Text style={[styles.summaryValue, { color: '#d97706' }]}>{formatCurrency(totals.offen)}</Text>
+  const renderSummary = () => {
+    // Mobil: EINE Frosted-Karte (Farbe wie Spielerübersicht) mit 3 Spalten nebeneinander.
+    if (isMobile) {
+      return (
+        <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', paddingVertical: 12, paddingHorizontal: 8, ...(Platform.OS === 'web' ? ({ backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' } as any) : {}) }}>
+          <View style={{ flex: 1, paddingHorizontal: 6 }}>
+            <Text style={[styles.summaryLabel, { color: colors.textMuted }]} numberOfLines={1}>Offen</Text>
+            <Text style={[styles.summaryValue, { color: '#d97706', fontSize: 16 }]} numberOfLines={1}>{formatCurrency(totals.offen)}</Text>
+          </View>
+          <View style={{ flex: 1, paddingHorizontal: 6, borderLeftWidth: 1, borderRightWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}>
+            <Text style={[styles.summaryLabel, { color: colors.textMuted }]} numberOfLines={1}>Bezahlt</Text>
+            <Text style={[styles.summaryValue, { color: '#16a34a', fontSize: 16 }]} numberOfLines={1}>{formatCurrency(totals.bezahlt)}</Text>
+          </View>
+          <View style={{ flex: 1, paddingHorizontal: 6 }}>
+            <Text style={[styles.summaryLabel, { color: colors.textMuted }]} numberOfLines={1}>Gesamt</Text>
+            <Text style={[styles.summaryValue, { color: colors.text, fontSize: 16 }]} numberOfLines={1}>{formatCurrency(totals.gesamt)}</Text>
+          </View>
+        </View>
+      );
+    }
+    return (
+      <View style={[styles.summaryRow, { marginBottom: 0 }]}>
+        <View style={[styles.summaryCard, { backgroundColor: 'rgba(255,255,255,0.13)', borderColor: 'rgba(255,255,255,0.28)' }]}>
+          <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Offen</Text>
+          <Text style={[styles.summaryValue, { color: '#d97706' }]}>{formatCurrency(totals.offen)}</Text>
+        </View>
+        <View style={[styles.summaryCard, { backgroundColor: 'rgba(255,255,255,0.13)', borderColor: 'rgba(255,255,255,0.28)' }]}>
+          <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Bezahlt</Text>
+          <Text style={[styles.summaryValue, { color: '#16a34a' }]}>{formatCurrency(totals.bezahlt)}</Text>
+        </View>
+        <View style={[styles.summaryCard, { backgroundColor: 'rgba(255,255,255,0.13)', borderColor: 'rgba(255,255,255,0.28)' }]}>
+          <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Gesamt</Text>
+          <Text style={[styles.summaryValue, { color: colors.text }]}>{formatCurrency(totals.gesamt)}</Text>
+        </View>
       </View>
-      <View style={[styles.summaryCard, { backgroundColor: 'rgba(255,255,255,0.13)', borderColor: 'rgba(255,255,255,0.28)' }]}>
-        <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Bezahlt</Text>
-        <Text style={[styles.summaryValue, { color: '#16a34a' }]}>{formatCurrency(totals.bezahlt)}</Text>
-      </View>
-      <View style={[styles.summaryCard, { backgroundColor: 'rgba(255,255,255,0.13)', borderColor: 'rgba(255,255,255,0.28)' }]}>
-        <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Gesamt</Text>
-        <Text style={[styles.summaryValue, { color: colors.text }]}>{formatCurrency(totals.gesamt)}</Text>
-      </View>
-    </View>
-  );
+    );
+  };
 
   // --- Date Picker Component ---
 
@@ -2298,6 +2319,7 @@ export function FinanzenScreen({ navigation }: any) {
             <View style={styles.financeHero}>
               <View style={StyleSheet.absoluteFill as any} pointerEvents="none">
                 <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ width: '100%', height: '100%', opacity: 0.45 }} resizeMode="cover" />
+                <View style={[StyleSheet.absoluteFill as any, { backgroundColor: 'rgba(255,255,255,0.07)', ...(Platform.OS === 'web' ? ({ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' } as any) : {}) }]} />
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
