@@ -1908,7 +1908,7 @@ export function FinanzenScreen({ navigation }: any) {
             <>
             {/* Reihe 2: Gehalt Saison — Monatsgehalt (links), Jahresgehalt (rechts).
                 Beide eingebbar (× / ÷ 12). */}
-            <View style={{ marginBottom: 16 }}>
+            <View style={{ marginBottom: 16, position: 'relative', zIndex: 1 }}>
               <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Spielergehalt</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 {/* linke Spalte (200): Monatsgehalt + "=" */}
