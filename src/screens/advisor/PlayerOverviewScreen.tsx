@@ -671,13 +671,24 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
     }
   };
 
+  // Jugend-/Reserve-Suffixe entfernen → Stammvereinsname (z.B. "FC Energie Cottbus U17" → "FC Energie Cottbus").
+  const baseClubName = (n: string): string => n
+    .replace(/\s+U[- ]?\d{1,2}\b.*$/i, '')
+    .replace(/\s+(?:A|B|C)[- ]?Jugend\b.*$/i, '')
+    .replace(/\s+(?:II|III|Jugend|Reserve)\b.*$/i, '')
+    .trim();
+
   const getClubLogo = (clubName: string): string | null => {
     if (!clubName) return null;
+    // Jugend-/Reserve-Teams nutzen das Vereinswappen; die TM-Jugend-Logos sind oft
+    // leer (kein big-Bild) → zuerst den Stammverein versuchen.
+    const base = baseClubName(clubName);
+    if (base && base !== clubName && clubLogos[base]) return clubLogos[base];
     if (clubLogos[clubName]) return clubLogos[clubName];
-    const variations = [clubName, clubName.replace('FC ', '').replace(' FC', ''), clubName.replace('1. ', ''), clubName.replace('SV ', '').replace(' SV', ''), clubName.replace('VfB ', '').replace(' VfB', ''), clubName.replace('VfL ', '').replace(' VfL', ''), clubName.replace('TSG ', '').replace(' TSG', ''), clubName.replace('SC ', '').replace(' SC', '')];
-    for (const v of variations) { if (clubLogos[v]) return clubLogos[v]; }
+    const variations = [base, clubName.replace('FC ', '').replace(' FC', ''), clubName.replace('1. ', ''), clubName.replace('SV ', '').replace(' SV', ''), clubName.replace('VfB ', '').replace(' VfB', ''), clubName.replace('VfL ', '').replace(' VfL', ''), clubName.replace('TSG ', '').replace(' TSG', ''), clubName.replace('SC ', '').replace(' SC', '')];
+    for (const v of variations) { if (v && clubLogos[v]) return clubLogos[v]; }
     for (const [logoClub, logoUrl] of Object.entries(clubLogos)) {
-      if (clubName.toLowerCase().includes(logoClub.toLowerCase()) || logoClub.toLowerCase().includes(clubName.toLowerCase())) return logoUrl;
+      if (base.toLowerCase().includes(logoClub.toLowerCase()) || logoClub.toLowerCase().includes(base.toLowerCase())) return logoUrl;
     }
     return null;
   };

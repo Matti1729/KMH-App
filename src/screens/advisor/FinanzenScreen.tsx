@@ -332,9 +332,17 @@ export function FinanzenScreen({ navigation }: any) {
 
   const getClubLogo = (clubName: string | null | undefined): string | null => {
     if (!clubName) return null;
+    // Jugend-/Reserve-Teams nutzen das Vereinswappen; TM-Jugend-Logos sind oft leer
+    // → zuerst den Stammverein versuchen (Suffixe U17/II/Jugend etc. entfernen).
+    const base = clubName
+      .replace(/\s+U[- ]?\d{1,2}\b.*$/i, '')
+      .replace(/\s+(?:A|B|C)[- ]?Jugend\b.*$/i, '')
+      .replace(/\s+(?:II|III|Jugend|Reserve)\b.*$/i, '')
+      .trim();
+    if (base && base !== clubName && clubLogos[base]) return clubLogos[base];
     if (clubLogos[clubName]) return clubLogos[clubName];
     for (const [k, v] of Object.entries(clubLogos)) {
-      if (clubName.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(clubName.toLowerCase())) return v;
+      if (base.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(base.toLowerCase())) return v;
     }
     return null;
   };
