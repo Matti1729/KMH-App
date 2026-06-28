@@ -3178,7 +3178,9 @@ const styles = StyleSheet.create({
   content: { flex: 1, padding: 24 },
 
   seasonRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 20, gap: 16 },
-  financeHero: { position: 'relative', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 14, padding: 16, marginBottom: 16, backgroundColor: 'rgba(0,0,0,0.3)' },
+  // Blau getönter, halbtransparenter Hintergrund im Ton des Headers — der durchgehende
+  // Seiten-Skyline scheint dezent durch (fließender Übergang vom Header-Bild).
+  financeHero: { position: 'relative', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 14, padding: 16, marginBottom: 16, backgroundColor: 'rgba(20, 40, 78, 0.42)' },
   seasonArrow: { padding: 8 },
   seasonText: { fontSize: 18, fontWeight: '700' },
 
