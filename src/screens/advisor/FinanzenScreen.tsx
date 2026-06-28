@@ -1718,7 +1718,7 @@ export function FinanzenScreen({ navigation }: any) {
                   : row.status === 'in rechnung gestellt'
                     ? { label: 'In Rechnung', color: '#2563eb' }
                     : { label: 'Offen', color: '#d97706' };
-            return <Text style={{ color: s.color, fontSize: 11, fontWeight: '600' }} numberOfLines={1}>{s.label}</Text>;
+            return <Text style={{ color: s.color, fontSize: 11, fontWeight: '600', fontStyle: 'italic' }} numberOfLines={1}>{s.label}</Text>;
           })()}
         </View>
         <View style={styles.playerCardBody}>
