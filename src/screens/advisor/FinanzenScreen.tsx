@@ -2296,6 +2296,9 @@ export function FinanzenScreen({ navigation }: any) {
         {activeTab === 'finanzen' ? (
           <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 12, paddingBottom: 80 }}>
             <View style={styles.financeHero}>
+              <View style={StyleSheet.absoluteFill as any} pointerEvents="none">
+                <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ width: '100%', height: '100%', opacity: 0.45 }} resizeMode="cover" />
+              </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                   <Pressable onPress={() => changeSeason(-1)} style={styles.seasonArrow}><Text style={{ color: colors.text, fontSize: 18 }}>◀</Text></Pressable>
@@ -2386,7 +2389,8 @@ export function FinanzenScreen({ navigation }: any) {
               ? `${sortedDocuments.length} ${sortedDocuments.length === 1 ? 'DOKUMENT' : 'DOKUMENTE'}${docSearchText ? ' (GEFILTERT)' : ''}`
               : 'PROVISIONEN · ABRECHNUNGEN · DOKUMENTE'
           }
-          style={{ backgroundColor: 'transparent' }}
+          backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
+          backgroundImageOpacity={0.45}
         >
           {activeTab === 'dokumente' ? (
             <View style={styles.docsHeroSearchRow}>
@@ -2446,6 +2450,9 @@ export function FinanzenScreen({ navigation }: any) {
               durchgehende Seiten-Hintergrund (AdvisorBackground) scheint durch,
               dadurch fließender Übergang vom Header. */}
           <View style={styles.financeHero}>
+            <View style={StyleSheet.absoluteFill as any} pointerEvents="none">
+              <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ width: '100%', height: '100%', opacity: 0.45 }} resizeMode="cover" />
+            </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
               <View style={{ width: 96 }} />
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
@@ -3177,9 +3184,9 @@ const styles = StyleSheet.create({
   content: { flex: 1, padding: 24 },
 
   seasonRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 20, gap: 16 },
-  // Transparent: der durchgehende Platz-Hintergrund (AdvisorBackground) läuft nahtlos
-  // hinter Header UND Card weiter. Nur Rahmen grenzt die Card ab.
-  financeHero: { position: 'relative', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 14, padding: 16, marginBottom: 16, backgroundColor: 'transparent' },
+  // Gleiches blaues Skyline-Bild + Abdunklung wie der Header → blauer Look in Card,
+  // während der Platz-Hintergrund die Seite drumherum bleibt.
+  financeHero: { position: 'relative', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 14, padding: 16, marginBottom: 16, backgroundColor: 'rgba(0,0,0,0.5)' },
   seasonArrow: { padding: 8 },
   seasonText: { fontSize: 18, fontWeight: '700' },
 
