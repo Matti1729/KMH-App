@@ -1100,11 +1100,11 @@ export function FinanzenScreen({ navigation }: any) {
     if (existing.length > 0) {
       setDetailRateCount(existing.length);
       const totalAmt = existing.reduce((s, p) => s + (Number(p.amount) || 0), 0);
-      setDetailTotalAmount(totalAmt.toString().replace('.', ','));
+      setDetailTotalAmount(formatNumberInput(totalAmt.toString().replace('.', ',')));
       setDetailRates(existing.map(p => {
         const d = p.due_date ? new Date(p.due_date) : null;
         return {
-          amount: (Number(p.amount) || 0).toString().replace('.', ','),
+          amount: formatNumberInput((Number(p.amount) || 0).toString().replace('.', ',')),
           day: d ? d.getDate() : null,
           month: d ? d.getMonth() : null,
           year: d ? d.getFullYear() : null,
@@ -1127,8 +1127,8 @@ export function FinanzenScreen({ navigation }: any) {
       setDetailRates([]);
       return;
     }
-    const total = parseFloat(detailTotalAmount.replace(',', '.')) || 0;
-    const perRate = count > 0 ? (total / count).toFixed(2).replace('.', ',') : '';
+    const total = parseFloat(detailTotalAmount.replace(/\./g, '').replace(',', '.')) || 0;
+    const perRate = count > 0 ? formatNumberInput((total / count).toFixed(2).replace('.', ',')) : '';
     const newRates: RateEntry[] = [];
     for (let i = 0; i < count; i++) {
       if (i < detailRates.length) {
@@ -1160,7 +1160,7 @@ export function FinanzenScreen({ navigation }: any) {
     const fmt = formatNumberInput(val);
     setDetailTotalAmount(fmt);
     const total = parseFloat(fmt.replace(/\./g, '').replace(',', '.')) || 0;
-    const perRate = detailRateCount && detailRateCount > 0 ? (total / detailRateCount).toFixed(2).replace('.', ',') : '';
+    const perRate = detailRateCount && detailRateCount > 0 ? formatNumberInput((total / detailRateCount).toFixed(2).replace('.', ',')) : '';
     setDetailRates(prev => prev.map(r => ({ ...r, amount: perRate })));
   };
 
@@ -1196,7 +1196,7 @@ export function FinanzenScreen({ navigation }: any) {
     const total = salary * pct / 100;
     const totalStr = formatNumberInput(total.toFixed(2).replace('.', ','));
     setDetailTotalAmount(totalStr);
-    const perRate = detailRateCount && detailRateCount > 0 ? (total / detailRateCount).toFixed(2).replace('.', ',') : '';
+    const perRate = detailRateCount && detailRateCount > 0 ? formatNumberInput((total / detailRateCount).toFixed(2).replace('.', ',')) : '';
     setDetailRates(prev => prev.map(r => ({ ...r, amount: perRate })));
   };
 
@@ -1263,7 +1263,7 @@ export function FinanzenScreen({ navigation }: any) {
     const inserts = detailRates.map(r => ({
       player_id: detailPlayerId,
       season,
-      amount: parseFloat(r.amount.replace(',', '.')) || 0,
+      amount: parseFloat(r.amount.replace(/\./g, '').replace(',', '.')) || 0,
       status: r.status,
       due_date: buildIsoDate(r.day, r.month, r.year),
       type: 'beraterprovision',
@@ -2386,7 +2386,7 @@ export function FinanzenScreen({ navigation }: any) {
               />
             )}
 
-            <ScrollView style={styles.tableBody}>
+            <ScrollView style={styles.tableBody} showsVerticalScrollIndicator={true} persistentScrollbar={true}>
               {loading ? (
                 <Text style={[styles.emptyText, { color: colors.textMuted }]}>Laden...</Text>
               ) : sortedRows.length === 0 ? (
@@ -2477,7 +2477,7 @@ export function FinanzenScreen({ navigation }: any) {
             />
 
 
-            <ScrollView style={styles.tableBody}>
+            <ScrollView style={styles.tableBody} showsVerticalScrollIndicator={true} persistentScrollbar={true}>
               {documentsLoading ? (
                 <Text style={[styles.emptyText, { color: colors.textMuted }]}>Laden…</Text>
               ) : sortedDocuments.length === 0 ? (
@@ -3089,10 +3089,10 @@ const styles = StyleSheet.create({
 
   rowCount: { fontSize: 11, marginBottom: 12 },
 
-  tableWrapper: { borderRadius: 10, borderWidth: 1, overflow: 'hidden' },
+  tableWrapper: { flex: 1, borderRadius: 10, borderWidth: 1, overflow: 'hidden' },
   tableHeader: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1 },
   tableHeaderText: { fontWeight: '600', fontSize: 11 },
-  tableBody: { maxHeight: 600 },
+  tableBody: { flex: 1 },
   tableRow: { flexDirection: 'row', paddingVertical: 10, paddingHorizontal: 16, borderBottomWidth: 1, alignItems: 'center' },
   tableCell: { fontSize: 11 },
 
