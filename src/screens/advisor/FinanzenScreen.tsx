@@ -2334,7 +2334,6 @@ export function FinanzenScreen({ navigation }: any) {
               </View>
               {renderSummary()}
             </View>
-            <Text style={[styles.rowCount, { color: colors.textMuted }]}>{provisionCount} Provisionen · {playerOnlyCount} ohne Einträge{noProvisionCount > 0 ? ` · ${noProvisionCount} keine Provision` : ''}</Text>
             {loading ? <Text style={[styles.emptyText, { color: colors.textMuted }]}>Laden...</Text> : sortedRows.map(renderCard)}
           </ScrollView>
         ) : (
@@ -2495,7 +2494,6 @@ export function FinanzenScreen({ navigation }: any) {
         {activeTab === 'finanzen' ? (
         <View style={styles.content}>
           {financeHeroCard}
-          <Text style={[styles.rowCount, { color: colors.textMuted }]}>{provisionCount} Provisionen · {playerOnlyCount} Spieler ohne Einträge{noProvisionCount > 0 ? ` · ${noProvisionCount} keine Provision` : ''}</Text>
 
           <View style={[styles.tableWrapper, { backgroundColor: 'rgba(0,0,0,0.55)', borderColor: 'rgba(255,255,255,0.15)' }]} onLayout={(e) => setTableWidth(e.nativeEvent.layout.width - 32)}>
             {tableWidth > 0 && (
