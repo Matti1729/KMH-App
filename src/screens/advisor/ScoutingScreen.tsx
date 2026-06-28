@@ -1592,7 +1592,12 @@ export function ScoutingScreen({ navigation }: any) {
               setShowDrop(true);
               triggerTmClubSearch(t);
             }}
-            onFocus={() => setShowDrop(true)}
+            onFocus={() => {
+              // Beim Wechsel ins Vereinsfeld die TM-Spielervorschläge ausblenden,
+              // damit sich Vorschlagsliste und Vereinsauswahl nicht überlagern.
+              setTmSuggestions([]);
+              setShowDrop(true);
+            }}
             onBlur={() => setTimeout(() => setShowDrop(false), 200)}
             placeholder="Verein suchen oder auswählen..."
             placeholderTextColor={colors.textMuted}
@@ -2900,7 +2905,7 @@ export function ScoutingScreen({ navigation }: any) {
                 </View>
 
                 {tmSearching && <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginBottom: 6 }}>Suche auf Transfermarkt...</Text>}
-                {tmSuggestions.length > 0 && (
+                {tmSuggestions.length > 0 && !showNewPlayerClubDropdown && (
                   <ScrollView style={{ maxHeight: 200, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, marginBottom: 10, backgroundColor: '#1a1a1a' }} nestedScrollEnabled keyboardShouldPersistTaps="handled">
                     {tmSuggestions.map((s, i) => (
                       <TouchableOpacity key={i} style={{ flexDirection: 'row', alignItems: 'baseline', paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: i < tmSuggestions.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.05)' }} onPress={() => selectTmScoutingPlayer(s)}>
@@ -3798,8 +3803,9 @@ export function ScoutingScreen({ navigation }: any) {
                     </View>
                   </View>
                 </View>
-                {/* TM-Suggestions als absoluter Overlay — Modal-Höhe bleibt konstant */}
-                {tmSuggestions.length > 0 && (
+                {/* TM-Suggestions als absoluter Overlay — Modal-Höhe bleibt konstant.
+                    Ausgeblendet, sobald die Vereinsauswahl offen ist (kein Overlap). */}
+                {tmSuggestions.length > 0 && !showNewPlayerClubDropdown && (
                   <View style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 6, maxHeight: 240, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 8, backgroundColor: '#000', zIndex: 10000, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.6, shadowRadius: 16, elevation: 16, overflow: 'hidden' }}>
                     <ScrollView style={{ maxHeight: 238 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
                       {tmSuggestions.map((s, i) => (
