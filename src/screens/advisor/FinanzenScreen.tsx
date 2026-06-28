@@ -1791,7 +1791,7 @@ export function FinanzenScreen({ navigation }: any) {
   const renderDetailModal = () => (
     <Modal visible={showDetail} transparent animationType="fade">
       <Pressable style={styles.modalOverlay} onPress={() => setShowDetail(false)}>
-        <Pressable style={styles.modalContent} onPress={e => { e.stopPropagation(); setActiveDatePicker(null); setShowRateDropdown(false); }}>
+        <Pressable style={styles.modalContent} onPress={e => { e.stopPropagation(); setActiveDatePicker(null); setShowRateDropdown(false); setShowProvisionDropdown(false); setShowCurrencyDropdown(false); }}>
           {/* Header */}
           <View style={styles.modalHeader}>
             <View style={{ flex: 1 }}>
@@ -1820,72 +1820,70 @@ export function FinanzenScreen({ navigation }: any) {
             {/* Trennstrich unter Name + Verein */}
             <View style={{ height: 1, backgroundColor: colors.border, marginBottom: 16 }} />
 
-            {/* Provision (Dropdown: Keine Provision / 1–30 %) + Währung (Dropdown) */}
-            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16, zIndex: (showProvisionDropdown || showCurrencyDropdown) ? 300 : 1 }}>
-              {/* Provision */}
-              <View style={{ flex: 1, position: 'relative', zIndex: showProvisionDropdown ? 320 : 1 }}>
-                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Provision</Text>
-                <TouchableOpacity
-                  style={[styles.inputCompact, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderColor: colors.border, backgroundColor: colors.surface }]}
-                  onPress={() => { setShowProvisionDropdown(v => !v); setShowCurrencyDropdown(false); setShowRateDropdown(false); setActiveDatePicker(null); }}
-                >
-                  <Text style={{ color: (detailNoProvision || detailProvPercent) ? colors.text : colors.textMuted, fontSize: 13 }}>
-                    {detailNoProvision ? 'Keine Provision' : (detailProvPercent ? `${detailProvPercent}%` : '–')}
-                  </Text>
-                  <Text style={{ color: colors.textSecondary, fontSize: 10 }}>▼</Text>
-                </TouchableOpacity>
-                {showProvisionDropdown && (
-                  <View style={[styles.datePickerList, { backgroundColor: dropdownBg, borderColor: colors.border }]}>
-                    <ScrollView style={{ maxHeight: 220 }} nestedScrollEnabled>
-                      <TouchableOpacity
-                        style={[styles.datePickerItem, { borderBottomColor: colors.border }, detailNoProvision && styles.datePickerItemSelected]}
-                        onPress={() => selectProvisionOption('none')}
-                      >
-                        <Text style={[styles.datePickerItemText, { color: colors.text }, detailNoProvision && styles.datePickerItemTextSelected]}>Keine Provision</Text>
-                      </TouchableOpacity>
-                      {Array.from({ length: 30 }, (_, i) => i + 1).map(n => {
-                        const sel = !detailNoProvision && detailProvPercent === String(n);
-                        return (
-                          <TouchableOpacity
-                            key={n}
-                            style={[styles.datePickerItem, { borderBottomColor: colors.border }, sel && styles.datePickerItemSelected]}
-                            onPress={() => selectProvisionOption(n)}
-                          >
-                            <Text style={[styles.datePickerItemText, { color: colors.text }, sel && styles.datePickerItemTextSelected]}>{n}%</Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </ScrollView>
-                  </View>
-                )}
-              </View>
-              {/* Währung */}
-              <View style={{ flex: 1, position: 'relative', zIndex: showCurrencyDropdown ? 320 : 1 }}>
-                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Währung</Text>
-                <TouchableOpacity
-                  style={[styles.inputCompact, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderColor: colors.border, backgroundColor: colors.surface }]}
-                  onPress={() => { setShowCurrencyDropdown(v => !v); setShowProvisionDropdown(false); setShowRateDropdown(false); setActiveDatePicker(null); }}
-                >
-                  <Text style={{ color: colors.text, fontSize: 13 }}>{detailCurrency === 'EUR' ? '€ Euro' : '$ Dollar'}</Text>
-                  <Text style={{ color: colors.textSecondary, fontSize: 10 }}>▼</Text>
-                </TouchableOpacity>
-                {showCurrencyDropdown && (
-                  <View style={[styles.datePickerList, { backgroundColor: dropdownBg, borderColor: colors.border }]}>
-                    {([['EUR', '€ Euro'], ['USD', '$ Dollar']] as const).map(([val, label]) => {
-                      const sel = detailCurrency === val;
+            {/* Provision (Dropdown: Keine Provision / 1–30 %) — eigene Zeile */}
+            <View style={{ marginBottom: 16, position: 'relative', zIndex: showProvisionDropdown ? 320 : 2 }}>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Provision</Text>
+              <TouchableOpacity
+                style={[styles.inputCompact, { width: 160, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderColor: colors.border, backgroundColor: colors.surface }]}
+                onPress={() => { setShowProvisionDropdown(v => !v); setShowCurrencyDropdown(false); setShowRateDropdown(false); setActiveDatePicker(null); }}
+              >
+                <Text style={{ color: (detailNoProvision || detailProvPercent) ? colors.text : colors.textMuted, fontSize: 13 }}>
+                  {detailNoProvision ? 'Keine Provision' : (detailProvPercent ? `${detailProvPercent}%` : '–')}
+                </Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 10 }}>▼</Text>
+              </TouchableOpacity>
+              {showProvisionDropdown && (
+                <View style={[styles.datePickerList, { width: 160, backgroundColor: dropdownBg, borderColor: colors.border }]}>
+                  <ScrollView style={{ maxHeight: 220 }} nestedScrollEnabled>
+                    <TouchableOpacity
+                      style={[styles.datePickerItem, { borderBottomColor: colors.border }, detailNoProvision && styles.datePickerItemSelected]}
+                      onPress={() => selectProvisionOption('none')}
+                    >
+                      <Text style={[styles.datePickerItemText, { color: colors.text }, detailNoProvision && styles.datePickerItemTextSelected]}>Keine Provision</Text>
+                    </TouchableOpacity>
+                    {Array.from({ length: 30 }, (_, i) => i + 1).map(n => {
+                      const sel = !detailNoProvision && detailProvPercent === String(n);
                       return (
                         <TouchableOpacity
-                          key={val}
+                          key={n}
                           style={[styles.datePickerItem, { borderBottomColor: colors.border }, sel && styles.datePickerItemSelected]}
-                          onPress={() => { setDetailCurrency(val); setShowCurrencyDropdown(false); }}
+                          onPress={() => selectProvisionOption(n)}
                         >
-                          <Text style={[styles.datePickerItemText, { color: colors.text }, sel && styles.datePickerItemTextSelected]}>{label}</Text>
+                          <Text style={[styles.datePickerItemText, { color: colors.text }, sel && styles.datePickerItemTextSelected]}>{n}%</Text>
                         </TouchableOpacity>
                       );
                     })}
-                  </View>
-                )}
-              </View>
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+
+            {/* Währung (Dropdown) — eigene Zeile */}
+            <View style={{ marginBottom: 16, position: 'relative', zIndex: showCurrencyDropdown ? 320 : 1 }}>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Währung</Text>
+              <TouchableOpacity
+                style={[styles.inputCompact, { width: 160, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderColor: colors.border, backgroundColor: colors.surface }]}
+                onPress={() => { setShowCurrencyDropdown(v => !v); setShowProvisionDropdown(false); setShowRateDropdown(false); setActiveDatePicker(null); }}
+              >
+                <Text style={{ color: colors.text, fontSize: 13 }}>{detailCurrency === 'EUR' ? '€ Euro' : '$ Dollar'}</Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 10 }}>▼</Text>
+              </TouchableOpacity>
+              {showCurrencyDropdown && (
+                <View style={[styles.datePickerList, { width: 160, backgroundColor: dropdownBg, borderColor: colors.border }]}>
+                  {([['EUR', '€ Euro'], ['USD', '$ Dollar']] as const).map(([val, label]) => {
+                    const sel = detailCurrency === val;
+                    return (
+                      <TouchableOpacity
+                        key={val}
+                        style={[styles.datePickerItem, { borderBottomColor: colors.border }, sel && styles.datePickerItemSelected]}
+                        onPress={() => { setDetailCurrency(val); setShowCurrencyDropdown(false); }}
+                      >
+                        <Text style={[styles.datePickerItemText, { color: colors.text }, sel && styles.datePickerItemTextSelected]}>{label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
             </View>
 
             {!detailNoProvision && (
@@ -1921,57 +1919,55 @@ export function FinanzenScreen({ navigation }: any) {
               </View>
             </View>
 
-            {/* Provision-Summe (Gesamtsumme) + Raten in einer Reihe */}
-            <View style={{ flexDirection: 'row', gap: 12, zIndex: showRateDropdown ? 200 : 1 }}>
-              {/* Gesamtsumme */}
-              <View style={{ flex: 1.4 }}>
-                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Provision {season}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <TextInput
-                    style={[styles.inputCompact, { width: 110, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
-                    placeholder="1.000,00"
-                    placeholderTextColor={colors.textMuted}
-                    value={detailTotalAmount}
-                    onChangeText={updateTotalAmount}
-                    keyboardType="numeric"
-                  />
-                  <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: '600' }}>{detailCurrency === 'EUR' ? '€' : '$'}</Text>
-                </View>
+            {/* Provision-Summe (Gesamtsumme) — eigene Zeile */}
+            <View style={{ marginBottom: 16 }}>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Provision {season}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <TextInput
+                  style={[styles.inputCompact, { width: 160, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
+                  placeholder="1.000,00"
+                  placeholderTextColor={colors.textMuted}
+                  value={detailTotalAmount}
+                  onChangeText={updateTotalAmount}
+                  keyboardType="numeric"
+                />
+                <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: '600' }}>{detailCurrency === 'EUR' ? '€' : '$'}</Text>
               </View>
-              {/* Anzahl Raten */}
-              <View style={{ flex: 1, position: 'relative' }}>
-                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Raten</Text>
-                <TouchableOpacity
-                  style={[styles.inputCompact, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderColor: colors.border, backgroundColor: colors.surface }]}
-                  onPress={() => { setShowRateDropdown(!showRateDropdown); setShowProvisionDropdown(false); setShowCurrencyDropdown(false); setActiveDatePicker(null); }}
-                >
-                  <Text style={{ color: detailRateCount ? colors.text : colors.textMuted, fontSize: 13 }}>
-                    {detailRateCount ?? '-'}
-                  </Text>
-                  <Text style={{ color: colors.textSecondary, fontSize: 10 }}>▼</Text>
-                </TouchableOpacity>
-                {showRateDropdown && (
-                  <View style={[styles.datePickerList, { backgroundColor: dropdownBg, borderColor: colors.border }]}>
-                    <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
+            </View>
+
+            {/* Anzahl Raten — eigene Zeile */}
+            <View style={{ marginBottom: 4, position: 'relative', zIndex: showRateDropdown ? 200 : 1 }}>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Raten</Text>
+              <TouchableOpacity
+                style={[styles.inputCompact, { width: 160, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderColor: colors.border, backgroundColor: colors.surface }]}
+                onPress={() => { setShowRateDropdown(!showRateDropdown); setShowProvisionDropdown(false); setShowCurrencyDropdown(false); setActiveDatePicker(null); }}
+              >
+                <Text style={{ color: detailRateCount ? colors.text : colors.textMuted, fontSize: 13 }}>
+                  {detailRateCount ?? '-'}
+                </Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 10 }}>▼</Text>
+              </TouchableOpacity>
+              {showRateDropdown && (
+                <View style={[styles.datePickerList, { width: 160, backgroundColor: dropdownBg, borderColor: colors.border }]}>
+                  <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
+                    <TouchableOpacity
+                      style={[styles.datePickerItem, { borderBottomColor: colors.border }, detailRateCount === null && styles.datePickerItemSelected]}
+                      onPress={() => updateRateCount(null)}
+                    >
+                      <Text style={[styles.datePickerItemText, { color: colors.text }, detailRateCount === null && styles.datePickerItemTextSelected]}>-</Text>
+                    </TouchableOpacity>
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
                       <TouchableOpacity
-                        style={[styles.datePickerItem, { borderBottomColor: colors.border }, detailRateCount === null && styles.datePickerItemSelected]}
-                        onPress={() => updateRateCount(null)}
+                        key={n}
+                        style={[styles.datePickerItem, { borderBottomColor: colors.border }, detailRateCount === n && styles.datePickerItemSelected]}
+                        onPress={() => updateRateCount(n)}
                       >
-                        <Text style={[styles.datePickerItemText, { color: colors.text }, detailRateCount === null && styles.datePickerItemTextSelected]}>-</Text>
+                        <Text style={[styles.datePickerItemText, { color: colors.text }, detailRateCount === n && styles.datePickerItemTextSelected]}>{n}</Text>
                       </TouchableOpacity>
-                      {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
-                        <TouchableOpacity
-                          key={n}
-                          style={[styles.datePickerItem, { borderBottomColor: colors.border }, detailRateCount === n && styles.datePickerItemSelected]}
-                          onPress={() => updateRateCount(n)}
-                        >
-                          <Text style={[styles.datePickerItemText, { color: colors.text }, detailRateCount === n && styles.datePickerItemTextSelected]}>{n}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-                  </View>
-                )}
-              </View>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
             </View>
             </>
             )}
