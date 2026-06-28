@@ -211,9 +211,6 @@ export function FinanzenScreen({ navigation }: any) {
   const [addLastName, setAddLastName] = useState('');
   const [addClub, setAddClub] = useState('');
   const [addSaving, setAddSaving] = useState(false);
-  // Gemessene Höhen für den durchgehenden blauen Banner (Header + Saison/Summen-Card).
-  const [heroHeaderH, setHeroHeaderH] = useState(0);
-  const [heroCardH, setHeroCardH] = useState(0);
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
@@ -2377,6 +2374,49 @@ export function FinanzenScreen({ navigation }: any) {
 
   // --- Desktop View ---
 
+  // Segmentierte Tabs (Dokumente/Provisionen) — wiederverwendet im Header beider Tabs.
+  const segmentedTabs = (
+    <View style={styles.segmentedWrap}>
+      {(['dokumente', 'finanzen'] as const).map((tab, idx) => {
+        const isActive = activeTab === tab;
+        const label = tab === 'finanzen' ? 'Provisionen' : 'Dokumente';
+        const count = tab === 'dokumente' ? documents.length : null;
+        return (
+          <React.Fragment key={tab}>
+            {idx > 0 ? <View style={styles.segmentedDivider} /> : null}
+            <TouchableOpacity onPress={() => setActiveTab(tab)} style={[styles.segmentedBtn, isActive && styles.segmentedBtnActive]}>
+              <Text style={[styles.segmentedLabel, isActive && styles.segmentedLabelActive]}>{label}</Text>
+              {count !== null && count > 0 ? (
+                <View style={[styles.segmentedCountPill, isActive && styles.segmentedCountPillActive]}>
+                  <Text style={[styles.segmentedCountText, isActive && styles.segmentedCountTextActive]}>{count}</Text>
+                </View>
+              ) : null}
+            </TouchableOpacity>
+          </React.Fragment>
+        );
+      })}
+    </View>
+  );
+
+  // Saison-Zeile + Summen-Card (transparent — blauer Banner liefert den Hintergrund).
+  const financeHeroCard = (
+    <View style={styles.financeHero}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        <View style={{ width: 96 }} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+          <Pressable onPress={() => changeSeason(-1)} style={styles.seasonArrow}><Text style={{ color: colors.text, fontSize: 20 }}>◀</Text></Pressable>
+          <Text style={[styles.seasonText, { color: colors.text }]}>{season}</Text>
+          <Pressable onPress={() => changeSeason(1)} style={styles.seasonArrow}><Text style={{ color: colors.text, fontSize: 20 }}>▶</Text></Pressable>
+        </View>
+        <TouchableOpacity onPress={() => setShowAddProv(true)} style={{ width: 96, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <Ionicons name="add" size={14} color={colors.text} />
+          <Text style={{ color: colors.text, fontSize: 12, fontWeight: '600' }}>Spieler</Text>
+        </TouchableOpacity>
+      </View>
+      {renderSummary()}
+    </View>
+  );
+
   return (
     <View style={[styles.container, { backgroundColor: 'transparent' }]}>
       <AdvisorBackground />
@@ -2385,26 +2425,31 @@ export function FinanzenScreen({ navigation }: any) {
       {renderAddProvModal()}
 
       <View style={[styles.mainContent, { position: 'relative' }]}>
-        {/* Ein durchgehendes blaues Bild hinter Header + Saison/Summen-Card → nahtlos.
-            Höhe = gemessene Header-Höhe + content-Padding + Card-Höhe. */}
-        {activeTab === 'finanzen' && heroHeaderH > 0 && heroCardH > 0 ? (
-          <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: heroHeaderH + 24 + heroCardH, overflow: 'hidden' }}>
-            <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ width: '100%', height: '100%', opacity: 0.5 }} resizeMode="cover" />
-            <View style={[StyleSheet.absoluteFill as any, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />
+        {activeTab === 'finanzen' ? (
+          /* Finanzen: Header UND Saison/Summen-Card in EINEM blauen Banner (ein durchgehendes Bild) */
+          <View style={{ position: 'relative', overflow: 'hidden' }}>
+            <View pointerEvents="none" style={StyleSheet.absoluteFill as any}>
+              <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ width: '100%', height: '100%', opacity: 0.5 }} resizeMode="cover" />
+              <View style={[StyleSheet.absoluteFill as any, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />
+            </View>
+            <AdvisorHeroHeader
+              title="FINANZEN"
+              subtitle="PROVISIONEN · ABRECHNUNGEN · DOKUMENTE"
+              style={{ backgroundColor: 'transparent', marginBottom: 0 }}
+            >
+              {segmentedTabs}
+            </AdvisorHeroHeader>
+            <View style={{ paddingHorizontal: 24, paddingTop: 6, paddingBottom: 16 }}>
+              {financeHeroCard}
+            </View>
           </View>
-        ) : null}
-        <AdvisorHeroHeader
-          title="FINANZEN"
-          subtitle={
-            activeTab === 'dokumente'
-              ? `${sortedDocuments.length} ${sortedDocuments.length === 1 ? 'DOKUMENT' : 'DOKUMENTE'}${docSearchText ? ' (GEFILTERT)' : ''}`
-              : 'PROVISIONEN · ABRECHNUNGEN · DOKUMENTE'
-          }
-          backgroundImage={activeTab === 'finanzen' ? undefined : require('../../../assets/scouting-header-bg.jpg')}
-          backgroundImageOpacity={0.45}
-          style={activeTab === 'finanzen' ? { backgroundColor: 'transparent' } : undefined}
-        >
-          {activeTab === 'dokumente' ? (
+        ) : (
+          <AdvisorHeroHeader
+            title="FINANZEN"
+            subtitle={`${sortedDocuments.length} ${sortedDocuments.length === 1 ? 'DOKUMENT' : 'DOKUMENTE'}${docSearchText ? ' (GEFILTERT)' : ''}`}
+            backgroundImage={require('../../../assets/scouting-header-bg.jpg')}
+            backgroundImageOpacity={0.45}
+          >
             <View style={styles.docsHeroSearchRow}>
               <Text style={styles.docsHeroSearchIcon}>🔍</Text>
               <TextInput
@@ -2420,8 +2465,6 @@ export function FinanzenScreen({ navigation }: any) {
                 </TouchableOpacity>
               ) : null}
             </View>
-          ) : null}
-          {activeTab === 'dokumente' ? (
             <TouchableOpacity
               style={[styles.heroUploadIconBtn, uploadingDoc && { opacity: 0.5 }]}
               onPress={startDocumentUpload}
@@ -2430,53 +2473,12 @@ export function FinanzenScreen({ navigation }: any) {
             >
               <MaterialCommunityIcons name="file-upload-outline" size={16} color="#fff" />
             </TouchableOpacity>
-          ) : null}
-          <View style={styles.segmentedWrap}>
-            {(['dokumente', 'finanzen'] as const).map((tab, idx) => {
-              const isActive = activeTab === tab;
-              const label = tab === 'finanzen' ? 'Provisionen' : 'Dokumente';
-              const count = tab === 'dokumente' ? documents.length : null;
-              return (
-                <React.Fragment key={tab}>
-                  {idx > 0 ? <View style={styles.segmentedDivider} /> : null}
-                  <TouchableOpacity
-                    onPress={() => setActiveTab(tab)}
-                    style={[styles.segmentedBtn, isActive && styles.segmentedBtnActive]}
-                  >
-                    <Text style={[styles.segmentedLabel, isActive && styles.segmentedLabelActive]}>{label}</Text>
-                    {count !== null && count > 0 ? (
-                      <View style={[styles.segmentedCountPill, isActive && styles.segmentedCountPillActive]}>
-                        <Text style={[styles.segmentedCountText, isActive && styles.segmentedCountTextActive]}>{count}</Text>
-                      </View>
-                    ) : null}
-                  </TouchableOpacity>
-                </React.Fragment>
-              );
-            })}
-          </View>
-        </AdvisorHeroHeader>
+            {segmentedTabs}
+          </AdvisorHeroHeader>
+        )}
 
         {activeTab === 'finanzen' ? (
-        <View style={styles.content} onLayout={(e) => setHeroHeaderH(e.nativeEvent.layout.y)}>
-          {/* Gemeinsamer Rahmen: Saison-Zeile + Summen. Kein eigenes Bild — der
-              durchgehende Seiten-Hintergrund (AdvisorBackground) scheint durch,
-              dadurch fließender Übergang vom Header. */}
-          <View style={styles.financeHero} onLayout={(e) => setHeroCardH(e.nativeEvent.layout.height)}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <View style={{ width: 96 }} />
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-                <Pressable onPress={() => changeSeason(-1)} style={styles.seasonArrow}><Text style={{ color: colors.text, fontSize: 20 }}>◀</Text></Pressable>
-                <Text style={[styles.seasonText, { color: colors.text }]}>{season}</Text>
-                <Pressable onPress={() => changeSeason(1)} style={styles.seasonArrow}><Text style={{ color: colors.text, fontSize: 20 }}>▶</Text></Pressable>
-              </View>
-              <TouchableOpacity onPress={() => setShowAddProv(true)} style={{ width: 96, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(0,0,0,0.5)' }}>
-                <Ionicons name="add" size={14} color={colors.text} />
-                <Text style={{ color: colors.text, fontSize: 12, fontWeight: '600' }}>Spieler</Text>
-              </TouchableOpacity>
-            </View>
-            {renderSummary()}
-          </View>
-
+        <View style={styles.content}>
           <Text style={[styles.rowCount, { color: colors.textMuted }]}>{provisionCount} Provisionen · {playerOnlyCount} Spieler ohne Einträge{noProvisionCount > 0 ? ` · ${noProvisionCount} keine Provision` : ''}</Text>
 
           <View style={[styles.tableWrapper, { backgroundColor: 'rgba(0,0,0,0.55)', borderColor: 'rgba(255,255,255,0.15)' }]} onLayout={(e) => setTableWidth(e.nativeEvent.layout.width - 32)}>
