@@ -1823,7 +1823,7 @@ export function FinanzenScreen({ navigation }: any) {
                 </View>
               )}
             </View>
-            <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+            <Text style={{ color: colors.textMuted, fontSize: 18, fontWeight: '700' }}>
               Saison {String(season).slice(2)}
             </Text>
           </View>
@@ -1909,7 +1909,7 @@ export function FinanzenScreen({ navigation }: any) {
             {/* Reihe 2: Gehalt Saison — Monatsgehalt (links), Jahresgehalt (rechts).
                 Beide eingebbar (× / ÷ 12). */}
             <View style={{ marginBottom: 16 }}>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Gehalt Saison {season}</Text>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Spielergehalt</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 {/* linke Spalte (200): Monatsgehalt + "=" */}
                 <View style={{ width: 200, flexDirection: 'row', alignItems: 'center' }}>
@@ -1943,7 +1943,7 @@ export function FinanzenScreen({ navigation }: any) {
             <View style={{ flexDirection: 'row', alignItems: 'flex-start', zIndex: showRateDropdown ? 200 : 1 }}>
               {/* linke Spalte (200): Provision-Summe */}
               <View style={{ width: 200 }}>
-                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Provision {season}</Text>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Gesamtprovision</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <TextInput
                     style={[styles.inputCompact, { width: 110, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
