@@ -1955,8 +1955,7 @@ export function FinanzenScreen({ navigation }: any) {
   // Welcher Bereich hat gerade ein offenes Dropdown? Alle anderen werden abgedunkelt,
   // damit ein schmales, überlappendes Dropdown nicht wie mehrere offene aussieht.
   const dropdownOpenKey: string | null =
-    showArtDropdown ? 'r0'
-    : (showProvisionDropdown || showCurrencyDropdown) ? 'r1'
+    (showArtDropdown || showProvisionDropdown || showCurrencyDropdown) ? 'r1'
     : showRateDropdown ? 'r3'
     : activeDatePicker ? `rate${activeDatePicker.rateIdx}`
     : null;
@@ -2120,9 +2119,10 @@ export function FinanzenScreen({ navigation }: any) {
             {/* Trennstrich unter Name + Verein */}
             <View style={{ height: 1, backgroundColor: colors.border, marginBottom: 16 }} />
 
-            {/* Reihe 0: Art (Provision / Wegvermittlung / Sonderzahlungen) */}
-            <View pointerEvents={blockIfNot('r0')} style={{ flexDirection: 'row', marginBottom: 16, position: 'relative', opacity: dimIfNot('r0'), zIndex: showArtDropdown ? 1000 : 1 }}>
-              <View style={{ width: 200, position: 'relative', zIndex: showArtDropdown ? 320 : 2 }}>
+            {/* Reihe 1: Art + Provision/Wegvermittlung + Währung (3er-Reihe) */}
+            <View pointerEvents={blockIfNot('r1')} style={{ flexDirection: 'row', gap: 24, marginBottom: 16, position: 'relative', opacity: dimIfNot('r1'), zIndex: (showArtDropdown || showProvisionDropdown || showCurrencyDropdown) ? 1000 : 1 }}>
+              {/* Art (Provision / Wegvermittlung / Sonderzahlungen) */}
+              <View style={{ width: 110, position: 'relative', zIndex: showArtDropdown ? 320 : 3 }}>
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Art</Text>
                 <TouchableOpacity
                   style={[styles.inputCompact, { width: 110, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderColor: colors.border, backgroundColor: colors.surface }]}
@@ -2153,16 +2153,12 @@ export function FinanzenScreen({ navigation }: any) {
                   </View>
                 )}
               </View>
-            </View>
-
-            {/* Reihe 1: Provision (links) + Währung (rechts, über dem Jahresgehalt-Feld) */}
-            <View pointerEvents={blockIfNot('r1')} style={{ flexDirection: 'row', marginBottom: 16, position: 'relative', opacity: dimIfNot('r1'), zIndex: (showProvisionDropdown || showCurrencyDropdown) ? 1000 : 1 }}>
               {/* Provision/Wegvermittlung (Dropdown: Keine Provision / 1–30 %).
                   Bei "Sonderzahlungen" entfällt die Prozentauswahl → leerer Spacer. */}
               {detailArt === 'sonderzahlung' ? (
-                <View style={{ width: 200 }} />
+                <View style={{ width: 110 }} />
               ) : (
-              <View style={{ width: 200, position: 'relative', zIndex: showProvisionDropdown ? 320 : 2 }}>
+              <View style={{ width: 110, position: 'relative', zIndex: showProvisionDropdown ? 320 : 2 }}>
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>{detailArt === 'wegvermittlung' ? 'Wegvermittlung' : 'Provision'}</Text>
                 <TouchableOpacity
                   style={[styles.inputCompact, { width: 110, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderColor: colors.border, backgroundColor: colors.surface }]}
