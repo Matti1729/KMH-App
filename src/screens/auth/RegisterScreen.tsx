@@ -49,8 +49,8 @@ export function RegisterScreen({ navigation, route }: any) {
 
     setLoading(false);
     // Keine E-Mail-Bestätigung — nach signUp besteht bereits eine Session,
-    // der RootNavigator wechselt automatisch in die Spieler-Ansicht.
-    await alertDialog({ title: 'Willkommen!', message: 'Dein Konto wurde erstellt — du bist jetzt eingeloggt.' });
+    // der RootNavigator wechselt automatisch in die Spieler-Ansicht und zeigt dort
+    // das Willkommens-Modal. Kein separater Alert (würde das Modal überlagern).
   };
 
   const renderField = (
