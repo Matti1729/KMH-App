@@ -1837,7 +1837,7 @@ export function FinanzenScreen({ navigation }: any) {
             <View style={{ height: 1, backgroundColor: colors.border, marginBottom: 16 }} />
 
             {/* Reihe 1: Provision (links) + Währung (rechts, über dem Jahresgehalt-Feld) */}
-            <View style={{ flexDirection: 'row', marginBottom: 16, zIndex: (showProvisionDropdown || showCurrencyDropdown) ? 300 : 1 }}>
+            <View style={{ flexDirection: 'row', marginBottom: 16, position: 'relative', zIndex: (showProvisionDropdown || showCurrencyDropdown) ? 1000 : 1 }}>
               {/* Provision (Dropdown: Keine Provision / 1–30 %) */}
               <View style={{ width: 200, position: 'relative', zIndex: showProvisionDropdown ? 320 : 2 }}>
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Provision</Text>
@@ -1940,7 +1940,7 @@ export function FinanzenScreen({ navigation }: any) {
             </View>
 
             {/* Reihe 3: Provision-Summe (links) + Raten (rechts, exakt unter dem Jahresgehalt) */}
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start', zIndex: showRateDropdown ? 200 : 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', position: 'relative', zIndex: showRateDropdown ? 1000 : 1 }}>
               {/* linke Spalte (200): Provision-Summe */}
               <View style={{ width: 200 }}>
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Gesamtprovision</Text>
@@ -2007,7 +2007,7 @@ export function FinanzenScreen({ navigation }: any) {
 
             {/* Raten Details */}
             {detailRates.map((rate, idx) => (
-              <View key={idx} style={[styles.rateSection, { borderColor: colors.border, zIndex: activeDatePicker?.rateIdx === idx ? 200 : 1 }]}>
+              <View key={idx} style={[styles.rateSection, { borderColor: colors.border, position: 'relative', zIndex: activeDatePicker?.rateIdx === idx ? 500 : 1 }]}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                   <Text style={[styles.rateSectionTitle, { color: colors.text }]}>
                     Rate {idx + 1}{detailRateCount > 1 ? ` von ${detailRateCount}` : ''}
