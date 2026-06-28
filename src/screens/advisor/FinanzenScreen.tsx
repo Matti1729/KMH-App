@@ -1823,7 +1823,7 @@ export function FinanzenScreen({ navigation }: any) {
             {/* Reihe 1: Provision + Währung nebeneinander */}
             <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16, zIndex: (showProvisionDropdown || showCurrencyDropdown) ? 300 : 1 }}>
               {/* Provision (Dropdown: Keine Provision / 1–30 %) */}
-              <View style={{ position: 'relative', zIndex: showProvisionDropdown ? 320 : 2 }}>
+              <View style={{ width: 132, position: 'relative', zIndex: showProvisionDropdown ? 320 : 2 }}>
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Provision</Text>
                 <TouchableOpacity
                   style={[styles.inputCompact, { width: 110, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderColor: colors.border, backgroundColor: colors.surface }]}
@@ -1924,7 +1924,7 @@ export function FinanzenScreen({ navigation }: any) {
             {/* Reihe 3: Provision-Summe + Raten nebeneinander */}
             <View style={{ flexDirection: 'row', gap: 12, zIndex: showRateDropdown ? 200 : 1 }}>
               {/* Gesamtsumme */}
-              <View>
+              <View style={{ width: 132 }}>
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Provision {season}</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <TextInput
@@ -3086,7 +3086,7 @@ const styles = StyleSheet.create({
   // Form
   fieldLabel: { fontSize: 11, fontWeight: '600', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
   input: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, fontSize: 11 },
-  inputCompact: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 0, height: 34, fontSize: 11 },
+  inputCompact: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 0, height: 30, fontSize: 11 },
   statusPicker: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
   statusOption: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
 
