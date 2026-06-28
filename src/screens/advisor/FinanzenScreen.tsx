@@ -1140,20 +1140,35 @@ export function FinanzenScreen({ navigation }: any) {
     setDetailRates(newRates);
   };
 
+  // Tausenderpunkte (deutsch), ohne Nachkommastellen.
+  const formatThousands = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+  // Live-Formatierung beim Tippen: Tausenderpunkte für den Ganzzahl-Teil, Komma als
+  // Dezimaltrenner ("1000000" → "1.000.000", "1234,5" → "1.234,5").
+  const formatNumberInput = (raw: string): string => {
+    let s = String(raw ?? '').replace(/[^\d,]/g, '');
+    const firstComma = s.indexOf(',');
+    if (firstComma !== -1) {
+      s = s.slice(0, firstComma + 1) + s.slice(firstComma + 1).replace(/,/g, '');
+    }
+    const [intPart, decPart] = s.split(',');
+    const intFmt = (intPart || '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return decPart !== undefined ? `${intFmt},${decPart}` : intFmt;
+  };
+
   const updateTotalAmount = (val: string) => {
-    setDetailTotalAmount(val);
-    const total = parseFloat(val.replace(',', '.')) || 0;
+    const fmt = formatNumberInput(val);
+    setDetailTotalAmount(fmt);
+    const total = parseFloat(fmt.replace(/\./g, '').replace(',', '.')) || 0;
     const perRate = detailRateCount && detailRateCount > 0 ? (total / detailRateCount).toFixed(2).replace('.', ',') : '';
     setDetailRates(prev => prev.map(r => ({ ...r, amount: perRate })));
   };
 
-  // Tausenderpunkte (deutsch), ohne Nachkommastellen.
-  const formatThousands = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-
   // Monatsgehalt eingeben → Jahresgehalt (× 12) automatisch; Gesamtsumme aktualisieren.
   const updateMonthlySalary = (val: string) => {
-    setDetailMonthlySalaryStr(val);
-    const monthly = parseFloat(val.replace(/\./g, '').replace(',', '.')) || 0;
+    const fmt = formatNumberInput(val);
+    setDetailMonthlySalaryStr(fmt);
+    const monthly = parseFloat(fmt.replace(/\./g, '').replace(',', '.')) || 0;
     const annualStr = monthly > 0 ? formatThousands(monthly * 12) : '';
     setDetailAnnualSalary(annualStr);
     setDetailMonthlySalary(monthly);
@@ -1162,12 +1177,13 @@ export function FinanzenScreen({ navigation }: any) {
 
   // Jahresgehalt eingeben → Monatsgehalt (÷ 12) automatisch; Gesamtsumme aktualisieren.
   const updateAnnualSalary = (val: string) => {
-    setDetailAnnualSalary(val);
-    const annual = parseFloat(val.replace(/\./g, '').replace(',', '.')) || 0;
+    const fmt = formatNumberInput(val);
+    setDetailAnnualSalary(fmt);
+    const annual = parseFloat(fmt.replace(/\./g, '').replace(',', '.')) || 0;
     const monthlyStr = annual > 0 ? formatThousands(annual / 12) : '';
     setDetailMonthlySalaryStr(monthlyStr);
     setDetailMonthlySalary(annual > 0 ? annual / 12 : 0);
-    recomputeTotal(val, detailProvPercent);
+    recomputeTotal(fmt, detailProvPercent);
   };
 
   // Gesamtsumme = Jahresgehalt × Provision% — wird automatisch berechnet, SOBALD ein
@@ -1178,7 +1194,7 @@ export function FinanzenScreen({ navigation }: any) {
     const pct = parseFloat(percentStr.replace(',', '.')) || 0;
     if (salary <= 0 || pct <= 0) return; // kein Gehalt → manuelle Gesamtsumme nicht überschreiben
     const total = salary * pct / 100;
-    const totalStr = total.toFixed(2).replace('.', ',');
+    const totalStr = formatNumberInput(total.toFixed(2).replace('.', ','));
     setDetailTotalAmount(totalStr);
     const perRate = detailRateCount && detailRateCount > 0 ? (total / detailRateCount).toFixed(2).replace('.', ',') : '';
     setDetailRates(prev => prev.map(r => ({ ...r, amount: perRate })));
@@ -1807,9 +1823,9 @@ export function FinanzenScreen({ navigation }: any) {
                 </View>
               )}
             </View>
-            <TouchableOpacity onPress={() => setShowDetail(false)}>
-              <Text style={{ color: colors.textMuted, fontSize: 20 }}>✕</Text>
-            </TouchableOpacity>
+            <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+              Saison {String(season).slice(2)}
+            </Text>
           </View>
 
           <ScrollView
