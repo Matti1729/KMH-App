@@ -3086,7 +3086,7 @@ const styles = StyleSheet.create({
   // Form
   fieldLabel: { fontSize: 11, fontWeight: '600', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
   input: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, fontSize: 11 },
-  inputCompact: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, fontSize: 11 },
+  inputCompact: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 0, height: 34, fontSize: 11 },
   statusPicker: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
   statusOption: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
 
