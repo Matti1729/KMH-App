@@ -1728,7 +1728,6 @@ export function FinanzenScreen({ navigation }: any) {
   // --- Summary ---
 
   const renderSummary = () => (
-    <View style={styles.summaryFrame}>
     <View style={[styles.summaryRow, { marginBottom: 0 }, isMobile && { flexDirection: 'column' }]}>
       <View style={[styles.summaryCard, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }]}>
         <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Offen</Text>
@@ -1742,7 +1741,6 @@ export function FinanzenScreen({ navigation }: any) {
         <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Gesamt</Text>
         <Text style={[styles.summaryValue, { color: colors.text }]}>{formatCurrency(totals.gesamt)}</Text>
       </View>
-    </View>
     </View>
   );
 
@@ -2297,18 +2295,23 @@ export function FinanzenScreen({ navigation }: any) {
 
         {activeTab === 'finanzen' ? (
           <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 12, paddingBottom: 80 }}>
-            <View style={styles.seasonBar}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <Pressable onPress={() => changeSeason(-1)} style={styles.seasonArrow}><Text style={{ color: colors.text, fontSize: 18 }}>◀</Text></Pressable>
-                <Text style={[styles.seasonText, { color: colors.text }]}>{season}</Text>
-                <Pressable onPress={() => changeSeason(1)} style={styles.seasonArrow}><Text style={{ color: colors.text, fontSize: 18 }}>▶</Text></Pressable>
+            <View style={styles.financeHero}>
+              <View style={StyleSheet.absoluteFill as any} pointerEvents="none">
+                <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ width: '100%', height: '100%', opacity: 0.5 }} resizeMode="cover" />
               </View>
-              <TouchableOpacity onPress={() => setShowAddProv(true)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 5, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(0,0,0,0.5)' }}>
-                <Ionicons name="add" size={13} color={colors.text} />
-                <Text style={{ color: colors.text, fontSize: 11, fontWeight: '600' }}>Spieler</Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <Pressable onPress={() => changeSeason(-1)} style={styles.seasonArrow}><Text style={{ color: colors.text, fontSize: 18 }}>◀</Text></Pressable>
+                  <Text style={[styles.seasonText, { color: colors.text }]}>{season}</Text>
+                  <Pressable onPress={() => changeSeason(1)} style={styles.seasonArrow}><Text style={{ color: colors.text, fontSize: 18 }}>▶</Text></Pressable>
+                </View>
+                <TouchableOpacity onPress={() => setShowAddProv(true)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 5, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                  <Ionicons name="add" size={13} color={colors.text} />
+                  <Text style={{ color: colors.text, fontSize: 11, fontWeight: '600' }}>Spieler</Text>
+                </TouchableOpacity>
+              </View>
+              {renderSummary()}
             </View>
-            {renderSummary()}
             <Text style={[styles.rowCount, { color: colors.textMuted }]}>{provisionCount} Provisionen · {playerOnlyCount} ohne Einträge{noProvisionCount > 0 ? ` · ${noProvisionCount} keine Provision` : ''}</Text>
             {loading ? <Text style={[styles.emptyText, { color: colors.textMuted }]}>Laden...</Text> : sortedRows.map(renderCard)}
           </ScrollView>
@@ -2443,21 +2446,25 @@ export function FinanzenScreen({ navigation }: any) {
 
         {activeTab === 'finanzen' ? (
         <View style={styles.content}>
-          {/* Saison-Zeile mit Rahmen: ◀ 2025/26 ▶ zentriert, + Spieler rechts */}
-          <View style={styles.seasonBar}>
-            <View style={{ width: 96 }} />
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-              <Pressable onPress={() => changeSeason(-1)} style={styles.seasonArrow}><Text style={{ color: colors.text, fontSize: 20 }}>◀</Text></Pressable>
-              <Text style={[styles.seasonText, { color: colors.text }]}>{season}</Text>
-              <Pressable onPress={() => changeSeason(1)} style={styles.seasonArrow}><Text style={{ color: colors.text, fontSize: 20 }}>▶</Text></Pressable>
+          {/* Gemeinsamer Rahmen mit Skyline-Hintergrund: Saison-Zeile + Summen */}
+          <View style={styles.financeHero}>
+            <View style={StyleSheet.absoluteFill as any} pointerEvents="none">
+              <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ width: '100%', height: '100%', opacity: 0.5 }} resizeMode="cover" />
             </View>
-            <TouchableOpacity onPress={() => setShowAddProv(true)} style={{ width: 96, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(0,0,0,0.5)' }}>
-              <Ionicons name="add" size={14} color={colors.text} />
-              <Text style={{ color: colors.text, fontSize: 12, fontWeight: '600' }}>Spieler</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <View style={{ width: 96 }} />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                <Pressable onPress={() => changeSeason(-1)} style={styles.seasonArrow}><Text style={{ color: colors.text, fontSize: 20 }}>◀</Text></Pressable>
+                <Text style={[styles.seasonText, { color: colors.text }]}>{season}</Text>
+                <Pressable onPress={() => changeSeason(1)} style={styles.seasonArrow}><Text style={{ color: colors.text, fontSize: 20 }}>▶</Text></Pressable>
+              </View>
+              <TouchableOpacity onPress={() => setShowAddProv(true)} style={{ width: 96, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                <Ionicons name="add" size={14} color={colors.text} />
+                <Text style={{ color: colors.text, fontSize: 12, fontWeight: '600' }}>Spieler</Text>
+              </TouchableOpacity>
+            </View>
+            {renderSummary()}
           </View>
-
-          {renderSummary()}
 
           <Text style={[styles.rowCount, { color: colors.textMuted }]}>{provisionCount} Provisionen · {playerOnlyCount} Spieler ohne Einträge{noProvisionCount > 0 ? ` · ${noProvisionCount} keine Provision` : ''}</Text>
 
@@ -3175,8 +3182,7 @@ const styles = StyleSheet.create({
   content: { flex: 1, padding: 24 },
 
   seasonRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 20, gap: 16 },
-  seasonBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.4)', paddingVertical: 8, paddingHorizontal: 14, marginBottom: 16 },
-  summaryFrame: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.4)', padding: 12, marginBottom: 16 },
+  financeHero: { position: 'relative', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 14, padding: 16, marginBottom: 16, backgroundColor: 'rgba(0,0,0,0.5)' },
   seasonArrow: { padding: 8 },
   seasonText: { fontSize: 18, fontWeight: '700' },
 
