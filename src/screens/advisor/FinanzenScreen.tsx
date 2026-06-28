@@ -1820,10 +1820,10 @@ export function FinanzenScreen({ navigation }: any) {
             {/* Trennstrich unter Name + Verein */}
             <View style={{ height: 1, backgroundColor: colors.border, marginBottom: 16 }} />
 
-            {/* Reihe 1: Provision + Währung nebeneinander */}
-            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16, zIndex: (showProvisionDropdown || showCurrencyDropdown) ? 300 : 1 }}>
+            {/* Reihe 1: Provision (links) + Währung (rechts, über dem Jahresgehalt-Feld) */}
+            <View style={{ flexDirection: 'row', marginBottom: 16, zIndex: (showProvisionDropdown || showCurrencyDropdown) ? 300 : 1 }}>
               {/* Provision (Dropdown: Keine Provision / 1–30 %) */}
-              <View style={{ width: 132, position: 'relative', zIndex: showProvisionDropdown ? 320 : 2 }}>
+              <View style={{ width: 200, position: 'relative', zIndex: showProvisionDropdown ? 320 : 2 }}>
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Provision</Text>
                 <TouchableOpacity
                   style={[styles.inputCompact, { width: 110, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderColor: colors.border, backgroundColor: colors.surface }]}
@@ -1890,42 +1890,45 @@ export function FinanzenScreen({ navigation }: any) {
 
             {!detailNoProvision && (
             <>
-            {/* Reihe 2: Gehalt Saison + Provision-Summe in EINER Zeile.
-                Monats-/Jahresgehalt sind beide eingebbar (× / ÷ 12). */}
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 20, marginBottom: 16, flexWrap: 'wrap' }}>
-              {/* Gehalt (Monat = Saison) */}
-              <View>
-                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Gehalt Saison {season}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <TextInput
-                      style={[styles.inputCompact, { width: 110, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
-                      placeholder="z.B. 2.000"
-                      placeholderTextColor={colors.textMuted}
-                      value={detailMonthlySalaryStr}
-                      onChangeText={updateMonthlySalary}
-                      keyboardType="numeric"
-                    />
-                    <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: '600' }}>{detailCurrency === 'EUR' ? '€' : '$'} / Monat</Text>
-                  </View>
-                  <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: '700' }}>=</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <TextInput
-                      style={[styles.inputCompact, { width: 110, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
-                      placeholder="z.B. 24.000"
-                      placeholderTextColor={colors.textMuted}
-                      value={detailAnnualSalary}
-                      onChangeText={updateAnnualSalary}
-                      keyboardType="numeric"
-                    />
-                    <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: '600' }}>{detailCurrency === 'EUR' ? '€' : '$'} / Saison</Text>
-                  </View>
+            {/* Reihe 2: Gehalt Saison — Monatsgehalt (links), Jahresgehalt (rechts).
+                Beide eingebbar (× / ÷ 12). */}
+            <View style={{ marginBottom: 16 }}>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Gehalt Saison {season}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                {/* linke Spalte (200): Monatsgehalt + "=" */}
+                <View style={{ width: 200, flexDirection: 'row', alignItems: 'center' }}>
+                  <TextInput
+                    style={[styles.inputCompact, { width: 110, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
+                    placeholder="z.B. 2.000"
+                    placeholderTextColor={colors.textMuted}
+                    value={detailMonthlySalaryStr}
+                    onChangeText={updateMonthlySalary}
+                    keyboardType="numeric"
+                  />
+                  <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: '600', marginLeft: 4 }}>{detailCurrency === 'EUR' ? '€' : '$'} / Monat</Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: '700', marginLeft: 'auto', marginRight: 10 }}>=</Text>
+                </View>
+                {/* rechte Spalte: Jahresgehalt (€ / Saison) */}
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <TextInput
+                    style={[styles.inputCompact, { width: 110, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
+                    placeholder="z.B. 24.000"
+                    placeholderTextColor={colors.textMuted}
+                    value={detailAnnualSalary}
+                    onChangeText={updateAnnualSalary}
+                    keyboardType="numeric"
+                  />
+                  <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: '600', marginLeft: 4 }}>{detailCurrency === 'EUR' ? '€' : '$'} / Saison</Text>
                 </View>
               </View>
-              {/* Provision-Summe — rechts daneben in derselben Zeile */}
-              <View>
+            </View>
+
+            {/* Reihe 3: Provision-Summe (links) + Raten (rechts, exakt unter dem Jahresgehalt) */}
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', zIndex: showRateDropdown ? 200 : 1 }}>
+              {/* linke Spalte (200): Provision-Summe */}
+              <View style={{ width: 200 }}>
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Provision {season}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <TextInput
                     style={[styles.inputCompact, { width: 110, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
                     placeholder="1.000,00"
@@ -1934,44 +1937,43 @@ export function FinanzenScreen({ navigation }: any) {
                     onChangeText={updateTotalAmount}
                     keyboardType="numeric"
                   />
-                  <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: '600' }}>{detailCurrency === 'EUR' ? '€' : '$'}</Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: '600', marginLeft: 6 }}>{detailCurrency === 'EUR' ? '€' : '$'}</Text>
                 </View>
               </View>
-            </View>
-
-            {/* Reihe 3: Raten — eigene Zeile */}
-            <View style={{ position: 'relative', zIndex: showRateDropdown ? 200 : 1 }}>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Raten</Text>
-              <TouchableOpacity
-                style={[styles.inputCompact, { width: 110, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderColor: colors.border, backgroundColor: colors.surface }]}
-                onPress={() => { setShowRateDropdown(!showRateDropdown); setShowProvisionDropdown(false); setShowCurrencyDropdown(false); setActiveDatePicker(null); }}
-              >
-                <Text style={{ color: detailRateCount ? colors.text : colors.textMuted, fontSize: 13 }}>
-                  {detailRateCount ?? '-'}
-                </Text>
-                <Text style={{ color: colors.textSecondary, fontSize: 10 }}>▼</Text>
-              </TouchableOpacity>
-              {showRateDropdown && (
-                <View style={[styles.datePickerList, { width: 110, backgroundColor: dropdownBg, borderColor: colors.border }]}>
-                  <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
-                    <TouchableOpacity
-                      style={[styles.datePickerItem, { borderBottomColor: colors.border }, detailRateCount === null && styles.datePickerItemSelected]}
-                      onPress={() => updateRateCount(null)}
-                    >
-                      <Text style={[styles.datePickerItemText, { color: colors.text }, detailRateCount === null && styles.datePickerItemTextSelected]}>-</Text>
-                    </TouchableOpacity>
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
+              {/* rechte Spalte: Raten */}
+              <View style={{ position: 'relative', zIndex: showRateDropdown ? 200 : 1 }}>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Raten</Text>
+                <TouchableOpacity
+                  style={[styles.inputCompact, { width: 110, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderColor: colors.border, backgroundColor: colors.surface }]}
+                  onPress={() => { setShowRateDropdown(!showRateDropdown); setShowProvisionDropdown(false); setShowCurrencyDropdown(false); setActiveDatePicker(null); }}
+                >
+                  <Text style={{ color: detailRateCount ? colors.text : colors.textMuted, fontSize: 13 }}>
+                    {detailRateCount ?? '-'}
+                  </Text>
+                  <Text style={{ color: colors.textSecondary, fontSize: 10 }}>▼</Text>
+                </TouchableOpacity>
+                {showRateDropdown && (
+                  <View style={[styles.datePickerList, { width: 110, backgroundColor: dropdownBg, borderColor: colors.border }]}>
+                    <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
                       <TouchableOpacity
-                        key={n}
-                        style={[styles.datePickerItem, { borderBottomColor: colors.border }, detailRateCount === n && styles.datePickerItemSelected]}
-                        onPress={() => updateRateCount(n)}
+                        style={[styles.datePickerItem, { borderBottomColor: colors.border }, detailRateCount === null && styles.datePickerItemSelected]}
+                        onPress={() => updateRateCount(null)}
                       >
-                        <Text style={[styles.datePickerItemText, { color: colors.text }, detailRateCount === n && styles.datePickerItemTextSelected]}>{n}</Text>
+                        <Text style={[styles.datePickerItemText, { color: colors.text }, detailRateCount === null && styles.datePickerItemTextSelected]}>-</Text>
                       </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
+                        <TouchableOpacity
+                          key={n}
+                          style={[styles.datePickerItem, { borderBottomColor: colors.border }, detailRateCount === n && styles.datePickerItemSelected]}
+                          onPress={() => updateRateCount(n)}
+                        >
+                          <Text style={[styles.datePickerItemText, { color: colors.text }, detailRateCount === n && styles.datePickerItemTextSelected]}>{n}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
             </View>
             </>
             )}
