@@ -34,6 +34,7 @@ interface Player {
   commission_shares: any[];
   contract_end: string | null;
   future_club: string | null;
+  special_payment_note: string | null;
 }
 
 interface Provision {
@@ -953,6 +954,8 @@ export function FinanzenScreen({ navigation }: any) {
   const [detailRateCount, setDetailRateCount] = useState<number | null>(null);
   const [detailRates, setDetailRates] = useState<RateEntry[]>([]);
   const [detailCurrency, setDetailCurrency] = useState<'EUR' | 'USD'>('EUR');
+  const [detailSpecialPayment, setDetailSpecialPayment] = useState(false);
+  const [detailSpecialNote, setDetailSpecialNote] = useState('');
   const [showRateDropdown, setShowRateDropdown] = useState(false);
   const [showProvisionDropdown, setShowProvisionDropdown] = useState(false);
   const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
@@ -984,7 +987,7 @@ export function FinanzenScreen({ navigation }: any) {
     const linkedIds: string[] = (linksRes.data || []).map((l: any) => l.player_id);
     setLinkedPlayerIds(new Set(linkedIds));
 
-    const playerSelect = 'id, first_name, last_name, club, league, provision, provision_documents, contract_documents, commission_shares, contract_end, future_club';
+    const playerSelect = 'id, first_name, last_name, club, league, provision, provision_documents, contract_documents, commission_shares, contract_end, future_club, special_payment_note';
     let playersQuery = supabase.from('player_details').select(playerSelect).order('last_name');
     playersQuery = linkedIds.length > 0
       ? playersQuery.or(`responsibility.ilike.*${fullName}*,id.in.(${linkedIds.join(',')})`)
@@ -1122,6 +1125,8 @@ export function FinanzenScreen({ navigation }: any) {
     setDetailProvSalaryMonths(null);
     setDetailContractSalaryPeriods([]);
     setDetailMonthlySalary(0);
+    setDetailSpecialPayment(player.special_payment_note != null);
+    setDetailSpecialNote(player.special_payment_note || '');
     setDetailProvDocs(player.provision_documents || []);
     setDetailContractDocs(player.contract_documents || []);
     setDetailShares((player.commission_shares || []).map((s: any) => ({
@@ -1315,6 +1320,7 @@ export function FinanzenScreen({ navigation }: any) {
       commission_shares: detailShares.filter(s => s.name.trim()).map(s => ({
         name: s.name, percentage: parseFloat(s.percentage) || 0, type: s.type, notes: s.notes,
       })),
+      special_payment_note: detailSpecialPayment ? detailSpecialNote : null,
     }).eq('id', detailPlayerId);
 
     // Wenn der Spieler in dieser Saison als "keine Provision" markiert war, Markierung
@@ -2251,8 +2257,39 @@ export function FinanzenScreen({ navigation }: any) {
                   </View>
                 )}
               </View>
+              {/* Sonderzahlungen-Häkchen */}
+              <View style={{ marginLeft: 24 }}>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Sonderzahlungen</Text>
+                <TouchableOpacity
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 8, height: 30 }}
+                  onPress={() => setDetailSpecialPayment(v => !v)}
+                >
+                  <Ionicons
+                    name={detailSpecialPayment ? 'checkbox' : 'square-outline'}
+                    size={20}
+                    color={detailSpecialPayment ? '#22c55e' : colors.textMuted}
+                  />
+                  <Text style={{ color: colors.textMuted, fontSize: 13 }}>{detailSpecialPayment ? 'Ja' : 'Nein'}</Text>
+                </TouchableOpacity>
+              </View>
             </View>
             </>
+            )}
+
+            {/* Sonderzahlungen-Box (erscheint bei gesetztem Häkchen) */}
+            {detailSpecialPayment && (
+              <View pointerEvents={blockIfNot('sonder')} style={[styles.rateSection, { borderColor: colors.border, opacity: dimIfNot('sonder') }]}>
+                <Text style={[styles.rateSectionTitle, { color: colors.text, marginBottom: 10 }]}>Sonderzahlung</Text>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginBottom: 6 }]}>Notiz / Erklärung</Text>
+                <TextInput
+                  style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface, minHeight: 80, textAlignVertical: 'top', paddingTop: 10 }]}
+                  placeholder="z.B. Bonus bei Klassenerhalt, Handgeld, Prämie …"
+                  placeholderTextColor={colors.textMuted}
+                  value={detailSpecialNote}
+                  onChangeText={setDetailSpecialNote}
+                  multiline
+                />
+              </View>
             )}
             {/* Netto-Info */}
             {detailShares.length > 0 && detailProvPercent ? (() => {
