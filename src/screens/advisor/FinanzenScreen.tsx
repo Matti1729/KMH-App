@@ -937,6 +937,10 @@ export function FinanzenScreen({ navigation }: any) {
   const [detailRates, setDetailRates] = useState<RateEntry[]>([]);
   const [detailCurrency, setDetailCurrency] = useState<'EUR' | 'USD'>('EUR');
   const [showRateDropdown, setShowRateDropdown] = useState(false);
+  const [showProvisionDropdown, setShowProvisionDropdown] = useState(false);
+  const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
+  // "Keine Provision" als Auswahl im Provisions-Dropdown (statt separatem Button).
+  const [detailNoProvision, setDetailNoProvision] = useState(false);
   const [activeDatePicker, setActiveDatePicker] = useState<{ rateIdx: number; part: 'day' | 'month' | 'year' } | null>(null);
   const [detailProvDocs, setDetailProvDocs] = useState<any[]>([]);
   const [detailContractDocs, setDetailContractDocs] = useState<any[]>([]);
@@ -1075,8 +1079,11 @@ export function FinanzenScreen({ navigation }: any) {
 
     setDetailPlayerId(playerId);
     setDetailProvPercent(player.provision || '');
+    setDetailNoProvision(noProvisionIds.has(playerId));
     setActiveDatePicker(null);
     setShowRateDropdown(false);
+    setShowProvisionDropdown(false);
+    setShowCurrencyDropdown(false);
     setDetailCurrency('EUR');
     setDetailAnnualSalary('');
     setDetailMonthlySalaryStr('');
@@ -1225,6 +1232,17 @@ export function FinanzenScreen({ navigation }: any) {
       await supabase.from('player_provisions').delete().in('id', existingIds);
     }
 
+    // "Keine Provision" gewählt → Markierung setzen und fertig (keine Raten/Provision).
+    if (detailNoProvision) {
+      await supabase.from('player_no_provision').upsert(
+        { player_id: detailPlayerId, season, created_by: session?.user?.id },
+        { onConflict: 'player_id,season' }
+      );
+      setShowDetail(false);
+      fetchData();
+      return;
+    }
+
     // Insert new rates
     const inserts = detailRates.map(r => ({
       player_id: detailPlayerId,
@@ -1259,19 +1277,17 @@ export function FinanzenScreen({ navigation }: any) {
     fetchData();
   };
 
-  // "Keine Provision" für die aktuelle Saison setzen/aufheben.
-  const toggleNoProvision = async () => {
-    if (!detailPlayerId) return;
-    if (noProvisionIds.has(detailPlayerId)) {
-      await supabase.from('player_no_provision').delete().eq('player_id', detailPlayerId).eq('season', season);
-    } else {
-      // Bestehende Provisionen dieser Saison entfernen, dann Markierung setzen.
-      const existingIds = provisions.filter(p => p.player_id === detailPlayerId).map(p => p.id);
-      if (existingIds.length > 0) await supabase.from('player_provisions').delete().in('id', existingIds);
-      await supabase.from('player_no_provision').upsert({ player_id: detailPlayerId, season, created_by: session?.user?.id }, { onConflict: 'player_id,season' });
+  // Provisions-Dropdown wählen: "Keine Provision" oder 1–30 %.
+  const selectProvisionOption = (val: 'none' | number) => {
+    setShowProvisionDropdown(false);
+    if (val === 'none') {
+      setDetailNoProvision(true);
+      setDetailProvPercent('');
+      return;
     }
-    setShowDetail(false);
-    fetchData();
+    setDetailNoProvision(false);
+    setDetailProvPercent(String(val));
+    recomputeTotal(detailAnnualSalary, String(val));
   };
 
   const deleteAllProvisions = async () => {
@@ -1796,31 +1812,84 @@ export function FinanzenScreen({ navigation }: any) {
             </TouchableOpacity>
           </View>
 
-          {/* "Keine Provision" für diese Saison (Toggle) */}
-          {(() => {
-            const active = !!detailPlayerId && noProvisionIds.has(detailPlayerId);
-            return (
-              <TouchableOpacity
-                onPress={toggleNoProvision}
-                style={{
-                  alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6,
-                  paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, marginBottom: 14,
-                  backgroundColor: active ? '#ef4444' : 'transparent',
-                  borderColor: active ? '#ef4444' : colors.border,
-                }}
-              >
-                <Text style={{ color: active ? '#fff' : colors.textSecondary, fontSize: 12, fontWeight: '600' }}>
-                  {active ? '✓ Keine Provision' : 'Keine Provision'}
-                </Text>
-              </TouchableOpacity>
-            );
-          })()}
-
           <ScrollView
-            style={[{ flex: 1 }, (activeDatePicker || showRateDropdown) ? { overflow: 'visible' as any } : {}]}
-            scrollEnabled={!activeDatePicker && !showRateDropdown}
+            style={[{ flex: 1 }, (activeDatePicker || showRateDropdown || showProvisionDropdown || showCurrencyDropdown) ? { overflow: 'visible' as any } : {}]}
+            scrollEnabled={!activeDatePicker && !showRateDropdown && !showProvisionDropdown && !showCurrencyDropdown}
             nestedScrollEnabled
           >
+            {/* Trennstrich unter Name + Verein */}
+            <View style={{ height: 1, backgroundColor: colors.border, marginBottom: 16 }} />
+
+            {/* Provision (Dropdown: Keine Provision / 1–30 %) + Währung (Dropdown) */}
+            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16, zIndex: (showProvisionDropdown || showCurrencyDropdown) ? 300 : 1 }}>
+              {/* Provision */}
+              <View style={{ flex: 1, position: 'relative', zIndex: showProvisionDropdown ? 320 : 1 }}>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Provision</Text>
+                <TouchableOpacity
+                  style={[styles.inputCompact, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderColor: colors.border, backgroundColor: colors.surface }]}
+                  onPress={() => { setShowProvisionDropdown(v => !v); setShowCurrencyDropdown(false); setShowRateDropdown(false); setActiveDatePicker(null); }}
+                >
+                  <Text style={{ color: (detailNoProvision || detailProvPercent) ? colors.text : colors.textMuted, fontSize: 13 }}>
+                    {detailNoProvision ? 'Keine Provision' : (detailProvPercent ? `${detailProvPercent}%` : '–')}
+                  </Text>
+                  <Text style={{ color: colors.textSecondary, fontSize: 10 }}>▼</Text>
+                </TouchableOpacity>
+                {showProvisionDropdown && (
+                  <View style={[styles.datePickerList, { backgroundColor: dropdownBg, borderColor: colors.border }]}>
+                    <ScrollView style={{ maxHeight: 220 }} nestedScrollEnabled>
+                      <TouchableOpacity
+                        style={[styles.datePickerItem, { borderBottomColor: colors.border }, detailNoProvision && styles.datePickerItemSelected]}
+                        onPress={() => selectProvisionOption('none')}
+                      >
+                        <Text style={[styles.datePickerItemText, { color: colors.text }, detailNoProvision && styles.datePickerItemTextSelected]}>Keine Provision</Text>
+                      </TouchableOpacity>
+                      {Array.from({ length: 30 }, (_, i) => i + 1).map(n => {
+                        const sel = !detailNoProvision && detailProvPercent === String(n);
+                        return (
+                          <TouchableOpacity
+                            key={n}
+                            style={[styles.datePickerItem, { borderBottomColor: colors.border }, sel && styles.datePickerItemSelected]}
+                            onPress={() => selectProvisionOption(n)}
+                          >
+                            <Text style={[styles.datePickerItemText, { color: colors.text }, sel && styles.datePickerItemTextSelected]}>{n}%</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+              {/* Währung */}
+              <View style={{ flex: 1, position: 'relative', zIndex: showCurrencyDropdown ? 320 : 1 }}>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Währung</Text>
+                <TouchableOpacity
+                  style={[styles.inputCompact, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderColor: colors.border, backgroundColor: colors.surface }]}
+                  onPress={() => { setShowCurrencyDropdown(v => !v); setShowProvisionDropdown(false); setShowRateDropdown(false); setActiveDatePicker(null); }}
+                >
+                  <Text style={{ color: colors.text, fontSize: 13 }}>{detailCurrency === 'EUR' ? '€ Euro' : '$ Dollar'}</Text>
+                  <Text style={{ color: colors.textSecondary, fontSize: 10 }}>▼</Text>
+                </TouchableOpacity>
+                {showCurrencyDropdown && (
+                  <View style={[styles.datePickerList, { backgroundColor: dropdownBg, borderColor: colors.border }]}>
+                    {([['EUR', '€ Euro'], ['USD', '$ Dollar']] as const).map(([val, label]) => {
+                      const sel = detailCurrency === val;
+                      return (
+                        <TouchableOpacity
+                          key={val}
+                          style={[styles.datePickerItem, { borderBottomColor: colors.border }, sel && styles.datePickerItemSelected]}
+                          onPress={() => { setDetailCurrency(val); setShowCurrencyDropdown(false); }}
+                        >
+                          <Text style={[styles.datePickerItemText, { color: colors.text }, sel && styles.datePickerItemTextSelected]}>{label}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {!detailNoProvision && (
+            <>
             {/* Saisongehalt: Monats- und Jahresgehalt sind beide eingebbar, das jeweils
                 andere rechnet sich automatisch (× / ÷ 12). */}
             <View style={{ marginBottom: 16 }}>
@@ -1852,45 +1921,21 @@ export function FinanzenScreen({ navigation }: any) {
               </View>
             </View>
 
-            {/* Provision + Gesamtsumme + Raten in einer Reihe */}
+            {/* Provision-Summe (Gesamtsumme) + Raten in einer Reihe */}
             <View style={{ flexDirection: 'row', gap: 12, zIndex: showRateDropdown ? 200 : 1 }}>
-              {/* Provision */}
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Provision</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <TextInput
-                    style={[styles.inputCompact, { width: 48, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
-                    placeholder="10"
-                    placeholderTextColor={colors.textMuted}
-                    value={detailProvPercent}
-                    onChangeText={(val) => {
-                      setDetailProvPercent(val);
-                      recomputeTotal(detailAnnualSalary, val);
-                    }}
-                    keyboardType="numeric"
-                    maxLength={2}
-                  />
-                  <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: '600', marginLeft: 4 }}>%</Text>
-                </View>
-              </View>
               {/* Gesamtsumme */}
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Gesamtsumme</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <View style={{ flex: 1.4 }}>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Provision {season}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <TextInput
-                    style={[styles.inputCompact, { width: 100, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
+                    style={[styles.inputCompact, { width: 110, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
                     placeholder="1.000,00"
                     placeholderTextColor={colors.textMuted}
                     value={detailTotalAmount}
                     onChangeText={updateTotalAmount}
                     keyboardType="numeric"
                   />
-                  <TouchableOpacity
-                    style={[styles.currencyToggle, { borderColor: colors.border, backgroundColor: colors.surface }]}
-                    onPress={() => setDetailCurrency(c => c === 'EUR' ? 'USD' : 'EUR')}
-                  >
-                    <Text style={{ color: colors.text, fontSize: 11, fontWeight: '600' }}>{detailCurrency === 'EUR' ? '€' : '$'}</Text>
-                  </TouchableOpacity>
+                  <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: '600' }}>{detailCurrency === 'EUR' ? '€' : '$'}</Text>
                 </View>
               </View>
               {/* Anzahl Raten */}
@@ -1898,7 +1943,7 @@ export function FinanzenScreen({ navigation }: any) {
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Raten</Text>
                 <TouchableOpacity
                   style={[styles.inputCompact, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderColor: colors.border, backgroundColor: colors.surface }]}
-                  onPress={() => { setShowRateDropdown(!showRateDropdown); setActiveDatePicker(null); }}
+                  onPress={() => { setShowRateDropdown(!showRateDropdown); setShowProvisionDropdown(false); setShowCurrencyDropdown(false); setActiveDatePicker(null); }}
                 >
                   <Text style={{ color: detailRateCount ? colors.text : colors.textMuted, fontSize: 13 }}>
                     {detailRateCount ?? '-'}
@@ -1928,6 +1973,8 @@ export function FinanzenScreen({ navigation }: any) {
                 )}
               </View>
             </View>
+            </>
+            )}
             {/* Netto-Info */}
             {detailShares.length > 0 && detailProvPercent ? (() => {
               const totalSharePct = detailShares.reduce((s, sh) => s + (parseFloat(sh.percentage) || 0), 0);
