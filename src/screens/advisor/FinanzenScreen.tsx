@@ -1127,7 +1127,7 @@ export function FinanzenScreen({ navigation }: any) {
   // Tausenderpunkte (deutsch), ohne Nachkommastellen.
   const formatThousands = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
-  // Monatsgehalt eingeben → Jahresgehalt (× 12) automatisch berechnen und Gesamtsumme aktualisieren.
+  // Monatsgehalt eingeben → Jahresgehalt (× 12) automatisch; Gesamtsumme aktualisieren.
   const updateMonthlySalary = (val: string) => {
     setDetailMonthlySalaryStr(val);
     const monthly = parseFloat(val.replace(/\./g, '').replace(',', '.')) || 0;
@@ -1137,16 +1137,23 @@ export function FinanzenScreen({ navigation }: any) {
     recomputeTotal(annualStr, detailProvPercent);
   };
 
-  // Gesamtsumme = Gehalt × Provision%. Wird automatisch berechnet, sobald sich
-  // Gehalt oder Prozentsatz ändern, und auf die Raten verteilt.
+  // Jahresgehalt eingeben → Monatsgehalt (÷ 12) automatisch; Gesamtsumme aktualisieren.
+  const updateAnnualSalary = (val: string) => {
+    setDetailAnnualSalary(val);
+    const annual = parseFloat(val.replace(/\./g, '').replace(',', '.')) || 0;
+    const monthlyStr = annual > 0 ? formatThousands(annual / 12) : '';
+    setDetailMonthlySalaryStr(monthlyStr);
+    setDetailMonthlySalary(annual > 0 ? annual / 12 : 0);
+    recomputeTotal(val, detailProvPercent);
+  };
+
+  // Gesamtsumme = Jahresgehalt × Provision% — wird automatisch berechnet, SOBALD ein
+  // Gehalt eingetragen ist. Ohne Gehalt bleibt die Gesamtsumme manuell eingebbar
+  // (recomputeTotal lässt sie dann unangetastet).
   const recomputeTotal = (salaryStr: string, percentStr: string) => {
     const salary = parseFloat(salaryStr.replace(/\./g, '').replace(',', '.')) || 0;
     const pct = parseFloat(percentStr.replace(',', '.')) || 0;
-    if (salary <= 0 || pct <= 0) {
-      setDetailTotalAmount('');
-      setDetailRates(prev => prev.map(r => ({ ...r, amount: '' })));
-      return;
-    }
+    if (salary <= 0 || pct <= 0) return; // kein Gehalt → manuelle Gesamtsumme nicht überschreiben
     const total = salary * pct / 100;
     const totalStr = total.toFixed(2).replace('.', ',');
     setDetailTotalAmount(totalStr);
@@ -1749,7 +1756,8 @@ export function FinanzenScreen({ navigation }: any) {
             scrollEnabled={!activeDatePicker && !showRateDropdown}
             nestedScrollEnabled
           >
-            {/* Saisongehalt: Monatsgehalt eingeben → Jahresgehalt automatisch */}
+            {/* Saisongehalt: Monats- und Jahresgehalt sind beide eingebbar, das jeweils
+                andere rechnet sich automatisch (× / ÷ 12). */}
             <View style={{ marginBottom: 16 }}>
               <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Gehalt Saison {season}</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -1767,11 +1775,11 @@ export function FinanzenScreen({ navigation }: any) {
                 <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: '700' }}>=</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                   <TextInput
-                    style={[styles.inputCompact, { width: 110, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface, opacity: 0.75 }]}
+                    style={[styles.inputCompact, { width: 110, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
                     placeholder="z.B. 24.000"
                     placeholderTextColor={colors.textMuted}
                     value={detailAnnualSalary}
-                    editable={false}
+                    onChangeText={updateAnnualSalary}
                     keyboardType="numeric"
                   />
                   <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: '600' }}>{detailCurrency === 'EUR' ? '€' : '$'} / Saison</Text>
@@ -1805,11 +1813,11 @@ export function FinanzenScreen({ navigation }: any) {
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Gesamtsumme</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                   <TextInput
-                    style={[styles.inputCompact, { width: 100, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface, opacity: 0.75 }]}
+                    style={[styles.inputCompact, { width: 100, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
                     placeholder="1.000,00"
                     placeholderTextColor={colors.textMuted}
                     value={detailTotalAmount}
-                    editable={false}
+                    onChangeText={updateTotalAmount}
                     keyboardType="numeric"
                   />
                   <TouchableOpacity
