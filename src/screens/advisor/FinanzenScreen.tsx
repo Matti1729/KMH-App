@@ -2229,79 +2229,69 @@ export function FinanzenScreen({ navigation }: any) {
 
             {!detailNoProvision && (
             <>
-            {/* Reihe 2 (Provision): Gehalt Saison — Monatsgehalt (links), Jahresgehalt (rechts).
-                Beide eingebbar (× / ÷ 12). */}
+            {/* Reihe 2 (Provision): Monatsgehalt + Jahresgehalt — gleiche 3er-Spalten wie Reihe 1. */}
             {detailArt === 'provision' && (
-            <View pointerEvents={blockIfNot('r2')} style={{ marginBottom: 16, position: 'relative', opacity: dimIfNot('r2'), zIndex: 1 }}>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Spielergehalt</Text>
-              <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-                {/* linke Spalte: Monatsgehalt */}
-                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <TextInput
-                    style={[styles.inputCompact, { flex: 1, minWidth: 0, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
-                    placeholder="z.B. 2.000"
-                    placeholderTextColor={colors.textMuted}
-                    value={detailMonthlySalaryStr}
-                    onChangeText={updateMonthlySalary}
-                    keyboardType="numeric"
-                  />
-                  <Text style={{ color: colors.textMuted, fontSize: 13, fontWeight: '600' }} numberOfLines={1}>{detailCurrency === 'EUR' ? '€' : '$'}/Mon.</Text>
-                </View>
-                {/* rechte Spalte: Jahresgehalt */}
-                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <TextInput
-                    style={[styles.inputCompact, { flex: 1, minWidth: 0, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
-                    placeholder="z.B. 24.000"
-                    placeholderTextColor={colors.textMuted}
-                    value={detailAnnualSalary}
-                    onChangeText={updateAnnualSalary}
-                    keyboardType="numeric"
-                  />
-                  <Text style={{ color: colors.textMuted, fontSize: 13, fontWeight: '600' }} numberOfLines={1}>{detailCurrency === 'EUR' ? '€' : '$'}/Sais.</Text>
-                </View>
+            <View pointerEvents={blockIfNot('r2')} style={{ flexDirection: 'row', gap: 12, marginBottom: 16, position: 'relative', opacity: dimIfNot('r2'), zIndex: 1 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>{`Gehalt/Mon. ${detailCurrency === 'EUR' ? '€' : '$'}`}</Text>
+                <TextInput
+                  style={[styles.inputCompact, { width: '100%', color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
+                  placeholder="z.B. 2.000"
+                  placeholderTextColor={colors.textMuted}
+                  value={detailMonthlySalaryStr}
+                  onChangeText={updateMonthlySalary}
+                  keyboardType="numeric"
+                />
               </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>{`Gehalt/Sais. ${detailCurrency === 'EUR' ? '€' : '$'}`}</Text>
+                <TextInput
+                  style={[styles.inputCompact, { width: '100%', color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
+                  placeholder="z.B. 24.000"
+                  placeholderTextColor={colors.textMuted}
+                  value={detailAnnualSalary}
+                  onChangeText={updateAnnualSalary}
+                  keyboardType="numeric"
+                />
+              </View>
+              <View style={{ flex: 1 }} />
             </View>
             )}
 
             {/* Reihe 2 (Wegvermittlung): Transfersumme (Einzelfeld) */}
             {detailArt === 'wegvermittlung' && (
-            <View pointerEvents={blockIfNot('r2')} style={{ marginBottom: 16, position: 'relative', opacity: dimIfNot('r2'), zIndex: 1 }}>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Transfersumme</Text>
-              <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <TextInput
-                    style={[styles.inputCompact, { flex: 1, minWidth: 0, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
-                    placeholder="z.B. 5.000.000"
-                    placeholderTextColor={colors.textMuted}
-                    value={detailTransferSum}
-                    onChangeText={(v) => setDetailTransferSum(formatNumberInput(v))}
-                    keyboardType="numeric"
-                  />
-                  <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: '600' }}>{detailCurrency === 'EUR' ? '€' : '$'}</Text>
-                </View>
-                <View style={{ flex: 1 }} />
+            <View pointerEvents={blockIfNot('r2')} style={{ flexDirection: 'row', gap: 12, marginBottom: 16, position: 'relative', opacity: dimIfNot('r2'), zIndex: 1 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>{`Transfers. ${detailCurrency === 'EUR' ? '€' : '$'}`}</Text>
+                <TextInput
+                  style={[styles.inputCompact, { width: '100%', color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
+                  placeholder="z.B. 5.000.000"
+                  placeholderTextColor={colors.textMuted}
+                  value={detailTransferSum}
+                  onChangeText={(v) => setDetailTransferSum(formatNumberInput(v))}
+                  keyboardType="numeric"
+                />
               </View>
+              <View style={{ flex: 1 }} />
+              <View style={{ flex: 1 }} />
             </View>
             )}
 
-            {/* Reihe 3: Gesamtsumme (links) + Raten (rechts) */}
+            {/* Reihe 3: Gesamtsumme (links) + Raten (mitte) — gleiche 3er-Spalten. */}
             <View pointerEvents={blockIfNot('r3')} style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start', position: 'relative', opacity: dimIfNot('r3'), zIndex: showRateDropdown ? 1000 : 1 }}>
               {/* linke Spalte: Gesamtsumme */}
               <View style={{ flex: 1 }}>
-                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>{detailArt === 'wegvermittlung' ? 'Gesamtverm.-Summe' : detailArt === 'sonderzahlung' ? 'Gesamtsumme' : 'Gesamtprovision'}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <TextInput
-                    style={[styles.inputCompact, { flex: 1, minWidth: 0, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
-                    placeholder="1.000,00"
-                    placeholderTextColor={colors.textMuted}
-                    value={detailTotalAmount}
-                    onChangeText={updateTotalAmount}
-                    keyboardType="numeric"
-                  />
-                  <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: '600' }}>{detailCurrency === 'EUR' ? '€' : '$'}</Text>
-                </View>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>{`${detailArt === 'wegvermittlung' ? 'Gesamtverm.' : detailArt === 'sonderzahlung' ? 'Gesamtsumme' : 'Gesamtprov.'} ${detailCurrency === 'EUR' ? '€' : '$'}`}</Text>
+                <TextInput
+                  style={[styles.inputCompact, { width: '100%', color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
+                  placeholder="1.000,00"
+                  placeholderTextColor={colors.textMuted}
+                  value={detailTotalAmount}
+                  onChangeText={updateTotalAmount}
+                  keyboardType="numeric"
+                />
               </View>
-              {/* rechte Spalte: Raten */}
+              {/* mittlere Spalte: Raten */}
               <View style={{ flex: 1, position: 'relative', zIndex: showRateDropdown ? 200 : 1 }}>
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Raten</Text>
                 <TouchableOpacity
@@ -2335,6 +2325,8 @@ export function FinanzenScreen({ navigation }: any) {
                   </View>
                 )}
               </View>
+              {/* rechte Spalte: leer (gleiche 3er-Aufteilung wie Reihe 1) */}
+              <View style={{ flex: 1 }} />
             </View>
 
             {/* Notiz / Erklärung — nur bei Sonderzahlungen */}
