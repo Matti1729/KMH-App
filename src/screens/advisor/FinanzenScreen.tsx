@@ -46,7 +46,7 @@ interface Provision {
 }
 
 interface DisplayRow {
-  type: 'provision' | 'player_only';
+  type: 'provision' | 'player_only' | 'no_provision';
   key: string;
   provisionId: string | null;
   player_id: string;
@@ -203,6 +203,8 @@ export function FinanzenScreen({ navigation }: any) {
   const [season, setSeason] = useState(getCurrentSeason());
   const [players, setPlayers] = useState<Player[]>([]);
   const [provisions, setProvisions] = useState<Provision[]>([]);
+  // Spieler, die in der gewählten Saison bewusst "keine Provision" haben.
+  const [noProvisionIds, setNoProvisionIds] = useState<Set<string>>(new Set());
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
@@ -955,8 +957,8 @@ export function FinanzenScreen({ navigation }: any) {
     const fn = (authProfile?.first_name || '').trim();
     const ln = (authProfile?.last_name || '').trim();
     const fullName = `${fn} ${ln}`.trim();
-    if (!fullName) { setPlayers([]); setProvisions([]); setLoading(false); return; }
-    const [playersRes, provsRes] = await Promise.all([
+    if (!fullName) { setPlayers([]); setProvisions([]); setNoProvisionIds(new Set()); setLoading(false); return; }
+    const [playersRes, provsRes, noProvRes] = await Promise.all([
       supabase
         .from('player_details')
         .select('id, first_name, last_name, club, league, provision, provision_documents, contract_documents, commission_shares, contract_end, future_club')
@@ -966,9 +968,14 @@ export function FinanzenScreen({ navigation }: any) {
         .from('player_provisions')
         .select('id, player_id, season, amount, status, due_date')
         .eq('season', season),
+      supabase
+        .from('player_no_provision')
+        .select('player_id')
+        .eq('season', season),
     ]);
     if (playersRes.data) setPlayers(playersRes.data);
     if (provsRes.data) setProvisions(provsRes.data);
+    setNoProvisionIds(new Set((noProvRes.data || []).map((r: any) => r.player_id)));
     setLoading(false);
   }, [season, authProfile?.first_name, authProfile?.last_name]);
 
@@ -1001,14 +1008,15 @@ export function FinanzenScreen({ navigation }: any) {
     }
     for (const player of players) {
       if (playerIdsWithProv.has(player.id)) continue;
+      const isNoProv = noProvisionIds.has(player.id);
       rows.push({
-        type: 'player_only', key: `p_${player.id}`, provisionId: null, player_id: player.id,
+        type: isNoProv ? 'no_provision' : 'player_only', key: `p_${player.id}`, provisionId: null, player_id: player.id,
         first_name: player.first_name, last_name: player.last_name, club: effClub(player),
         league: effLeague(player), provisionPercent: player.provision, amount: 0, status: '', due_date: null,
       });
     }
     return rows;
-  }, [players, provisions, season]);
+  }, [players, provisions, season, noProvisionIds]);
 
   // --- Sort ---
 
@@ -1243,6 +1251,25 @@ export function FinanzenScreen({ navigation }: any) {
       })),
     }).eq('id', detailPlayerId);
 
+    // Wenn der Spieler in dieser Saison als "keine Provision" markiert war, Markierung
+    // entfernen — es wurde ja jetzt eine Provision erfasst.
+    await supabase.from('player_no_provision').delete().eq('player_id', detailPlayerId).eq('season', season);
+
+    setShowDetail(false);
+    fetchData();
+  };
+
+  // "Keine Provision" für die aktuelle Saison setzen/aufheben.
+  const toggleNoProvision = async () => {
+    if (!detailPlayerId) return;
+    if (noProvisionIds.has(detailPlayerId)) {
+      await supabase.from('player_no_provision').delete().eq('player_id', detailPlayerId).eq('season', season);
+    } else {
+      // Bestehende Provisionen dieser Saison entfernen, dann Markierung setzen.
+      const existingIds = provisions.filter(p => p.player_id === detailPlayerId).map(p => p.id);
+      if (existingIds.length > 0) await supabase.from('player_provisions').delete().in('id', existingIds);
+      await supabase.from('player_no_provision').upsert({ player_id: detailPlayerId, season, created_by: session?.user?.id }, { onConflict: 'player_id,season' });
+    }
     setShowDetail(false);
     fetchData();
   };
@@ -1576,12 +1603,12 @@ export function FinanzenScreen({ navigation }: any) {
         </View>
         <View style={styles.colProvision}>
           <Text style={[styles.tableCell, { color: colors.text }]}>
-            {row.provisionPercent ? `${row.provisionPercent}%` : '-'}
+            {row.type === 'no_provision' ? '–' : (row.provisionPercent ? `${row.provisionPercent}%` : '-')}
           </Text>
         </View>
         <View style={styles.colAmount}>
-          <Text style={[styles.tableCell, { color: colors.text, fontWeight: isProv ? '600' : '400' }]}>
-            {isProv && row.amount > 0 ? formatCurrency(row.amount) : '-'}
+          <Text style={[styles.tableCell, { color: row.type === 'no_provision' ? colors.textMuted : colors.text, fontWeight: isProv ? '600' : '400', fontStyle: row.type === 'no_provision' ? 'italic' : 'normal' }]} numberOfLines={1}>
+            {row.type === 'no_provision' ? 'Keine Provision' : (isProv && row.amount > 0 ? formatCurrency(row.amount) : '-')}
           </Text>
         </View>
         <View style={styles.colDue}>
@@ -1624,6 +1651,9 @@ export function FinanzenScreen({ navigation }: any) {
             {row.league ? <Text style={{ color: colors.textMuted, fontSize: 12 }}>{row.league}</Text> : null}
             <Text style={{ color: colors.textMuted, fontSize: 13 }}>{row.provisionPercent ? `${row.provisionPercent}%` : ''}</Text>
           </View>
+          {row.type === 'no_provision' && (
+            <Text style={{ color: colors.textMuted, fontSize: 12, fontStyle: 'italic', marginTop: 2 }}>Keine Provision</Text>
+          )}
           {isProv && (
             <View style={styles.playerCardRow}>
               <Text style={[{ color: colors.text, fontSize: 14, fontWeight: '600' }]}>{row.amount > 0 ? formatCurrency(row.amount) : '-'}</Text>
@@ -1765,6 +1795,26 @@ export function FinanzenScreen({ navigation }: any) {
               <Text style={{ color: colors.textMuted, fontSize: 20 }}>✕</Text>
             </TouchableOpacity>
           </View>
+
+          {/* "Keine Provision" für diese Saison (Toggle) */}
+          {(() => {
+            const active = !!detailPlayerId && noProvisionIds.has(detailPlayerId);
+            return (
+              <TouchableOpacity
+                onPress={toggleNoProvision}
+                style={{
+                  alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6,
+                  paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, marginBottom: 14,
+                  backgroundColor: active ? '#ef4444' : 'transparent',
+                  borderColor: active ? '#ef4444' : colors.border,
+                }}
+              >
+                <Text style={{ color: active ? '#fff' : colors.textSecondary, fontSize: 12, fontWeight: '600' }}>
+                  {active ? '✓ Keine Provision' : 'Keine Provision'}
+                </Text>
+              </TouchableOpacity>
+            );
+          })()}
 
           <ScrollView
             style={[{ flex: 1 }, (activeDatePicker || showRateDropdown) ? { overflow: 'visible' as any } : {}]}
@@ -2006,6 +2056,7 @@ export function FinanzenScreen({ navigation }: any) {
 
   const provisionCount = displayRows.filter(r => r.type === 'provision').length;
   const playerOnlyCount = displayRows.filter(r => r.type === 'player_only').length;
+  const noProvisionCount = displayRows.filter(r => r.type === 'no_provision').length;
 
   // --- Mobile View ---
 
@@ -2091,7 +2142,7 @@ export function FinanzenScreen({ navigation }: any) {
               <Pressable onPress={() => changeSeason(1)} style={styles.seasonArrow}><Text style={{ color: colors.text, fontSize: 18 }}>▶</Text></Pressable>
             </View>
             {renderSummary()}
-            <Text style={[styles.rowCount, { color: colors.textMuted }]}>{provisionCount} Provisionen · {playerOnlyCount} ohne Einträge</Text>
+            <Text style={[styles.rowCount, { color: colors.textMuted }]}>{provisionCount} Provisionen · {playerOnlyCount} ohne Einträge{noProvisionCount > 0 ? ` · ${noProvisionCount} keine Provision` : ''}</Text>
             {loading ? <Text style={[styles.emptyText, { color: colors.textMuted }]}>Laden...</Text> : sortedRows.map(renderCard)}
           </ScrollView>
         ) : (
@@ -2232,7 +2283,7 @@ export function FinanzenScreen({ navigation }: any) {
 
           {renderSummary()}
 
-          <Text style={[styles.rowCount, { color: colors.textMuted }]}>{provisionCount} Provisionen · {playerOnlyCount} Spieler ohne Einträge</Text>
+          <Text style={[styles.rowCount, { color: colors.textMuted }]}>{provisionCount} Provisionen · {playerOnlyCount} Spieler ohne Einträge{noProvisionCount > 0 ? ` · ${noProvisionCount} keine Provision` : ''}</Text>
 
           <View style={[styles.tableWrapper, { backgroundColor: 'rgba(0,0,0,0.55)', borderColor: 'rgba(255,255,255,0.15)' }]} onLayout={(e) => setTableWidth(e.nativeEvent.layout.width - 32)}>
             {tableWidth > 0 && (
@@ -2263,6 +2314,7 @@ export function FinanzenScreen({ navigation }: any) {
               ) : (
                 sortedRows.map((row) => {
                   const isProv = row.type === 'provision';
+                  const isNo = row.type === 'no_provision';
                   const rowBg = getRowBg(row);
 
                   return (
@@ -2297,11 +2349,11 @@ export function FinanzenScreen({ navigation }: any) {
                           case 'league':
                             return <Text style={[styles.tableCell, { color: colors.text, fontSize: 12 }]} numberOfLines={1}>{row.league || '-'}</Text>;
                           case 'provision':
-                            return <Text style={[styles.tableCell, { color: colors.text }]}>{row.provisionPercent ? `${row.provisionPercent}%` : '-'}</Text>;
+                            return <Text style={[styles.tableCell, { color: colors.text }]}>{isNo ? '–' : (row.provisionPercent ? `${row.provisionPercent}%` : '-')}</Text>;
                           case 'amount':
                             return (
-                              <Text style={[styles.tableCell, { color: colors.text, fontWeight: isProv ? '600' : '400' }]}>
-                                {isProv && row.amount > 0 ? formatCurrency(row.amount) : '-'}
+                              <Text style={[styles.tableCell, { color: isNo ? colors.textMuted : colors.text, fontWeight: isProv ? '600' : '400', fontStyle: isNo ? 'italic' : 'normal' }]} numberOfLines={1}>
+                                {isNo ? 'Keine Provision' : (isProv && row.amount > 0 ? formatCurrency(row.amount) : '-')}
                               </Text>
                             );
                           case 'due':
