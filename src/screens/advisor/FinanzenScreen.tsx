@@ -2296,9 +2296,6 @@ export function FinanzenScreen({ navigation }: any) {
         {activeTab === 'finanzen' ? (
           <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 12, paddingBottom: 80 }}>
             <View style={styles.financeHero}>
-              <View style={StyleSheet.absoluteFill as any} pointerEvents="none">
-                <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ width: '100%', height: '100%', opacity: 0.5 }} resizeMode="cover" />
-              </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                   <Pressable onPress={() => changeSeason(-1)} style={styles.seasonArrow}><Text style={{ color: colors.text, fontSize: 18 }}>◀</Text></Pressable>
@@ -2446,11 +2443,10 @@ export function FinanzenScreen({ navigation }: any) {
 
         {activeTab === 'finanzen' ? (
         <View style={styles.content}>
-          {/* Gemeinsamer Rahmen mit Skyline-Hintergrund: Saison-Zeile + Summen */}
+          {/* Gemeinsamer Rahmen: Saison-Zeile + Summen. Kein eigenes Bild — der
+              durchgehende Seiten-Hintergrund (AdvisorBackground) scheint durch,
+              dadurch fließender Übergang vom Header. */}
           <View style={styles.financeHero}>
-            <View style={StyleSheet.absoluteFill as any} pointerEvents="none">
-              <Image source={require('../../../assets/scouting-header-bg.jpg')} style={{ width: '100%', height: '100%', opacity: 0.5 }} resizeMode="cover" />
-            </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
               <View style={{ width: 96 }} />
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
@@ -3182,7 +3178,7 @@ const styles = StyleSheet.create({
   content: { flex: 1, padding: 24 },
 
   seasonRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 20, gap: 16 },
-  financeHero: { position: 'relative', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 14, padding: 16, marginBottom: 16, backgroundColor: 'rgba(0,0,0,0.5)' },
+  financeHero: { position: 'relative', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 14, padding: 16, marginBottom: 16, backgroundColor: 'rgba(0,0,0,0.3)' },
   seasonArrow: { padding: 8 },
   seasonText: { fontSize: 18, fontWeight: '700' },
 
