@@ -319,7 +319,7 @@ export function FinanzenScreen({ navigation }: any) {
   // Vereinslogos für die Verein-Spalte
   const [clubLogos, setClubLogos] = useState<Record<string, string>>({});
   useEffect(() => {
-    if (activeTab !== 'dokumente' || Object.keys(clubLogos).length > 0) return;
+    if (Object.keys(clubLogos).length > 0) return;
     (async () => {
       const { data } = await supabase.from('club_logos').select('club_name, logo_url');
       if (data) {
@@ -328,7 +328,7 @@ export function FinanzenScreen({ navigation }: any) {
         setClubLogos(map);
       }
     })();
-  }, [activeTab, clubLogos]);
+  }, [clubLogos]);
 
   const getClubLogo = (clubName: string | null | undefined): string | null => {
     if (!clubName) return null;
@@ -1743,7 +1743,12 @@ export function FinanzenScreen({ navigation }: any) {
                 {detailPlayer ? `${detailPlayer.last_name}, ${detailPlayer.first_name}` : 'Provision'}
               </Text>
               {detailPlayer?.club && (
-                <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: 2 }}>{detailPlayer.club}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                  {getClubLogo(detailPlayer.club) ? (
+                    <Image source={{ uri: getClubLogo(detailPlayer.club)! }} style={{ width: 16, height: 16 }} resizeMode="contain" />
+                  ) : null}
+                  <Text style={{ color: colors.textMuted, fontSize: 13 }}>{detailPlayer.club}</Text>
+                </View>
               )}
             </View>
             <TouchableOpacity onPress={() => setShowDetail(false)}>
