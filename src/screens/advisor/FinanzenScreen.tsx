@@ -265,6 +265,10 @@ export function FinanzenScreen({ navigation }: any) {
   const [noProvisionIds, setNoProvisionIds] = useState<Set<string>>(new Set());
   // Über finance_provision_links verknüpfte (nicht betreute) Spieler.
   const [linkedPlayerIds, setLinkedPlayerIds] = useState<Set<string>>(new Set());
+  // Pro verknüpftem Spieler die Saisons der Verknüpfung (leer/null = alle Saisons).
+  const [linkSeasons, setLinkSeasons] = useState<Record<string, string[] | null>>({});
+  // Aus der Liste ausgewählte Spieler, die nach dem Picker mit Saisons angelegt werden.
+  const [addPickedPlayers, setAddPickedPlayers] = useState<{ id: string; name: string }[]>([]);
   // Spieler-aus-Liste-Picker
   const [showPickPlayers, setShowPickPlayers] = useState(false);
   const [allKmhPlayers, setAllKmhPlayers] = useState<{ id: string; first_name: string; last_name: string; club: string | null; responsibility: string | null }[]>([]);
@@ -1060,9 +1064,12 @@ export function FinanzenScreen({ navigation }: any) {
     const fullName = `${fn} ${ln}`.trim();
     if (!fullName) { setPlayers([]); setProvisions([]); setNoProvisionIds(new Set()); setLinkedPlayerIds(new Set()); setLoading(false); return; }
     // Verknüpfte (nicht betreute) Spieler dieses Beraters laden.
-    const linksRes = await supabase.from('finance_provision_links').select('player_id').eq('advisor_id', session?.user?.id || '');
+    const linksRes = await supabase.from('finance_provision_links').select('player_id, seasons').eq('advisor_id', session?.user?.id || '');
     const linkedIds: string[] = (linksRes.data || []).map((l: any) => l.player_id);
     setLinkedPlayerIds(new Set(linkedIds));
+    const seasonsMap: Record<string, string[] | null> = {};
+    for (const l of (linksRes.data || []) as any[]) seasonsMap[l.player_id] = l.seasons || null;
+    setLinkSeasons(seasonsMap);
 
     const playerSelect = 'id, first_name, last_name, club, league, provision, provision_documents, contract_documents, commission_shares, contract_end, future_club, special_payment_note, provision_only, provision_seasons';
     let playersQuery = supabase.from('player_details').select(playerSelect).order('last_name');
@@ -1157,6 +1164,9 @@ export function FinanzenScreen({ navigation }: any) {
       // "Provision ohne Betreuung"-Spieler nur in den ausgewählten Saisons zeigen
       // (leere/keine Auswahl = überall, Abwärtskompatibilität für Altbestand).
       if (player.provision_only && Array.isArray(player.provision_seasons) && player.provision_seasons.length > 0 && !player.provision_seasons.includes(season)) continue;
+      // Aus der Liste verknüpfte Spieler ebenfalls nur in den Saisons der Verknüpfung.
+      const ls = linkSeasons[player.id];
+      if (ls && ls.length > 0 && !ls.includes(season)) continue;
       const isNoProv = noProvisionIds.has(player.id);
       rows.push({
         type: isNoProv ? 'no_provision' : 'player_only', key: `p_${player.id}`, provisionId: null, player_id: player.id,
@@ -1165,7 +1175,7 @@ export function FinanzenScreen({ navigation }: any) {
       });
     }
     return rows;
-  }, [players, provisions, season, noProvisionIds]);
+  }, [players, provisions, season, noProvisionIds, linkSeasons]);
 
   // --- Sort ---
 
@@ -1598,31 +1608,48 @@ export function FinanzenScreen({ navigation }: any) {
   const openAddProv = () => {
     setAddFirstName(''); setAddLastName(''); setAddClub('');
     setAddSeasons([addSeasonOptions.includes(season) ? season : addSeasonOptions[0]]);
+    setAddPickedPlayers([]);
     setShowAddSeasonsDropdown(false);
     setShowAddProv(true);
   };
 
-  // Externen Provisions-Spieler anlegen (nur Finanzen, nicht in der Spielerübersicht).
+  // Anlegen: verknüpfte (aus Liste gewählte) Spieler + optional ein manuell erfasster Spieler,
+  // jeweils nur für die gewählten Saisons.
   const addProvisionPlayer = async () => {
-    if (!addLastName.trim()) { alertDialog({ title: 'Eingabe fehlt', message: 'Bitte Nachname eingeben.' }); return; }
+    const hasManual = !!addLastName.trim();
+    if (!hasManual && addPickedPlayers.length === 0) { alertDialog({ title: 'Eingabe fehlt', message: 'Bitte einen Spieler aus der Liste wählen oder einen Namen eingeben.' }); return; }
     if (addSeasons.length === 0) { alertDialog({ title: 'Eingabe fehlt', message: 'Bitte mindestens eine Saison auswählen.' }); return; }
-    const fn = (authProfile?.first_name || '').trim();
-    const ln = (authProfile?.last_name || '').trim();
-    const fullName = `${fn} ${ln}`.trim();
+    const me = session?.user?.id;
+    const seasonsSorted = [...addSeasons].sort();
     setAddSaving(true);
-    const { error } = await supabase.from('player_details').insert({
-      first_name: addFirstName.trim(),
-      last_name: addLastName.trim(),
-      club: addClub.trim() || null,
-      responsibility: fullName,
-      provision_only: true,
-      category: 'Fußball',
-      provision_seasons: [...addSeasons].sort(),
-    });
+    // Aus der Liste gewählte Spieler verknüpfen (mit Saisons).
+    if (addPickedPlayers.length && me) {
+      await supabase.from('finance_provision_links').upsert(
+        addPickedPlayers.map(p => ({ advisor_id: me, player_id: p.id, seasons: seasonsSorted })),
+        { onConflict: 'advisor_id,player_id' }
+      );
+    }
+    // Manuell erfasster Spieler.
+    let manualError: any = null;
+    if (hasManual) {
+      const fn = (authProfile?.first_name || '').trim();
+      const ln = (authProfile?.last_name || '').trim();
+      const fullName = `${fn} ${ln}`.trim();
+      const { error } = await supabase.from('player_details').insert({
+        first_name: addFirstName.trim(),
+        last_name: addLastName.trim(),
+        club: addClub.trim() || null,
+        responsibility: fullName,
+        provision_only: true,
+        category: 'Fußball',
+        provision_seasons: seasonsSorted,
+      });
+      manualError = error;
+    }
     setAddSaving(false);
-    if (error) { alertDialog({ title: 'Fehler', message: error.message }); return; }
+    if (manualError) { alertDialog({ title: 'Fehler', message: manualError.message }); return; }
     setShowAddProv(false);
-    setAddFirstName(''); setAddLastName(''); setAddClub(''); setAddSeasons([]);
+    setAddFirstName(''); setAddLastName(''); setAddClub(''); setAddSeasons([]); setAddPickedPlayers([]);
     fetchData();
   };
 
@@ -1660,12 +1687,22 @@ export function FinanzenScreen({ navigation }: any) {
       const p = allKmhPlayers.find(x => x.id === id);
       return p && !isResponsibleForPlayer(p) && !linkedPlayerIds.has(id);
     });
+    // Abgewählte (zuvor verknüpfte) sofort entfernen.
     const removes = [...linkedPlayerIds].filter(id => !pickSelected.has(id));
-    if (adds.length) await supabase.from('finance_provision_links').insert(adds.map(id => ({ advisor_id: me, player_id: id })));
     if (removes.length) await supabase.from('finance_provision_links').delete().eq('advisor_id', me).in('player_id', removes);
     setPickSaving(false);
+    // Neu gewählte Spieler ins Anlegen-Modal übernehmen → dort Saisons wählen, dann "Anlegen".
+    const picked = adds
+      .map(id => { const p = allKmhPlayers.find(x => x.id === id); return p ? { id, name: `${p.last_name}, ${p.first_name}` } : null; })
+      .filter(Boolean) as { id: string; name: string }[];
+    setAddPickedPlayers(prev => {
+      const ids = new Set(prev.map(x => x.id));
+      return [...prev, ...picked.filter(x => !ids.has(x.id))];
+    });
+    if (addSeasons.length === 0) setAddSeasons([addSeasonOptions.includes(season) ? season : addSeasonOptions[0]]);
     setShowPickPlayers(false);
-    fetchData();
+    setShowAddProv(true);
+    if (removes.length) fetchData();
   };
 
   // Provisions-Dropdown wählen: "Keine Provision" oder 1–30 %.
@@ -2239,7 +2276,7 @@ export function FinanzenScreen({ navigation }: any) {
       <Pressable style={styles.modalOverlay} onPress={() => setShowAddProv(false)}>
         <Pressable style={[styles.modalContent, { maxWidth: 460, padding: 0, overflow: 'hidden' }]} onPress={e => e.stopPropagation()}>
           {modalSkylineBg}
-          <View style={{ padding: 24, zIndex: 1 }}>
+          <ScrollView style={{ zIndex: 1 }} contentContainerStyle={{ padding: 24 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
             <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 4, position: 'relative' }}>
               <Text style={skillModalTitle}>Spieler anlegen</Text>
               <TouchableOpacity onPress={() => setShowAddProv(false)} style={{ position: 'absolute', right: 0, width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
@@ -2254,6 +2291,19 @@ export function FinanzenScreen({ navigation }: any) {
               <Ionicons name="list" size={16} color="#60a5fa" />
               <Text style={{ color: '#60a5fa', fontSize: 13, fontWeight: '600' }}>Spieler aus Liste auswählen</Text>
             </TouchableOpacity>
+            {addPickedPlayers.length > 0 && (
+              <View style={{ marginBottom: 16 }}>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginBottom: 6 }]}>Ausgewählte Spieler</Text>
+                {addPickedPlayers.map(p => (
+                  <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, paddingHorizontal: 10, marginBottom: 6, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(96,165,250,0.5)', backgroundColor: 'rgba(96,165,250,0.10)' }}>
+                    <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600', flex: 1 }} numberOfLines={1}>{p.name}</Text>
+                    <TouchableOpacity onPress={() => setAddPickedPlayers(prev => prev.filter(x => x.id !== p.id))} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Text style={{ color: '#ef4444', fontSize: 15, fontWeight: '700' }}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
             <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, marginBottom: 14, textAlign: 'center' }}>— oder manuell anlegen —</Text>
             <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
               <View style={{ flex: 1 }}>
@@ -2282,22 +2332,20 @@ export function FinanzenScreen({ navigation }: any) {
                   <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10 }}>▼</Text>
                 </TouchableOpacity>
                 {showAddSeasonsDropdown && (
-                  <View style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, overflow: 'hidden', zIndex: 1000, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12 }}>
-                    <ScrollView style={{ maxHeight: 220 }} nestedScrollEnabled>
-                      {addSeasonOptions.map(s => {
-                        const sel = addSeasons.includes(s);
-                        return (
-                          <TouchableOpacity
-                            key={s}
-                            onPress={() => setAddSeasons(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])}
-                            style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}
-                          >
-                            <Ionicons name={sel ? 'checkbox' : 'square-outline'} size={16} color={sel ? '#22c55e' : 'rgba(255,255,255,0.5)'} />
-                            <Text style={{ color: '#fff', fontSize: 13, fontWeight: '500' }}>{s}</Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </ScrollView>
+                  <View style={{ marginTop: 4, backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, overflow: 'hidden' }}>
+                    {addSeasonOptions.map(s => {
+                      const sel = addSeasons.includes(s);
+                      return (
+                        <TouchableOpacity
+                          key={s}
+                          onPress={() => setAddSeasons(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])}
+                          style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}
+                        >
+                          <Ionicons name={sel ? 'checkbox' : 'square-outline'} size={16} color={sel ? '#22c55e' : 'rgba(255,255,255,0.5)'} />
+                          <Text style={{ color: '#fff', fontSize: 13, fontWeight: '500' }}>{s}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
                 )}
               </View>
@@ -2310,7 +2358,7 @@ export function FinanzenScreen({ navigation }: any) {
                 <Text style={{ color: '#fff', fontWeight: '600' }}>{addSaving ? 'Speichern…' : 'Anlegen'}</Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </ScrollView>
         </Pressable>
       </Pressable>
     </Modal>
@@ -2324,13 +2372,13 @@ export function FinanzenScreen({ navigation }: any) {
       : allKmhPlayers);
     return (
       <Modal visible={showPickPlayers} transparent animationType="fade">
-        <Pressable style={styles.modalOverlay} onPress={() => setShowPickPlayers(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => { setShowPickPlayers(false); setShowAddProv(true); }}>
           <Pressable style={[styles.modalContent, { maxWidth: 520, width: '92%', height: '80%', padding: 0, overflow: 'hidden' }]} onPress={e => e.stopPropagation()}>
             {modalSkylineBg}
             <View style={{ padding: 20, paddingBottom: 12, zIndex: 1 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 4, position: 'relative' }}>
                 <Text style={skillModalTitle}>Spieler auswählen</Text>
-                <TouchableOpacity onPress={() => setShowPickPlayers(false)} style={{ position: 'absolute', right: 0, width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+                <TouchableOpacity onPress={() => { setShowPickPlayers(false); setShowAddProv(true); }} style={{ position: 'absolute', right: 0, width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
                   <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 20 }}>✕</Text>
                 </TouchableOpacity>
               </View>
@@ -2364,7 +2412,7 @@ export function FinanzenScreen({ navigation }: any) {
               {list.length === 0 ? <Text style={{ color: colors.textMuted, textAlign: 'center', paddingVertical: 24 }}>Keine Spieler gefunden.</Text> : null}
             </ScrollView>
             <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, padding: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)', zIndex: 1 }}>
-              <TouchableOpacity onPress={() => setShowPickPlayers(false)} style={[styles.modalBtn, { borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.05)' }]}>
+              <TouchableOpacity onPress={() => { setShowPickPlayers(false); setShowAddProv(true); }} style={[styles.modalBtn, { borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.05)' }]}>
                 <Text style={{ color: 'rgba(255,255,255,0.85)', fontWeight: '600' }}>Abbrechen</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={confirmPickPlayers} disabled={pickSaving} style={[styles.modalBtn, styles.modalBtnPrimary, { opacity: pickSaving ? 0.6 : 1 }]}>
