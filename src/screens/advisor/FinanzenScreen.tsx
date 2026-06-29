@@ -61,6 +61,7 @@ interface DisplayRow {
   club: string;
   league: string | null;
   provisionPercent: string | null;
+  art: ProvArt | null;
   amount: number;
   status: string;
   due_date: string | null;
@@ -83,6 +84,7 @@ const FINANZEN_COLUMNS: ColumnDef[] = [
   { key: 'vorname', label: 'Vorname', defaultFlex: 0.8, minWidth: 70 },
   { key: 'club', label: 'Verein', defaultFlex: 0.9, minWidth: 90 },
   { key: 'league', label: 'Liga', defaultFlex: 1.1, minWidth: 100 },
+  { key: 'art', label: 'Art', defaultFlex: 0.8, minWidth: 90 },
   { key: 'provision', label: 'Provision (%)', defaultFlex: 0.7, minWidth: 70 },
   { key: 'amount', label: 'Summe (€)', defaultFlex: 1, minWidth: 90 },
   { key: 'due', label: 'Fälligkeit', defaultFlex: 0.9, minWidth: 90 },
@@ -1098,7 +1100,7 @@ export function FinanzenScreen({ navigation }: any) {
       rows.push({
         type: 'provision', key: prov.id, provisionId: prov.id, player_id: prov.player_id,
         first_name: player.first_name, last_name: player.last_name, club: effClub(player),
-        league: effLeague(player), provisionPercent: pct, amount: Number(prov.amount) || 0,
+        league: effLeague(player), provisionPercent: pct, art, amount: Number(prov.amount) || 0,
         status: prov.status || 'offen', due_date: prov.due_date, currency: prov.currency || 'EUR',
       });
     }
@@ -1108,7 +1110,7 @@ export function FinanzenScreen({ navigation }: any) {
       rows.push({
         type: isNoProv ? 'no_provision' : 'player_only', key: `p_${player.id}`, provisionId: null, player_id: player.id,
         first_name: player.first_name, last_name: player.last_name, club: effClub(player),
-        league: effLeague(player), provisionPercent: player.provision, amount: 0, status: '', due_date: null, currency: 'EUR',
+        league: effLeague(player), provisionPercent: null, art: null, amount: 0, status: '', due_date: null, currency: 'EUR',
       });
     }
     return rows;
@@ -1988,7 +1990,8 @@ export function FinanzenScreen({ navigation }: any) {
           )}
           {isProv && (
             <View style={styles.playerCardRow}>
-              <Text style={[{ color: colors.text, fontSize: 14, fontWeight: '600' }]}>{row.amount > 0 ? formatCurrency(row.amount, row.currency) : '-'}</Text>
+              {row.art ? <Text style={{ color: colors.textMuted, fontSize: 12, marginRight: 8 }}>{artLabel(row.art)}</Text> : null}
+              <Text style={[{ color: colors.text, fontSize: 14, fontWeight: '600', flex: 1 }]}>{row.amount > 0 ? formatCurrency(row.amount, row.currency) : '-'}</Text>
               <Text style={{ color: colors.textMuted, fontSize: 12 }}>{formatDateDE(row.due_date)}</Text>
             </View>
           )}
@@ -3052,6 +3055,8 @@ export function FinanzenScreen({ navigation }: any) {
                           }
                           case 'league':
                             return <Text style={[styles.tableCell, { color: colors.text, fontSize: 12 }]} numberOfLines={1}>{row.league || '-'}</Text>;
+                          case 'art':
+                            return <Text style={[styles.tableCell, { color: colors.text, fontSize: 12 }]} numberOfLines={1}>{row.art ? artLabel(row.art) : '-'}</Text>;
                           case 'provision':
                             return <Text style={[styles.tableCell, { color: colors.text }]}>{isNo ? '–' : (row.provisionPercent ? `${row.provisionPercent}%` : '-')}</Text>;
                           case 'amount':
