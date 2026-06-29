@@ -46,6 +46,9 @@ interface Provision {
   due_date: string | null;
   currency?: string;
   payment_type?: string;
+  entry_id?: string | null;
+  percent?: string | null;
+  note?: string | null;
 }
 
 interface DisplayRow {
@@ -166,6 +169,27 @@ const artToType = (a: ProvArt): string => (a === 'provision' ? 'beraterprovision
 const typeToArt = (t: string | null | undefined): ProvArt =>
   (t === 'wegvermittlung' || t === 'sonderzahlung') ? t : 'provision';
 const artLabel = (a: ProvArt): string => ART_OPTIONS.find(o => o.value === a)?.label || 'Provision';
+
+// Ein unabhängiger Finanz-Eintrag (Provision/Wegvermittlung/Sonderzahlung) mit eigenen Raten.
+interface SavedEntry {
+  entryId: string;
+  art: ProvArt;
+  currency: 'EUR' | 'USD';
+  percent: string;
+  note: string;
+  rateCount: number | null;
+  rates: RateEntry[];
+}
+
+const genEntryId = (): string => {
+  try {
+    if (typeof crypto !== 'undefined' && (crypto as any).randomUUID) return (crypto as any).randomUUID();
+  } catch { /* noop */ }
+  return `e_${Date.now().toString(36)}_${Math.floor(Math.random() * 1e9).toString(36)}`;
+};
+
+const parseAmount = (s: string): number => parseFloat(String(s).replace(/\./g, '').replace(',', '.')) || 0;
+const entryTotal = (e: SavedEntry): number => e.rates.reduce((sum, r) => sum + parseAmount(r.amount), 0);
 
 function formatDateDE(dateStr: string | null): string {
   if (!dateStr) return '-';
@@ -970,6 +994,10 @@ export function FinanzenScreen({ navigation }: any) {
   const [showArtDropdown, setShowArtDropdown] = useState(false);
   const [detailTransferSum, setDetailTransferSum] = useState(''); // nur Wegvermittlung (Hilfswert, nicht persistiert)
   const [detailSonderNote, setDetailSonderNote] = useState(''); // nur Sonderzahlung
+  // Mehrere unabhängige Einträge pro Spieler+Saison. Der obere Editor bearbeitet einen Eintrag
+  // (editingEntryId), die Liste darunter zeigt alle Einträge inkl. des gerade bearbeiteten.
+  const [detailEntries, setDetailEntries] = useState<SavedEntry[]>([]);
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [showRateDropdown, setShowRateDropdown] = useState(false);
   const [showProvisionDropdown, setShowProvisionDropdown] = useState(false);
   const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
@@ -1011,7 +1039,7 @@ export function FinanzenScreen({ navigation }: any) {
       playersQuery,
       supabase
         .from('player_provisions')
-        .select('id, player_id, season, amount, status, due_date, currency, payment_type:type')
+        .select('id, player_id, season, amount, status, due_date, currency, payment_type:type, entry_id, percent, note')
         .eq('season', season),
       supabase
         .from('player_no_provision')
@@ -1126,47 +1154,69 @@ export function FinanzenScreen({ navigation }: any) {
     const existing = provisions.filter(p => p.player_id === playerId);
 
     setDetailPlayerId(playerId);
-    setDetailProvPercent(player.provision || '');
     setDetailNoProvision(noProvisionIds.has(playerId));
     setActiveDatePicker(null);
     setShowRateDropdown(false);
     setShowProvisionDropdown(false);
     setShowCurrencyDropdown(false);
     setShowArtDropdown(false);
-    setDetailArt(typeToArt(existing.find(p => p.payment_type)?.payment_type));
     setDetailTransferSum('');
-    setDetailSonderNote(player.special_payment_note || '');
-    setDetailCurrency((existing.find(p => p.currency)?.currency === 'USD') ? 'USD' : 'EUR');
-    setDetailAnnualSalary('');
-    setDetailMonthlySalaryStr('');
     setDetailProvBasis('');
     setDetailProvSalaryMonths(null);
     setDetailContractSalaryPeriods([]);
-    setDetailMonthlySalary(0);
     setDetailProvDocs(player.provision_documents || []);
     setDetailContractDocs(player.contract_documents || []);
     setDetailShares((player.commission_shares || []).map((s: any) => ({
       name: s.name || '', percentage: (s.percentage || '').toString(), type: s.type || 'abgabe', notes: s.notes || '',
     })));
 
-    if (existing.length > 0) {
-      setDetailRateCount(existing.length);
-      const totalAmt = existing.reduce((s, p) => s + (Number(p.amount) || 0), 0);
-      setDetailTotalAmount(formatNumberInput(totalAmt.toString().replace('.', ',')));
-      setDetailRates(existing.map(p => {
-        const d = p.due_date ? new Date(p.due_date) : null;
-        return {
-          amount: formatNumberInput((Number(p.amount) || 0).toString().replace('.', ',')),
-          day: d ? d.getDate() : null,
-          month: d ? d.getMonth() : null,
-          year: d ? d.getFullYear() : null,
-          status: p.status || 'offen',
-        };
-      }));
+    // Bestehende Zeilen nach entry_id (bzw. bei Altdaten nach Typ) zu Einträgen gruppieren.
+    const groups = new Map<string, Provision[]>();
+    for (const p of existing) {
+      const key = p.entry_id || `legacy_${p.payment_type || 'beraterprovision'}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(p);
+    }
+    const entries: SavedEntry[] = Array.from(groups.entries()).map(([key, rows]) => {
+      const art = typeToArt(rows[0].payment_type);
+      return {
+        entryId: rows[0].entry_id || genEntryId(),
+        art,
+        currency: (rows.find(r => r.currency)?.currency === 'USD') ? 'USD' : 'EUR',
+        percent: rows.find(r => r.percent)?.percent || (art === 'provision' ? (player.provision || '') : ''),
+        note: rows.find(r => r.note)?.note || (art === 'sonderzahlung' ? (player.special_payment_note || '') : ''),
+        rateCount: rows.length,
+        rates: rows.map(p => {
+          const d = p.due_date ? new Date(p.due_date) : null;
+          return {
+            amount: formatNumberInput((Number(p.amount) || 0).toString().replace('.', ',')),
+            day: d ? d.getDate() : null,
+            month: d ? d.getMonth() : null,
+            year: d ? d.getFullYear() : null,
+            status: p.status || 'offen',
+          };
+        }),
+      };
+    });
+    // Sortierung: Provision zuerst, dann Wegvermittlung, dann Sonderzahlung.
+    const order: Record<ProvArt, number> = { provision: 0, wegvermittlung: 1, sonderzahlung: 2 };
+    entries.sort((a, b) => order[a.art] - order[b.art]);
+
+    setDetailEntries(entries);
+    if (entries.length > 0) {
+      loadEntryIntoEditor(entries[0]);
     } else {
+      setDetailArt('provision');
+      setDetailProvPercent('');
+      setDetailSonderNote('');
+      setDetailCurrency('EUR');
       setDetailRateCount(null);
       setDetailTotalAmount('');
       setDetailRates([]);
+      setDetailAnnualSalary('');
+      setDetailMonthlySalaryStr('');
+      setDetailMonthlySalary(0);
+      setEditingEntryId(null);
     }
 
     setShowDetail(true);
@@ -1291,6 +1341,92 @@ export function FinanzenScreen({ navigation }: any) {
     }
   };
 
+  // --- Mehrere Einträge: Editor <-> Liste ---
+
+  // Hat der Editor gerade einen sinnvollen (Raten-)Inhalt?
+  const editorHasContent = (): boolean => detailRates.some(r => parseAmount(r.amount) > 0);
+
+  // Aktuellen Editor-Zustand als Eintrag verpacken.
+  const buildEditorEntry = (): SavedEntry => ({
+    entryId: editingEntryId || genEntryId(),
+    art: detailArt,
+    currency: detailCurrency,
+    percent: detailProvPercent,
+    note: detailArt === 'sonderzahlung' ? detailSonderNote : '',
+    rateCount: detailRateCount,
+    rates: detailRates,
+  });
+
+  // Editor mit einem bestehenden Eintrag füllen.
+  const loadEntryIntoEditor = (e: SavedEntry) => {
+    setDetailArt(e.art);
+    setDetailCurrency(e.currency);
+    setDetailProvPercent(e.percent);
+    setDetailNoProvision(false);
+    setDetailSonderNote(e.note);
+    setDetailRateCount(e.rateCount);
+    setDetailRates(e.rates);
+    const total = e.rates.reduce((s, r) => s + parseAmount(r.amount), 0);
+    setDetailTotalAmount(total > 0 ? formatNumberInput(total.toString().replace('.', ',')) : '');
+    setDetailMonthlySalaryStr(''); setDetailAnnualSalary(''); setDetailMonthlySalary(0); setDetailTransferSum('');
+    setEditingEntryId(e.entryId);
+  };
+
+  // Editor für einen neuen Eintrag leeren (Währung bleibt wie zuletzt gewählt).
+  const resetEditorToNew = () => {
+    setDetailArt('provision');
+    setDetailProvPercent('');
+    setDetailNoProvision(false);
+    setDetailSonderNote('');
+    setDetailRateCount(null);
+    setDetailRates([]);
+    setDetailTotalAmount('');
+    setDetailMonthlySalaryStr(''); setDetailAnnualSalary(''); setDetailMonthlySalary(0); setDetailTransferSum('');
+    setEditingEntryId(null);
+  };
+
+  // Editor-Inhalt in die Eintragsliste übernehmen; gibt die aktualisierte Liste zurück.
+  const commitEditor = (): SavedEntry[] => {
+    if (!editorHasContent()) {
+      // Bearbeiteter Eintrag wurde geleert → entfernen.
+      if (editingEntryId) {
+        const next = detailEntries.filter(e => e.entryId !== editingEntryId);
+        setDetailEntries(next);
+        return next;
+      }
+      return detailEntries;
+    }
+    const entry = buildEditorEntry();
+    const exists = detailEntries.some(e => e.entryId === entry.entryId);
+    const next = exists
+      ? detailEntries.map(e => e.entryId === entry.entryId ? entry : e)
+      : [...detailEntries, entry];
+    setDetailEntries(next);
+    setEditingEntryId(entry.entryId);
+    return next;
+  };
+
+  // "+ Eintrag hinzufügen": aktuellen Editor sichern, dann leeren Editor für neuen Eintrag.
+  const addNewEntry = () => {
+    commitEditor();
+    resetEditorToNew();
+    setShowArtDropdown(false); setShowProvisionDropdown(false); setShowCurrencyDropdown(false); setShowRateDropdown(false); setActiveDatePicker(null);
+  };
+
+  // Eintrag aus der Liste in den Editor laden (vorher aktuellen sichern).
+  const editEntry = (e: SavedEntry) => {
+    commitEditor();
+    loadEntryIntoEditor(e);
+    setShowArtDropdown(false); setShowProvisionDropdown(false); setShowCurrencyDropdown(false); setShowRateDropdown(false); setActiveDatePicker(null);
+  };
+
+  // Eintrag löschen.
+  const deleteEntry = (entryId: string) => {
+    const next = detailEntries.filter(e => e.entryId !== entryId);
+    setDetailEntries(next);
+    if (editingEntryId === entryId) resetEditorToNew();
+  };
+
   const saveDetail = async () => {
     if (!detailPlayerId) return;
 
@@ -1300,8 +1436,11 @@ export function FinanzenScreen({ navigation }: any) {
       await supabase.from('player_provisions').delete().in('id', existingIds);
     }
 
-    // "Keine Provision" gewählt → Markierung setzen und fertig (keine Raten/Provision).
-    if (detailNoProvision) {
+    // Aktuellen Editor-Inhalt sichern und alle Einträge zusammenführen.
+    const allEntries = commitEditor();
+
+    // "Keine Provision" + keine Einträge → Markierung setzen und fertig.
+    if (detailNoProvision && allEntries.length === 0) {
       await supabase.from('player_no_provision').upsert(
         { player_id: detailPlayerId, season, created_by: session?.user?.id },
         { onConflict: 'player_id,season' }
@@ -1311,36 +1450,47 @@ export function FinanzenScreen({ navigation }: any) {
       return;
     }
 
-    // Insert new rates
-    const inserts = detailRates.map(r => ({
-      player_id: detailPlayerId,
-      season,
-      amount: parseFloat(r.amount.replace(/\./g, '').replace(',', '.')) || 0,
-      status: r.status,
-      due_date: buildIsoDate(r.day, r.month, r.year),
-      type: artToType(detailArt),
-      frequency: !detailRateCount ? 'einmalig' : detailRateCount === 1 ? 'einmalig' : `${detailRateCount} Raten`,
-      currency: detailCurrency,
-      created_by: session?.user?.id,
-    }));
-
-    if (inserts.some(i => i.amount > 0)) {
-      await supabase.from('player_provisions').insert(inserts.filter(i => i.amount > 0));
+    // Alle Einträge als Ratenzeilen aufbauen (jede Zeile trägt entry_id/type/currency/percent/note).
+    const inserts: any[] = [];
+    for (const e of allEntries) {
+      const freq = !e.rateCount ? 'einmalig' : e.rateCount === 1 ? 'einmalig' : `${e.rateCount} Raten`;
+      for (const r of e.rates) {
+        const amount = parseAmount(r.amount);
+        if (amount <= 0) continue;
+        inserts.push({
+          player_id: detailPlayerId,
+          season,
+          amount,
+          status: r.status,
+          due_date: buildIsoDate(r.day, r.month, r.year),
+          type: artToType(e.art),
+          frequency: freq,
+          currency: e.currency,
+          percent: e.percent || null,
+          note: e.art === 'sonderzahlung' ? (e.note || null) : null,
+          entry_id: e.entryId,
+          created_by: session?.user?.id,
+        });
+      }
+    }
+    if (inserts.length > 0) {
+      await supabase.from('player_provisions').insert(inserts);
     }
 
-    // Update provision %, docs, shares on player_details
+    // Provision-% (für die Listenspalte) aus dem Provisions-Eintrag; Sonder-Notiz aus dem Sonder-Eintrag.
+    const provEntry = allEntries.find(e => e.art === 'provision');
+    const sonderEntry = allEntries.find(e => e.art === 'sonderzahlung');
     await supabase.from('player_details').update({
-      provision: detailProvPercent || null,
+      provision: provEntry?.percent || null,
       provision_documents: detailProvDocs,
       contract_documents: detailContractDocs,
       commission_shares: detailShares.filter(s => s.name.trim()).map(s => ({
         name: s.name, percentage: parseFloat(s.percentage) || 0, type: s.type, notes: s.notes,
       })),
-      special_payment_note: detailArt === 'sonderzahlung' ? (detailSonderNote || '') : null,
+      special_payment_note: sonderEntry ? (sonderEntry.note || '') : null,
     }).eq('id', detailPlayerId);
 
-    // Wenn der Spieler in dieser Saison als "keine Provision" markiert war, Markierung
-    // entfernen — es wurde ja jetzt eine Provision erfasst.
+    // Es wurde etwas erfasst → "keine Provision"-Markierung entfernen.
     await supabase.from('player_no_provision').delete().eq('player_id', detailPlayerId).eq('season', season);
 
     setShowDetail(false);
@@ -2389,6 +2539,48 @@ export function FinanzenScreen({ navigation }: any) {
                 {renderDatePicker(idx, rate)}
               </View>
             ))}
+
+            {/* Einträge (Provision + Wegvermittlungen + Sonderzahlungen) */}
+            <View style={{ height: 1, backgroundColor: colors.border, marginTop: 20, marginBottom: 12 }} />
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginBottom: 8 }]}>Einträge dieser Saison</Text>
+            {detailEntries.length === 0 ? (
+              <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 8 }}>
+                Noch keine Einträge. Oben erfassen und mit „+ Eintrag hinzufügen“ einen weiteren anlegen.
+              </Text>
+            ) : (
+              detailEntries.map((e) => {
+                const isEditing = e.entryId === editingEntryId;
+                const total = isEditing ? detailRates.reduce((s, r) => s + parseAmount(r.amount), 0) : entryTotal(e);
+                return (
+                  <TouchableOpacity
+                    key={e.entryId}
+                    onPress={() => editEntry(e)}
+                    style={{
+                      flexDirection: 'row', alignItems: 'center', gap: 8,
+                      paddingVertical: 8, paddingHorizontal: 10, marginBottom: 6, borderRadius: 8,
+                      borderWidth: 1, borderColor: isEditing ? '#22c55e' : colors.border,
+                      backgroundColor: isEditing ? 'rgba(34,197,94,0.10)' : colors.surface,
+                    }}
+                  >
+                    <Text style={{ color: colors.text, fontSize: 13, fontWeight: '600', flex: 1 }} numberOfLines={1}>
+                      {artLabel(e.art)}{isEditing ? '  ·  wird bearbeitet' : ''}
+                    </Text>
+                    <Text style={{ color: colors.textSecondary, fontSize: 13, fontWeight: '600' }}>
+                      {formatCurrency(total, e.currency)}
+                    </Text>
+                    <TouchableOpacity onPress={(ev?: any) => { ev?.stopPropagation?.(); deleteEntry(e.entryId); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{ paddingHorizontal: 4 }}>
+                      <Text style={{ color: '#ef4444', fontSize: 15, fontWeight: '700' }}>✕</Text>
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                );
+              })
+            )}
+            <TouchableOpacity
+              onPress={addNewEntry}
+              style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.12)', marginTop: 2, marginBottom: 4 }}
+            >
+              <Text style={{ color: '#22c55e', fontSize: 13, fontWeight: '700' }}>+ Eintrag hinzufügen</Text>
+            </TouchableOpacity>
 
             {/* Beteiligungen / Abgaben */}
             <View pointerEvents={blockIfNot('beteiligungen')} style={{ opacity: dimIfNot('beteiligungen') }}>
