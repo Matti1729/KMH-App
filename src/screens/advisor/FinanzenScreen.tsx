@@ -1054,6 +1054,23 @@ export function FinanzenScreen({ navigation }: any) {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // Klick außerhalb eines Dropdowns schließt es (Detail-Modal). Wrapper tragen data-kmhdropdown.
+  useEffect(() => {
+    const anyOpen = showArtDropdown || showProvisionDropdown || showCurrencyDropdown || showRateDropdown || !!activeDatePicker;
+    if (!anyOpen || typeof document === 'undefined') return;
+    const handler = (e: any) => {
+      const t = e.target;
+      if (t && t.closest && t.closest('[data-kmhdropdown]')) return;
+      setShowArtDropdown(false);
+      setShowProvisionDropdown(false);
+      setShowCurrencyDropdown(false);
+      setShowRateDropdown(false);
+      setActiveDatePicker(null);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showArtDropdown, showProvisionDropdown, showCurrencyDropdown, showRateDropdown, activeDatePicker]);
+
   // --- Build Display Rows ---
 
   const displayRows: DisplayRow[] = useMemo(() => {
@@ -2025,7 +2042,7 @@ export function FinanzenScreen({ navigation }: any) {
     const isActiveYear = activeDatePicker?.rateIdx === rateIdx && activeDatePicker?.part === 'year';
 
     return (
-      <View style={styles.datePickerRow}>
+      <View {...({ dataSet: { kmhdropdown: 'true' } } as any)} style={styles.datePickerRow}>
         {/* Tag */}
         <View style={{ position: 'relative', flex: 1, zIndex: isActiveDay ? 103 : 1 }}>
           <TouchableOpacity
@@ -2239,7 +2256,7 @@ export function FinanzenScreen({ navigation }: any) {
   const renderDetailModal = () => (
     <Modal visible={showDetail} transparent animationType="fade">
       <Pressable style={styles.modalOverlay} onPress={() => setShowDetail(false)}>
-        <Pressable style={styles.modalContent} onPress={e => { e.stopPropagation(); setActiveDatePicker(null); setShowRateDropdown(false); setShowProvisionDropdown(false); setShowCurrencyDropdown(false); }}>
+        <Pressable style={styles.modalContent} onPress={e => { e.stopPropagation(); setActiveDatePicker(null); setShowRateDropdown(false); setShowProvisionDropdown(false); setShowCurrencyDropdown(false); setShowArtDropdown(false); }}>
           {modalSkylineBg}
           {/* Header */}
           <View style={[styles.modalHeader, { zIndex: 1 }]}>
@@ -2281,7 +2298,7 @@ export function FinanzenScreen({ navigation }: any) {
                 Flexible Spalten (flex:1), damit auch in der schmalen Mobile-Ansicht nichts abgeschnitten wird. */}
             <View pointerEvents={blockIfNot('r1')} style={{ flexDirection: 'row', gap: 12, marginBottom: 16, position: 'relative', opacity: dimIfNot('r1'), zIndex: (showArtDropdown || showProvisionDropdown || showCurrencyDropdown) ? 1000 : 1 }}>
               {/* Art (Provision / Wegvermittlung / Sonderzahlungen) */}
-              <View style={{ flex: 1, position: 'relative', zIndex: showArtDropdown ? 320 : 3 }}>
+              <View {...({ dataSet: { kmhdropdown: 'true' } } as any)} style={{ flex: 1, position: 'relative', zIndex: showArtDropdown ? 320 : 3 }}>
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Art</Text>
                 <TouchableOpacity
                   style={[styles.inputCompact, { width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderColor: colors.border, backgroundColor: colors.surface }]}
@@ -2317,7 +2334,7 @@ export function FinanzenScreen({ navigation }: any) {
               {detailArt === 'sonderzahlung' ? (
                 <View style={{ flex: 1 }} />
               ) : (
-              <View style={{ flex: 1, position: 'relative', zIndex: showProvisionDropdown ? 320 : 2 }}>
+              <View {...({ dataSet: { kmhdropdown: 'true' } } as any)} style={{ flex: 1, position: 'relative', zIndex: showProvisionDropdown ? 320 : 2 }}>
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>{detailArt === 'wegvermittlung' ? 'Wegverm.' : 'Provision'}</Text>
                 <TouchableOpacity
                   style={[styles.inputCompact, { width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderColor: colors.border, backgroundColor: colors.surface }]}
@@ -2357,7 +2374,7 @@ export function FinanzenScreen({ navigation }: any) {
               </View>
               )}
               {/* Währung (Dropdown) */}
-              <View style={{ flex: 1, position: 'relative', zIndex: showCurrencyDropdown ? 320 : 1 }}>
+              <View {...({ dataSet: { kmhdropdown: 'true' } } as any)} style={{ flex: 1, position: 'relative', zIndex: showCurrencyDropdown ? 320 : 1 }}>
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Währung</Text>
                 <TouchableOpacity
                   style={[styles.inputCompact, { width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderColor: colors.border, backgroundColor: colors.surface }]}
@@ -2450,7 +2467,7 @@ export function FinanzenScreen({ navigation }: any) {
                 />
               </View>
               {/* mittlere Spalte: Raten */}
-              <View style={{ flex: 1, position: 'relative', zIndex: showRateDropdown ? 200 : 1 }}>
+              <View {...({ dataSet: { kmhdropdown: 'true' } } as any)} style={{ flex: 1, position: 'relative', zIndex: showRateDropdown ? 200 : 1 }}>
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} numberOfLines={1}>Raten</Text>
                 <TouchableOpacity
                   style={[styles.inputCompact, { width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderColor: colors.border, backgroundColor: colors.surface }]}
