@@ -3711,7 +3711,7 @@ const styles = StyleSheet.create({
   summaryRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
   summaryCard: { flex: 1, padding: 14, borderRadius: 10, borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.5, shadowRadius: 12, elevation: 8 },
   summaryLabel: { fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
-  summaryValue: { fontSize: 20, fontWeight: '700' },
+  summaryValue: { fontSize: 20, fontWeight: '700', textAlign: 'right' },
 
   rowCount: { fontSize: 11, marginBottom: 12 },
 
