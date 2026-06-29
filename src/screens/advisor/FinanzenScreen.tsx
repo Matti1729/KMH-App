@@ -2256,9 +2256,17 @@ export function FinanzenScreen({ navigation }: any) {
                 </View>
               )}
             </View>
-            <Text style={{ color: colors.textMuted, fontSize: 18, fontWeight: '700' }}>
-              Saison {String(season).slice(2)}
-            </Text>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={{ color: colors.textMuted, fontSize: 18, fontWeight: '700' }}>
+                Saison {String(season).slice(2)}
+              </Text>
+              <TouchableOpacity
+                onPress={addNewEntry}
+                style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.12)', marginTop: 8 }}
+              >
+                <Text style={{ color: '#22c55e', fontSize: 11, fontWeight: '700' }}>+ Eintrag hinzufügen</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           <ScrollView
@@ -2575,12 +2583,6 @@ export function FinanzenScreen({ navigation }: any) {
                 );
               })
             )}
-            <TouchableOpacity
-              onPress={addNewEntry}
-              style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.12)', marginTop: 2, marginBottom: 4 }}
-            >
-              <Text style={{ color: '#22c55e', fontSize: 13, fontWeight: '700' }}>+ Eintrag hinzufügen</Text>
-            </TouchableOpacity>
 
             {/* Beteiligungen / Abgaben */}
             <View pointerEvents={blockIfNot('beteiligungen')} style={{ opacity: dimIfNot('beteiligungen') }}>
