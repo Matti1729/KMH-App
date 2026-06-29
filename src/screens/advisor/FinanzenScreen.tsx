@@ -35,6 +35,8 @@ interface Player {
   contract_end: string | null;
   future_club: string | null;
   special_payment_note: string | null;
+  provision_only?: boolean | null;
+  provision_seasons?: string[] | null;
 }
 
 interface Provision {
@@ -274,6 +276,7 @@ export function FinanzenScreen({ navigation }: any) {
   const [addFirstName, setAddFirstName] = useState('');
   const [addLastName, setAddLastName] = useState('');
   const [addClub, setAddClub] = useState('');
+  const [addSeasons, setAddSeasons] = useState<string[]>([]);
   const [addSaving, setAddSaving] = useState(false);
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -1060,7 +1063,7 @@ export function FinanzenScreen({ navigation }: any) {
     const linkedIds: string[] = (linksRes.data || []).map((l: any) => l.player_id);
     setLinkedPlayerIds(new Set(linkedIds));
 
-    const playerSelect = 'id, first_name, last_name, club, league, provision, provision_documents, contract_documents, commission_shares, contract_end, future_club, special_payment_note';
+    const playerSelect = 'id, first_name, last_name, club, league, provision, provision_documents, contract_documents, commission_shares, contract_end, future_club, special_payment_note, provision_only, provision_seasons';
     let playersQuery = supabase.from('player_details').select(playerSelect).order('last_name');
     playersQuery = linkedIds.length > 0
       ? playersQuery.or(`responsibility.ilike.*${fullName}*,id.in.(${linkedIds.join(',')})`)
@@ -1138,6 +1141,9 @@ export function FinanzenScreen({ navigation }: any) {
     }
     for (const player of players) {
       if (playerIdsWithProv.has(player.id)) continue;
+      // "Provision ohne Betreuung"-Spieler nur in den ausgewählten Saisons zeigen
+      // (leere/keine Auswahl = überall, Abwärtskompatibilität für Altbestand).
+      if (player.provision_only && Array.isArray(player.provision_seasons) && player.provision_seasons.length > 0 && !player.provision_seasons.includes(season)) continue;
       const isNoProv = noProvisionIds.has(player.id);
       rows.push({
         type: isNoProv ? 'no_provision' : 'player_only', key: `p_${player.id}`, provisionId: null, player_id: player.id,
@@ -1570,9 +1576,17 @@ export function FinanzenScreen({ navigation }: any) {
     fetchData();
   };
 
+  // Modal "Spieler anlegen" öffnen — Felder leeren, Saison-Vorauswahl = aktuelle Saison.
+  const openAddProv = () => {
+    setAddFirstName(''); setAddLastName(''); setAddClub('');
+    setAddSeasons([season]);
+    setShowAddProv(true);
+  };
+
   // Externen Provisions-Spieler anlegen (nur Finanzen, nicht in der Spielerübersicht).
   const addProvisionPlayer = async () => {
     if (!addLastName.trim()) { alertDialog({ title: 'Eingabe fehlt', message: 'Bitte Nachname eingeben.' }); return; }
+    if (addSeasons.length === 0) { alertDialog({ title: 'Eingabe fehlt', message: 'Bitte mindestens eine Saison auswählen.' }); return; }
     const fn = (authProfile?.first_name || '').trim();
     const ln = (authProfile?.last_name || '').trim();
     const fullName = `${fn} ${ln}`.trim();
@@ -1584,11 +1598,12 @@ export function FinanzenScreen({ navigation }: any) {
       responsibility: fullName,
       provision_only: true,
       category: 'Fußball',
+      provision_seasons: [...addSeasons].sort(),
     });
     setAddSaving(false);
     if (error) { alertDialog({ title: 'Fehler', message: error.message }); return; }
     setShowAddProv(false);
-    setAddFirstName(''); setAddLastName(''); setAddClub('');
+    setAddFirstName(''); setAddLastName(''); setAddClub(''); setAddSeasons([]);
     fetchData();
   };
 
@@ -2231,9 +2246,26 @@ export function FinanzenScreen({ navigation }: any) {
                 <TextInput style={pillInput as any} placeholder="z.B. Maximilian" placeholderTextColor="rgba(255,255,255,0.3)" value={addFirstName} onChangeText={setAddFirstName} />
               </View>
             </View>
-            <View style={{ marginBottom: 20 }}>
+            <View style={{ marginBottom: 16 }}>
               <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Verein</Text>
               <TextInput style={pillInput as any} placeholder="z.B. FC Beispiel" placeholderTextColor="rgba(255,255,255,0.3)" value={addClub} onChangeText={setAddClub} />
+            </View>
+            <View style={{ marginBottom: 20 }}>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Saisons (Mehrfachauswahl)</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+                {seasonOptions.map(s => {
+                  const sel = addSeasons.includes(s);
+                  return (
+                    <TouchableOpacity
+                      key={s}
+                      onPress={() => setAddSeasons(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])}
+                      style={{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: sel ? '#22c55e' : 'rgba(255,255,255,0.25)', backgroundColor: sel ? 'rgba(34,197,94,0.18)' : 'transparent' }}
+                    >
+                      <Text style={{ color: sel ? '#22c55e' : 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: '600' }}>{s}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
             <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}>
               <TouchableOpacity onPress={() => setShowAddProv(false)} style={[styles.modalBtn, { borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.05)' }]}>
@@ -2811,7 +2843,7 @@ export function FinanzenScreen({ navigation }: any) {
             </View>
           ) : null}
           {activeTab === 'finanzen' ? (
-            <TouchableOpacity onPress={() => setShowAddProv(true)} style={{ width: 28, height: 28, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' }} accessibilityLabel="Spieler hinzufügen">
+            <TouchableOpacity onPress={openAddProv} style={{ width: 28, height: 28, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' }} accessibilityLabel="Spieler hinzufügen">
               <Ionicons name="person-add-outline" size={14} color="rgba(255,255,255,0.85)" />
             </TouchableOpacity>
           ) : null}
@@ -3026,7 +3058,7 @@ export function FinanzenScreen({ navigation }: any) {
           ) : null}
           {activeTab === 'finanzen' ? (
             <TouchableOpacity
-              onPress={() => setShowAddProv(true)}
+              onPress={openAddProv}
               style={{ height: 28, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(0,0,0,0.7)' }}
             >
               <Ionicons name="add" size={14} color="rgba(255,255,255,0.85)" />
