@@ -152,10 +152,11 @@ function getCurrentSeason(): string {
 }
 
 function getSeasonOptions(): string[] {
+  // Ab der aktuellen Saison und die nächsten Saisons (keine Vergangenheit).
+  const startY = parseInt(getCurrentSeason().split('/')[0], 10);
   const seasons: string[] = [];
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  for (let y = currentYear + 1; y >= currentYear - 5; y--) {
+  for (let i = 4; i >= 0; i--) {
+    const y = startY + i;
     seasons.push(`${y}/${(y + 1).toString().slice(2)}`);
   }
   return seasons;
