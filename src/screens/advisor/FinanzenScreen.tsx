@@ -277,6 +277,7 @@ export function FinanzenScreen({ navigation }: any) {
   const [addLastName, setAddLastName] = useState('');
   const [addClub, setAddClub] = useState('');
   const [addSeasons, setAddSeasons] = useState<string[]>([]);
+  const [showAddSeasonsDropdown, setShowAddSeasonsDropdown] = useState(false);
   const [addSaving, setAddSaving] = useState(false);
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -1091,6 +1092,18 @@ export function FinanzenScreen({ navigation }: any) {
   // Aktuellen USD->EUR-Kurs einmal laden (für die EUR-Umrechnung der Summen).
   useEffect(() => { fetchUsdEurRate().then(r => { if (r) setUsdEurRate(r); }); }, []);
 
+  // Klick außerhalb schließt das Saison-Dropdown im "Spieler anlegen"-Modal.
+  useEffect(() => {
+    if (!showAddSeasonsDropdown || typeof document === 'undefined') return;
+    const handler = (e: any) => {
+      const t = e.target;
+      if (t && t.closest && t.closest('[data-kmhdropdown]')) return;
+      setShowAddSeasonsDropdown(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showAddSeasonsDropdown]);
+
   // Klick außerhalb eines Dropdowns schließt es (Detail-Modal). Wrapper tragen data-kmhdropdown.
   useEffect(() => {
     const anyOpen = showArtDropdown || showProvisionDropdown || showCurrencyDropdown || showRateDropdown || !!activeDatePicker;
@@ -1580,6 +1593,7 @@ export function FinanzenScreen({ navigation }: any) {
   const openAddProv = () => {
     setAddFirstName(''); setAddLastName(''); setAddClub('');
     setAddSeasons([season]);
+    setShowAddSeasonsDropdown(false);
     setShowAddProv(true);
   };
 
@@ -2250,21 +2264,37 @@ export function FinanzenScreen({ navigation }: any) {
               <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Verein</Text>
               <TextInput style={pillInput as any} placeholder="z.B. FC Beispiel" placeholderTextColor="rgba(255,255,255,0.3)" value={addClub} onChangeText={setAddClub} />
             </View>
-            <View style={{ marginBottom: 20 }}>
+            <View style={{ marginBottom: 20, position: 'relative', zIndex: showAddSeasonsDropdown ? 1000 : 1 }}>
               <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Saisons (Mehrfachauswahl)</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
-                {seasonOptions.map(s => {
-                  const sel = addSeasons.includes(s);
-                  return (
-                    <TouchableOpacity
-                      key={s}
-                      onPress={() => setAddSeasons(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])}
-                      style={{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: sel ? '#22c55e' : 'rgba(255,255,255,0.25)', backgroundColor: sel ? 'rgba(34,197,94,0.18)' : 'transparent' }}
-                    >
-                      <Text style={{ color: sel ? '#22c55e' : 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: '600' }}>{s}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
+              <View {...({ dataSet: { kmhdropdown: 'true' } } as any)} style={{ position: 'relative' }}>
+                <TouchableOpacity
+                  style={[pillInput as any, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
+                  onPress={() => setShowAddSeasonsDropdown(v => !v)}
+                >
+                  <Text numberOfLines={1} style={{ color: addSeasons.length ? '#fff' : 'rgba(255,255,255,0.3)', fontSize: 13, flex: 1 }}>
+                    {addSeasons.length ? [...addSeasons].sort().join(', ') : 'Saisons wählen'}
+                  </Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10 }}>▼</Text>
+                </TouchableOpacity>
+                {showAddSeasonsDropdown && (
+                  <View style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, overflow: 'hidden', zIndex: 1000, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12 }}>
+                    <ScrollView style={{ maxHeight: 220 }} nestedScrollEnabled>
+                      {seasonOptions.map(s => {
+                        const sel = addSeasons.includes(s);
+                        return (
+                          <TouchableOpacity
+                            key={s}
+                            onPress={() => setAddSeasons(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])}
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}
+                          >
+                            <Ionicons name={sel ? 'checkbox' : 'square-outline'} size={16} color={sel ? '#22c55e' : 'rgba(255,255,255,0.5)'} />
+                            <Text style={{ color: '#fff', fontSize: 13, fontWeight: '500' }}>{s}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                )}
               </View>
             </View>
             <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}>
