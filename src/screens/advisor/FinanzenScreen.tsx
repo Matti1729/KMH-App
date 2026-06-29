@@ -1222,6 +1222,11 @@ export function FinanzenScreen({ navigation }: any) {
   // --- Season ---
 
   const seasonOptions = getSeasonOptions();
+  // Für das "Spieler anlegen"-Modal nur die aktuelle + die 4 nachfolgenden Saisons.
+  const addSeasonOptions = (() => {
+    const startY = parseInt(getCurrentSeason().split('/')[0], 10);
+    return Array.from({ length: 5 }, (_, i) => `${startY + i}/${(startY + i + 1).toString().slice(2)}`);
+  })();
   const changeSeason = (dir: number) => {
     const idx = seasonOptions.indexOf(season);
     const n = idx - dir;
@@ -1592,7 +1597,7 @@ export function FinanzenScreen({ navigation }: any) {
   // Modal "Spieler anlegen" öffnen — Felder leeren, Saison-Vorauswahl = aktuelle Saison.
   const openAddProv = () => {
     setAddFirstName(''); setAddLastName(''); setAddClub('');
-    setAddSeasons([season]);
+    setAddSeasons([addSeasonOptions.includes(season) ? season : addSeasonOptions[0]]);
     setShowAddSeasonsDropdown(false);
     setShowAddProv(true);
   };
@@ -2279,7 +2284,7 @@ export function FinanzenScreen({ navigation }: any) {
                 {showAddSeasonsDropdown && (
                   <View style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, overflow: 'hidden', zIndex: 1000, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12 }}>
                     <ScrollView style={{ maxHeight: 220 }} nestedScrollEnabled>
-                      {seasonOptions.map(s => {
+                      {addSeasonOptions.map(s => {
                         const sel = addSeasons.includes(s);
                         return (
                           <TouchableOpacity
