@@ -49,6 +49,7 @@ interface Provision {
   entry_id?: string | null;
   percent?: string | null;
   note?: string | null;
+  locked_rate?: number | null;
 }
 
 interface DisplayRow {
@@ -74,6 +75,7 @@ interface RateEntry {
   month: number | null;
   year: number | null;
   status: string;
+  lockedRate?: number | null; // bei bezahlten USD-Raten fest hinterlegter USD->EUR-Kurs
 }
 
 type SortField = 'name' | 'club' | 'league' | 'provision' | 'amount' | 'due';
@@ -159,6 +161,19 @@ function getSeasonOptions(): string[] {
 
 function formatCurrency(amount: number, currency: string = 'EUR'): string {
   return new Intl.NumberFormat('de-DE', { style: 'currency', currency: currency === 'USD' ? 'USD' : 'EUR' }).format(amount);
+}
+
+// USD->EUR-Kurs (EZB-Referenz via frankfurter.app). Ohne Datum = aktueller Kurs,
+// mit 'YYYY-MM-DD' der Kurs dieses Tages. Gibt null zurück, wenn nicht abrufbar.
+async function fetchUsdEurRate(date?: string): Promise<number | null> {
+  try {
+    const path = date ? date : 'latest';
+    const res = await fetch(`https://api.frankfurter.app/${path}?from=USD&to=EUR`);
+    const data = await res.json();
+    return data && data.rates && typeof data.rates.EUR === 'number' ? data.rates.EUR : null;
+  } catch {
+    return null;
+  }
 }
 
 type ProvArt = 'provision' | 'wegvermittlung' | 'sonderzahlung';
@@ -980,7 +995,19 @@ export function FinanzenScreen({ navigation }: any) {
   // Inline status toggle
   const cycleStatus = async (provId: string, currentStatus: string) => {
     const nextMap: Record<string, string> = { 'offen': 'in rechnung gestellt', 'in rechnung gestellt': 'bezahlt', 'bezahlt': 'offen' };
-    await supabase.from('player_provisions').update({ status: nextMap[currentStatus] || 'offen' }).eq('id', provId);
+    const next = nextMap[currentStatus] || 'offen';
+    const row = provisions.find(p => p.id === provId);
+    const update: Record<string, any> = { status: next };
+    // USD-Zahlung als bezahlt → Tageskurs fest hinterlegen; zurückgesetzt → wieder freigeben.
+    if (row && row.currency === 'USD') {
+      if (next === 'bezahlt') {
+        const rate = usdEurRate ?? await fetchUsdEurRate();
+        if (rate) update.locked_rate = rate;
+      } else {
+        update.locked_rate = null;
+      }
+    }
+    await supabase.from('player_provisions').update(update).eq('id', provId);
     fetchData();
   };
 
@@ -1000,6 +1027,8 @@ export function FinanzenScreen({ navigation }: any) {
   // (editingEntryId), die Liste darunter zeigt alle Einträge inkl. des gerade bearbeiteten.
   const [detailEntries, setDetailEntries] = useState<SavedEntry[]>([]);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  // Aktueller USD->EUR-Kurs für die Umrechnung der Summen.
+  const [usdEurRate, setUsdEurRate] = useState<number | null>(null);
   const [showRateDropdown, setShowRateDropdown] = useState(false);
   const [showProvisionDropdown, setShowProvisionDropdown] = useState(false);
   const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
@@ -1041,7 +1070,7 @@ export function FinanzenScreen({ navigation }: any) {
       playersQuery,
       supabase
         .from('player_provisions')
-        .select('id, player_id, season, amount, status, due_date, currency, payment_type:type, entry_id, percent, note')
+        .select('id, player_id, season, amount, status, due_date, currency, payment_type:type, entry_id, percent, note, locked_rate')
         .eq('season', season),
       supabase
         .from('player_no_provision')
@@ -1055,6 +1084,9 @@ export function FinanzenScreen({ navigation }: any) {
   }, [season, authProfile?.first_name, authProfile?.last_name, session?.user?.id]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Aktuellen USD->EUR-Kurs einmal laden (für die EUR-Umrechnung der Summen).
+  useEffect(() => { fetchUsdEurRate().then(r => { if (r) setUsdEurRate(r); }); }, []);
 
   // Klick außerhalb eines Dropdowns schließt es (Detail-Modal). Wrapper tragen data-kmhdropdown.
   useEffect(() => {
@@ -1149,16 +1181,24 @@ export function FinanzenScreen({ navigation }: any) {
 
   // --- Totals ---
 
+  // USD-Betrag in EUR umrechnen: bezahlt → fest hinterlegter Kurs (locked_rate),
+  // sonst aktueller Kurs. EUR-Beträge bleiben unverändert.
+  const amountInEur = (amt: number, currency: string | undefined, status: string, lockedRate?: number | null): number => {
+    if (currency !== 'USD') return amt;
+    const rate = (status === 'bezahlt' && lockedRate) ? lockedRate : (usdEurRate ?? 1);
+    return amt * rate;
+  };
+
   const totals = useMemo(() => {
     let offen = 0, bezahlt = 0;
     for (const prov of provisions) {
       const player = players.find(p => p.id === prov.player_id);
       if (!player) continue;
-      const amt = Number(prov.amount) || 0;
-      if (prov.status === 'bezahlt') bezahlt += amt; else offen += amt;
+      const eur = amountInEur(Number(prov.amount) || 0, prov.currency, prov.status, prov.locked_rate);
+      if (prov.status === 'bezahlt') bezahlt += eur; else offen += eur;
     }
     return { offen, bezahlt, gesamt: offen + bezahlt };
-  }, [provisions, players]);
+  }, [provisions, players, usdEurRate]);
 
   // --- Season ---
 
@@ -1219,6 +1259,7 @@ export function FinanzenScreen({ navigation }: any) {
             month: d ? d.getMonth() : null,
             year: d ? d.getFullYear() : null,
             status: p.status || 'offen',
+            lockedRate: p.locked_rate ?? null,
           };
         }),
       };
@@ -1475,13 +1516,19 @@ export function FinanzenScreen({ navigation }: any) {
       return;
     }
 
-    // Alle Einträge als Ratenzeilen aufbauen (jede Zeile trägt entry_id/type/currency/percent/note).
+    // Kurs sichern: neue bezahlte USD-Raten ohne hinterlegten Kurs brauchen den Tageskurs.
+    const needsLiveRate = allEntries.some(e => e.currency === 'USD' && e.rates.some(r => r.status === 'bezahlt' && !r.lockedRate && parseAmount(r.amount) > 0));
+    const liveRate = needsLiveRate ? (usdEurRate ?? await fetchUsdEurRate()) : usdEurRate;
+
+    // Alle Einträge als Ratenzeilen aufbauen (jede Zeile trägt entry_id/type/currency/percent/note/locked_rate).
     const inserts: any[] = [];
     for (const e of allEntries) {
       const freq = !e.rateCount ? 'einmalig' : e.rateCount === 1 ? 'einmalig' : `${e.rateCount} Raten`;
       for (const r of e.rates) {
         const amount = parseAmount(r.amount);
         if (amount <= 0) continue;
+        // Bezahlte USD-Rate → bereits hinterlegten Kurs behalten, sonst Tageskurs festsetzen.
+        const lockedRate = (e.currency === 'USD' && r.status === 'bezahlt') ? (r.lockedRate ?? liveRate ?? null) : null;
         inserts.push({
           player_id: detailPlayerId,
           season,
@@ -1494,6 +1541,7 @@ export function FinanzenScreen({ navigation }: any) {
           percent: e.percent || null,
           note: e.art === 'sonderzahlung' ? (e.note || null) : null,
           entry_id: e.entryId,
+          locked_rate: lockedRate,
           created_by: session?.user?.id,
         });
       }
@@ -3715,7 +3763,7 @@ const styles = StyleSheet.create({
 
   summaryRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
   summaryCard: { flex: 1, padding: 14, borderRadius: 10, borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.5, shadowRadius: 12, elevation: 8 },
-  summaryLabel: { fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
+  summaryLabel: { fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4, textAlign: 'right' },
   summaryValue: { fontSize: 20, fontWeight: '700', textAlign: 'right' },
 
   rowCount: { fontSize: 11, marginBottom: 12 },
