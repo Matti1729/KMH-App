@@ -1735,6 +1735,63 @@ export function FinanzenScreen({ navigation }: any) {
     fetchData();
   };
 
+  // Spieler komplett aus den Finanzen entfernen (versehentlich angelegt o.ä.).
+  // Manuell angelegt → player_details löschen; aus Liste verknüpft → nur Verknüpfung lösen.
+  const deletePlayerEntirely = async () => {
+    const player = players.find(p => p.id === detailPlayerId);
+    if (!player) return;
+    const name = `${player.last_name}, ${player.first_name}`;
+    const ok = await confirmDialog({
+      title: 'Spieler löschen',
+      message: `${name} komplett aus den Finanzen entfernen? Alle erfassten Beträge dieses Spielers (alle Saisons) werden gelöscht.`,
+      danger: true,
+      confirmLabel: 'Löschen',
+    });
+    if (!ok) return;
+    const me = session?.user?.id;
+    await supabase.from('player_provisions').delete().eq('player_id', detailPlayerId);
+    if (linkedPlayerIds.has(detailPlayerId) && me) {
+      await supabase.from('finance_provision_links').delete().eq('advisor_id', me).eq('player_id', detailPlayerId);
+    }
+    if (player.provision_only) {
+      await supabase.from('player_no_provision').delete().eq('player_id', detailPlayerId);
+      await supabase.from('player_details').delete().eq('id', detailPlayerId);
+    }
+    setShowDetail(false);
+    fetchData();
+  };
+
+  // Spieler aus der aktuellen Saison nehmen — nur wenn dort keine Provision erfasst ist.
+  // Saisons mit Provision bleiben erhalten (zeigen sich ohnehin unabhängig von der Auswahl).
+  const removePlayerFromSeason = async () => {
+    const player = players.find(p => p.id === detailPlayerId);
+    if (!player) return;
+    if (provisions.some(p => p.player_id === detailPlayerId)) {
+      alertDialog({ title: 'Nicht möglich', message: `Für Saison ${season} sind Beträge erfasst — diese Saison bleibt erhalten. Lösche zuerst die Einträge, wenn du die Saison entfernen willst.` });
+      return;
+    }
+    const name = `${player.last_name}, ${player.first_name}`;
+    const ok = await confirmDialog({
+      title: 'Aus Saison entfernen',
+      message: `${name} aus Saison ${season} nehmen? Saisons mit erfasster Provision bleiben erhalten.`,
+      danger: true,
+      confirmLabel: 'Entfernen',
+    });
+    if (!ok) return;
+    const me = session?.user?.id;
+    if (linkedPlayerIds.has(detailPlayerId)) {
+      const cur = linkSeasons[detailPlayerId];
+      const base = (cur && cur.length > 0) ? cur : addSeasonOptions;
+      await supabase.from('finance_provision_links').update({ seasons: base.filter(s => s !== season) }).eq('advisor_id', me).eq('player_id', detailPlayerId);
+    } else {
+      const cur = player.provision_seasons;
+      const base = (cur && cur.length > 0) ? cur : addSeasonOptions;
+      await supabase.from('player_details').update({ provision_seasons: base.filter(s => s !== season) }).eq('id', detailPlayerId);
+    }
+    setShowDetail(false);
+    fetchData();
+  };
+
   // --- Document Upload/Delete ---
 
   const uploadDoc = async (docType: 'provision_documents' | 'contract_documents') => {
@@ -2833,6 +2890,24 @@ export function FinanzenScreen({ navigation }: any) {
               <Text style={{ color: '#3b82f6', fontSize: 13, fontWeight: '600' }}>+ Beteiligung hinzufügen</Text>
             </TouchableOpacity>
             </View>
+
+            {/* Spieler verwalten — nur für "Provision ohne Betreuung"-Spieler (manuell oder aus Liste). */}
+            {(detailPlayer?.provision_only || linkedPlayerIds.has(detailPlayerId)) && (
+              <View style={{ marginTop: 24, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 16 }}>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginBottom: 8 }]}>Spieler verwalten</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  <TouchableOpacity onPress={removePlayerFromSeason} style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(255,255,255,0.05)' }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12, fontWeight: '600' }}>Aus Saison {String(season).slice(2)} nehmen</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={deletePlayerEntirely} style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.12)' }}>
+                    <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '600' }}>Spieler komplett löschen</Text>
+                  </TouchableOpacity>
+                </View>
+                <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 8 }}>
+                  „Aus Saison nehmen" geht nur, wenn für diese Saison keine Provision erfasst ist — Saisons mit Provision bleiben erhalten.
+                </Text>
+              </View>
+            )}
           </ScrollView>
 
           {/* Footer */}
