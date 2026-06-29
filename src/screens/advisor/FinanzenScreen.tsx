@@ -1089,10 +1089,16 @@ export function FinanzenScreen({ navigation }: any) {
       const player = players.find(p => p.id === prov.player_id);
       if (!player) continue;
       playerIdsWithProv.add(prov.player_id);
+      // Prozentsatz je nach Art: Sonderzahlung hat keinen; Provision/Wegvermittlung zeigen
+      // den eintragseigenen Prozentsatz (Altdaten ohne percent fallen auf player.provision zurück).
+      const art = typeToArt(prov.payment_type);
+      const pct = art === 'sonderzahlung'
+        ? null
+        : (prov.percent || (art === 'provision' ? player.provision : null));
       rows.push({
         type: 'provision', key: prov.id, provisionId: prov.id, player_id: prov.player_id,
         first_name: player.first_name, last_name: player.last_name, club: effClub(player),
-        league: effLeague(player), provisionPercent: player.provision, amount: Number(prov.amount) || 0,
+        league: effLeague(player), provisionPercent: pct, amount: Number(prov.amount) || 0,
         status: prov.status || 'offen', due_date: prov.due_date, currency: prov.currency || 'EUR',
       });
     }
