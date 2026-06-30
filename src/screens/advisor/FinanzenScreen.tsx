@@ -2590,7 +2590,7 @@ export function FinanzenScreen({ navigation }: any) {
               {/* Reihe 1: Art | Provision/Wegvermittlung */}
               <View style={{ flexDirection: 'row', position: 'relative', zIndex: (showArtDropdown || showProvisionDropdown) ? 320 : 3 }}>
                 {/* Art */}
-                <View {...({ dataSet: { kmhdropdown: 'true' } } as any)} style={{ flex: 1, minWidth: 0, position: 'relative', zIndex: showArtDropdown ? 10 : 2 }}>
+                <View {...({ dataSet: { kmhdropdown: 'true' } } as any)} style={{ width: '50%', position: 'relative', zIndex: showArtDropdown ? 10 : 2 }}>
                   <TouchableOpacity style={settingRow} onPress={() => { setShowArtDropdown(v => !v); setShowProvisionDropdown(false); setShowCurrencyDropdown(false); setShowRateDropdown(false); setActiveDatePicker(null); }}>
                     <Text numberOfLines={1} style={settingLabel}>Art</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -2614,7 +2614,7 @@ export function FinanzenScreen({ navigation }: any) {
                 </View>
                 {/* Provision/Wegvermittlung (leer bei Sonderzahlung) */}
                 {detailArt !== 'sonderzahlung' ? (
-                <View {...({ dataSet: { kmhdropdown: 'true' } } as any)} style={{ flex: 1, minWidth: 0, position: 'relative', zIndex: showProvisionDropdown ? 10 : 1 }}>
+                <View {...({ dataSet: { kmhdropdown: 'true' } } as any)} style={{ width: '50%', position: 'relative', zIndex: showProvisionDropdown ? 10 : 1 }}>
                   <TouchableOpacity style={settingRow} onPress={() => { setShowProvisionDropdown(v => !v); setShowCurrencyDropdown(false); setShowRateDropdown(false); setShowArtDropdown(false); setActiveDatePicker(null); }}>
                     <Text numberOfLines={1} style={settingLabel}>{detailArt === 'wegvermittlung' ? 'Wegverm.' : 'Provision'}</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -2645,7 +2645,7 @@ export function FinanzenScreen({ navigation }: any) {
                   )}
                 </View>
                 ) : (
-                <View style={{ flex: 1, minWidth: 0 }} />
+                <View style={{ width: '50%' }} />
                 )}
               </View>
 
@@ -2654,14 +2654,14 @@ export function FinanzenScreen({ navigation }: any) {
               {/* Reihe 2 (Provision): Monatsgehalt | Jahresgehalt */}
               {detailArt === 'provision' && (
               <View style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: settingDividerColor }}>
-                <View style={[settingRow, { flex: 1, minWidth: 0 }]}>
+                <View style={[settingRow, { width: '50%' }]}>
                   <Text numberOfLines={1} style={settingLabel}>Monatsgeh.</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
                     <TextInput style={{ color: colors.text, fontSize: 12, textAlign: 'right', width: 72, padding: 0 }} placeholder="2.000" placeholderTextColor={colors.textMuted} value={detailMonthlySalaryStr} onChangeText={updateMonthlySalary} keyboardType="numeric" />
                     <Text style={settingValueText}>{detailCurrency === 'EUR' ? '€' : '$'}</Text>
                   </View>
                 </View>
-                <View style={[settingRow, { flex: 1, minWidth: 0 }]}>
+                <View style={[settingRow, { width: '50%' }]}>
                   <Text numberOfLines={1} style={settingLabel}>Jahresgeh.</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
                     <TextInput style={{ color: colors.text, fontSize: 12, textAlign: 'right', width: 72, padding: 0 }} placeholder="24.000" placeholderTextColor={colors.textMuted} value={detailAnnualSalary} onChangeText={updateAnnualSalary} keyboardType="numeric" />
@@ -2674,27 +2674,27 @@ export function FinanzenScreen({ navigation }: any) {
               {/* Reihe 2 (Wegvermittlung): Transfersumme | leer */}
               {detailArt === 'wegvermittlung' && (
               <View style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: settingDividerColor }}>
-                <View style={[settingRow, { flex: 1, minWidth: 0 }]}>
+                <View style={[settingRow, { width: '50%' }]}>
                   <Text numberOfLines={1} style={settingLabel}>Transfers.</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
                     <TextInput style={{ color: colors.text, fontSize: 12, textAlign: 'right', width: 72, padding: 0 }} placeholder="5.000.000" placeholderTextColor={colors.textMuted} value={detailTransferSum} onChangeText={(v) => setDetailTransferSum(formatNumberInput(v))} keyboardType="numeric" />
                     <Text style={settingValueText}>{detailCurrency === 'EUR' ? '€' : '$'}</Text>
                   </View>
                 </View>
-                <View style={{ flex: 1, minWidth: 0 }} />
+                <View style={{ width: '50%' }} />
               </View>
               )}
 
               {/* Reihe 3: Gesamtsumme | Währung */}
               <View style={{ flexDirection: 'row', position: 'relative', zIndex: showCurrencyDropdown ? 320 : 1, borderTopWidth: 1, borderTopColor: settingDividerColor }}>
-                <View style={[settingRow, { flex: 1, minWidth: 0 }]}>
+                <View style={[settingRow, { width: '50%' }]}>
                   <Text numberOfLines={1} style={settingLabel}>{detailArt === 'wegvermittlung' ? 'Gesamtverm.' : detailArt === 'sonderzahlung' ? 'Gesamtsumme' : 'Gesamtprov.'}</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
                     <TextInput style={{ color: colors.text, fontSize: 12, textAlign: 'right', width: 72, padding: 0 }} placeholder="1.000,00" placeholderTextColor={colors.textMuted} value={detailTotalAmount} onChangeText={updateTotalAmount} keyboardType="numeric" />
                     <Text style={settingValueText}>{detailCurrency === 'EUR' ? '€' : '$'}</Text>
                   </View>
                 </View>
-                <View {...({ dataSet: { kmhdropdown: 'true' } } as any)} style={{ flex: 1, minWidth: 0, position: 'relative', zIndex: showCurrencyDropdown ? 10 : 1 }}>
+                <View {...({ dataSet: { kmhdropdown: 'true' } } as any)} style={{ width: '50%', position: 'relative', zIndex: showCurrencyDropdown ? 10 : 1 }}>
                   <TouchableOpacity style={settingRow} onPress={() => { setShowCurrencyDropdown(v => !v); setShowProvisionDropdown(false); setShowRateDropdown(false); setShowArtDropdown(false); setActiveDatePicker(null); }}>
                     <Text numberOfLines={1} style={settingLabel}>Währung</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -3380,7 +3380,7 @@ export function FinanzenScreen({ navigation }: any) {
                             const isDifferent = !!doc.target_club && doc.target_club !== doc.player_club;
                             const logo = getClubLogo(displayClub);
                             return (
-                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, width: '50%' }}>
                                 {logo ? <Image source={{ uri: logo }} style={{ width: 18, height: 18 }} resizeMode="contain" /> : null}
                                 <Text style={[styles.tableCell, { color: colors.text, flex: 1 }]} numberOfLines={1}>{displayClub || '—'}</Text>
                                 {isDifferent ? (
