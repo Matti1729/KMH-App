@@ -89,7 +89,6 @@ const FINANZEN_COLUMNS: ColumnDef[] = [
   { key: 'club', label: 'Verein', defaultFlex: 0.9, minWidth: 90 },
   { key: 'league', label: 'Liga', defaultFlex: 1.1, minWidth: 100 },
   { key: 'art', label: 'Art', defaultFlex: 0.8, minWidth: 90 },
-  { key: 'provision', label: 'Provision (%)', defaultFlex: 0.7, minWidth: 70 },
   { key: 'amount', label: 'Summe (€)', defaultFlex: 1, minWidth: 90 },
   { key: 'due', label: 'Fälligkeit', defaultFlex: 0.9, minWidth: 90 },
 ];
@@ -2160,7 +2159,6 @@ export function FinanzenScreen({ navigation }: any) {
             {getClubLogo(row.club) ? <Image source={{ uri: getClubLogo(row.club)! }} style={{ width: 16, height: 16, marginRight: 6 }} resizeMode="contain" /> : null}
             <Text style={[{ color: colors.text, fontSize: 13, flex: 1 }]} numberOfLines={1}>{row.club || '-'}</Text>
             {row.league ? <Text style={{ color: colors.textMuted, fontSize: 12 }}>{row.league}</Text> : null}
-            <Text style={{ color: colors.textMuted, fontSize: 13 }}>{row.provisionPercent ? `${row.provisionPercent}%` : ''}</Text>
           </View>
           {row.type === 'no_provision' && (
             <Text style={{ color: colors.textMuted, fontSize: 12, fontStyle: 'italic', marginTop: 2 }}>Keine Provision</Text>
@@ -3296,8 +3294,6 @@ export function FinanzenScreen({ navigation }: any) {
                             return <Text style={[styles.tableCell, { color: colors.text, fontSize: 12 }]} numberOfLines={1}>{row.league || '-'}</Text>;
                           case 'art':
                             return <Text style={[styles.tableCell, { color: colors.text, fontSize: 12 }]} numberOfLines={1}>{row.art ? artLabel(row.art) : '-'}</Text>;
-                          case 'provision':
-                            return <Text style={[styles.tableCell, { color: colors.text }]}>{isNo ? '–' : (row.provisionPercent ? `${row.provisionPercent}%` : '-')}</Text>;
                           case 'amount':
                             return (
                               <Text style={[styles.tableCell, { color: isNo ? colors.textMuted : colors.text, fontWeight: isProv ? '600' : '400', fontStyle: isNo ? 'italic' : 'normal' }]} numberOfLines={1}>
