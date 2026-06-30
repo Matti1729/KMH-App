@@ -2059,6 +2059,7 @@ export function FinanzenScreen({ navigation }: any) {
   );
 
   const getRowBg = (row: DisplayRow): string | undefined => {
+    if (row.type === 'no_provision') return isDark ? 'rgba(255,255,255,0.07)' : '#f3f4f6';
     if (row.type !== 'provision') return undefined;
     if (row.status === 'bezahlt') return isDark ? '#052e16' : '#f0fdf4';
     if (row.status === 'in rechnung gestellt') return isDark ? '#450a0a' : '#fef2f2';
@@ -2147,7 +2148,7 @@ export function FinanzenScreen({ navigation }: any) {
         style={[
           styles.playerCard,
           // Frosted-Glass wie Spielerübersicht; Provisionen mit Status bekommen ihren Status-Ton.
-          rowBg ? { backgroundColor: rowBg, borderColor: row.status === 'bezahlt' ? '#22c55e' : row.status === 'in rechnung gestellt' ? '#ef4444' : '#ef4444' } : null,
+          rowBg ? { backgroundColor: rowBg, borderColor: row.type === 'no_provision' ? 'rgba(255,255,255,0.18)' : (row.status === 'bezahlt' ? '#22c55e' : '#ef4444') } : null,
         ]}
         onPress={() => openDetail(row.player_id)}
         activeOpacity={0.7}
@@ -2158,7 +2159,7 @@ export function FinanzenScreen({ navigation }: any) {
           </Text>
           {(() => {
             const s = row.type === 'no_provision'
-              ? { label: 'Keine Provision', color: 'rgba(255,255,255,0.5)' }
+              ? { label: 'Keine Provision', color: '#fff' }
               : row.type !== 'provision'
                 ? { label: 'Kein Eintrag', color: 'rgba(255,255,255,0.5)' }
                 : row.status === 'bezahlt'
@@ -2176,7 +2177,7 @@ export function FinanzenScreen({ navigation }: any) {
             {row.league ? <Text style={{ color: colors.textMuted, fontSize: 12 }}>{row.league}</Text> : null}
           </View>
           {row.type === 'no_provision' && (
-            <Text style={{ color: colors.textMuted, fontSize: 12, fontStyle: 'italic', marginTop: 2 }}>Keine Provision</Text>
+            <Text style={{ color: '#fff', fontSize: 12, fontStyle: 'italic', marginTop: 2 }}>Keine Provision</Text>
           )}
           {isProv && (
             <View style={styles.playerCardRow}>
@@ -3304,7 +3305,7 @@ export function FinanzenScreen({ navigation }: any) {
                             return <Text style={[styles.tableCell, { color: colors.text, fontSize: 12 }]} numberOfLines={1}>{row.art ? artLabel(row.art) : '-'}</Text>;
                           case 'amount':
                             return (
-                              <Text style={[styles.tableCell, { color: isNo ? colors.textMuted : colors.text, fontWeight: isProv ? '600' : '400', fontStyle: isNo ? 'italic' : 'normal' }]} numberOfLines={1}>
+                              <Text style={[styles.tableCell, { color: colors.text, fontWeight: isProv ? '600' : '400', fontStyle: isNo ? 'italic' : 'normal' }]} numberOfLines={1}>
                                 {isNo ? 'Keine Provision' : (isProv && row.amount > 0 ? formatCurrency(row.amount, row.currency) : '-')}
                               </Text>
                             );
