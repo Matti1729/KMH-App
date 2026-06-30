@@ -2516,17 +2516,9 @@ export function FinanzenScreen({ navigation }: any) {
                 </View>
               )}
             </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={{ color: colors.textMuted, fontSize: 18, fontWeight: '700' }}>
-                Saison {String(season).slice(2)}
-              </Text>
-              <TouchableOpacity
-                onPress={addNewEntry}
-                style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.12)', marginTop: 8 }}
-              >
-                <Text style={{ color: '#22c55e', fontSize: 11, fontWeight: '700' }}>+ Eintrag hinzufügen</Text>
-              </TouchableOpacity>
-            </View>
+            <Text style={{ color: colors.textMuted, fontSize: 18, fontWeight: '700' }}>
+              Saison {String(season).slice(2)}
+            </Text>
           </View>
 
           <ScrollView
@@ -2536,6 +2528,52 @@ export function FinanzenScreen({ navigation }: any) {
           >
             {/* Trennstrich unter Name + Verein */}
             <View style={{ height: 1, backgroundColor: colors.border, marginBottom: 16 }} />
+
+            {/* Einträge dieser Saison (oben, direkt unter dem Header) + "+ Eintrag hinzufügen" */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Einträge dieser Saison</Text>
+              <TouchableOpacity
+                onPress={addNewEntry}
+                style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.12)' }}
+              >
+                <Text style={{ color: '#22c55e', fontSize: 11, fontWeight: '700' }}>+ Eintrag hinzufügen</Text>
+              </TouchableOpacity>
+            </View>
+            {detailEntries.length === 0 ? (
+              <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 8 }}>
+                Noch keine Einträge. Unten erfassen — mit „+ Eintrag hinzufügen“ legst du einen weiteren an.
+              </Text>
+            ) : (
+              detailEntries.map((e) => {
+                const isEditing = e.entryId === editingEntryId;
+                const total = isEditing ? detailRates.reduce((s, r) => s + parseAmount(r.amount), 0) : entryTotal(e);
+                return (
+                  <TouchableOpacity
+                    key={e.entryId}
+                    onPress={() => editEntry(e)}
+                    style={{
+                      flexDirection: 'row', alignItems: 'center', gap: 8,
+                      paddingVertical: 8, paddingHorizontal: 10, marginBottom: 6, borderRadius: 8,
+                      borderWidth: 1, borderColor: isEditing ? '#22c55e' : colors.border,
+                      backgroundColor: isEditing ? 'rgba(34,197,94,0.10)' : colors.surface,
+                    }}
+                  >
+                    <Text style={{ color: colors.text, fontSize: 13, fontWeight: '600', flex: 1 }} numberOfLines={1}>
+                      {artLabel(e.art)}{isEditing ? '  ·  wird bearbeitet' : ''}
+                    </Text>
+                    <Text style={{ color: colors.textSecondary, fontSize: 13, fontWeight: '600' }}>
+                      {formatCurrency(total, e.currency)}
+                    </Text>
+                    <TouchableOpacity onPress={(ev?: any) => { ev?.stopPropagation?.(); deleteEntry(e.entryId); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{ paddingHorizontal: 4 }}>
+                      <Text style={{ color: '#ef4444', fontSize: 15, fontWeight: '700' }}>✕</Text>
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                );
+              })
+            )}
+
+            {/* Trennstrich zwischen Einträgen und Editor */}
+            <View style={{ height: 1, backgroundColor: colors.border, marginTop: 12, marginBottom: 16 }} />
 
             {/* Reihe 1: Art + Provision/Wegvermittlung + Währung (3er-Reihe).
                 Flexible Spalten (flex:1), damit auch in der schmalen Mobile-Ansicht nichts abgeschnitten wird. */}
@@ -2807,42 +2845,6 @@ export function FinanzenScreen({ navigation }: any) {
                 {renderDatePicker(idx, rate)}
               </View>
             ))}
-
-            {/* Einträge (Provision + Wegvermittlungen + Sonderzahlungen) */}
-            <View style={{ height: 1, backgroundColor: colors.border, marginTop: 20, marginBottom: 12 }} />
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginBottom: 8 }]}>Einträge dieser Saison</Text>
-            {detailEntries.length === 0 ? (
-              <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 8 }}>
-                Noch keine Einträge. Oben erfassen und mit „+ Eintrag hinzufügen“ einen weiteren anlegen.
-              </Text>
-            ) : (
-              detailEntries.map((e) => {
-                const isEditing = e.entryId === editingEntryId;
-                const total = isEditing ? detailRates.reduce((s, r) => s + parseAmount(r.amount), 0) : entryTotal(e);
-                return (
-                  <TouchableOpacity
-                    key={e.entryId}
-                    onPress={() => editEntry(e)}
-                    style={{
-                      flexDirection: 'row', alignItems: 'center', gap: 8,
-                      paddingVertical: 8, paddingHorizontal: 10, marginBottom: 6, borderRadius: 8,
-                      borderWidth: 1, borderColor: isEditing ? '#22c55e' : colors.border,
-                      backgroundColor: isEditing ? 'rgba(34,197,94,0.10)' : colors.surface,
-                    }}
-                  >
-                    <Text style={{ color: colors.text, fontSize: 13, fontWeight: '600', flex: 1 }} numberOfLines={1}>
-                      {artLabel(e.art)}{isEditing ? '  ·  wird bearbeitet' : ''}
-                    </Text>
-                    <Text style={{ color: colors.textSecondary, fontSize: 13, fontWeight: '600' }}>
-                      {formatCurrency(total, e.currency)}
-                    </Text>
-                    <TouchableOpacity onPress={(ev?: any) => { ev?.stopPropagation?.(); deleteEntry(e.entryId); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{ paddingHorizontal: 4 }}>
-                      <Text style={{ color: '#ef4444', fontSize: 15, fontWeight: '700' }}>✕</Text>
-                    </TouchableOpacity>
-                  </TouchableOpacity>
-                );
-              })
-            )}
 
             {/* Beteiligungen / Abgaben */}
             <View pointerEvents={blockIfNot('beteiligungen')} style={{ opacity: dimIfNot('beteiligungen') }}>
