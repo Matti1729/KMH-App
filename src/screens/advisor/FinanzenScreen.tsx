@@ -2832,9 +2832,9 @@ export function FinanzenScreen({ navigation }: any) {
                     const labels: Record<string, string> = { 'offen': 'Offen', 'in rechnung gestellt': 'In Rechnung', 'bezahlt': 'Bezahlt' };
                     const ac: Record<string, string> = { 'offen': '#eab308', 'in rechnung gestellt': '#ef4444', 'bezahlt': '#22c55e' };
                     return (
-                      <TouchableOpacity key={s} style={[styles.statusOption, { borderColor: isActive ? ac[s] : colors.border }, isActive && { backgroundColor: ac[s] + '15' }]}
+                      <TouchableOpacity key={s} style={[styles.statusOption, { flex: 1, alignItems: 'center', borderColor: isActive ? ac[s] : colors.border }, isActive && { backgroundColor: ac[s] + '15' }]}
                         onPress={() => setDetailRates(prev => prev.map((r, i) => i === idx ? { ...r, status: s } : r))}>
-                        <Text style={{ color: isActive ? ac[s] : colors.textMuted, fontSize: 12, fontWeight: '600' }}>{labels[s]}</Text>
+                        <Text numberOfLines={1} style={{ color: isActive ? ac[s] : colors.textMuted, fontSize: 12, fontWeight: '600' }}>{labels[s]}</Text>
                       </TouchableOpacity>
                     );
                   })}
@@ -2906,12 +2906,13 @@ export function FinanzenScreen({ navigation }: any) {
                     <TouchableOpacity
                       key={t}
                       style={[styles.statusOption, {
+                        width: 96, alignItems: 'center',
                         borderColor: share.type === t ? '#3b82f6' : colors.border,
                         backgroundColor: share.type === t ? '#3b82f615' : 'transparent',
                       }]}
                       onPress={() => setDetailShares(prev => prev.map((s, i) => i === idx ? { ...s, type: t } : s))}
                     >
-                      <Text style={{ color: share.type === t ? '#3b82f6' : colors.textMuted, fontSize: 11, fontWeight: '600' }}>
+                      <Text numberOfLines={1} style={{ color: share.type === t ? '#3b82f6' : colors.textMuted, fontSize: 12, fontWeight: '600' }}>
                         {t === 'abgabe' ? 'Abgabe' : 'Beteiligung'}
                       </Text>
                     </TouchableOpacity>
