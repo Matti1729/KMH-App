@@ -2536,7 +2536,7 @@ export function FinanzenScreen({ navigation }: any) {
                 onPress={addNewEntry}
                 style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.12)' }}
               >
-                <Text style={{ color: '#22c55e', fontSize: 11, fontWeight: '700' }}>+ Eintrag hinzufügen</Text>
+                <Text style={{ color: '#22c55e', fontSize: 11, fontWeight: '700' }}>+ Eintrag</Text>
               </TouchableOpacity>
             </View>
             {detailEntries.length === 0 ? (
@@ -2553,19 +2553,19 @@ export function FinanzenScreen({ navigation }: any) {
                     onPress={() => editEntry(e)}
                     style={{
                       flexDirection: 'row', alignItems: 'center', gap: 8,
-                      paddingVertical: 8, paddingHorizontal: 10, marginBottom: 6, borderRadius: 8,
+                      paddingVertical: 5, paddingHorizontal: 10, marginBottom: 5, borderRadius: 6,
                       borderWidth: 1, borderColor: isEditing ? '#22c55e' : colors.border,
                       backgroundColor: isEditing ? 'rgba(34,197,94,0.10)' : colors.surface,
                     }}
                   >
-                    <Text style={{ color: colors.text, fontSize: 13, fontWeight: '600', flex: 1 }} numberOfLines={1}>
+                    <Text style={{ color: colors.text, fontSize: 12, fontWeight: '600', flex: 1 }} numberOfLines={1}>
                       {artLabel(e.art)}{isEditing ? '  ·  wird bearbeitet' : ''}
                     </Text>
-                    <Text style={{ color: colors.textSecondary, fontSize: 13, fontWeight: '600' }}>
+                    <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '600' }}>
                       {formatCurrency(total, e.currency)}
                     </Text>
-                    <TouchableOpacity onPress={(ev?: any) => { ev?.stopPropagation?.(); deleteEntry(e.entryId); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{ paddingHorizontal: 4 }}>
-                      <Text style={{ color: '#ef4444', fontSize: 15, fontWeight: '700' }}>✕</Text>
+                    <TouchableOpacity onPress={(ev?: any) => { ev?.stopPropagation?.(); deleteEntry(e.entryId); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{ paddingHorizontal: 2 }}>
+                      <Text style={{ color: '#ef4444', fontSize: 14, fontWeight: '700' }}>✕</Text>
                     </TouchableOpacity>
                   </TouchableOpacity>
                 );
