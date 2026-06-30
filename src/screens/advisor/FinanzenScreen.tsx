@@ -2235,6 +2235,21 @@ export function FinanzenScreen({ navigation }: any) {
 
   // Dropdown background style - must be opaque for web overlay
   const dropdownBg = isDark ? '#1e1e1e' : '#ffffff';
+  // iOS-Kontextmenü-Look: durchscheinender, abgerundeter Rahmen mit Blur.
+  const menuListStyle = {
+    position: 'absolute' as const, top: '100%' as const, marginTop: 6, borderRadius: 12, overflow: 'hidden' as const,
+    backgroundColor: isDark ? 'rgba(40,40,42,0.92)' : 'rgba(250,250,250,0.92)',
+    borderWidth: StyleSheet.hairlineWidth, borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.4, shadowRadius: 24, elevation: 24, zIndex: 9999,
+    ...(Platform.OS === 'web' ? ({ backdropFilter: 'blur(22px)', WebkitBackdropFilter: 'blur(22px)' } as any) : {}),
+  };
+  // Eine Menüzeile im iOS-Stil: Häkchen links beim ausgewählten Eintrag.
+  const renderMenuItem = (key: string, label: string, selected: boolean, onPress: () => void) => (
+    <TouchableOpacity key={key} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 9, paddingHorizontal: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }} onPress={onPress}>
+      <Text style={{ width: 16, color: '#3b82f6', fontSize: 14, fontWeight: '700' }}>{selected ? '✓' : ''}</Text>
+      <Text style={{ flex: 1, color: colors.text, fontSize: 14 }} numberOfLines={1}>{label}</Text>
+    </TouchableOpacity>
+  );
 
   const renderDatePicker = (rateIdx: number, rate: RateEntry) => {
     const isActiveDay = activeDatePicker?.rateIdx === rateIdx && activeDatePicker?.part === 'day';
@@ -2600,21 +2615,9 @@ export function FinanzenScreen({ navigation }: any) {
                     </View>
                   </TouchableOpacity>
                   {showArtDropdown && (
-                    <View style={[styles.datePickerList, { left: 0, width: 170, backgroundColor: dropdownBg, borderColor: colors.border }]}>
-                      {/* Keine Provision zuerst */}
-                      <TouchableOpacity key="keine" style={[styles.datePickerItem, { borderBottomColor: colors.border }, detailNoProvision && styles.datePickerItemSelected]}
-                        onPress={() => { setDetailArt('provision'); setDetailNoProvision(true); setDetailProvPercent(''); setShowArtDropdown(false); }}>
-                        <Text style={[styles.datePickerItemText, { color: colors.text }, detailNoProvision && styles.datePickerItemTextSelected]}>Keine Provision</Text>
-                      </TouchableOpacity>
-                      {ART_OPTIONS.map(opt => {
-                        const sel = !detailNoProvision && detailArt === opt.value;
-                        return (
-                          <TouchableOpacity key={opt.value} style={[styles.datePickerItem, { borderBottomColor: colors.border }, sel && styles.datePickerItemSelected]}
-                            onPress={() => { setDetailArt(opt.value); setDetailNoProvision(false); setShowArtDropdown(false); }}>
-                            <Text style={[styles.datePickerItemText, { color: colors.text }, sel && styles.datePickerItemTextSelected]}>{opt.label}</Text>
-                          </TouchableOpacity>
-                        );
-                      })}
+                    <View style={[menuListStyle, { left: 0, width: 190 }]}>
+                      {renderMenuItem('keine', 'Keine Provision', detailNoProvision, () => { setDetailArt('provision'); setDetailNoProvision(true); setDetailProvPercent(''); setShowArtDropdown(false); })}
+                      {ART_OPTIONS.map(opt => renderMenuItem(opt.value, opt.label, !detailNoProvision && detailArt === opt.value, () => { setDetailArt(opt.value); setDetailNoProvision(false); setShowArtDropdown(false); }))}
                     </View>
                   )}
                 </View>
@@ -2631,19 +2634,10 @@ export function FinanzenScreen({ navigation }: any) {
                     </View>
                   </TouchableOpacity>
                   {showProvisionDropdown && (
-                    <View style={[styles.datePickerList, { left: 'auto' as any, right: 0, width: 150, backgroundColor: dropdownBg, borderColor: colors.border }]}>
-                      <ScrollView style={{ maxHeight: 220 }} nestedScrollEnabled>
-                        <TouchableOpacity style={[styles.datePickerItem, { borderBottomColor: colors.border }, !detailProvPercent && styles.datePickerItemSelected]} onPress={() => selectProvisionOption('none')}>
-                          <Text style={[styles.datePickerItemText, { color: colors.text }, !detailProvPercent && styles.datePickerItemTextSelected]}>-</Text>
-                        </TouchableOpacity>
-                        {Array.from({ length: 30 }, (_, i) => i + 1).map(n => {
-                          const sel = detailProvPercent === String(n);
-                          return (
-                            <TouchableOpacity key={n} style={[styles.datePickerItem, { borderBottomColor: colors.border }, sel && styles.datePickerItemSelected]} onPress={() => selectProvisionOption(n)}>
-                              <Text style={[styles.datePickerItemText, { color: colors.text }, sel && styles.datePickerItemTextSelected]}>{n}%</Text>
-                            </TouchableOpacity>
-                          );
-                        })}
+                    <View style={[menuListStyle, { left: 'auto' as any, right: 0, width: 150 }]}>
+                      <ScrollView style={{ maxHeight: 240 }} nestedScrollEnabled>
+                        {renderMenuItem('clear', '-', !detailProvPercent, () => selectProvisionOption('none'))}
+                        {Array.from({ length: 30 }, (_, i) => i + 1).map(n => renderMenuItem(String(n), `${n}%`, detailProvPercent === String(n), () => selectProvisionOption(n)))}
                       </ScrollView>
                     </View>
                   )}
@@ -2707,15 +2701,9 @@ export function FinanzenScreen({ navigation }: any) {
                     </View>
                   </TouchableOpacity>
                   {showCurrencyDropdown && (
-                    <View style={[styles.datePickerList, { left: 'auto' as any, right: 0, minWidth: 120, backgroundColor: dropdownBg, borderColor: colors.border }]}>
-                      {([['EUR', '€ Euro'], ['USD', '$ Dollar']] as const).map(([val, label]) => {
-                        const sel = detailCurrency === val;
-                        return (
-                          <TouchableOpacity key={val} style={[styles.datePickerItem, { borderBottomColor: colors.border }, sel && styles.datePickerItemSelected]} onPress={() => { setDetailCurrency(val); setShowCurrencyDropdown(false); }}>
-                            <Text style={[styles.datePickerItemText, { color: colors.text }, sel && styles.datePickerItemTextSelected]}>{label}</Text>
-                          </TouchableOpacity>
-                        );
-                      })}
+                    <View style={[menuListStyle, { left: 'auto' as any, right: 0, minWidth: 130 }]}>
+                      {([['EUR', '€ Euro'], ['USD', '$ Dollar']] as const).map(([val, label]) =>
+                        renderMenuItem(val, label, detailCurrency === val, () => { setDetailCurrency(val); setShowCurrencyDropdown(false); }))}
                     </View>
                   )}
                 </View>
@@ -2850,16 +2838,10 @@ export function FinanzenScreen({ navigation }: any) {
                 </View>
               </TouchableOpacity>
               {showRateDropdown && (
-                <View style={[styles.datePickerList, { left: 'auto' as any, right: 0, width: 90, backgroundColor: dropdownBg, borderColor: colors.border }]}>
-                  <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
-                    <TouchableOpacity style={[styles.datePickerItem, { borderBottomColor: colors.border }, detailRateCount === null && styles.datePickerItemSelected]} onPress={() => updateRateCount(null)}>
-                      <Text style={[styles.datePickerItemText, { color: colors.text }, detailRateCount === null && styles.datePickerItemTextSelected]}>-</Text>
-                    </TouchableOpacity>
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
-                      <TouchableOpacity key={n} style={[styles.datePickerItem, { borderBottomColor: colors.border }, detailRateCount === n && styles.datePickerItemSelected]} onPress={() => updateRateCount(n)}>
-                        <Text style={[styles.datePickerItemText, { color: colors.text }, detailRateCount === n && styles.datePickerItemTextSelected]}>{n}</Text>
-                      </TouchableOpacity>
-                    ))}
+                <View style={[menuListStyle, { left: 'auto' as any, right: 0, width: 110 }]}>
+                  <ScrollView style={{ maxHeight: 220 }} nestedScrollEnabled>
+                    {renderMenuItem('clear', '-', detailRateCount === null, () => updateRateCount(null))}
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map(n => renderMenuItem(String(n), String(n), detailRateCount === n, () => updateRateCount(n)))}
                   </ScrollView>
                 </View>
               )}
