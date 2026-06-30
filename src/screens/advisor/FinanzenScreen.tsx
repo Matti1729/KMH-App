@@ -2342,7 +2342,7 @@ export function FinanzenScreen({ navigation }: any) {
   const skillModalTitle = { fontFamily: 'Josefin Sans', fontSize: 16, fontWeight: '300' as const, letterSpacing: 4, textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.7)', textAlign: 'center' as const };
   const pillInput = { backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 8, fontSize: 13, color: '#fff' };
   // Apple-Style-Listenzelle (Label links, Wert/Auswahl rechts) — kompakt, 2 pro Reihe.
-  const settingRow = { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'space-between' as const, paddingHorizontal: 10, minHeight: 36, gap: 6 };
+  const settingRow = { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'space-between' as const, paddingHorizontal: 10, minHeight: 30, gap: 6 };
   const settingLabel = { color: colors.text, fontSize: 12 };
   const settingValueText = { color: colors.textSecondary, fontSize: 12 };
   const settingDividerColor = 'rgba(255,255,255,0.1)';
@@ -2582,7 +2582,7 @@ export function FinanzenScreen({ navigation }: any) {
             <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.15)', marginTop: 12, marginBottom: 16 }} />
 
             {/* Editor: Apple-Style, 2 Felder pro Reihe (kompakt). */}
-            <View style={{ backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border, marginBottom: 16 }}>
+            <View style={{ backgroundColor: colors.surface, borderRadius: 6, borderWidth: 1, borderColor: colors.border, marginBottom: 16 }}>
 
               {/* Durchgehende vertikale Mittellinie (eine Linie über alle Reihen). */}
               <View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: 0, left: '50%', width: 1, backgroundColor: settingDividerColor }} />
@@ -2837,7 +2837,7 @@ export function FinanzenScreen({ navigation }: any) {
 
             {/* Raten-Anzahl (steht jetzt direkt bei den Raten) */}
             {!detailNoProvision && (
-            <View {...({ dataSet: { kmhdropdown: 'true' } } as any)} style={{ backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border, marginTop: 16, position: 'relative', zIndex: showRateDropdown ? 200 : 1 }}>
+            <View {...({ dataSet: { kmhdropdown: 'true' } } as any)} style={{ backgroundColor: colors.surface, borderRadius: 6, borderWidth: 1, borderColor: colors.border, marginTop: 16, position: 'relative', zIndex: showRateDropdown ? 200 : 1 }}>
               <TouchableOpacity style={settingRow} onPress={() => { setShowRateDropdown(!showRateDropdown); setShowProvisionDropdown(false); setShowCurrencyDropdown(false); setShowArtDropdown(false); setActiveDatePicker(null); }}>
                 <Text numberOfLines={1} style={settingLabel}>Raten</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -4014,8 +4014,8 @@ const styles = StyleSheet.create({
   datePickerRow: { flexDirection: 'row', gap: 8 },
   dateDropdownButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 0, height: 30 },
   dateDropdownText: { fontSize: 11 },
-  datePickerList: { position: 'absolute', top: '100%', left: 0, borderWidth: 1, borderRadius: 8, maxHeight: 200, zIndex: 9999, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 12, elevation: 20, marginTop: 4, minWidth: 70 },
-  datePickerItem: { padding: 10, borderBottomWidth: 1 },
+  datePickerList: { position: 'absolute', top: '100%', left: 0, borderWidth: 1, borderRadius: 6, maxHeight: 200, zIndex: 9999, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 12, elevation: 20, marginTop: 4, minWidth: 70 },
+  datePickerItem: { paddingVertical: 7, paddingHorizontal: 10, borderBottomWidth: 1 },
   datePickerItemSelected: { backgroundColor: '#f0f9ff' },
   datePickerItemText: { fontSize: 11 },
   datePickerItemTextSelected: { color: '#3b82f6', fontWeight: '600' },
