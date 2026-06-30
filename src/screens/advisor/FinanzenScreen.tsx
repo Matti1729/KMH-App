@@ -2245,9 +2245,9 @@ export function FinanzenScreen({ navigation }: any) {
   };
   // Eine Menüzeile im iOS-Stil: Häkchen links beim ausgewählten Eintrag.
   const renderMenuItem = (key: string, label: string, selected: boolean, onPress: () => void) => (
-    <TouchableOpacity key={key} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 9, paddingHorizontal: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }} onPress={onPress}>
-      <Text style={{ width: 16, color: '#3b82f6', fontSize: 14, fontWeight: '700' }}>{selected ? '✓' : ''}</Text>
-      <Text style={{ flex: 1, color: colors.text, fontSize: 14 }} numberOfLines={1}>{label}</Text>
+    <TouchableOpacity key={key} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 10, minHeight: 30, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }} onPress={onPress}>
+      <Text style={{ width: 13, color: '#3b82f6', fontSize: 12, fontWeight: '700' }}>{selected ? '✓' : ''}</Text>
+      <Text style={{ flex: 1, color: colors.text, fontSize: 12 }} numberOfLines={1}>{label}</Text>
     </TouchableOpacity>
   );
 
@@ -2563,7 +2563,7 @@ export function FinanzenScreen({ navigation }: any) {
             </View>
             {detailEntries.length === 0 ? (
               <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 8 }}>
-                Noch keine Einträge. Unten erfassen — mit „+ Eintrag hinzufügen“ legst du einen weiteren an.
+                Noch keine Einträge.
               </Text>
             ) : (
               detailEntries.map((e) => {
