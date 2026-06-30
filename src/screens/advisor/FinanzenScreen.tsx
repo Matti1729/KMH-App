@@ -2600,26 +2600,19 @@ export function FinanzenScreen({ navigation }: any) {
                   </TouchableOpacity>
                   {showArtDropdown && (
                     <View style={[styles.datePickerList, { left: 0, width: 170, backgroundColor: dropdownBg, borderColor: colors.border }]}>
+                      {/* Keine Provision zuerst */}
+                      <TouchableOpacity key="keine" style={[styles.datePickerItem, { borderBottomColor: colors.border }, detailNoProvision && styles.datePickerItemSelected]}
+                        onPress={() => { setDetailArt('provision'); setDetailNoProvision(true); setDetailProvPercent(''); setShowArtDropdown(false); }}>
+                        <Text style={[styles.datePickerItemText, { color: colors.text }, detailNoProvision && styles.datePickerItemTextSelected]}>Keine Provision</Text>
+                      </TouchableOpacity>
                       {ART_OPTIONS.map(opt => {
                         const sel = !detailNoProvision && detailArt === opt.value;
-                        const item = (
+                        return (
                           <TouchableOpacity key={opt.value} style={[styles.datePickerItem, { borderBottomColor: colors.border }, sel && styles.datePickerItemSelected]}
                             onPress={() => { setDetailArt(opt.value); setDetailNoProvision(false); setShowArtDropdown(false); }}>
                             <Text style={[styles.datePickerItemText, { color: colors.text }, sel && styles.datePickerItemTextSelected]}>{opt.label}</Text>
                           </TouchableOpacity>
                         );
-                        if (opt.value === 'provision') {
-                          return (
-                            <React.Fragment key="prov-group">
-                              {item}
-                              <TouchableOpacity key="keine" style={[styles.datePickerItem, { borderBottomColor: colors.border }, detailNoProvision && styles.datePickerItemSelected]}
-                                onPress={() => { setDetailArt('provision'); setDetailNoProvision(true); setDetailProvPercent(''); setShowArtDropdown(false); }}>
-                                <Text style={[styles.datePickerItemText, { color: colors.text }, detailNoProvision && styles.datePickerItemTextSelected]}>Keine Provision</Text>
-                              </TouchableOpacity>
-                            </React.Fragment>
-                          );
-                        }
-                        return item;
                       })}
                     </View>
                   )}
