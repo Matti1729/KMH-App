@@ -2801,51 +2801,6 @@ export function FinanzenScreen({ navigation }: any) {
             )}
             </>
             )}
-            {/* Netto-Info */}
-            {detailShares.length > 0 && detailProvPercent ? (() => {
-              const totalSharePct = detailShares.reduce((s, sh) => s + (parseFloat(sh.percentage) || 0), 0);
-              const nettoFactor = (100 - totalSharePct) / 100;
-              const nettoProv = ((parseFloat(detailProvPercent) || 0) * nettoFactor).toFixed(1).replace('.', ',');
-              return (
-                <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 4 }}>
-                  Abgaben: {totalSharePct}% → Netto-Provision: {nettoProv}%
-                </Text>
-              );
-            })() : null}
-
-            {/* Raten Details */}
-            {detailRates.map((rate, idx) => (
-              <View key={idx} pointerEvents={blockIfNot(`rate${idx}`)} style={[styles.rateSection, { borderColor: colors.border, position: 'relative', opacity: dimIfNot(`rate${idx}`), zIndex: activeDatePicker?.rateIdx === idx ? 500 : 1 }]}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <Text style={[styles.rateSectionTitle, { color: colors.text }]}>
-                    Rate {idx + 1}{detailRateCount > 1 ? ` von ${detailRateCount}` : ''}
-                  </Text>
-                  <Text style={{ color: colors.textMuted, fontSize: 13 }}>
-                    {rate.amount ? `${rate.amount} ${detailCurrency === 'USD' ? '$' : '€'}` : '-'}
-                  </Text>
-                </View>
-
-                {/* Status */}
-                <View style={[styles.statusPicker, { marginBottom: 10 }]}>
-                  {['offen', 'in rechnung gestellt', 'bezahlt'].map(s => {
-                    const isActive = rate.status === s;
-                    const labels: Record<string, string> = { 'offen': 'Offen', 'in rechnung gestellt': 'In Rechnung', 'bezahlt': 'Bezahlt' };
-                    const ac: Record<string, string> = { 'offen': '#eab308', 'in rechnung gestellt': '#ef4444', 'bezahlt': '#22c55e' };
-                    return (
-                      <TouchableOpacity key={s} style={[styles.statusOption, { flex: 1, alignItems: 'center', borderColor: isActive ? ac[s] : colors.border }, isActive && { backgroundColor: ac[s] + '15' }]}
-                        onPress={() => setDetailRates(prev => prev.map((r, i) => i === idx ? { ...r, status: s } : r))}>
-                        <Text numberOfLines={1} style={{ color: isActive ? ac[s] : colors.textMuted, fontSize: 12, fontWeight: '600' }}>{labels[s]}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-
-                {/* Fälligkeit */}
-                <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginBottom: 6 }]}>Fälligkeit</Text>
-                {renderDatePicker(idx, rate)}
-              </View>
-            ))}
-
             {/* Beteiligungen / Abgaben */}
             <View pointerEvents={blockIfNot('beteiligungen')} style={{ opacity: dimIfNot('beteiligungen') }}>
             <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: 20 }]}>Beteiligungen / Abgaben</Text>
@@ -2934,6 +2889,51 @@ export function FinanzenScreen({ navigation }: any) {
               <Text style={{ color: '#3b82f6', fontSize: 13, fontWeight: '600' }}>+ Beteiligung hinzufügen</Text>
             </TouchableOpacity>
             </View>
+
+            {/* Netto-Info */}
+            {detailShares.length > 0 && detailProvPercent ? (() => {
+              const totalSharePct = detailShares.reduce((s, sh) => s + (parseFloat(sh.percentage) || 0), 0);
+              const nettoFactor = (100 - totalSharePct) / 100;
+              const nettoProv = ((parseFloat(detailProvPercent) || 0) * nettoFactor).toFixed(1).replace('.', ',');
+              return (
+                <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 4 }}>
+                  Abgaben: {totalSharePct}% → Netto-Provision: {nettoProv}%
+                </Text>
+              );
+            })() : null}
+
+            {/* Raten Details */}
+            {detailRates.map((rate, idx) => (
+              <View key={idx} pointerEvents={blockIfNot(`rate${idx}`)} style={[styles.rateSection, { borderColor: colors.border, position: 'relative', opacity: dimIfNot(`rate${idx}`), zIndex: activeDatePicker?.rateIdx === idx ? 500 : 1 }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <Text style={[styles.rateSectionTitle, { color: colors.text }]}>
+                    Rate {idx + 1}{detailRateCount > 1 ? ` von ${detailRateCount}` : ''}
+                  </Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 13 }}>
+                    {rate.amount ? `${rate.amount} ${detailCurrency === 'USD' ? '$' : '€'}` : '-'}
+                  </Text>
+                </View>
+
+                {/* Status */}
+                <View style={[styles.statusPicker, { marginBottom: 10 }]}>
+                  {['offen', 'in rechnung gestellt', 'bezahlt'].map(s => {
+                    const isActive = rate.status === s;
+                    const labels: Record<string, string> = { 'offen': 'Offen', 'in rechnung gestellt': 'In Rechnung', 'bezahlt': 'Bezahlt' };
+                    const ac: Record<string, string> = { 'offen': '#eab308', 'in rechnung gestellt': '#ef4444', 'bezahlt': '#22c55e' };
+                    return (
+                      <TouchableOpacity key={s} style={[styles.statusOption, { flex: 1, alignItems: 'center', borderColor: isActive ? ac[s] : colors.border }, isActive && { backgroundColor: ac[s] + '15' }]}
+                        onPress={() => setDetailRates(prev => prev.map((r, i) => i === idx ? { ...r, status: s } : r))}>
+                        <Text numberOfLines={1} style={{ color: isActive ? ac[s] : colors.textMuted, fontSize: 12, fontWeight: '600' }}>{labels[s]}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* Fälligkeit */}
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginBottom: 6 }]}>Fälligkeit</Text>
+                {renderDatePicker(idx, rate)}
+              </View>
+            ))}
 
             {/* Spieler verwalten — nur für "Provision ohne Betreuung"-Spieler (manuell oder aus Liste). */}
             {(detailPlayer?.provision_only || linkedPlayerIds.has(detailPlayerId)) && (
