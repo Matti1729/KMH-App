@@ -2584,6 +2584,9 @@ export function FinanzenScreen({ navigation }: any) {
             {/* Editor: Apple-Style, 2 Felder pro Reihe (kompakt). */}
             <View style={{ backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border, marginBottom: 16 }}>
 
+              {/* Durchgehende vertikale Mittellinie (eine Linie über alle Reihen). */}
+              <View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: 0, left: '50%', width: 1, backgroundColor: settingDividerColor }} />
+
               {/* Reihe 1: Art | Provision/Wegvermittlung */}
               <View style={{ flexDirection: 'row', position: 'relative', zIndex: (showArtDropdown || showProvisionDropdown) ? 320 : 3 }}>
                 {/* Art */}
@@ -2611,7 +2614,7 @@ export function FinanzenScreen({ navigation }: any) {
                 </View>
                 {/* Provision/Wegvermittlung (leer bei Sonderzahlung) */}
                 {detailArt !== 'sonderzahlung' ? (
-                <View {...({ dataSet: { kmhdropdown: 'true' } } as any)} style={{ flex: 1, position: 'relative', zIndex: showProvisionDropdown ? 10 : 1, borderLeftWidth: 1, borderLeftColor: settingDividerColor }}>
+                <View {...({ dataSet: { kmhdropdown: 'true' } } as any)} style={{ flex: 1, position: 'relative', zIndex: showProvisionDropdown ? 10 : 1 }}>
                   <TouchableOpacity style={settingRow} onPress={() => { setShowProvisionDropdown(v => !v); setShowCurrencyDropdown(false); setShowRateDropdown(false); setShowArtDropdown(false); setActiveDatePicker(null); }}>
                     <Text style={settingLabel}>{detailArt === 'wegvermittlung' ? 'Wegverm.' : 'Provision'}</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -2642,7 +2645,7 @@ export function FinanzenScreen({ navigation }: any) {
                   )}
                 </View>
                 ) : (
-                <View style={{ flex: 1, borderLeftWidth: 1, borderLeftColor: settingDividerColor }} />
+                <View style={{ flex: 1 }} />
                 )}
               </View>
 
@@ -2658,7 +2661,7 @@ export function FinanzenScreen({ navigation }: any) {
                     <Text style={settingValueText}>{detailCurrency === 'EUR' ? '€' : '$'}</Text>
                   </View>
                 </View>
-                <View style={[settingRow, { flex: 1, borderLeftWidth: 1, borderLeftColor: settingDividerColor }]}>
+                <View style={[settingRow, { flex: 1 }]}>
                   <Text style={settingLabel}>Jahresgeh.</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
                     <TextInput style={{ color: colors.text, fontSize: 12, textAlign: 'right', minWidth: 50, padding: 0, flexShrink: 1 }} placeholder="24.000" placeholderTextColor={colors.textMuted} value={detailAnnualSalary} onChangeText={updateAnnualSalary} keyboardType="numeric" />
@@ -2678,7 +2681,7 @@ export function FinanzenScreen({ navigation }: any) {
                     <Text style={settingValueText}>{detailCurrency === 'EUR' ? '€' : '$'}</Text>
                   </View>
                 </View>
-                <View style={{ flex: 1, borderLeftWidth: 1, borderLeftColor: settingDividerColor }} />
+                <View style={{ flex: 1 }} />
               </View>
               )}
 
@@ -2691,7 +2694,7 @@ export function FinanzenScreen({ navigation }: any) {
                     <Text style={settingValueText}>{detailCurrency === 'EUR' ? '€' : '$'}</Text>
                   </View>
                 </View>
-                <View {...({ dataSet: { kmhdropdown: 'true' } } as any)} style={{ flex: 1, position: 'relative', zIndex: showCurrencyDropdown ? 10 : 1, borderLeftWidth: 1, borderLeftColor: settingDividerColor }}>
+                <View {...({ dataSet: { kmhdropdown: 'true' } } as any)} style={{ flex: 1, position: 'relative', zIndex: showCurrencyDropdown ? 10 : 1 }}>
                   <TouchableOpacity style={settingRow} onPress={() => { setShowCurrencyDropdown(v => !v); setShowProvisionDropdown(false); setShowRateDropdown(false); setShowArtDropdown(false); setActiveDatePicker(null); }}>
                     <Text style={settingLabel}>Währung</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
