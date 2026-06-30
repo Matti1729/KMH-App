@@ -2429,10 +2429,10 @@ export function FinanzenScreen({ navigation }: any) {
             </View>
             <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}>
               <TouchableOpacity onPress={() => setShowAddProv(false)} style={[styles.modalBtn, { borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.05)' }]}>
-                <Text style={{ color: 'rgba(255,255,255,0.85)', fontWeight: '600' }}>Abbrechen</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 11, fontWeight: '600' }}>Abbrechen</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={addProvisionPlayer} disabled={addSaving} style={[styles.modalBtn, styles.modalBtnPrimary, { opacity: addSaving ? 0.6 : 1 }]}>
-                <Text style={{ color: '#fff', fontWeight: '600' }}>{addSaving ? 'Speichern…' : 'Anlegen'}</Text>
+                <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>{addSaving ? 'Speichern…' : 'Anlegen'}</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -2490,10 +2490,10 @@ export function FinanzenScreen({ navigation }: any) {
             </ScrollView>
             <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, padding: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)', zIndex: 1 }}>
               <TouchableOpacity onPress={() => { setShowPickPlayers(false); setShowAddProv(true); }} style={[styles.modalBtn, { borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.05)' }]}>
-                <Text style={{ color: 'rgba(255,255,255,0.85)', fontWeight: '600' }}>Abbrechen</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 11, fontWeight: '600' }}>Abbrechen</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={confirmPickPlayers} disabled={pickSaving} style={[styles.modalBtn, styles.modalBtnPrimary, { opacity: pickSaving ? 0.6 : 1 }]}>
-                <Text style={{ color: '#fff', fontWeight: '600' }}>{pickSaving ? 'Speichern…' : 'Übernehmen'}</Text>
+                <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>{pickSaving ? 'Speichern…' : 'Übernehmen'}</Text>
               </TouchableOpacity>
             </View>
           </Pressable>
@@ -2819,7 +2819,7 @@ export function FinanzenScreen({ navigation }: any) {
               style={[styles.addShareBtn, { borderColor: colors.border }]}
               onPress={() => setDetailShares(prev => [...prev, { name: '', percentage: '', type: 'abgabe', notes: '' }])}
             >
-              <Text style={{ color: '#3b82f6', fontSize: 13, fontWeight: '600' }}>+ Beteiligung hinzufügen</Text>
+              <Text style={{ color: '#3b82f6', fontSize: 11, fontWeight: '600' }}>+ Beteiligung hinzufügen</Text>
             </TouchableOpacity>
             </View>
 
@@ -2918,14 +2918,14 @@ export function FinanzenScreen({ navigation }: any) {
           <View style={[styles.modalFooter, { zIndex: 1 }]}>
             {existingProvCount > 0 && (
               <TouchableOpacity style={[styles.modalBtn, { borderColor: '#ef4444', marginRight: 'auto' }]} onPress={deleteAllProvisions}>
-                <Text style={{ color: '#ef4444', fontWeight: '500' }}>Löschen</Text>
+                <Text style={{ color: '#ef4444', fontSize: 11, fontWeight: '600' }}>Löschen</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity style={[styles.modalBtn, { borderColor: colors.border }]} onPress={() => setShowDetail(false)}>
-              <Text style={{ color: colors.textMuted }}>Abbrechen</Text>
+              <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: '600' }}>Abbrechen</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.modalBtn, styles.modalBtnPrimary]} onPress={saveDetail}>
-              <Text style={{ color: '#fff', fontWeight: '600' }}>Speichern</Text>
+              <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>Speichern</Text>
             </TouchableOpacity>
           </View>
         </Pressable>
@@ -3984,7 +3984,7 @@ const styles = StyleSheet.create({
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
   modalTitle: { fontSize: 18, fontWeight: '700' },
   modalFooter: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' },
-  modalBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, borderWidth: 1 },
+  modalBtn: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   modalBtnPrimary: { backgroundColor: '#22c55e', borderColor: '#22c55e' },
 
   // Form
@@ -4008,7 +4008,7 @@ const styles = StyleSheet.create({
 
   // Shares / Beteiligungen
   shareRow: { borderWidth: 1, borderRadius: 10, padding: 10, marginTop: 8 },
-  addShareBtn: { borderWidth: 1, borderStyle: 'dashed', borderRadius: 8, paddingVertical: 10, alignItems: 'center', marginTop: 8, marginBottom: 8 },
+  addShareBtn: { borderWidth: 1, borderStyle: 'dashed', borderRadius: 6, paddingVertical: 4, paddingHorizontal: 10, alignItems: 'center', marginTop: 8, marginBottom: 8 },
 
   // Date Picker (matches TasksRemindersScreen)
   datePickerRow: { flexDirection: 'row', gap: 8 },
