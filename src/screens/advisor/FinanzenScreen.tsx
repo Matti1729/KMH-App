@@ -2834,7 +2834,7 @@ export function FinanzenScreen({ navigation }: any) {
                     return (
                       <TouchableOpacity key={s} style={[styles.statusOption, { borderColor: isActive ? ac[s] : colors.border }, isActive && { backgroundColor: ac[s] + '15' }]}
                         onPress={() => setDetailRates(prev => prev.map((r, i) => i === idx ? { ...r, status: s } : r))}>
-                        <Text style={{ color: isActive ? ac[s] : colors.textMuted, fontSize: 12, fontWeight: isActive ? '600' : '400' }}>{labels[s]}</Text>
+                        <Text style={{ color: isActive ? ac[s] : colors.textMuted, fontSize: 12, fontWeight: '600' }}>{labels[s]}</Text>
                       </TouchableOpacity>
                     );
                   })}
@@ -2911,7 +2911,7 @@ export function FinanzenScreen({ navigation }: any) {
                       }]}
                       onPress={() => setDetailShares(prev => prev.map((s, i) => i === idx ? { ...s, type: t } : s))}
                     >
-                      <Text style={{ color: share.type === t ? '#3b82f6' : colors.textMuted, fontSize: 11, fontWeight: share.type === t ? '600' : '400' }}>
+                      <Text style={{ color: share.type === t ? '#3b82f6' : colors.textMuted, fontSize: 11, fontWeight: '600' }}>
                         {t === 'abgabe' ? 'Abgabe' : 'Beteiligung'}
                       </Text>
                     </TouchableOpacity>
