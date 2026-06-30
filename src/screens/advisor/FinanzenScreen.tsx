@@ -2526,10 +2526,10 @@ export function FinanzenScreen({ navigation }: any) {
             scrollEnabled={!activeDatePicker && !showRateDropdown && !showProvisionDropdown && !showCurrencyDropdown && !showArtDropdown}
             nestedScrollEnabled
           >
-            {/* Trennstrich unter Name + Verein */}
-            <View style={{ height: 1, backgroundColor: colors.border, marginBottom: 16 }} />
+            {/* Trennstrich zwischen Header und Einträgen */}
+            <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.15)', marginBottom: 16 }} />
 
-            {/* Einträge dieser Saison (oben, direkt unter dem Header) + "+ Eintrag hinzufügen" */}
+            {/* Einträge dieser Saison (oben, direkt unter dem Header) + "+ Eintrag" */}
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
               <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Einträge dieser Saison</Text>
               <TouchableOpacity
@@ -2573,7 +2573,7 @@ export function FinanzenScreen({ navigation }: any) {
             )}
 
             {/* Trennstrich zwischen Einträgen und Editor */}
-            <View style={{ height: 1, backgroundColor: colors.border, marginTop: 12, marginBottom: 16 }} />
+            <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.15)', marginTop: 12, marginBottom: 16 }} />
 
             {/* Reihe 1: Art + Provision/Wegvermittlung + Währung (3er-Reihe).
                 Flexible Spalten (flex:1), damit auch in der schmalen Mobile-Ansicht nichts abgeschnitten wird. */}
