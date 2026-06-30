@@ -1724,7 +1724,7 @@ export function FinanzenScreen({ navigation }: any) {
   const selectProvisionOption = (val: 'none' | number) => {
     setShowProvisionDropdown(false);
     if (val === 'none') {
-      setDetailNoProvision(true);
+      // "-" = Prozentsatz leeren (kein "Keine Provision" — das steht jetzt in der Art-Auswahl).
       setDetailProvPercent('');
       return;
     }
@@ -2594,20 +2594,32 @@ export function FinanzenScreen({ navigation }: any) {
                   <TouchableOpacity style={settingRow} onPress={() => { setShowArtDropdown(v => !v); setShowProvisionDropdown(false); setShowCurrencyDropdown(false); setShowRateDropdown(false); setActiveDatePicker(null); }}>
                     <Text numberOfLines={1} style={settingLabel}>Art</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Text style={settingValueText} numberOfLines={1}>{artLabel(detailArt)}</Text>
+                      <Text style={settingValueText} numberOfLines={1}>{detailNoProvision ? 'Keine Provision' : artLabel(detailArt)}</Text>
                       <Text style={settingChevron}>▼</Text>
                     </View>
                   </TouchableOpacity>
                   {showArtDropdown && (
                     <View style={[styles.datePickerList, { left: 0, width: 170, backgroundColor: dropdownBg, borderColor: colors.border }]}>
                       {ART_OPTIONS.map(opt => {
-                        const sel = detailArt === opt.value;
-                        return (
+                        const sel = !detailNoProvision && detailArt === opt.value;
+                        const item = (
                           <TouchableOpacity key={opt.value} style={[styles.datePickerItem, { borderBottomColor: colors.border }, sel && styles.datePickerItemSelected]}
-                            onPress={() => { setDetailArt(opt.value); setShowArtDropdown(false); if (opt.value !== 'provision') setDetailNoProvision(false); }}>
+                            onPress={() => { setDetailArt(opt.value); setDetailNoProvision(false); setShowArtDropdown(false); }}>
                             <Text style={[styles.datePickerItemText, { color: colors.text }, sel && styles.datePickerItemTextSelected]}>{opt.label}</Text>
                           </TouchableOpacity>
                         );
+                        if (opt.value === 'provision') {
+                          return (
+                            <React.Fragment key="prov-group">
+                              {item}
+                              <TouchableOpacity key="keine" style={[styles.datePickerItem, { borderBottomColor: colors.border }, detailNoProvision && styles.datePickerItemSelected]}
+                                onPress={() => { setDetailArt('provision'); setDetailNoProvision(true); setDetailProvPercent(''); setShowArtDropdown(false); }}>
+                                <Text style={[styles.datePickerItemText, { color: colors.text }, detailNoProvision && styles.datePickerItemTextSelected]}>Keine Provision</Text>
+                              </TouchableOpacity>
+                            </React.Fragment>
+                          );
+                        }
+                        return item;
                       })}
                     </View>
                   )}
@@ -2618,8 +2630,8 @@ export function FinanzenScreen({ navigation }: any) {
                   <TouchableOpacity style={settingRow} onPress={() => { setShowProvisionDropdown(v => !v); setShowCurrencyDropdown(false); setShowRateDropdown(false); setShowArtDropdown(false); setActiveDatePicker(null); }}>
                     <Text numberOfLines={1} style={settingLabel}>{detailArt === 'wegvermittlung' ? 'Wegverm.' : 'Provision'}</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Text style={[settingValueText, { color: (detailNoProvision || detailProvPercent) ? colors.textSecondary : colors.textMuted }]} numberOfLines={1}>
-                        {detailNoProvision ? 'Keine' : (detailProvPercent ? `${detailProvPercent}%` : '–')}
+                      <Text style={[settingValueText, { color: detailProvPercent ? colors.textSecondary : colors.textMuted }]} numberOfLines={1}>
+                        {detailProvPercent ? `${detailProvPercent}%` : '–'}
                       </Text>
                       <Text style={settingChevron}>▼</Text>
                     </View>
@@ -2627,13 +2639,11 @@ export function FinanzenScreen({ navigation }: any) {
                   {showProvisionDropdown && (
                     <View style={[styles.datePickerList, { left: 'auto' as any, right: 0, width: 150, backgroundColor: dropdownBg, borderColor: colors.border }]}>
                       <ScrollView style={{ maxHeight: 220 }} nestedScrollEnabled>
-                        {detailArt === 'provision' && (
-                        <TouchableOpacity style={[styles.datePickerItem, { borderBottomColor: colors.border }, detailNoProvision && styles.datePickerItemSelected]} onPress={() => selectProvisionOption('none')}>
-                          <Text style={[styles.datePickerItemText, { color: colors.text }, detailNoProvision && styles.datePickerItemTextSelected]}>Keine Provision</Text>
+                        <TouchableOpacity style={[styles.datePickerItem, { borderBottomColor: colors.border }, !detailProvPercent && styles.datePickerItemSelected]} onPress={() => selectProvisionOption('none')}>
+                          <Text style={[styles.datePickerItemText, { color: colors.text }, !detailProvPercent && styles.datePickerItemTextSelected]}>-</Text>
                         </TouchableOpacity>
-                        )}
                         {Array.from({ length: 30 }, (_, i) => i + 1).map(n => {
-                          const sel = !detailNoProvision && detailProvPercent === String(n);
+                          const sel = detailProvPercent === String(n);
                           return (
                             <TouchableOpacity key={n} style={[styles.datePickerItem, { borderBottomColor: colors.border }, sel && styles.datePickerItemSelected]} onPress={() => selectProvisionOption(n)}>
                               <Text style={[styles.datePickerItemText, { color: colors.text }, sel && styles.datePickerItemTextSelected]}>{n}%</Text>
