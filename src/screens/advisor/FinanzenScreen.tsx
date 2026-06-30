@@ -2061,7 +2061,7 @@ export function FinanzenScreen({ navigation }: any) {
   const getRowBg = (row: DisplayRow): string | undefined => {
     if (row.type === 'no_provision') return isDark ? 'rgba(255,255,255,0.16)' : '#e5e7eb';
     if (row.type !== 'provision') return undefined;
-    if (row.status === 'bezahlt') return isDark ? '#052e16' : '#f0fdf4';
+    if (row.status === 'bezahlt') return isDark ? 'rgba(34,197,94,0.18)' : '#dcfce7';
     if (row.status === 'in rechnung gestellt') return isDark ? '#450a0a' : '#fef2f2';
     if (row.due_date && row.status !== 'bezahlt') {
       const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -3261,7 +3261,7 @@ export function FinanzenScreen({ navigation }: any) {
                       style={[
                         styles.tableRow, { borderBottomColor: colors.border },
                         rowBg ? { backgroundColor: rowBg } : undefined,
-                        isNo && Platform.OS === 'web' ? ({ backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' } as any) : undefined,
+                        (isNo || row.status === 'bezahlt') && Platform.OS === 'web' ? ({ backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' } as any) : undefined,
                       ]}
                       renderCell={(key) => {
                         switch (key) {
