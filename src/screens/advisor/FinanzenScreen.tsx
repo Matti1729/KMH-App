@@ -2598,7 +2598,7 @@ export function FinanzenScreen({ navigation }: any) {
             <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.15)', marginTop: 12, marginBottom: 16 }} />
 
             {/* Editor: Apple-Style, 2 Felder pro Reihe (kompakt). */}
-            <View style={{ backgroundColor: colors.surface, borderRadius: 6, borderWidth: 1, borderColor: colors.border, marginBottom: 16 }}>
+            <View style={{ backgroundColor: colors.surface, borderRadius: 6, borderWidth: 1, borderColor: colors.border, marginBottom: 16, position: 'relative', zIndex: (showArtDropdown || showProvisionDropdown || showCurrencyDropdown) ? 1000 : 1 }}>
 
               {/* Durchgehende vertikale Mittellinie (eine Linie über alle Reihen). */}
               <View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: 0, left: '50%', width: 1, backgroundColor: settingDividerColor }} />
@@ -2727,7 +2727,7 @@ export function FinanzenScreen({ navigation }: any) {
             </View>
             )}
             {/* Beteiligungen / Abgaben */}
-            <View pointerEvents={blockIfNot('beteiligungen')} style={{ opacity: dimIfNot('beteiligungen') }}>
+            <View pointerEvents={blockIfNot('beteiligungen')} style={{ opacity: dimIfNot('beteiligungen'), position: 'relative', zIndex: openShareDropdown !== null ? 1000 : 1 }}>
             <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: 20 }]}>Beteiligungen / Abgaben</Text>
             <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 4, marginBottom: 8 }}>% = Anteil an der Gesamtprovision (die Gesamtprovision entspricht 100 %).</Text>
             {detailShares.map((share, idx) => (
