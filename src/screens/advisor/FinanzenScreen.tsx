@@ -1037,6 +1037,9 @@ export function FinanzenScreen({ navigation }: any) {
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   // Aktueller USD->EUR-Kurs für die Umrechnung der Summen.
   const [usdEurRate, setUsdEurRate] = useState<number | null>(null);
+  // Alle eingetragenen Berater (für das Beteiligungen-Namensfeld). Plus freie Eingabe möglich.
+  const [advisorNames, setAdvisorNames] = useState<string[]>([]);
+  const [openShareDropdown, setOpenShareDropdown] = useState<number | null>(null);
   const [showRateDropdown, setShowRateDropdown] = useState(false);
   const [showProvisionDropdown, setShowProvisionDropdown] = useState(false);
   const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
@@ -1099,6 +1102,17 @@ export function FinanzenScreen({ navigation }: any) {
   // Aktuellen USD->EUR-Kurs einmal laden (für die EUR-Umrechnung der Summen).
   useEffect(() => { fetchUsdEurRate().then(r => { if (r) setUsdEurRate(r); }); }, []);
 
+  // Alle Berater/Staff für das Beteiligungen-Namensfeld laden.
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('profiles').select('first_name, last_name, role').neq('role', 'player').order('last_name');
+      const names = (data || [])
+        .map((p: any) => `${(p.first_name || '').trim()} ${(p.last_name || '').trim()}`.trim())
+        .filter(Boolean);
+      setAdvisorNames(Array.from(new Set(names)).sort());
+    })();
+  }, []);
+
   // Klick außerhalb schließt das Saison-Dropdown im "Spieler anlegen"-Modal.
   useEffect(() => {
     if (!showAddSeasonsDropdown || typeof document === 'undefined') return;
@@ -1113,7 +1127,7 @@ export function FinanzenScreen({ navigation }: any) {
 
   // Klick außerhalb eines Dropdowns schließt es (Detail-Modal). Wrapper tragen data-kmhdropdown.
   useEffect(() => {
-    const anyOpen = showArtDropdown || showProvisionDropdown || showCurrencyDropdown || showRateDropdown || !!activeDatePicker;
+    const anyOpen = showArtDropdown || showProvisionDropdown || showCurrencyDropdown || showRateDropdown || !!activeDatePicker || openShareDropdown !== null;
     if (!anyOpen || typeof document === 'undefined') return;
     const handler = (e: any) => {
       const t = e.target;
@@ -1123,10 +1137,11 @@ export function FinanzenScreen({ navigation }: any) {
       setShowCurrencyDropdown(false);
       setShowRateDropdown(false);
       setActiveDatePicker(null);
+      setOpenShareDropdown(null);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [showArtDropdown, showProvisionDropdown, showCurrencyDropdown, showRateDropdown, activeDatePicker]);
+  }, [showArtDropdown, showProvisionDropdown, showCurrencyDropdown, showRateDropdown, activeDatePicker, openShareDropdown]);
 
   // --- Build Display Rows ---
 
@@ -2832,16 +2847,43 @@ export function FinanzenScreen({ navigation }: any) {
             {/* Beteiligungen / Abgaben */}
             <View pointerEvents={blockIfNot('beteiligungen')} style={{ opacity: dimIfNot('beteiligungen') }}>
             <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: 20 }]}>Beteiligungen / Abgaben</Text>
+            <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 4, marginBottom: 8 }}>% = Anteil an der Gesamtprovision (die Gesamtprovision entspricht 100 %).</Text>
             {detailShares.map((share, idx) => (
               <View key={idx} style={[styles.shareRow, { borderColor: colors.border }]}>
-                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 6 }}>
-                  <TextInput
-                    style={[styles.input, { flex: 1, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
-                    placeholder="Name (z.B. Agentur XY)"
-                    placeholderTextColor={colors.textMuted}
-                    value={share.name}
-                    onChangeText={v => setDetailShares(prev => prev.map((s, i) => i === idx ? { ...s, name: v } : s))}
-                  />
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 6, position: 'relative', zIndex: openShareDropdown === idx ? 50 : 1 }}>
+                  {/* Name: Berater-Dropdown + freie Eingabe */}
+                  <View {...({ dataSet: { kmhdropdown: 'true' } } as any)} style={{ flex: 1, position: 'relative' }}>
+                    <View style={[styles.input, { flexDirection: 'row', alignItems: 'center', paddingVertical: 0, paddingRight: 4, borderColor: colors.border, backgroundColor: colors.surface }]}>
+                      <TextInput
+                        style={{ flex: 1, color: colors.text, fontSize: 11, paddingVertical: 6 }}
+                        placeholder="Name (Berater/Agentur)"
+                        placeholderTextColor={colors.textMuted}
+                        value={share.name}
+                        onChangeText={v => setDetailShares(prev => prev.map((s, i) => i === idx ? { ...s, name: v } : s))}
+                        onFocus={() => setOpenShareDropdown(idx)}
+                      />
+                      <TouchableOpacity onPress={() => setOpenShareDropdown(openShareDropdown === idx ? null : idx)} style={{ paddingHorizontal: 4, paddingVertical: 6 }}>
+                        <Text style={{ color: colors.textSecondary, fontSize: 10 }}>▼</Text>
+                      </TouchableOpacity>
+                    </View>
+                    {openShareDropdown === idx && advisorNames.length > 0 && (
+                      <View style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, backgroundColor: '#000', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 8, overflow: 'hidden', zIndex: 1000, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 12 }}>
+                        <ScrollView style={{ maxHeight: 160 }} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                          {advisorNames
+                            .filter(n => !share.name || n.toLowerCase().includes(share.name.toLowerCase()))
+                            .map(n => (
+                              <TouchableOpacity
+                                key={n}
+                                onPress={() => { setDetailShares(prev => prev.map((s, i) => i === idx ? { ...s, name: n } : s)); setOpenShareDropdown(null); }}
+                                style={{ paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}
+                              >
+                                <Text style={{ color: '#fff', fontSize: 13 }} numberOfLines={1}>{n}</Text>
+                              </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                      </View>
+                    )}
+                  </View>
                   <TextInput
                     style={[styles.input, { width: 70, color: colors.text, borderColor: colors.border, backgroundColor: colors.surface, textAlign: 'center' }]}
                     placeholder="%"
