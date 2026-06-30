@@ -1345,7 +1345,7 @@ export function FinanzenScreen({ navigation }: any) {
       return;
     }
     const total = parseFloat(detailTotalAmount.replace(/\./g, '').replace(',', '.')) || 0;
-    const perRate = count > 0 ? formatNumberInput((total / count).toFixed(2).replace('.', ',')) : '';
+    const perRate = count > 0 ? formatThousands(total / count) : '';
     const newRates: RateEntry[] = [];
     for (let i = 0; i < count; i++) {
       if (i < detailRates.length) {
@@ -1374,10 +1374,10 @@ export function FinanzenScreen({ navigation }: any) {
   };
 
   const updateTotalAmount = (val: string) => {
-    const fmt = formatNumberInput(val);
-    setDetailTotalAmount(fmt);
-    const total = parseFloat(fmt.replace(/\./g, '').replace(',', '.')) || 0;
-    const perRate = detailRateCount && detailRateCount > 0 ? formatNumberInput((total / detailRateCount).toFixed(2).replace('.', ',')) : '';
+    // Gesamtprovision ohne Cent — nur ganze Beträge.
+    const total = Math.round(parseFloat(String(val).replace(/\./g, '').replace(',', '.')) || 0);
+    setDetailTotalAmount(total > 0 ? formatThousands(total) : '');
+    const perRate = detailRateCount && detailRateCount > 0 ? formatThousands(total / detailRateCount) : '';
     setDetailRates(prev => prev.map(r => ({ ...r, amount: perRate })));
   };
 
@@ -1411,9 +1411,9 @@ export function FinanzenScreen({ navigation }: any) {
     const pct = parseFloat(percentStr.replace(',', '.')) || 0;
     if (salary <= 0 || pct <= 0) return; // kein Gehalt → manuelle Gesamtsumme nicht überschreiben
     const total = salary * pct / 100;
-    const totalStr = formatNumberInput(total.toFixed(2).replace('.', ','));
+    const totalStr = formatThousands(total);
     setDetailTotalAmount(totalStr);
-    const perRate = detailRateCount && detailRateCount > 0 ? formatNumberInput((total / detailRateCount).toFixed(2).replace('.', ',')) : '';
+    const perRate = detailRateCount && detailRateCount > 0 ? formatThousands(total / detailRateCount) : '';
     setDetailRates(prev => prev.map(r => ({ ...r, amount: perRate })));
   };
 
@@ -1447,10 +1447,10 @@ export function FinanzenScreen({ navigation }: any) {
     }
 
     if (total > 0 && provBasis !== 'festbetrag') {
-      const totalStr = total.toFixed(2).replace('.', ',');
+      const totalStr = formatThousands(total);
       setDetailTotalAmount(totalStr);
       if (rateCount && rateCount > 0) {
-        const perRate = (total / rateCount).toFixed(2).replace('.', ',');
+        const perRate = formatThousands(total / rateCount);
         setDetailRates(currentRates.map(r => ({ ...r, amount: perRate })));
       }
     }
@@ -1952,7 +1952,7 @@ export function FinanzenScreen({ navigation }: any) {
       } else if (parsed.rate_count) {
         const count = parsed.rate_count;
         setDetailRateCount(count);
-        const perRate = parsed.total_amount ? (parsed.total_amount / count).toFixed(2).replace('.', ',') : '0';
+        const perRate = parsed.total_amount ? formatThousands(parsed.total_amount / count) : '0';
         newRates = Array.from({ length: count }, () => ({
           amount: perRate, day: null, month: null, year: null, status: 'offen',
         }));
