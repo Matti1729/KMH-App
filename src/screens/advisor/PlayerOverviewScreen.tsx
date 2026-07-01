@@ -3136,15 +3136,20 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
                         <Text style={styles.detailFieldLabel}>Zukünftiger Verein</Text>
                         {renderYesNo(futureActive, 'future_active', (v) => {
                           setFutureActive(v);
-                          if (!v) setEditData((d: any) => ({ ...d, future_club: '', future_contract_end: '', future_transfer_date: '' }));
+                          if (!v) {
+                            setEditData((d: any) => ({ ...d, future_club: '', future_contract_end: '', future_transfer_date: '' }));
+                          } else {
+                            // Voreinstellung Vertragsende = 30.06. der nächsten kommenden Saison
+                            // (Saison läuft 01.07.–30.06.; ab Juli zählt schon die nächste Saison).
+                            const now = new Date();
+                            const seasonEndYear = (now.getMonth() >= 6 ? now.getFullYear() + 1 : now.getFullYear()) + 1;
+                            const def = `${seasonEndYear}-06-30`;
+                            setEditData((d: any) => ({ ...d, future_contract_end: d.future_contract_end || def }));
+                          }
                         })}
                         {futureActive && (
                           <View style={{ marginTop: 8, gap: 10, zIndex: 10, position: 'relative' }}>
                             {renderClubSearchField('future_club', 'z.B. Bayern München')}
-                            <View style={{ zIndex: 8, position: 'relative' }}>
-                              <Text style={styles.detailFieldLabel}>Vertragsbeginn (Wechsel gilt ab)</Text>
-                              <DateDropdown field="future_transfer_date" dropdownKeyPrefix="future_transfer_date" />
-                            </View>
                             <View style={{ zIndex: 6, position: 'relative' }}>
                               <Text style={styles.detailFieldLabel}>Vertragsende (neuer Verein)</Text>
                               <DateDropdown field="future_contract_end" dropdownKeyPrefix="future_contract_end" />
