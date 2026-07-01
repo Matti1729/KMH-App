@@ -1569,6 +1569,9 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
   };
 
   const renderContractCell = (player: Player) => {
+    if (isContractExpired(player.contract_end)) {
+      return <Text style={[styles.tableCell, styles.colContract, { color: colors.text }]}>-</Text>;
+    }
     const inCurrentSeason = isContractInCurrentSeason(player.contract_end);
     const hasSecuredFuture = hasFutureClubAndExpiringContract(player);
     const textColor = hasSecuredFuture ? '#22c55e' : (inCurrentSeason && player.contract_end ? '#ef4444' : colors.text);
@@ -1647,9 +1650,9 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
               {!trainerMode && player.contract_end ? (
                 <Text style={[
                   styles.contractTextMobile,
-                  { color: hasSecuredFuture ? '#22c55e' : (inCurrentSeason ? '#ef4444' : colors.textMuted), marginLeft: 'auto' }
+                  { color: expired ? colors.textMuted : (hasSecuredFuture ? '#22c55e' : (inCurrentSeason ? '#ef4444' : colors.textMuted)), marginLeft: 'auto' }
                 ]} numberOfLines={1}>
-                  Vertrag bis {formatDate(player.contract_end)}
+                  {expired ? '-' : `Vertrag bis ${formatDate(player.contract_end)}`}
                 </Text>
               ) : null}
             </View>
@@ -4299,6 +4302,9 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
                           case 'league':
                             return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{isContractExpired(player.contract_end) ? '-' : (player.league || '-')}</Text>;
                           case 'contract_end': {
+                            if (isContractExpired(player.contract_end)) {
+                              return <Text style={[styles.tableCell, { color: colors.text }]}>-</Text>;
+                            }
                             const inCurrentSeason = isContractInCurrentSeason(player.contract_end);
                             const hasSecuredFuture = hasFutureClubAndExpiringContract(player);
                             const textColor = hasSecuredFuture ? '#22c55e' : (inCurrentSeason && player.contract_end ? '#ef4444' : colors.text);
