@@ -38,6 +38,10 @@ async function fetchProfile(url: string): Promise<any> {
       if (trainerClub) {
         profile.club = trainerClub[1];
         profile.clubLogoUrl = `https://tmssl.akamaized.net//images/wappen/big/${trainerClub[2]}.png`;
+        // Funktion im Verein (z.B. "Chefanalytiker") steht in der Stationen-Tabelle
+        // direkt hinter dem aktuellen Verein: …/verein/<id>…">…</a><br>FUNKTION</td>
+        const funktion = html.match(new RegExp(`\\/startseite\\/verein\\/${trainerClub[2]}[^"]*"[^>]*>[^<]*<\\/a><br>\\s*([^<]+?)\\s*<\\/td>`));
+        if (funktion && funktion[1].trim()) profile.trainerFunktion = funktion[1].trim();
       }
       return profile;
     }
@@ -157,9 +161,12 @@ Deno.serve(async (req: Request) => {
         };
 
         // NUR Verein und Liga updaten — alles andere ist manuell!
+        // Ausnahme: Bei Funktionären/Trainern wird die Funktion im Verein ins Feld
+        // "position" geschrieben (z.B. "Chefanalytiker").
         const updateData: any = {};
         if (profile.club) updateData.club = profile.club;
         if (profile.league) updateData.league = profile.league;
+        if (profile.trainerFunktion) updateData.position = profile.trainerFunktion;
 
         if (Object.keys(updateData).length > 0) {
           const { error: updateError } = await supabase
