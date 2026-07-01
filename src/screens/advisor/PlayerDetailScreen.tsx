@@ -64,7 +64,7 @@ const TransfermarktIcon = require('../../../assets/transfermarkt-logo.png');
 const ArbeitsamtIcon = require('../../../assets/arbeitsamt.png');
 
 interface Player {
-  id: string; advisor_id: string | null; first_name: string; last_name: string; nationality: string; birth_date: string; club: string; league: string; position: string; contract_end: string; photo_url: string; strong_foot: string; height: number; secondary_position: string; salary_month: string; point_bonus: string; appearance_bonus: string; contract_option: string; contract_scope: string; fixed_fee: string; contract_notes: string; u23_player: boolean; provision: string; transfer_commission: string; mandate_until: string; responsibility: string; listing: string; phone: string; phone_country_code: string; email: string; education: string; training: string; instagram: string; linkedin: string; tiktok: string; transfermarkt_url: string; interests: string; father_name: string; father_phone: string; father_phone_country_code: string; father_job: string; mother_name: string; mother_phone: string; mother_phone_country_code: string; mother_job: string; siblings: string; other_notes: string; injuries: string; street: string; postal_code: string; city: string; internat: boolean; future_club: string; future_contract_end: string; contract_documents: any[]; provision_documents: any[]; transfer_commission_documents: any[]; fussball_de_url: string; strengths: string; potentials: string; in_transfer_list: boolean; future_salary_month: string;
+  id: string; advisor_id: string | null; first_name: string; last_name: string; nationality: string; birth_date: string; club: string; league: string; position: string; contract_end: string; photo_url: string; strong_foot: string; height: number; secondary_position: string; salary_month: string; point_bonus: string; appearance_bonus: string; contract_option: string; contract_scope: string; fixed_fee: string; contract_notes: string; u23_player: boolean; provision: string; transfer_commission: string; mandate_until: string; responsibility: string; listing: string; phone: string; phone_country_code: string; email: string; education: string; training: string; instagram: string; linkedin: string; tiktok: string; transfermarkt_url: string; interests: string; father_name: string; father_phone: string; father_phone_country_code: string; father_job: string; mother_name: string; mother_phone: string; mother_phone_country_code: string; mother_job: string; siblings: string; other_notes: string; injuries: string; street: string; postal_code: string; city: string; internat: boolean; future_club: string; future_contract_end: string; future_transfer_date: string; contract_documents: any[]; provision_documents: any[]; transfer_commission_documents: any[]; fussball_de_url: string; strengths: string; potentials: string; in_transfer_list: boolean; future_salary_month: string;
 }
 
 interface ClubLogo {
@@ -1820,22 +1820,30 @@ export function PlayerDetailScreen({ route, navigation }: any) {
   };
 
   const checkAndApplyFutureClub = async (p: Player) => {
-    const today = new Date();
+    const today = new Date(); today.setHours(0, 0, 0, 0);
     const contractEnd = p.contract_end ? new Date(p.contract_end) : null;
+    // Wechsel ist fällig, wenn ein Wechseldatum gesetzt und erreicht ist; sonst
+    // (Abwärtskompatibilität, z.B. freier Transfer) beim Überschreiten des Vertragsendes.
+    const transferDate = p.future_transfer_date ? new Date(p.future_transfer_date) : null;
+    const transferDue = !!p.future_club && (
+      (transferDate && today >= transferDate) ||
+      (!transferDate && contractEnd && today > contractEnd)
+    );
     let needsUpdate = false;
     const updateData: any = {};
 
-    // Vereinswechsel bei Vertragsende
-    if (p.future_club && contractEnd && today > contractEnd) {
+    // Vereinswechsel: zukünftiger Verein wird zum aktuellen Verein.
+    if (transferDue) {
       updateData.club = p.future_club;
       updateData.future_club = null;
       updateData.contract_end = p.future_contract_end || null;
       updateData.future_contract_end = null;
+      updateData.future_transfer_date = null;
       needsUpdate = true;
     }
 
-    // Gehalt automatisch aktualisieren bei Vertragsende (einfacher future_salary Übergang)
-    if (p.future_salary_month && contractEnd && today > contractEnd) {
+    // Gehalt automatisch aktualisieren beim Wechsel.
+    if (transferDue && p.future_salary_month) {
       updateData.salary_month = p.future_salary_month;
       updateData.future_salary_month = null;
       needsUpdate = true;
@@ -2395,7 +2403,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
     if (!editData) return;
     const u23Status = calculateU23Status(editData.birth_date);
     const updateData: any = {
-      first_name: editData.first_name, last_name: editData.last_name, nationality: selectedNationalities.join(', ') || null, birth_date: editData.birth_date || null, club: editData.club || null, league: editData.league || null, position: selectedPositions.join(', ') || null, contract_end: editData.contract_end || null, photo_url: editData.photo_url || null, strong_foot: editData.strong_foot || null, height: editData.height || null, secondary_position: selectedSecondaryPositions.join(', ') || null, salary_month: editData.salary_month || null, point_bonus: editData.point_bonus || null, appearance_bonus: editData.appearance_bonus || null, contract_option: editData.contract_option || null, contract_scope: editData.contract_scope || null, fixed_fee: editData.fixed_fee || null, contract_notes: editData.contract_notes || null, u23_player: u23Status.isU23, provision: editData.provision || null, transfer_commission: editData.transfer_commission || null, mandate_until: editData.mandate_until || null, listing: editData.listing || null, phone: editData.phone || null, phone_country_code: editData.phone_country_code || '+49', email: editData.email || null, education: editData.education || null, training: editData.training || null, instagram: editData.instagram || null, linkedin: editData.linkedin || null, tiktok: editData.tiktok || null, transfermarkt_url: editData.transfermarkt_url || null, interests: editData.interests || null, father_name: editData.father_name || null, father_phone: editData.father_phone || null, father_phone_country_code: editData.father_phone_country_code || '+49', father_job: editData.father_job || null, mother_name: editData.mother_name || null, mother_phone: editData.mother_phone || null, mother_phone_country_code: editData.mother_phone_country_code || '+49', mother_job: editData.mother_job || null, siblings: editData.siblings || null, other_notes: editData.other_notes || null, injuries: editData.injuries || null, street: editData.street || null, postal_code: editData.postal_code || null, city: editData.city || null, internat: editData.internat || false, future_club: editData.future_club || null, future_contract_end: editData.future_contract_end || null, contract_documents: editData.contract_documents || [], provision_documents: editData.provision_documents || [], transfer_commission_documents: editData.transfer_commission_documents || [], fussball_de_url: editData.fussball_de_url || null, strengths: editData.strengths || null, potentials: editData.potentials || null, future_salary_month: editData.future_salary_month || null,
+      first_name: editData.first_name, last_name: editData.last_name, nationality: selectedNationalities.join(', ') || null, birth_date: editData.birth_date || null, club: editData.club || null, league: editData.league || null, position: selectedPositions.join(', ') || null, contract_end: editData.contract_end || null, photo_url: editData.photo_url || null, strong_foot: editData.strong_foot || null, height: editData.height || null, secondary_position: selectedSecondaryPositions.join(', ') || null, salary_month: editData.salary_month || null, point_bonus: editData.point_bonus || null, appearance_bonus: editData.appearance_bonus || null, contract_option: editData.contract_option || null, contract_scope: editData.contract_scope || null, fixed_fee: editData.fixed_fee || null, contract_notes: editData.contract_notes || null, u23_player: u23Status.isU23, provision: editData.provision || null, transfer_commission: editData.transfer_commission || null, mandate_until: editData.mandate_until || null, listing: editData.listing || null, phone: editData.phone || null, phone_country_code: editData.phone_country_code || '+49', email: editData.email || null, education: editData.education || null, training: editData.training || null, instagram: editData.instagram || null, linkedin: editData.linkedin || null, tiktok: editData.tiktok || null, transfermarkt_url: editData.transfermarkt_url || null, interests: editData.interests || null, father_name: editData.father_name || null, father_phone: editData.father_phone || null, father_phone_country_code: editData.father_phone_country_code || '+49', father_job: editData.father_job || null, mother_name: editData.mother_name || null, mother_phone: editData.mother_phone || null, mother_phone_country_code: editData.mother_phone_country_code || '+49', mother_job: editData.mother_job || null, siblings: editData.siblings || null, other_notes: editData.other_notes || null, injuries: editData.injuries || null, street: editData.street || null, postal_code: editData.postal_code || null, city: editData.city || null, internat: editData.internat || false, future_club: editData.future_club || null, future_contract_end: editData.future_contract_end || null, future_transfer_date: editData.future_transfer_date || null, contract_documents: editData.contract_documents || [], provision_documents: editData.provision_documents || [], transfer_commission_documents: editData.transfer_commission_documents || [], fussball_de_url: editData.fussball_de_url || null, strengths: editData.strengths || null, potentials: editData.potentials || null, future_salary_month: editData.future_salary_month || null,
     };
     // Kein Vertrag vorhanden → Gehaltsfelder leeren
     if (!updateData.contract_documents || updateData.contract_documents.length === 0) {
@@ -2744,11 +2752,48 @@ export function PlayerDetailScreen({ route, navigation }: any) {
                 </View>
               </View>
             )}
+            {(futureClubSearch || editData?.future_club) && (
+              <View style={styles.futureContractRow}>
+                <Text style={styles.smallLabel}>Wechseldatum (Vertrag gilt ab):</Text>
+                <View style={[styles.datePickerRow, { flex: 1 }]}>
+                  <select
+                    style={{ padding: 6, fontSize: 12, borderRadius: 6, border: '1px solid #ddd', flex: 1 }}
+                    value={parseDateToParts(editData?.future_transfer_date || '')?.day || 1}
+                    onChange={(e) => {
+                      const parts = parseDateToParts(editData?.future_transfer_date || '') || { day: 1, month: 6, year: new Date().getFullYear() + 1 };
+                      updateField('future_transfer_date', buildDateFromParts(parseInt(e.target.value), parts.month, parts.year));
+                    }}
+                  >
+                    {DAYS.map((d) => (<option key={d} value={d}>{d}</option>))}
+                  </select>
+                  <select
+                    style={{ padding: 6, fontSize: 12, borderRadius: 6, border: '1px solid #ddd', flex: 2 }}
+                    value={parseDateToParts(editData?.future_transfer_date || '')?.month ?? 6}
+                    onChange={(e) => {
+                      const parts = parseDateToParts(editData?.future_transfer_date || '') || { day: 1, month: 6, year: new Date().getFullYear() + 1 };
+                      updateField('future_transfer_date', buildDateFromParts(parts.day, parseInt(e.target.value), parts.year));
+                    }}
+                  >
+                    {MONTHS.map((m, idx) => (<option key={m} value={idx}>{m}</option>))}
+                  </select>
+                  <select
+                    style={{ padding: 6, fontSize: 12, borderRadius: 6, border: '1px solid #ddd', flex: 1 }}
+                    value={parseDateToParts(editData?.future_transfer_date || '')?.year || new Date().getFullYear() + 1}
+                    onChange={(e) => {
+                      const parts = parseDateToParts(editData?.future_transfer_date || '') || { day: 1, month: 6, year: new Date().getFullYear() + 1 };
+                      updateField('future_transfer_date', buildDateFromParts(parts.day, parts.month, parseInt(e.target.value)));
+                    }}
+                  >
+                    {YEARS.map((y) => (<option key={y} value={y}>{y}</option>))}
+                  </select>
+                </View>
+              </View>
+            )}
           </View>
         ) : (
           <View style={styles.clubRowSmall}>
             {logoUrl && <Image source={{ uri: logoUrl }} style={styles.clubLogoSmall} />}
-            <Text style={[styles.value, { color: colors.text }]}>{player?.future_club || '-'}</Text>
+            <Text style={[styles.value, { color: colors.text }]}>{player?.future_club || '-'}{player?.future_transfer_date ? `  (ab ${new Date(player.future_transfer_date).toLocaleDateString('de-DE')})` : ''}</Text>
           </View>
         )}
       </View>
