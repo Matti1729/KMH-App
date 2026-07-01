@@ -62,6 +62,7 @@ const LinkedInIcon = require('../../../assets/linkedin.png');
 const TikTokIcon = require('../../../assets/tiktok.png');
 const TransfermarktIcon = require('../../../assets/transfermarkt-logo.png');
 const ArbeitsamtIcon = require('../../../assets/arbeitsamt.png');
+const VEREINSLOS_LOGO = 'https://tmssl.akamaized.net//images/wappen/big/515.png';
 
 interface Player {
   id: string; advisor_id: string | null; first_name: string; last_name: string; nationality: string; birth_date: string; club: string; league: string; position: string; contract_end: string; photo_url: string; strong_foot: string; height: number; secondary_position: string; salary_month: string; point_bonus: string; appearance_bonus: string; contract_option: string; contract_scope: string; fixed_fee: string; contract_notes: string; u23_player: boolean; provision: string; transfer_commission: string; mandate_until: string; responsibility: string; listing: string; phone: string; phone_country_code: string; email: string; education: string; training: string; instagram: string; linkedin: string; tiktok: string; transfermarkt_url: string; interests: string; father_name: string; father_phone: string; father_phone_country_code: string; father_job: string; mother_name: string; mother_phone: string; mother_phone_country_code: string; mother_job: string; siblings: string; other_notes: string; injuries: string; street: string; postal_code: string; city: string; internat: boolean; future_club: string; future_contract_end: string; future_transfer_date: string; contract_documents: any[]; provision_documents: any[]; transfer_commission_documents: any[]; fussball_de_url: string; strengths: string; potentials: string; in_transfer_list: boolean; future_salary_month: string;
@@ -2656,7 +2657,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
         ) : (
           <View style={styles.clubRowSmall}>
             {contractExpired ? (
-              <Image source={ArbeitsamtIcon} style={styles.clubLogoSmall} />
+              <Image source={{ uri: getClubLogo('Vereinslos') || VEREINSLOS_LOGO }} style={styles.clubLogoSmall} />
             ) : getClubLogo(player?.club || '') ? (
               <Image source={{ uri: getClubLogo(player?.club || '')! }} style={styles.clubLogoSmall} />
             ) : null}
@@ -3657,7 +3658,7 @@ export function PlayerDetailScreen({ route, navigation }: any) {
           <View style={[styles.topRight, isMobile && styles.topRightMobile]}>
             <View style={styles.clubSection}>
               {contractExpired ? (
-                <Image source={ArbeitsamtIcon} style={[styles.clubLogoHeader, isMobile && styles.clubLogoHeaderMobile]} />
+                <Image source={{ uri: getClubLogo('Vereinslos') || VEREINSLOS_LOGO }} style={[styles.clubLogoHeader, isMobile && styles.clubLogoHeaderMobile]} />
               ) : getClubLogo(player.club) ? (
                 <Image source={{ uri: getClubLogo(player.club)! }} style={[styles.clubLogoHeader, isMobile && styles.clubLogoHeaderMobile]} />
               ) : (

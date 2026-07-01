@@ -18,6 +18,7 @@ import { TableRow } from '../../components/table/TableRow';
 import { useDialog } from '../../components/DialogProvider';
 
 const ArbeitsamtIcon = require('../../../assets/arbeitsamt.png');
+const VEREINSLOS_LOGO = 'https://tmssl.akamaized.net//images/wappen/big/515.png';
 const TransfermarktIcon = require('../../../assets/transfermarkt-logo.png');
 
 const LEAGUES = ['1. Bundesliga', '2. Bundesliga', '3. Liga', 'Regionalliga Nordost', 'Regionalliga Südwest', 'Regionalliga West', 'Regionalliga Nord', 'Regionalliga Bayern', 'Oberliga'];
@@ -1009,7 +1010,7 @@ export function FootballNetworkScreen({ navigation }: any) {
               {/* Header — Logo + Name (+ Verein · Liga) + Bearbeiten + Close */}
               <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)', zIndex: 1, gap: 10 }}>
                 {selectedContact.verein?.includes('Vereinslos') ? (
-                  <Image source={ArbeitsamtIcon} style={{ width: 36, height: 36, borderRadius: 6, resizeMode: 'contain' }} />
+                  <Image source={{ uri: getClubLogo('Vereinslos') || VEREINSLOS_LOGO }} style={{ width: 36, height: 36, borderRadius: 6, resizeMode: 'contain' }} />
                 ) : selectedContact.verein?.toLowerCase().includes('transfermarkt') ? (
                   <Image source={TransfermarktIcon} style={{ width: 36, height: 36, borderRadius: 6, resizeMode: 'contain' }} />
                 ) : getClubLogo(selectedContact.verein) ? (
@@ -1532,7 +1533,7 @@ export function FootballNetworkScreen({ navigation }: any) {
                             return (
                               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                 {contact.verein?.includes('Vereinslos') ? (
-                                  <Image source={ArbeitsamtIcon} style={styles.tableClubLogo} />
+                                  <Image source={{ uri: getClubLogo('Vereinslos') || VEREINSLOS_LOGO }} style={styles.tableClubLogo} />
                                 ) : contact.verein?.toLowerCase().includes('transfermarkt') ? (
                                   <Image source={TransfermarktIcon} style={styles.tableClubLogo} />
                                 ) : contact.verein && getClubLogo(contact.verein) ? (
@@ -1609,7 +1610,7 @@ export function FootballNetworkScreen({ navigation }: any) {
                 <View style={[styles.detailModalHeader, { borderBottomColor: 'rgba(255,255,255,0.15)', zIndex: 1 }]}>
                   <View style={styles.detailModalNameRow}>
                     {selectedContact.verein?.includes('Vereinslos') ? (
-                      <Image source={ArbeitsamtIcon} style={styles.detailModalLogo} />
+                      <Image source={{ uri: getClubLogo('Vereinslos') || VEREINSLOS_LOGO }} style={styles.detailModalLogo} />
                     ) : selectedContact.verein?.toLowerCase().includes('transfermarkt') ? (
                       <Image source={TransfermarktIcon} style={styles.detailModalLogo} />
                     ) : getClubLogo(selectedContact.verein) ? (
