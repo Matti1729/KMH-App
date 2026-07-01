@@ -442,6 +442,10 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
   // Ja/Nein-Umschalter für "Ausgeliehen von" und "Zukünftiger Verein".
   const [loanActive, setLoanActive] = useState(false);
   const [futureActive, setFutureActive] = useState(false);
+  // Auto-Fetch von TM-Daten, wenn im Bearbeiten-Modal ein neuer Spieler-Link eingetragen wird.
+  const [tmEditFetching, setTmEditFetching] = useState(false);
+  const tmEditFetchTimer = useRef<any>(null);
+  const lastFetchedTmUrlRef = useRef<string>('');
   const [tmClubResults, setTmClubResults] = useState<Array<{ name: string; logoUrl?: string; liga?: string; country?: string }>>([]);
   const [tmClubSearching, setTmClubSearching] = useState(false);
   const tmClubSearchTimeout = useRef<any>(null);
@@ -1312,6 +1316,62 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
       setTmSelected({ transfermarkt_url: suggestion.url, verein: suggestion.verein || '', tmPosition: suggestion.position || '', tmAge: suggestion.age || '', nationality: suggestion.nationality || '', position: suggestion.position || '' });
     }
     setTmLoading(false);
+  };
+
+  // Bearbeiten-Modal: neuer TM-Spieler-Link eingetragen → Profil sofort abrufen und
+  // dieselben Felder befüllen wie beim ersten Anlegen über TM (selectTmPlayer + insertData).
+  const fetchTmProfileForEdit = async (url: string) => {
+    setTmEditFetching(true);
+    try {
+      const { data } = await supabase.functions.invoke('search-transfermarkt', { body: { profileUrl: url } });
+      const p = data?.profile;
+      if (!p || Object.keys(p).length === 0) return;
+      const toIso = (d: string) => {
+        const m = d?.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+        return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
+      };
+      const tmPosMap: Record<string, string> = {
+        'Torwart': 'TW', 'Innenverteidiger': 'IV', 'Linker Verteidiger': 'LV', 'Rechter Verteidiger': 'RV',
+        'Defensives Mittelfeld': 'DM', 'Zentrales Mittelfeld': 'ZM', 'Offensives Mittelfeld': 'OM',
+        'Linkes Mittelfeld': 'LA', 'Rechtes Mittelfeld': 'RA', 'Linksaußen': 'LA', 'Rechtsaußen': 'RA',
+        'Hängende Spitze': 'OM', 'Mittelstürmer': 'ST', 'Sturm': 'ST',
+        'Abwehr': 'IV', 'Mittelfeld': 'ZM',
+      };
+      const mapPos = (pos: string): string | null => {
+        if (!pos) return null;
+        if (tmPosMap[pos]) return tmPosMap[pos];
+        for (const [k, v] of Object.entries(tmPosMap)) if (pos.includes(k)) return v;
+        return null;
+      };
+      const patch: any = {};
+      if (p.currentClub) patch.club = p.currentClub;
+      if (p.league) patch.league = p.league;
+      const pos = mapPos(p.position || '');
+      if (pos) patch.position = pos;
+      if (p.nationality) { patch.nationality = p.nationality; patch.nationality_advisor = p.nationality; }
+      const dob = p.dateOfBirth ? toIso(p.dateOfBirth) : null;
+      if (dob) { patch.birth_date = dob; patch.birth_date_advisor = dob; }
+      if (p.height) { const h = String(p.height).match(/(\d)[,.](\d+)/); if (h) patch.height = parseInt(h[1] + h[2]); }
+      if (p.preferredFoot) patch.strong_foot = p.preferredFoot;
+      const ce = p.contractUntil ? toIso(p.contractUntil) : null;
+      if (ce) patch.contract_end = ce;
+      if (p.loanFromClub) patch.loan_from_club = p.loanFromClub;
+
+      setEditData((prev: any) => ({ ...prev, ...patch, transfermarkt_url: url }));
+      if (p.loanFromClub) setLoanActive(true);
+
+      // Vereins-Logo (TM) in club_logos ablegen, damit Header/Listen es sofort zeigen.
+      if (p.currentClub && p.clubLogoUrl) {
+        try {
+          await supabase.from('club_logos').upsert({ club_name: p.currentClub, logo_url: p.clubLogoUrl }, { onConflict: 'club_name' });
+          fetchClubLogos();
+        } catch {}
+      }
+    } catch (err) {
+      console.error('TM edit profile fetch error:', err);
+    } finally {
+      setTmEditFetching(false);
+    }
   };
 
   // --- Handball-Suche (HBF: 1./2. Bundesliga Frauen, Quelle alsco-hbf.de) ---
@@ -2775,14 +2835,28 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
               <View style={[styles.detailStatCol, isMobile && isEditing && { flexBasis: '100%', minWidth: 0, alignItems: 'stretch' }]}>
                 <Text style={styles.detailStatLabel}>Transfermarkt</Text>
                 {isEditing ? (
+                  <>
                   <TextInput
                     style={[styles.detailEditInput, { paddingVertical: 4, fontSize: 11, width: '100%', minWidth: 120 }]}
                     value={(editData.transfermarkt_url as string) || ''}
-                    onChangeText={(v) => setEditData({ ...editData, transfermarkt_url: v })}
+                    onChangeText={(v) => {
+                      setEditData({ ...editData, transfermarkt_url: v });
+                      const trimmed = (v || '').trim();
+                      // Bei gültigem TM-Spieler-Profil-Link direkt die Daten ziehen (einmal pro URL).
+                      if (/transfermarkt\.[a-z.]+\/.*\/profil\/spieler\/\d+/.test(trimmed) && trimmed !== lastFetchedTmUrlRef.current) {
+                        lastFetchedTmUrlRef.current = trimmed;
+                        if (tmEditFetchTimer.current) clearTimeout(tmEditFetchTimer.current);
+                        tmEditFetchTimer.current = setTimeout(() => fetchTmProfileForEdit(trimmed), 400);
+                      }
+                    }}
                     placeholder="https://…"
                     placeholderTextColor="rgba(255,255,255,0.3)"
                     autoCapitalize="none"
                   />
+                  {tmEditFetching ? (
+                    <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>TM-Daten werden abgerufen…</Text>
+                  ) : null}
+                  </>
                 ) : fullPlayer?.transfermarkt_url ? (
                   <TouchableOpacity onPress={() => { if (typeof window !== 'undefined') window.open(fullPlayer.transfermarkt_url, '_blank'); }}>
                     <Ionicons name="link-outline" size={16} color="#fff" />
