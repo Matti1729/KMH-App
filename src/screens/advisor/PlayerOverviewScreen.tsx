@@ -958,7 +958,7 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
     const value = (editData[fieldKey] ?? '').toString();
     const isActive = tmClubSearchField === fieldKey;
     return (
-      <View style={{ position: 'relative' }}>
+      <View style={{ position: 'relative', zIndex: isActive ? 1000 : 1 }}>
         <TextInput
           style={[styles.detailEditInput, { paddingVertical: 4 }]}
           value={value}
