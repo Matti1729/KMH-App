@@ -2997,10 +2997,6 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
                       <Text style={styles.detailFieldLabel}>Option</Text>
                       <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="contract_option" displayValue={fullPlayer?.contract_option} />
                     </View>
-                    <View style={{ zIndex: 56, position: 'relative' }}>
-                      <Text style={styles.detailFieldLabel}>Fixe Ablöse</Text>
-                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="fixed_fee" displayValue={fullPlayer?.fixed_fee} />
-                    </View>
                     <View style={{ zIndex: 54, position: 'relative' }}>
                       <Text style={styles.detailFieldLabel}>U23-Spieler</Text>
                       {(() => {
@@ -3076,6 +3072,10 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
                   </View>
                   {/* Spalte 2 */}
                   <View style={isMobile && isEditing ? { width: '100%', gap: 14 } : { flex: 1, minWidth: 180, gap: 14 }}>
+                    <View>
+                      <Text style={styles.detailFieldLabel}>Fixe Ablöse</Text>
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="fixed_fee" displayValue={fullPlayer?.fixed_fee} />
+                    </View>
                     <View>
                       <Text style={styles.detailFieldLabel}>Gehalt/Monat</Text>
                       <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="salary_month" displayValue={fullPlayer?.salary_month} />
