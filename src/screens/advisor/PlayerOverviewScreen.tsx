@@ -926,20 +926,30 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
   };
 
   // Renders a TextInput + TM-Vereinssuche-Dropdown für Felder vom Typ Verein.
-  // Ja/Nein-Umschalter (für "Ausgeliehen von" und "Zukünftiger Verein").
-  const renderYesNo = (active: boolean, onChange: (v: boolean) => void) => (
-    <View style={{ flexDirection: 'row', gap: 6 }}>
-      {[false, true].map(v => {
-        const on = active === v;
-        return (
-          <TouchableOpacity key={String(v)} onPress={() => onChange(v)}
-            style={{ paddingVertical: 4, paddingHorizontal: 16, borderRadius: 6, borderWidth: 1, borderColor: on ? '#22c55e' : 'rgba(255,255,255,0.2)', backgroundColor: on ? 'rgba(34,197,94,0.15)' : 'transparent' }}>
-            <Text style={{ color: on ? '#22c55e' : 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: '600' }}>{v ? 'Ja' : 'Nein'}</Text>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
-  );
+  // Ja/Nein als Dropdown im gleichen Input-Stil wie die anderen Felder.
+  const renderYesNo = (active: boolean, dropdownKey: string, onChange: (v: boolean) => void) => {
+    const open = openDropdown === dropdownKey;
+    return (
+      <View {...({ 'data-kmh-dropdown': 'true', dataSet: { kmhDropdown: 'true' } } as any)} style={{ position: 'relative', zIndex: open ? 1000 : 1 }}>
+        <TouchableOpacity
+          style={[styles.detailEditInput, { paddingVertical: 4, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
+          onPress={() => setOpenDropdown(open ? null : dropdownKey)}
+        >
+          <Text numberOfLines={1} style={{ fontSize: 13, color: '#fff', flex: 1 }}>{active ? 'Ja' : 'Nein'}</Text>
+          <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={14} color="rgba(255,255,255,0.5)" />
+        </TouchableOpacity>
+        {open ? (
+          <View style={[styles.detailDropdownList, { minWidth: 120 }]}>
+            {([['Nein', false], ['Ja', true]] as const).map(([label, val]) => (
+              <TouchableOpacity key={label} style={styles.detailDropdownItem} onPress={() => { onChange(val); setOpenDropdown(null); }}>
+                <Text numberOfLines={1} style={{ fontSize: 13, color: '#fff' }}>{label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : null}
+      </View>
+    );
+  };
 
   // editData[fieldKey] ist die Quelle; bei Klick auf einen TM-Treffer wird Name + Logo (in club_logos) übernommen.
   const renderClubSearchField = (fieldKey: 'club' | 'loan_from_club' | 'future_club', placeholder: string) => {
@@ -3014,7 +3024,7 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
                     {isEditing ? (
                       <View style={{ zIndex: 50, position: 'relative' }} {...({ dataSet: { tmClubDropdown: 'true' } } as any)}>
                         <Text style={styles.detailFieldLabel}>Ausgeliehen von</Text>
-                        {renderYesNo(loanActive, (v) => {
+                        {renderYesNo(loanActive, 'loan_active', (v) => {
                           setLoanActive(v);
                           if (!v) setEditData((d: any) => ({ ...d, loan_from_club: '', loan_from_club_league: '' }));
                         })}
@@ -3045,7 +3055,7 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
                     {isEditing ? (
                       <View style={{ zIndex: 40, position: 'relative' }} {...({ dataSet: { tmClubDropdown: 'true' } } as any)}>
                         <Text style={styles.detailFieldLabel}>Zukünftiger Verein</Text>
-                        {renderYesNo(futureActive, (v) => {
+                        {renderYesNo(futureActive, 'future_active', (v) => {
                           setFutureActive(v);
                           if (!v) setEditData((d: any) => ({ ...d, future_club: '', future_contract_end: '', future_transfer_date: '' }));
                         })}
