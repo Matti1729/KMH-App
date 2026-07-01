@@ -226,6 +226,8 @@ const miniFieldStyles = StyleSheet.create({
 });
 
 const ArbeitsamtIcon = require('../../../assets/arbeitsamt.png');
+// Transfermarkt „Vereinslos"-Wappen (Verein-ID 515) — graues Schild wie im Spielerprofil.
+const VEREINSLOS_LOGO = 'https://tmssl.akamaized.net//images/wappen/big/515.png';
 // Social-Media-Icons (wie in der Spieleransicht)
 const SOCIAL_ICONS: Record<'instagram' | 'tiktok' | 'linkedin', any> = {
   instagram: require('../../../assets/instagram.png.webp'),
@@ -1552,7 +1554,7 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
     const logoUrl = expired ? null : getClubLogo(player.club);
     return (
       <View style={[styles.colClub, styles.clubCell]}>
-        {expired ? <Image source={ArbeitsamtIcon} style={styles.clubLogo} /> : logoUrl ? <Image source={{ uri: logoUrl }} style={styles.clubLogo} /> : null}
+        {expired ? <Image source={{ uri: getClubLogo('Vereinslos') || VEREINSLOS_LOGO }} style={styles.clubLogo} /> : logoUrl ? <Image source={{ uri: logoUrl }} style={styles.clubLogo} /> : null}
         <Text style={[styles.tableCell, { color: colors.text }, expired && styles.clubTextRed]} numberOfLines={1}>{displayClub}</Text>
       </View>
     );
@@ -1595,7 +1597,7 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
         {renderBirthDateCell(player)}
         <Text style={[styles.tableCell, styles.colPosition, { color: colors.text }]} numberOfLines={1}>{positionDisplay}</Text>
         {renderClubCell(player)}
-        <Text style={[styles.tableCell, styles.colLeague, { color: colors.text }]} numberOfLines={1}>{player.league || '-'}</Text>
+        <Text style={[styles.tableCell, styles.colLeague, { color: colors.text }]} numberOfLines={1}>{isContractExpired(player.contract_end) ? '-' : (player.league || '-')}</Text>
         {renderContractCell(player)}
         <View style={styles.colListing}>{renderListingBadge(player.listing)}</View>
         <Text style={[styles.tableCell, styles.colResponsibility, { color: colors.text }]} numberOfLines={1}>{getResponsibilityInitials(player.responsibility)}</Text>
@@ -1624,7 +1626,7 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           {expired ? (
-            <Image source={ArbeitsamtIcon} style={styles.clubLogoMobile} />
+            <Image source={{ uri: getClubLogo('Vereinslos') || VEREINSLOS_LOGO }} style={styles.clubLogoMobile} />
           ) : logoUrl ? (
             <Image source={{ uri: logoUrl }} style={styles.clubLogoMobile} />
           ) : <View style={styles.clubLogoMobile} />}
@@ -4289,13 +4291,13 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
                             const logoUrl = expired ? null : getClubLogo(player.club);
                             return (
                               <View style={styles.clubCell}>
-                                {expired ? <Image source={ArbeitsamtIcon} style={styles.clubLogo} /> : logoUrl ? <Image source={{ uri: logoUrl }} style={styles.clubLogo} /> : null}
+                                {expired ? <Image source={{ uri: getClubLogo('Vereinslos') || VEREINSLOS_LOGO }} style={styles.clubLogo} /> : logoUrl ? <Image source={{ uri: logoUrl }} style={styles.clubLogo} /> : null}
                                 <Text style={[styles.tableCell, { color: colors.text }, expired && styles.clubTextRed]} numberOfLines={1}>{displayClub}</Text>
                               </View>
                             );
                           }
                           case 'league':
-                            return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{player.league || '-'}</Text>;
+                            return <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>{isContractExpired(player.contract_end) ? '-' : (player.league || '-')}</Text>;
                           case 'contract_end': {
                             const inCurrentSeason = isContractInCurrentSeason(player.contract_end);
                             const hasSecuredFuture = hasFutureClubAndExpiringContract(player);
