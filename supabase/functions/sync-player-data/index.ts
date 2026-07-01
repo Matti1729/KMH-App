@@ -31,6 +31,17 @@ async function fetchProfile(url: string): Promise<any> {
 
     const profile: any = {};
 
+    // Trainer/Funktionär-Profil (/profil/trainer/…): anderer Seitenaufbau.
+    // Aktueller Verein steht im data-header__club-Bereich; Liga ist dort nicht verlässlich.
+    if (/\/profil\/trainer\//.test(url)) {
+      const trainerClub = html.match(/data-header__club[\s\S]*?title="([^"]+)"[^>]*href="[^"]*\/startseite\/verein\/(\d+)"/);
+      if (trainerClub) {
+        profile.club = trainerClub[1];
+        profile.clubLogoUrl = `https://tmssl.akamaized.net//images/wappen/big/${trainerClub[2]}.png`;
+      }
+      return profile;
+    }
+
     // Geburtsdatum
     const dobMatch = html.match(/Geb\.\/Alter:[\s\S]*?(\d{2}\.\d{2}\.\d{4})/);
     if (dobMatch) profile.birth_date = dobMatch[1];
