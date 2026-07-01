@@ -437,6 +437,9 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
   const [advisorPhotoOffsetY, setAdvisorPhotoOffsetY] = useState(0);
   // TM-Vereinssuche für Verein + Zukünftiger Verein im Edit-Modus
   const [tmClubSearchField, setTmClubSearchField] = useState<'club' | 'future_club' | 'loan_from_club' | null>(null);
+  // Ja/Nein-Umschalter für "Ausgeliehen von" und "Zukünftiger Verein".
+  const [loanActive, setLoanActive] = useState(false);
+  const [futureActive, setFutureActive] = useState(false);
   const [tmClubResults, setTmClubResults] = useState<Array<{ name: string; logoUrl?: string; liga?: string; country?: string }>>([]);
   const [tmClubSearching, setTmClubSearching] = useState(false);
   const tmClubSearchTimeout = useRef<any>(null);
@@ -923,6 +926,21 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
   };
 
   // Renders a TextInput + TM-Vereinssuche-Dropdown für Felder vom Typ Verein.
+  // Ja/Nein-Umschalter (für "Ausgeliehen von" und "Zukünftiger Verein").
+  const renderYesNo = (active: boolean, onChange: (v: boolean) => void) => (
+    <View style={{ flexDirection: 'row', gap: 6 }}>
+      {[false, true].map(v => {
+        const on = active === v;
+        return (
+          <TouchableOpacity key={String(v)} onPress={() => onChange(v)}
+            style={{ paddingVertical: 4, paddingHorizontal: 16, borderRadius: 6, borderWidth: 1, borderColor: on ? '#22c55e' : 'rgba(255,255,255,0.2)', backgroundColor: on ? 'rgba(34,197,94,0.15)' : 'transparent' }}>
+            <Text style={{ color: on ? '#22c55e' : 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: '600' }}>{v ? 'Ja' : 'Nein'}</Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+
   // editData[fieldKey] ist die Quelle; bei Klick auf einen TM-Treffer wird Name + Logo (in club_logos) übernommen.
   const renderClubSearchField = (fieldKey: 'club' | 'loan_from_club' | 'future_club', placeholder: string) => {
     const value = (editData[fieldKey] ?? '').toString();
@@ -1669,6 +1687,8 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
 
   const startEditAll = () => {
     if (!fullPlayer) return;
+    setLoanActive(!!fullPlayer.loan_from_club);
+    setFutureActive(!!fullPlayer.future_club);
     setEditData({
       position: fullPlayer.position || '',
       secondary_positions: padSlots(splitToArray(fullPlayer.secondary_position), 3),
@@ -1681,6 +1701,8 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
       loan_from_club: fullPlayer.loan_from_club || '',
       loan_from_club_league: fullPlayer.loan_from_club_league || '',
       future_club: fullPlayer.future_club || '',
+      future_contract_end: fullPlayer.future_contract_end || '',
+      future_transfer_date: fullPlayer.future_transfer_date || '',
       league: fullPlayer.league || '',
       contract_end: fullPlayer.contract_end || '',
       contract_scope: fullPlayer.contract_scope || '',
@@ -2956,29 +2978,30 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
                       <Text style={styles.detailFieldLabel}>Liga</Text>
                       <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="league" displayValue={fullPlayer?.league} />
                     </View>
-                    {(isEditing || fullPlayer?.loan_from_club) ? (
-                      <View style={{ zIndex: 75, position: 'relative' }} {...({ dataSet: { tmClubDropdown: 'true' } } as any)}>
-                        <Text style={styles.detailFieldLabel}>Ausgeliehen von</Text>
-                        {isEditing ? renderClubSearchField('loan_from_club', 'z.B. FC Ingolstadt 04') : (
-                          <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="loan_from_club" displayValue={fullPlayer?.loan_from_club} />
-                        )}
-                      </View>
-                    ) : null}
-                    {(isEditing || fullPlayer?.loan_from_club_league) && (isEditing || fullPlayer?.loan_from_club) ? (
-                      <View style={{ zIndex: 73, position: 'relative' }}>
-                        <Text style={styles.detailFieldLabel}>Liga (Stammverein)</Text>
-                        <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="loan_from_club_league" displayValue={fullPlayer?.loan_from_club_league} placeholder="z.B. 3. Liga" />
-                      </View>
-                    ) : null}
-                    {(isEditing || fullPlayer?.future_club) ? (
-                      <View style={{ zIndex: 70, position: 'relative' }} {...({ dataSet: { tmClubDropdown: 'true' } } as any)}>
-                        <Text style={styles.detailFieldLabel}>Zukünftiger Verein</Text>
-                        {isEditing ? renderClubSearchField('future_club', 'Name') : (
-                          <Text style={styles.detailFieldValue}>{fullPlayer.future_club}</Text>
-                        )}
-                      </View>
-                    ) : null}
-                    <View style={{ zIndex: 50, position: 'relative' }}>
+                    {/* Aktuelles Vertragsende (unter Liga) */}
+                    <View style={{ zIndex: 76, position: 'relative' }}>
+                      <Text style={styles.detailFieldLabel}>Vertragsende</Text>
+                      {isEditing ? (
+                        <DateDropdown field="contract_end" dropdownKeyPrefix="contract_end" />
+                      ) : (
+                        <Text style={[styles.detailFieldValue, isContractInCurrentSeason(fullPlayer?.contract_end || '') && { color: '#ef4444' }]}>
+                          {formatDate(fullPlayer?.contract_end)}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={{ zIndex: 60, position: 'relative' }}>
+                      <Text style={styles.detailFieldLabel}>Vertrag gilt für</Text>
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="contract_scope" displayValue={fullPlayer?.contract_scope} />
+                    </View>
+                    <View style={{ zIndex: 58, position: 'relative' }}>
+                      <Text style={styles.detailFieldLabel}>Option</Text>
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="contract_option" displayValue={fullPlayer?.contract_option} />
+                    </View>
+                    <View style={{ zIndex: 56, position: 'relative' }}>
+                      <Text style={styles.detailFieldLabel}>Fixe Ablöse</Text>
+                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="fixed_fee" displayValue={fullPlayer?.fixed_fee} />
+                    </View>
+                    <View style={{ zIndex: 54, position: 'relative' }}>
                       <Text style={styles.detailFieldLabel}>U23-Spieler</Text>
                       {(() => {
                         const u23 = calculateU23Status(fullPlayer?.birth_date);
@@ -2990,28 +3013,66 @@ export function PlayerOverviewScreen({ navigation, route }: any) {
                         );
                       })()}
                     </View>
-                    <View style={{ zIndex: 40, position: 'relative' }}>
-                      <Text style={styles.detailFieldLabel}>Vertragsende</Text>
-                      {isEditing ? (
-                        <DateDropdown field="contract_end" dropdownKeyPrefix="contract_end" />
-                      ) : (
-                        <Text style={[styles.detailFieldValue, isContractInCurrentSeason(fullPlayer?.contract_end || '') && { color: '#ef4444' }]}>
-                          {formatDate(fullPlayer?.contract_end)}
-                        </Text>
-                      )}
-                    </View>
-                    <View style={{ zIndex: 30, position: 'relative' }}>
-                      <Text style={styles.detailFieldLabel}>Vertrag gilt für</Text>
-                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="contract_scope" displayValue={fullPlayer?.contract_scope} />
-                    </View>
-                    <View style={{ zIndex: 20, position: 'relative' }}>
-                      <Text style={styles.detailFieldLabel}>Option</Text>
-                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="contract_option" displayValue={fullPlayer?.contract_option} />
-                    </View>
-                    <View style={{ zIndex: 10, position: 'relative' }}>
-                      <Text style={styles.detailFieldLabel}>Fixe Ablöse</Text>
-                      <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="fixed_fee" displayValue={fullPlayer?.fixed_fee} />
-                    </View>
+
+                    {/* Ausgeliehen von — Ja/Nein */}
+                    {isEditing ? (
+                      <View style={{ zIndex: 50, position: 'relative' }} {...({ dataSet: { tmClubDropdown: 'true' } } as any)}>
+                        <Text style={styles.detailFieldLabel}>Ausgeliehen von</Text>
+                        {renderYesNo(loanActive, (v) => {
+                          setLoanActive(v);
+                          if (!v) setEditData((d: any) => ({ ...d, loan_from_club: '', loan_from_club_league: '' }));
+                        })}
+                        {loanActive && (
+                          <View style={{ marginTop: 8, gap: 10 }}>
+                            {renderClubSearchField('loan_from_club', 'z.B. FC Ingolstadt 04')}
+                            <View>
+                              <Text style={styles.detailFieldLabel}>Liga (Stammverein)</Text>
+                              <EditableValue editData={editData} setEditData={setEditData} isEditing={isEditing} fullPlayer={fullPlayer} field="loan_from_club_league" displayValue={fullPlayer?.loan_from_club_league} placeholder="z.B. 3. Liga" />
+                            </View>
+                          </View>
+                        )}
+                      </View>
+                    ) : (fullPlayer?.loan_from_club ? (
+                      <View style={{ zIndex: 50, position: 'relative' }}>
+                        <Text style={styles.detailFieldLabel}>Ausgeliehen von</Text>
+                        <Text style={styles.detailFieldValue}>{fullPlayer.loan_from_club}</Text>
+                        {fullPlayer.loan_from_club_league ? (
+                          <>
+                            <Text style={[styles.detailFieldLabel, { marginTop: 8 }]}>Liga (Stammverein)</Text>
+                            <Text style={styles.detailFieldValue}>{fullPlayer.loan_from_club_league}</Text>
+                          </>
+                        ) : null}
+                      </View>
+                    ) : null)}
+
+                    {/* Zukünftiger Verein — Ja/Nein */}
+                    {isEditing ? (
+                      <View style={{ zIndex: 40, position: 'relative' }} {...({ dataSet: { tmClubDropdown: 'true' } } as any)}>
+                        <Text style={styles.detailFieldLabel}>Zukünftiger Verein</Text>
+                        {renderYesNo(futureActive, (v) => {
+                          setFutureActive(v);
+                          if (!v) setEditData((d: any) => ({ ...d, future_club: '', future_contract_end: '', future_transfer_date: '' }));
+                        })}
+                        {futureActive && (
+                          <View style={{ marginTop: 8, gap: 10, zIndex: 10, position: 'relative' }}>
+                            {renderClubSearchField('future_club', 'z.B. Bayern München')}
+                            <View style={{ zIndex: 8, position: 'relative' }}>
+                              <Text style={styles.detailFieldLabel}>Vertragsbeginn (Wechsel gilt ab)</Text>
+                              <DateDropdown field="future_transfer_date" dropdownKeyPrefix="future_transfer_date" />
+                            </View>
+                            <View style={{ zIndex: 6, position: 'relative' }}>
+                              <Text style={styles.detailFieldLabel}>Vertragsende (neuer Verein)</Text>
+                              <DateDropdown field="future_contract_end" dropdownKeyPrefix="future_contract_end" />
+                            </View>
+                          </View>
+                        )}
+                      </View>
+                    ) : (fullPlayer?.future_club ? (
+                      <View style={{ zIndex: 40, position: 'relative' }}>
+                        <Text style={styles.detailFieldLabel}>Zukünftiger Verein</Text>
+                        <Text style={styles.detailFieldValue}>{fullPlayer.future_club}{fullPlayer.future_transfer_date ? `  (ab ${formatDate(fullPlayer.future_transfer_date)})` : ''}</Text>
+                      </View>
+                    ) : null)}
                   </View>
                   {/* Spalte 2 */}
                   <View style={isMobile && isEditing ? { width: '100%', gap: 14 } : { flex: 1, minWidth: 180, gap: 14 }}>
