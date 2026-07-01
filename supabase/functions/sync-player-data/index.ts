@@ -129,6 +129,7 @@ Deno.serve(async (req: Request) => {
 
     let synced = 0;
     const errors: string[] = [];
+    const noUpdate: string[] = []; // Profil gefunden, aber kein Verein/keine Liga auslesbar
 
     for (let i = 0; i < players.length; i++) {
       const player = players[i];
@@ -161,6 +162,8 @@ Deno.serve(async (req: Request) => {
             synced++;
             console.log(`  ✓ ${playerName} updated: ${Object.keys(updateData).join(", ")}`);
           }
+        } else {
+          noUpdate.push(`${playerName}: kein Verein/keine Liga auf TM auslesbar`);
 
           // Logo in club_logos speichern/aktualisieren (immer TM-Logo)
           if (profile.club && profile.clubLogoUrl) {
@@ -184,6 +187,7 @@ Deno.serve(async (req: Request) => {
       synced,
       total: players.length,
       errors: errors.length > 0 ? errors : undefined,
+      noUpdate: noUpdate.length > 0 ? noUpdate : undefined,
       message: `${synced}/${players.length} Spieler aktualisiert`,
     };
 
